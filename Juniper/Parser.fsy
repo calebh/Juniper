@@ -1,0 +1,80 @@
+﻿%{
+
+module Parser
+
+open Ast
+%}
+
+%start start
+
+%token <int> INT
+%token <float> FLOAT
+%token <string> ID
+%token <string> STRING
+%token FUNCTION
+%token IF
+%token THEN
+%token ELSE
+%token ELIF
+%token WHILE
+%token DO
+%token ASSIGN
+%token LET
+%token VAR
+%token FOR
+%token LPAREN
+%token RPAREN
+%token LBRACK
+%token RBRACK
+%token LCURLYBRACE
+%token RCURLYBRACE
+%token COMMA
+%token MOD
+%token PLUS
+%token MINUS
+%token TIMES
+%token DIVIDE
+%token NOT
+%token AND
+%token OR
+%token AMPERSAND
+%token PIPE
+%token TICK
+%token TILDE
+%token MATCH
+%token ON
+%token TYPE
+%token COLON
+%token COMMA
+%token EOF
+%type <Module> start
+
+%%
+
+start: prog { $1 }
+
+prog:
+  | EOF { None }
+  | value { Some $1 }
+
+value:
+  | LEFT_BRACE object_fields RIGHT_BRACE { Assoc $2 }
+  | LEFT_BRACK array_values RIGHT_BRACK { List $2 }
+  | STRING { String $1 }
+  | INT { Int $1 }
+  | FLOAT { Float $1 }
+
+object_fields: rev_object_fields { List.rev $1 };
+
+rev_object_fields:
+  | { [] }
+  | STRING COLON value { [($1,$3)] }
+  | rev_object_fields COMMA STRING COLON value { ($3, $5) :: $1 }
+
+array_values:
+  | { [] }
+  | rev_values { List.rev $1 }
+
+rev_values:
+  | value { [$1] }
+  | rev_values COMMA value { $3 :: $1 }

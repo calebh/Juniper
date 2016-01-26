@@ -1,0 +1,66 @@
+﻿{
+
+module Lexer
+
+// Opens methods related to fslex.exe
+open Microsoft.FSharp.Text.Lexing
+open Parser
+
+let newline (lexbuf: LexBuffer<_>) = 
+  lexbuf.StartPos <- lexbuf.StartPos.NextLine
+
+}
+
+let digit = ['0'-'9']
+let whitespace = [' ' '\t' ]
+let newline = ('\n' | '\r' '\n')
+
+rule token = parse
+| whitespace     { token lexbuf }
+| newline        { newline lexbuf; token lexbuf }
+| "fun"         { FUNCTION }
+| "if"			{ IF }
+| "then"        { THEN }
+| "else"        { ELSE }
+| "elif"        { ELIF }
+| "while"       { WHILE }
+| "do"          { DO }
+| "="           { ASSIGN }
+| "let"         { LET }
+| "var"         { VAR }
+| "for"         { FOR }
+| "("           { LPAREN }
+| ")"           { RPAREN }
+| "["			{ LBRACK }
+| "]"			{ RBRACK }
+| "{"           { LCURLYBRACE }
+| "}"           { RCURLYBRACE }
+| ","           { COMMA }
+| "mod"         { MOD }
+| "+"			{ PLUS }
+| "-"			{ MINUS }
+| "*"			{ TIMES }
+| "/"           { DIVIDE }
+| "not"			{ NOT }
+| "and"			{ AND }
+| "or"			{ OR }
+| "&"			{ AMPERSAND }
+| "|"			{ PIPE }
+| '"'           { read_string "" false lexbuf }
+| "'"           { TICK }
+| "~"           { TILDE }
+| "match"       { MATCH }
+| "on"          { ON }
+| "type"        { TYPE }
+| ['a'-'z']+     { ID(lexeme lexbuf) }
+| ['-']?digit+   { INT (Int32.Parse(lexeme lexbuf)) }
+| ['-']?digit+('.'digit+)?(['e''E']digit+)?   { FLOAT (Double.Parse(lexeme lexbuf)) }
+| eof           { EOF }
+
+
+and read_string str ignorequote =
+  parse
+  | '"'           { if ignorequote  then (read_string (str+"\\\"") false lexbuf) else STRING (str) }
+  | '\\'          { read_string str true lexbuf }
+  | [^ '"' '\\']+ { read_string (str+(lexeme lexbuf)) false lexbuf }
+  | eof           { raise (Exception ("String is not terminated")) }

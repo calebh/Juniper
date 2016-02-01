@@ -1,7 +1,4 @@
 ﻿%{
-
-module Parser
-
 open Ast
 %}
 
@@ -11,14 +8,20 @@ open Ast
 %token <float> FLOAT
 %token <string> ID
 %token <string> STRING
-%token FUNCTION
+%token RECORD
+%token RETURN
+%token END
+%token OPEN
+%token EXPORT
+%token MODULE
+%token BREAK
+%token FUN
 %token IF
 %token THEN
 %token ELSE
 %token ELIF
 %token WHILE
 %token DO
-%token ASSIGN
 %token LET
 %token VAR
 %token FOR
@@ -41,40 +44,191 @@ open Ast
 %token PIPE
 %token TICK
 %token TILDE
-%token MATCH
-%token ON
+%token CASE
+%token OF
 %token TYPE
 %token COLON
-%token COMMA
+%token SEMICOLON
+%token NOTEQUAL
+%token EQUAL
+%token GTHEN
+%token LTHEN
+%token GTHENEQ
+%token LTHENEQ
+%token UNIT
+%token TRUE
+%token FALSE
+%token UNDERSCORE
+%token DOT
 %token EOF
-%type <Module> start
+
+%type < unit > start
+
+%left SEMICOLON COMMA
+%left EQUAL NETEQUAL
+%left OR AND
+%left UNDERSCORE
+%left LTHEN LTHENEQ GTHEN GTHENEQ
+%left PLUS MINUS PIPE
+%left TIMES DIVIDE MOD AMPERSAND
+%left NOT TILDE
+%left ID
+%left DOT
+%left LBRACK
+%left LPAREN RPAREN
 
 %%
 
-start: prog { $1 }
+start: declaration_list { $1 }
 
-prog:
-  | EOF { None }
-  | value { Some $1 }
+declaration_list:
+  | declaration declaration_list {()}
+  | declaration                  {()}
 
-value:
-  | LEFT_BRACE object_fields RIGHT_BRACE { Assoc $2 }
-  | LEFT_BRACK array_values RIGHT_BRACK { List $2 }
-  | STRING { String $1 }
-  | INT { Int $1 }
-  | FLOAT { Float $1 }
+declaration:
+  | module    {()}
+  | exports   {()}
+  | fundec    {()}
+  | recorddec {()}
+  | uniondec  {()}
 
-object_fields: rev_object_fields { List.rev $1 };
+exports:
+  | EXPORT LPAREN exportsList RPAREN {()}
 
-rev_object_fields:
-  | { [] }
-  | STRING COLON value { [($1,$3)] }
-  | rev_object_fields COMMA STRING COLON value { ($3, $5) :: $1 }
+exportsList:
+  | ID COMMA exportsList  {()}
+  | ID                    {()}
+  |                       {()}
 
-array_values:
-  | { [] }
-  | rev_values { List.rev $1 }
+module:
+  | MODULE ID             {()}
 
-rev_values:
-  | value { [$1] }
-  | rev_values COMMA value { $3 :: $1 }
+fundec:
+  | FUN tyexpr ID LPAREN funargList RPAREN EQUAL expr {()}
+  | FUN tyexpr ID LTHEN tycaplist GTHEN LPAREN funargList RPAREN EQUAL expr {()}
+
+funargList:
+  | tyexpr ID COMMA funargList {()}
+  | tyexpr ID                   {()}
+  |                             {()}
+
+tycaplist:
+  | TICK ID COMMA tycaplist {()}
+  | ID COMMA tycaplist      {()}
+  | TICK ID                 {()}
+  | ID                      {()}
+
+recorddec:
+  | TYPE ID EQUAL LCURLYBRACE recordList RCURLYBRACE                       {()}
+  | TYPE ID LTHEN tycaplist GTHEN EQUAL LCURLYBRACE recordList RCURLYBRACE {()}
+
+recordList:
+  | tyexpr ID SEMICOLON recordList  {()}
+  | tyexpr ID                       {()}
+  |                                 {()}
+
+uniondec:
+  | TYPE ID EQUAL valueConList                       {()}
+  | TYPE ID LTHEN tycaplist GTHEN EQUAL valueConList {()}
+
+valueConList:
+  | valueCon PIPE valueConList {()}
+  | valueCon                   {()}
+
+valueCon:
+  | ID LPAREN tyexprList RPAREN {()}
+
+expr:
+  | expr LPAREN callExprList RPAREN   {()}
+  | ID LTHEN tycaplist GTHEN LPAREN callExprList RPAREN {()}
+  | expr LBRACK expr RBRACK           {()}
+  | LPAREN beginExprList RPAREN       {()}
+  | IF expr THEN expr END             {()}
+  | IF expr THEN expr elifList        {()}
+  | LET ID EQUAL expr                 {()}
+  | LET tyexpr ID EQUAL expr	      {()}
+  | VAR ID EQUAL expr                 {()}
+  | VAR tyexpr ID EQUAL expr          {()}
+  | ID EQUAL expr                     {()}
+  | FOR LPAREN expr SEMICOLON expr SEMICOLON expr RPAREN expr END {()}
+  | DO expr WHILE LPAREN expr RPAREN  {()}
+  | WHILE LPAREN expr RPAREN expr END {()}
+  | module_qualifier                  {()}
+  | NOT expr                          {()}
+  | TILDE expr                        {()}
+  | UNIT                              {()}
+  | TRUE                              {()}
+  | FALSE                             {()}
+  | expr DOT ID                       {()}
+  | expr PLUS expr                    {()}
+  | expr MINUS expr                   {()}
+  | expr TIMES expr                   {()}
+  | expr DIVIDE expr                  {()}
+  | expr MOD expr                     {()}
+  | expr AND expr                     {()}
+  | expr OR expr                      {()}
+  | expr AMPERSAND expr               {()}
+  | expr PIPE expr                    {()}
+  | expr GTHENEQ expr                 {()}
+  | expr LTHENEQ expr                 {()}
+  | expr GTHEN expr                   {()}
+  | expr LTHEN expr                   {()}
+  | FUN tyexpr ID LPAREN funargList RPAREN MINUS GTHEN expr {()}
+  | ID                                {()}
+  | INT                               {()}
+  | FLOAT                             {()}
+  | CASE expr OF caseClauseList END   {()}
+
+caseClauseList:
+  | pattern EQUAL GTHEN expr PIPE caseClauseList {()}
+  | pattern EQUAL GTHEN expr                     {()}
+
+pattern:
+  | INT                                       {()}
+  | FLOAT                                     {()}
+  | ID                                        {()}
+  | UNDERSCORE                                {()}
+  | ID LPAREN valConPatternList RPAREN        {()}
+  | ID LCURLYBRACE recPatternList RCURLYBRACE {()}
+
+valConPatternList:
+  | pattern COMMA valConPatternList {()}
+  | pattern                         {()}
+  |                                 {()}
+
+recPatternList:
+  | ID EQUAL pattern SEMICOLON recPatternList {()}
+  | ID EQUAL pattern                          {()}
+  |                                           {()}
+
+elifList:
+  | ELSE beginExprList END       {()}
+  | ELIF beginExprList END       {()}
+  | ELIF beginExprList elifList {()}
+
+beginExprList:
+  | expr SEMICOLON beginExprList {()}
+  | expr                         {()}
+
+callExprList:
+  | expr COMMA callExprList {()}
+  | expr                    {()}
+  |                         {()}  
+
+tyexpr:
+  | module_qualifier LTHEN non_empty_tyexprList GTHEN {()}  
+  | ID LTHEN non_empty_tyexprList GTHEN               {()}
+  | LPAREN tyexprList RPAREN MINUS GTHEN tyexpr       {()}
+  | ID                                                {()}
+
+non_empty_tyexprList:
+  | tyexpr COMMA non_empty_tyexprList {()}
+  | tyexpr                            {()}
+
+tyexprList:
+  | tyexpr COMMA tyexprList {()}
+  | tyexpr                  {()}
+  |                         {()}
+
+module_qualifier:
+  | ID COLON COLON ID {()}

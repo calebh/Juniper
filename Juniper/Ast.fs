@@ -2,7 +2,7 @@
 
 type Module = Module of Declaration list
 
-and FunctionRec = { name : string; clauses : FunctionClause list; template : Template}
+and FunctionRec = { name : string; template : Template; clause : FunctionClause}
 and RecordRec =   { fields : (TyExpr * string) list; template : Template }
 and ValueCon =    string * (TyExpr list)
 and UnionRec =    { valCons : ValueCon list; template : Template }
@@ -19,28 +19,34 @@ and CapacityExpr = CapacityNameExpr of string
                  | CapacityOp of CapacityOpRec
                  | CapacityConst of int
 
-and TyApplyRec = { name : string; args : TyExpr list }
+and TyApplyRec = { tyConstructor : TyExpr; args : TyExpr list }
 and ArrayTyRec = { valueType : TyExpr; capacity : CapacityExpr }
 and FunTyRec = { args : TyExpr list; returnType : TyExpr }
-and TyExpr = Uint8
-           | Uint16
-           | Uint32
-           | Uint64
-           | Int8
-           | Int16
-           | Int32
-           | Int64
+and TyModQualifierRec = { module_ : string; name : string }
+and BaseTypes = TyUint8
+              | TyUint16
+              | TyUint32
+              | TyUint64
+              | TyInt8
+              | TyInt16
+              | TyInt32
+              | TyInt64
+              | TyBool
+and TyExpr = BaseTy of BaseTypes
+           | TyModuleQualifier of TyModQualifierRec
            | TyName of string
            | TyVar of string
            | TyApply of TyApplyRec
            | ArrayTy of ArrayTyRec
            | FunTy of FunTyRec
 
-// TODO
 and Pattern = MatchVar of string
-            | MatchVal
+            | MatchIntVal of string
+            | MatchFloatVal of string
+            | MatchValCon of string * (Pattern list)
+            | MatchUnderscore
 
-and FunctionClauseRec = {arguments : (Pattern * TyExpr) list; body : Expr}
+and FunctionClauseRec = {arguments : (string * TyExpr) list; body : Expr}
 and FunctionClause = FunctionClause of FunctionClauseRec
 
 and SequenceRec =     { exps : Expr list }
@@ -52,13 +58,16 @@ and VarRec =          { varName : string; typ : TyExpr option; right : Expr }
 and AssignRec =       { left : LeftAssign; right : Expr }
 and ForLoopRec =      { init : Expr; condition : Expr; afterthought : Expr }
 and WhileLoopRec =    { condition : Expr; body : Expr }
-and DoWhileLoopRec =  { body: Expr; condition : Expr}
+and DoWhileLoopRec =  { body: Expr; condition : Expr }
 and MatchRec =        { on : Expr; clauses : (Pattern * Expr) list }
 and UnaryOpRec =      { op : UnaryOps; exp : Expr }
 and RecordAccessRec = { record : Expr; fieldName : string }
-and LambdaRec =       { clauses : FunctionClause list }
+and ArrayAccessRec =  { array : Expr; index : Expr }
+and LambdaRec =       { clause : FunctionClause }
 and CallRec =         { func : Expr; templateArgs : Template; args : Expr list }
+and ModQualifierRec = { module_ : string; name : string }
 and Expr = SequenceExp of SequenceRec
+          | BreakExp
           | BinaryOpExp of BinaryOpRec
           | IfExp of IfRec
           | IfElseExp of IfElseRec
@@ -71,11 +80,15 @@ and Expr = SequenceExp of SequenceRec
           | MatchExp of MatchRec
           | UnaryOpExp of UnaryOpRec
           | RecordAccessExp of RecordAccessRec
+          | ArrayAccessExp of ArrayAccessRec
           | UnitExp
+          | TrueExp
+          | FalseExp
           | LambdaExp of LambdaRec
           | IntExp of string
           | FloatExp of string
           | CallExp of CallRec
+          | ModuleQualifier of ModQualifierRec
 and BinaryOps = Add | Subtract | Multiply | Divide | BitwiseOr | BitwiseAnd | LogicalOr | LogicalAnd | Equal | NotEqual
 and UnaryOps = LogicalNot | BitwiseNot
 

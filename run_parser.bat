@@ -1,1 +1,1 @@
-packages\FsLexYacc.6.1.0\build\fsyacc.exe -v Juniper\Parser.fsy
+packages\FsLexYacc.6.1.0\build\fsyacc.exe -v Juniper\Parser.fsy --module Parser --open Ast

@@ -2,13 +2,15 @@
 
 type Module = Module of Declaration list
 
-and FunctionRec = { name : string; template : Template; clause : FunctionClause}
-and RecordRec =   { fields : (TyExpr * string) list; template : Template }
+and FunctionRec = { name : string; template : Template option; clause : FunctionClause; returnTy : TyExpr}
+and RecordRec =   { name : string; fields : (TyExpr * string) list; template : Template }
 and ValueCon =    string * (TyExpr list)
-and UnionRec =    { valCons : ValueCon list; template : Template }
+and UnionRec =    { name : string; valCons : ValueCon list; template : Template }
 and Declaration = FunctionDec of FunctionRec
                 | RecordDec of RecordRec
-                | Union of UnionRec
+                | UnionDec of UnionRec
+                | Export of string list
+                | Module of string 
 
 and TemplateRec = { tyVars : string list; capacityVars : string list}
 and Template = Template of TemplateRec
@@ -46,15 +48,15 @@ and Pattern = MatchVar of string
             | MatchValCon of string * (Pattern list)
             | MatchUnderscore
 
-and FunctionClauseRec = {arguments : (string * TyExpr) list; body : Expr}
+and FunctionClauseRec = {arguments : (TyExpr * string) list; body : Expr}
 and FunctionClause = FunctionClause of FunctionClauseRec
 
 and SequenceRec =     { exps : Expr list }
 and BinaryOpRec =     { op : BinaryOps; left : Expr; right : Expr }
 and IfRec =           { condition : Expr; trueBranch : Expr }
 and IfElseRec =       { condition : Expr; trueBranch : Expr; falseBranch : Expr }
-and LetRec =          { varName : string; typ : TyExpr option; right : Expr }
-and VarRec =          { varName : string; typ : TyExpr option; right : Expr }
+and DecLetRec =       { varName : string; typ : TyExpr option; right : Expr }
+and DecVarRec =       { varName : string; typ : TyExpr option; right : Expr }
 and AssignRec =       { left : LeftAssign; right : Expr }
 and ForLoopRec =      { init : Expr; condition : Expr; afterthought : Expr }
 and WhileLoopRec =    { condition : Expr; body : Expr }
@@ -63,16 +65,17 @@ and MatchRec =        { on : Expr; clauses : (Pattern * Expr) list }
 and UnaryOpRec =      { op : UnaryOps; exp : Expr }
 and RecordAccessRec = { record : Expr; fieldName : string }
 and ArrayAccessRec =  { array : Expr; index : Expr }
+and VarExpRec =       { name : string }
 and LambdaRec =       { clause : FunctionClause }
-and CallRec =         { func : Expr; templateArgs : Template; args : Expr list }
+and CallRec =         { func : Expr; templateArgs : Template option; args : Expr list }
 and ModQualifierRec = { module_ : string; name : string }
 and Expr = SequenceExp of SequenceRec
           | BreakExp
           | BinaryOpExp of BinaryOpRec
           | IfExp of IfRec
           | IfElseExp of IfElseRec
-          | LetExp of LetRec
-          | VarExp of VarRec
+          | DecLetExp of DecLetRec
+          | DecVarExp of DecVarRec
           | AssignExp of AssignRec
           | ForLoopExp of ForLoopRec
           | WhileLoopExp of WhileLoopRec
@@ -81,6 +84,7 @@ and Expr = SequenceExp of SequenceRec
           | UnaryOpExp of UnaryOpRec
           | RecordAccessExp of RecordAccessRec
           | ArrayAccessExp of ArrayAccessRec
+          | VarExp of VarExpRec
           | UnitExp
           | TrueExp
           | FalseExp

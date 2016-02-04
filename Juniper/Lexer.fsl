@@ -1,13 +1,16 @@
 ﻿{
-
 module Lexer
 
 // Opens methods related to fslex.exe
 open Microsoft.FSharp.Text.Lexing
 open Parser
+open System
 
 let newline (lexbuf: LexBuffer<_>) = 
   lexbuf.StartPos <- lexbuf.StartPos.NextLine
+
+let lexeme lexbuf =
+    LexBuffer<char>.LexemeString lexbuf
 
 }
 
@@ -18,14 +21,22 @@ let newline = ('\n' | '\r' '\n')
 rule token = parse
 | whitespace     { token lexbuf }
 | newline        { newline lexbuf; token lexbuf }
-| "fun"         { FUNCTION }
+| "record"      { RECORD }
+| "type"        { TYPE }
+| "end"         { END }
+| "return"		{ RETURN }
+| "export"      { EXPORT }
+| "open"        { OPEN }
+| "module"		{ MODULE }
+| "break"		{ BREAK }
+| "fun"         { FUN }
 | "if"			{ IF }
 | "then"        { THEN }
 | "else"        { ELSE }
 | "elif"        { ELIF }
 | "while"       { WHILE }
 | "do"          { DO }
-| "="           { ASSIGN }
+| "!="          { NOTEQUAL }
 | "let"         { LET }
 | "var"         { VAR }
 | "for"         { FOR }
@@ -49,9 +60,21 @@ rule token = parse
 | '"'           { read_string "" false lexbuf }
 | "'"           { TICK }
 | "~"           { TILDE }
-| "match"       { MATCH }
-| "on"          { ON }
+| "case"        { CASE }
+| "of"          { OF }
 | "type"        { TYPE }
+| "<="          { LTHENEQ }
+| ">="          { GTHENEQ }
+| ":"           { COLON }
+| "="           { EQUAL }
+| "<"           { LTHEN }
+| ">"           { GTHEN }
+| "."           { DOT }
+| ";"           { SEMICOLON }
+| "_"           { UNDERSCORE }
+| "true"        { TRUE }
+| "false"       { FALSE }
+| ['(']whitespace*[')']       { UNIT }
 | ['a'-'z']+     { ID(lexeme lexbuf) }
 | ['-']?digit+   { INT (Int32.Parse(lexeme lexbuf)) }
 | ['-']?digit+('.'digit+)?(['e''E']digit+)?   { FLOAT (Double.Parse(lexeme lexbuf)) }

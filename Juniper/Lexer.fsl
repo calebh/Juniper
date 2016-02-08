@@ -63,12 +63,12 @@ rule token = parse
 | "case"        { CASE }
 | "of"          { OF }
 | "type"        { TYPE }
-| "<="          { LTHENEQ }
-| ">="          { GTHENEQ }
+| "<="          { LTHANEQ }
+| ">="          { GTHANEQ }
 | ":"           { COLON }
 | "="           { EQUAL }
-| "<"           { LTHEN }
-| ">"           { GTHEN }
+| "<"           { LTHAN }
+| ">"           { GTHAN }
 | "."           { DOT }
 | ";"           { SEMICOLON }
 | "_"           { UNDERSCORE }
@@ -76,8 +76,8 @@ rule token = parse
 | "false"       { FALSE }
 | ['(']whitespace*[')']       { UNIT }
 | ['a'-'z']+     { ID(lexeme lexbuf) }
-| ['-']?digit+   { INT (Int32.Parse(lexeme lexbuf)) }
-| ['-']?digit+('.'digit+)?(['e''E']digit+)?   { FLOAT (Double.Parse(lexeme lexbuf)) }
+| ['-']?digit+   { INT (lexeme lexbuf) }
+| ['-']?digit+('.'digit+)?(['e''E']digit+)?   { FLOAT (lexeme lexbuf) }
 | eof           { EOF }
 
 

@@ -518,12 +518,12 @@ and _fslex_token  _fslex_state lexbuf =
           )
   | 44 -> ( 
 # 66 "Lexer.fsl"
-                                 LTHENEQ 
+                                 LTHANEQ 
 # 522 "Lexer.fs"
           )
   | 45 -> ( 
 # 67 "Lexer.fsl"
-                                 GTHENEQ 
+                                 GTHANEQ 
 # 527 "Lexer.fs"
           )
   | 46 -> ( 
@@ -538,12 +538,12 @@ and _fslex_token  _fslex_state lexbuf =
           )
   | 48 -> ( 
 # 70 "Lexer.fsl"
-                                 LTHEN 
+                                 LTHAN 
 # 542 "Lexer.fs"
           )
   | 49 -> ( 
 # 71 "Lexer.fsl"
-                                 GTHEN 
+                                 GTHAN 
 # 547 "Lexer.fs"
           )
   | 50 -> ( 
@@ -583,12 +583,12 @@ and _fslex_token  _fslex_state lexbuf =
           )
   | 57 -> ( 
 # 79 "Lexer.fsl"
-                                  INT (Int32.Parse(lexeme lexbuf)) 
+                                  INT (lexeme lexbuf) 
 # 587 "Lexer.fs"
           )
   | 58 -> ( 
 # 80 "Lexer.fsl"
-                                                               FLOAT (Double.Parse(lexeme lexbuf)) 
+                                                               FLOAT (lexeme lexbuf) 
 # 592 "Lexer.fs"
           )
   | 59 -> ( 

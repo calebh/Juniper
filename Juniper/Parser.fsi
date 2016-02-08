@@ -8,10 +8,10 @@ type token =
   | FALSE
   | TRUE
   | UNIT
-  | LTHENEQ
-  | GTHENEQ
-  | LTHEN
-  | GTHEN
+  | LTHANEQ
+  | GTHANEQ
+  | LTHAN
+  | GTHAN
   | EQUAL
   | NOTEQUAL
   | SEMICOLON
@@ -57,8 +57,8 @@ type token =
   | RECORD
   | STRING of (string)
   | ID of (string)
-  | FLOAT of (float)
-  | INT of (int)
+  | FLOAT of (string)
+  | INT of (string)
 type tokenId = 
     | TOKEN_EOF
     | TOKEN_DOT
@@ -66,10 +66,10 @@ type tokenId =
     | TOKEN_FALSE
     | TOKEN_TRUE
     | TOKEN_UNIT
-    | TOKEN_LTHENEQ
-    | TOKEN_GTHENEQ
-    | TOKEN_LTHEN
-    | TOKEN_GTHEN
+    | TOKEN_LTHANEQ
+    | TOKEN_GTHANEQ
+    | TOKEN_LTHAN
+    | TOKEN_GTHAN
     | TOKEN_EQUAL
     | TOKEN_NOTEQUAL
     | TOKEN_SEMICOLON
@@ -122,11 +122,11 @@ type tokenId =
 type nonTerminalId = 
     | NONTERM__startstart
     | NONTERM_start
-    | NONTERM_declaration_list
+    | NONTERM_declarationList
     | NONTERM_declaration
     | NONTERM_exports
     | NONTERM_exportsList
-    | NONTERM_modulex
+    | NONTERM_moduleNameDec
     | NONTERM_fundec
     | NONTERM_funargList
     | NONTERM_tycaplist
@@ -141,12 +141,12 @@ type nonTerminalId =
     | NONTERM_valConPatternList
     | NONTERM_recPatternList
     | NONTERM_elifList
-    | NONTERM_beginExprList
+    | NONTERM_seqExprList
     | NONTERM_callExprList
     | NONTERM_tyexpr
-    | NONTERM_non_empty_tyexprList
+    | NONTERM_nonEmptyTyExprList
     | NONTERM_tyexprList
-    | NONTERM_module_qualifier
+    | NONTERM_moduleQualifier
 /// This function maps tokens to integer indexes
 val tagOfToken: token -> int
 

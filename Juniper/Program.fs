@@ -1,6 +1,8 @@
 ﻿// Learn more about F# at http://fsharp.org
 // See the 'F# Tutorial' project for more help.
 
+module Progam
+
 [<EntryPoint>]
 let main argv = 
     printfn "%A" argv

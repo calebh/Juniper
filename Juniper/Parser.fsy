@@ -3,8 +3,8 @@
 
 %start start
 
-%token <int> INT
-%token <float> FLOAT
+%token <string> INT
+%token <string> FLOAT
 %token <string> ID
 %token <string> STRING
 %token RECORD
@@ -50,10 +50,10 @@
 %token SEMICOLON
 %token NOTEQUAL
 %token EQUAL
-%token GTHEN
-%token LTHEN
-%token GTHENEQ
-%token LTHENEQ
+%token GTHAN
+%token LTHAN
+%token GTHANEQ
+%token LTHANEQ
 %token UNIT
 %token TRUE
 %token FALSE
@@ -67,7 +67,7 @@
 %left EQUAL NETEQUAL
 %left OR AND
 %left UNDERSCORE
-%left LTHEN LTHENEQ GTHEN GTHENEQ
+%left LTHAN LTHANEQ GTHAN GTHANEQ
 %left PLUS MINUS PIPE
 %left TIMES DIVIDE MOD AMPERSAND
 %left NOT TILDE
@@ -79,18 +79,18 @@
 %%
 
 start:
-  | declaration_list { Module $1 }
+  | declarationList { Module ($1) }
 
-declaration_list:
-  | declaration declaration_list { $1 :: $2 }
-  | declaration                  { [$1] }
+declarationList:
+  | declaration declarationList  { $1 :: $2 }
+  |                              { [] }
 
 declaration:
-  | modulex    { $1 }
-  | exports   { $1 }
-  | fundec    { $1 }
-  | recorddec { $1 }
-  | uniondec  { $1 }
+  | moduleNameDec   { $1 }
+  | exports         { $1 }
+  | fundec          { $1 }
+  | recorddec       { $1 }
+  | uniondec        { $1 }
 
 exports:
   | EXPORT LPAREN exportsList RPAREN { Export $3 }
@@ -100,12 +100,12 @@ exportsList:
   | ID                    { [$1] }
   |                       { [] }
 
-modulex:
-  | MODULE ID             { Module $2 }
+moduleNameDec:
+  | MODULE ID             { ModuleNameDec $2 }
 
 fundec:
   | FUN tyexpr ID LPAREN funargList RPAREN EQUAL expr { FunctionDec {name=$3; template=None; clause=FunctionClause {arguments=$5; body=$8}; returnTy=$2 } }
-  | FUN tyexpr ID LTHEN tycaplist GTHEN LPAREN funargList RPAREN EQUAL expr { FunctionDec {name=$3; template=Some $5; clause=FunctionClause {arguments=$8; body=$11}; returnTy=$2}}
+  | FUN tyexpr ID LTHAN tycaplist GTHAN LPAREN funargList RPAREN EQUAL expr { FunctionDec {name=$3; template=Some $5; clause=FunctionClause {arguments=$8; body=$11}; returnTy=$2}}
 
 funargList:
   | tyexpr ID COMMA funargList  {($1,$2) :: $4}
@@ -122,7 +122,7 @@ tycaplist:
 
 recorddec:
   | TYPE ID EQUAL LCURLYBRACE recordList RCURLYBRACE                       { RecordDec {name=$2; fields=$5; template=None}}
-  | TYPE ID LTHEN tycaplist GTHEN EQUAL LCURLYBRACE recordList RCURLYBRACE { RecordDec {name=$2; fields=$8; template=Some $4}}
+  | TYPE ID LTHAN tycaplist GTHAN EQUAL LCURLYBRACE recordList RCURLYBRACE { RecordDec {name=$2; fields=$8; template=Some $4}}
 
 recordList:
   | tyexpr ID SEMICOLON recordList  {($1, $2) :: $4}
@@ -131,7 +131,7 @@ recordList:
 
 uniondec:
   | TYPE ID EQUAL valueConList                       { UnionDec {name=$2; valCons=$4; template=None} }
-  | TYPE ID LTHEN tycaplist GTHEN EQUAL valueConList { UnionDec {name=$2; valCons=$7; template=Some $4}}
+  | TYPE ID LTHAN tycaplist GTHAN EQUAL valueConList { UnionDec {name=$2; valCons=$7; template=Some $4}}
 
 valueConList:
   | valueCon PIPE valueConList {$1 :: $3}
@@ -142,95 +142,107 @@ valueCon:
 
 expr:
   | expr LPAREN callExprList RPAREN   { CallExp {func=$1; templateArgs=None; args=$3}}
-  | ID LTHEN tycaplist GTHEN LPAREN callExprList RPAREN { CallExp {func=VarExp {name=$1}; templateArgs=$3; args=$6} }
+  | ID LTHAN tycaplist GTHAN LPAREN callExprList RPAREN { CallExp {func=VarExp {name=$1}; templateArgs=Some $3; args=$6} }
   | expr LBRACK expr RBRACK           {ArrayAccessExp {array=$1; index=$3}}
-  | LPAREN beginExprList RPAREN       {SequenceExp {exps=$2}}
-  | IF expr THEN expr END             {IfExp {condition=$2; trueBranch=$4}}
-  | IF expr THEN expr elifList        {()}
+  | LPAREN seqExprList RPAREN         {SequenceExp {exps=$2}}
+  | IF expr THEN expr END             {IfElseExp {condition=$2; trueBranch=$4; falseBranch=UnitExp}}
+  | IF expr THEN expr elifList        {IfElseExp {condition=$2; trueBranch=$4; falseBranch=$5}}
   | LET ID EQUAL expr                 {DecLetExp { varName=$2; typ=None; right=$4 }}
-  | LET tyexpr ID EQUAL expr	      {DecLetExp { varName=$3; typ=Some $2; right=$5 }
+  | LET tyexpr ID EQUAL expr          {DecLetExp { varName=$3; typ=Some $2; right=$5 }}
   | VAR ID EQUAL expr                 {DecVarExp { varName=$2; typ=None; right=$4}}
   | VAR tyexpr ID EQUAL expr          {DecVarExp { varName=$3; typ=Some $2; right=$5}}
-  | ID EQUAL expr                     {AssignExp { left= VarMutation{varName=$1} ; right=$3}}
-  | FOR LPAREN expr SEMICOLON expr SEMICOLON expr RPAREN expr END {()}
-  | DO expr WHILE LPAREN expr RPAREN  {()}
-  | WHILE LPAREN expr RPAREN expr END {()}
-  | module_qualifier                  {()}
-  | NOT expr                          {()}
-  | TILDE expr                        {()}
-  | UNIT                              {()}
-  | TRUE                              {()}
-  | FALSE                             {()}
-  | expr DOT ID                       {()}
-  | expr PLUS expr                    {()}
-  | expr MINUS expr                   {()}
-  | expr TIMES expr                   {()}
-  | expr DIVIDE expr                  {()}
-  | expr MOD expr                     {()}
-  | expr AND expr                     {()}
-  | expr OR expr                      {()}
-  | expr AMPERSAND expr               {()}
-  | expr PIPE expr                    {()}
-  | expr GTHENEQ expr                 {()}
-  | expr LTHENEQ expr                 {()}
-  | expr GTHEN expr                   {()}
-  | expr LTHEN expr                   {()}
-  | FUN tyexpr ID LPAREN funargList RPAREN MINUS GTHEN expr {()}
-  | ID                                {()}
-  | INT                               {()}
-  | FLOAT                             {()}
-  | CASE expr OF caseClauseList END   {()}
+  | ID EQUAL expr                     {AssignExp { left=VarMutation{varName=$1}; right=$3}}
+  | FOR LPAREN expr SEMICOLON expr SEMICOLON expr RPAREN expr END {ForLoopExp { init=$3; condition=$5; afterthought=$7 }}
+  | DO expr WHILE LPAREN expr RPAREN  {DoWhileLoopExp {condition=$5; body=$2}}
+  | WHILE LPAREN expr RPAREN expr END {WhileLoopExp {condition=$3; body=$5}}
+  | moduleQualifier                   {ModQualifierExp $1}
+  | NOT expr                          {UnaryOpExp {op=LogicalNot; exp=$2}}
+  | TILDE TILDE TILDE expr            {UnaryOpExp {op=BitwiseNot; exp=$4}}
+  | UNIT                              {UnitExp}
+  | TRUE                              {TrueExp}
+  | FALSE                             {FalseExp}
+  | expr DOT ID                       {RecordAccessExp {record=$1; fieldName=$3}}
+  | expr PLUS expr                    {BinaryOpExp {op=Add; left=$1; right=$3}}
+  | expr MINUS expr                   {BinaryOpExp {op=Subtract; left=$1; right=$3}}
+  | expr TIMES expr                   {BinaryOpExp {op=Multiply; left=$1; right=$3}}
+  | expr DIVIDE expr                  {BinaryOpExp {op=Divide; left=$1; right=$3}}
+  | expr MOD expr                     {BinaryOpExp {op=Modulo; left=$1; right=$3}}
+  | expr AND expr                     {BinaryOpExp {op=LogicalAnd; left=$1; right=$3}}
+  | expr OR expr                      {BinaryOpExp {op=LogicalOr; left=$1; right=$3}}
+  | expr AMPERSAND AMPERSAND AMPERSAND expr {BinaryOpExp {op=BitwiseAnd; left=$1; right=$5}}
+  | expr PIPE PIPE PIPE expr          {BinaryOpExp {op=BitwiseOr; left=$1; right=$5}}
+  | expr GTHANEQ expr                 {BinaryOpExp {op=GreaterOrEqual; left=$1; right=$3}}
+  | expr LTHANEQ expr                 {BinaryOpExp {op=LessOrEqual; left=$1; right=$3}}
+  | expr GTHAN expr                   {BinaryOpExp {op=Greater; left=$1; right=$3}}
+  | expr LTHAN expr                   {BinaryOpExp {op=Less; left=$1; right=$3}}
+  | expr EQUAL EQUAL expr             {BinaryOpExp {op=Equal; left=$1; right=$4}}
+  | expr LTHAN GTHAN expr             {BinaryOpExp {op=NotEqual; left=$1; right=$4}}
+  | FUN tyexpr LPAREN funargList RPAREN MINUS GTHAN expr { LambdaExp {clause=FunctionClause {arguments=$4; body=$8}; returnTy=$2 }}
+  | ID                                { VarExp {name=$1}}
+  | INT                               { IntExp $1 }
+  | FLOAT                             { FloatExp $1 }
+  | CASE expr OF caseClauseList END   { CaseExp {on=$2; clauses=$4}}
 
 caseClauseList:
-  | pattern EQUAL GTHEN expr PIPE caseClauseList {()}
-  | pattern EQUAL GTHEN expr                     {()}
+  | pattern EQUAL GTHAN expr PIPE caseClauseList {($1, $4) :: $6}
+  | pattern EQUAL GTHAN expr                     {[($1, $4)]}
 
 pattern:
-  | INT                                       {()}
-  | FLOAT                                     {()}
-  | ID                                        {()}
-  | UNDERSCORE                                {()}
-  | ID LPAREN valConPatternList RPAREN        {()}
-  | ID LCURLYBRACE recPatternList RCURLYBRACE {()}
+  | INT                                       { MatchIntVal $1}
+  | FLOAT                                     { MatchFloatVal $1}
+  | ID                                        { MatchVar $1}
+  | UNDERSCORE                                { MatchUnderscore}
+  | ID LPAREN valConPatternList RPAREN        { MatchValCon ($1, $3)}
+  | ID LCURLYBRACE recPatternList RCURLYBRACE { MatchRecCon ($1, $3)}
 
 valConPatternList:
-  | pattern COMMA valConPatternList {()}
-  | pattern                         {()}
-  |                                 {()}
+  | pattern COMMA valConPatternList {$1 :: $3}
+  | pattern                         {[$1]}
+  |                                 {[]}
 
 recPatternList:
-  | ID EQUAL pattern SEMICOLON recPatternList {()}
-  | ID EQUAL pattern                          {()}
-  |                                           {()}
+  | ID EQUAL pattern SEMICOLON recPatternList {($1, $3) :: $5}
+  | ID EQUAL pattern                          {[($1, $3)]}
+  |                                           {[]}
 
 elifList:
-  | ELSE beginExprList END       {()}
-  | ELIF beginExprList END       {()}
-  | ELIF beginExprList elifList {()}
+  | ELSE expr END                {$2}
+  | ELIF expr THEN expr END      {IfElseExp {condition=$2; trueBranch=$4; falseBranch=UnitExp}}
+  | ELIF expr THEN expr elifList {IfElseExp {condition=$2; trueBranch=$4; falseBranch=$5}}
 
-beginExprList:
-  | expr SEMICOLON beginExprList {()}
-  | expr                         {()}
+seqExprList:
+  | expr SEMICOLON seqExprList {$1::$3}
+  | expr                       {[$1]}
 
 callExprList:
-  | expr COMMA callExprList {()}
-  | expr                    {()}
-  |                         {()}  
+  | expr COMMA callExprList {$1::$3}
+  | expr                    {[$1]}
+  |                         {[]}  
 
 tyexpr:
-  | module_qualifier LTHEN non_empty_tyexprList GTHEN {()}  
-  | ID LTHEN non_empty_tyexprList GTHEN               {()}
-  | LPAREN tyexprList RPAREN MINUS GTHEN tyexpr       {()}
-  | ID                                                {()}
+  | moduleQualifier LTHAN nonEmptyTyExprList GTHAN {TyApply {tyConstructor=TyModuleQualifier $1; args=$3}}
+  | ID LTHAN nonEmptyTyExprList GTHAN              {TyApply {tyConstructor=TyName $1; args=$3}}
+  | LPAREN tyexprList RPAREN MINUS GTHAN tyexpr    {FunTy {args=$2; returnType=$6}}
+  | ID                                             {match $1 with
+                                                        | "uint8" -> BaseTy TyUint8
+                                                        | "uint16" -> BaseTy TyUint16
+                                                        | "uint32" -> BaseTy TyUint32
+                                                        | "uint64" -> BaseTy TyUint64
+                                                        | "int8" -> BaseTy TyInt8
+                                                        | "int16" -> BaseTy TyInt16
+                                                        | "int32" -> BaseTy TyInt32
+                                                        | "int64" -> BaseTy TyInt64
+                                                        | "bool" -> BaseTy TyBool
+                                                        | _ -> TyName $1 }
 
-non_empty_tyexprList:
-  | tyexpr COMMA non_empty_tyexprList {()}
-  | tyexpr                            {()}
+nonEmptyTyExprList:
+  | tyexpr COMMA nonEmptyTyExprList {$1::$3}
+  | tyexpr                          {[$1]}
 
 tyexprList:
-  | tyexpr COMMA tyexprList {()}
-  | tyexpr                  {()}
-  |                         {()}
+  | tyexpr COMMA tyexprList {$1::$3}
+  | tyexpr                  {[$1]}
+  |                         {[]}
 
-module_qualifier:
-  | ID COLON COLON ID {()}
+moduleQualifier:
+  | ID COLON COLON ID { {module_=$1; name=$4} }

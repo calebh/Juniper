@@ -195,7 +195,7 @@ expr:
   | expr EQUAL EQUAL expr             {BinaryOpExp {op=Equal; left=$1; right=$4}}
   | expr LTHAN GTHAN expr             {BinaryOpExp {op=NotEqual; left=$1; right=$4}}
   | FUN tyexpr LPAREN funargList RPAREN MINUS GTHAN expr { LambdaExp {clause=FunctionClause {arguments=$4; body=$8}; returnTy=$2 }}
-  | ID                                { VarExp {name=$1}}
+  | ID                                {VarExp {name=$1}}
   | INT                               { IntExp $1 }
   | FLOAT                             { FloatExp $1 }
   | CASE expr OF caseClauseList END   { CaseExp {on=$2; clauses=$4}}

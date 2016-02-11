@@ -1462,7 +1462,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 195 "Parser.fsy"
-                                                            BinaryOpExp {op=Equal; left=_1; right=_4}
+                                                            printfn "alpha"; BinaryOpExp {op=Equal; left=_1; right=_4}
                    )
 # 195 "Parser.fsy"
                  : 'expr));
@@ -1498,7 +1498,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 198 "Parser.fsy"
-                                                             VarExp {name=_1}
+                                                            VarExp {name=_1}
                    )
 # 198 "Parser.fsy"
                  : 'expr));

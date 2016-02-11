@@ -55,6 +55,7 @@ type token =
   | END
   | RETURN
   | RECORD
+  | ALIAS
   | STRING of (string)
   | ID of (string)
   | FLOAT of (string)
@@ -113,6 +114,7 @@ type tokenId =
     | TOKEN_END
     | TOKEN_RETURN
     | TOKEN_RECORD
+    | TOKEN_ALIAS
     | TOKEN_STRING
     | TOKEN_ID
     | TOKEN_FLOAT
@@ -125,11 +127,15 @@ type nonTerminalId =
     | NONTERM_declarationList
     | NONTERM_declaration
     | NONTERM_exports
-    | NONTERM_exportsList
+    | NONTERM_typealiasdec
     | NONTERM_moduleNameDec
     | NONTERM_fundec
     | NONTERM_funargList
-    | NONTERM_tycaplist
+    | NONTERM_tycapvars
+    | NONTERM_idList
+    | NONTERM_tycapExprs
+    | NONTERM_tyExprs
+    | NONTERM_capExprs
     | NONTERM_recorddec
     | NONTERM_recordList
     | NONTERM_uniondec
@@ -146,6 +152,7 @@ type nonTerminalId =
     | NONTERM_tyexpr
     | NONTERM_nonEmptyTyExprList
     | NONTERM_tyexprList
+    | NONTERM_capexpr
     | NONTERM_moduleQualifier
 /// This function maps tokens to integer indexes
 val tagOfToken: token -> int

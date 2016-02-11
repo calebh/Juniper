@@ -2,24 +2,32 @@
 
 type Module = Module of Declaration list
 
+// Top level declarations
 and FunctionRec = { name : string; template : Template option; clause : FunctionClause; returnTy : TyExpr}
 and RecordRec =   { name : string; fields : (TyExpr * string) list; template : Template option }
 and ValueCon =    string * (TyExpr list)
 and UnionRec =    { name : string; valCons : ValueCon list; template : Template option }
+and TypeAliasRec = { name : string; originalTy : TyExpr; template : Template option }
 and Declaration = FunctionDec of FunctionRec
                 | RecordDec of RecordRec
                 | UnionDec of UnionRec
                 | Export of string list
-                | ModuleNameDec of string 
+                | ModuleNameDec of string
+                | TypeAliasDec of TypeAliasRec
 
-and TemplateRec = { tyVars : string list; capacityVars : string list}
+// A template is associated with a function, record or union
+and TemplateRec = { tyVars : string list; capVars : string list }
 and Template = Template of TemplateRec
 
-and CapacityArithOp = PLUS | MINUS | MULTIPLY | DIVIDE
-and CapacityOpRec = {op : CapacityArithOp; left : CapacityExpr; right : CapacityExpr }
+// Use these to apply a template (ex: when calling a function with a template)
+and TemplateApplyRec = { tyExprs : TyExpr list; capExprs : CapacityExpr list }
+and TemplateApply = TemplateApply of TemplateApplyRec
+
+and CapacityArithOp = CAPPLUS | CAPMINUS | CAPMULTIPLY | CAPDIVIDE
+and CapacityOpRec = { left : CapacityExpr; op : CapacityArithOp; right : CapacityExpr }
 and CapacityExpr = CapacityNameExpr of string
                  | CapacityOp of CapacityOpRec
-                 | CapacityConst of int
+                 | CapacityConst of string
 
 and TyApplyRec = { tyConstructor : TyExpr; args : TyExpr list }
 and ArrayTyRec = { valueType : TyExpr; capacity : CapacityExpr }
@@ -67,7 +75,7 @@ and RecordAccessRec = { record : Expr; fieldName : string }
 and ArrayAccessRec =  { array : Expr; index : Expr }
 and VarExpRec =       { name : string }
 and LambdaRec =       { clause : FunctionClause; returnTy : TyExpr }
-and CallRec =         { func : Expr; templateArgs : Template option; args : Expr list }
+and CallRec =         { func : Expr; templateArgs : TemplateApply option; args : Expr list }
 and Expr = SequenceExp of SequenceRec
           | BreakExp
           | BinaryOpExp of BinaryOpRec

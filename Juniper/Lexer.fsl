@@ -21,6 +21,7 @@ let newline = ('\n' | '\r' '\n')
 rule token = parse
 | whitespace     { token lexbuf }
 | newline        { newline lexbuf; token lexbuf }
+| "alias"       { ALIAS }
 | "record"      { RECORD }
 | "type"        { TYPE }
 | "end"         { END }
@@ -74,10 +75,9 @@ rule token = parse
 | "_"           { UNDERSCORE }
 | "true"        { TRUE }
 | "false"       { FALSE }
-| ['(']whitespace*[')']       { UNIT }
-| ['a'-'z']+     { ID(lexeme lexbuf) }
 | ['-']?digit+   { INT (lexeme lexbuf) }
 | ['-']?digit+('.'digit+)?(['e''E']digit+)?   { FLOAT (lexeme lexbuf) }
+| ['a'-'z' 'A'-'Z' '0'-'9' '_']+     { ID(lexeme lexbuf) }
 | eof           { EOF }
 
 

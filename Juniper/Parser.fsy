@@ -7,6 +7,7 @@
 %token <string> FLOAT
 %token <string> ID
 %token <string> STRING
+%token ALIAS
 %token RECORD
 %token RETURN
 %token END
@@ -67,11 +68,11 @@
 %left EQUAL NETEQUAL
 %left OR AND
 %left UNDERSCORE
+%left ID
 %left LTHAN LTHANEQ GTHAN GTHANEQ
 %left PLUS MINUS PIPE
 %left TIMES DIVIDE MOD AMPERSAND
 %left NOT TILDE
-%left ID
 %left DOT
 %left LBRACK
 %left LPAREN RPAREN
@@ -91,38 +92,53 @@ declaration:
   | fundec          { $1 }
   | recorddec       { $1 }
   | uniondec        { $1 }
+  | typealiasdec    { $1 }
 
 exports:
-  | EXPORT LPAREN exportsList RPAREN { Export $3 }
+  | EXPORT LPAREN idList RPAREN { Export $3 }
 
-exportsList:
-  | ID COMMA exportsList  { $1 :: $3 }
-  | ID                    { [$1] }
-  |                       { [] }
+typealiasdec:
+  | TYPE ALIAS ID EQUAL tyexpr { TypeAliasDec {name=$3; originalTy=$5; template=None} }
+  | TYPE ALIAS ID LTHAN tycapvars GTHAN EQUAL tyexpr { TypeAliasDec {name=$3; originalTy=$8; template=Some $5} }
 
 moduleNameDec:
   | MODULE ID             { ModuleNameDec $2 }
 
 fundec:
   | FUN tyexpr ID LPAREN funargList RPAREN EQUAL expr { FunctionDec {name=$3; template=None; clause=FunctionClause {arguments=$5; body=$8}; returnTy=$2 } }
-  | FUN tyexpr ID LTHAN tycaplist GTHAN LPAREN funargList RPAREN EQUAL expr { FunctionDec {name=$3; template=Some $5; clause=FunctionClause {arguments=$8; body=$11}; returnTy=$2}}
+  | FUN tyexpr ID LTHAN tycapvars GTHAN LPAREN funargList RPAREN EQUAL expr { FunctionDec {name=$3; template=Some $5; clause=FunctionClause {arguments=$8; body=$11}; returnTy=$2}}
 
 funargList:
   | tyexpr ID COMMA funargList  {($1,$2) :: $4}
   | tyexpr ID                   {[($1,$2)]}
   |                             {[]}
 
-tycaplist:
-  | TICK ID COMMA tycaplist { match $4 with
-                              | Template { tyVars=t; capacityVars=c } -> Template {tyVars=$2::t; capacityVars=c} }
-  | ID COMMA tycaplist      { match $3 with
-                              | Template { tyVars=t; capacityVars=c } -> Template {tyVars=t; capacityVars=$1::c} }
-  | TICK ID                 { Template {tyVars=[$2]; capacityVars=[]} }
-  | ID                      { Template {tyVars=[]; capacityVars=[$1]} }
+tycapvars:
+  | idList SEMICOLON idList  { Template {tyVars=$1; capVars=$3} }
+  | idList                   { Template {tyVars=$1; capVars=[]} }
+
+idList:
+  | ID COMMA idList         { $1::$3 }
+  | ID                      { [$1] }
+  |                         { [] }
+
+tycapExprs:
+  | tyExprs SEMICOLON capExprs {TemplateApply {tyExprs=$1; capExprs=$3}}
+  | tyExprs                    {TemplateApply {tyExprs=$1; capExprs=[]}}
+
+tyExprs:
+  | tyexpr COMMA tyExprs {$1::$3}
+  | tyexpr               {[$1]}
+  |                      { [] }
+
+capExprs:
+  | capexpr COMMA capExprs  { $1::$3 }
+  | capexpr                 { [$1] }
+  |                         { [] }
 
 recorddec:
   | TYPE ID EQUAL LCURLYBRACE recordList RCURLYBRACE                       { RecordDec {name=$2; fields=$5; template=None}}
-  | TYPE ID LTHAN tycaplist GTHAN EQUAL LCURLYBRACE recordList RCURLYBRACE { RecordDec {name=$2; fields=$8; template=Some $4}}
+  | TYPE ID LTHAN tycapvars GTHAN EQUAL LCURLYBRACE recordList RCURLYBRACE { RecordDec {name=$2; fields=$8; template=Some $4}}
 
 recordList:
   | tyexpr ID SEMICOLON recordList  {($1, $2) :: $4}
@@ -131,18 +147,19 @@ recordList:
 
 uniondec:
   | TYPE ID EQUAL valueConList                       { UnionDec {name=$2; valCons=$4; template=None} }
-  | TYPE ID LTHAN tycaplist GTHAN EQUAL valueConList { UnionDec {name=$2; valCons=$7; template=Some $4}}
+  | TYPE ID LTHAN tycapvars GTHAN EQUAL valueConList { UnionDec {name=$2; valCons=$7; template=Some $4}}
 
 valueConList:
   | valueCon PIPE valueConList {$1 :: $3}
   | valueCon                   {[$1]}
+  |                            {[]}
 
 valueCon:
   | ID LPAREN tyexprList RPAREN {($1, $3)}
 
 expr:
   | expr LPAREN callExprList RPAREN   { CallExp {func=$1; templateArgs=None; args=$3}}
-  | ID LTHAN tycaplist GTHAN LPAREN callExprList RPAREN { CallExp {func=VarExp {name=$1}; templateArgs=Some $3; args=$6} }
+  | ID LTHAN tycapExprs GTHAN LPAREN callExprList RPAREN { CallExp {func=VarExp {name=$1}; templateArgs=Some $3; args=$6} }
   | expr LBRACK expr RBRACK           {ArrayAccessExp {array=$1; index=$3}}
   | LPAREN seqExprList RPAREN         {SequenceExp {exps=$2}}
   | IF expr THEN expr END             {IfElseExp {condition=$2; trueBranch=$4; falseBranch=UnitExp}}
@@ -243,6 +260,14 @@ tyexprList:
   | tyexpr COMMA tyexprList {$1::$3}
   | tyexpr                  {[$1]}
   |                         {[]}
+
+capexpr:
+  | ID                              { CapacityNameExpr $1}
+  | INT                             { CapacityConst $1 }
+  | capexpr PLUS   capexpr { CapacityOp {left=$1; op=CAPPLUS; right=$3} }
+  | capexpr MINUS  capexpr { CapacityOp {left=$1; op=CAPMINUS; right=$3} }
+  | capexpr DIVIDE capexpr { CapacityOp {left=$1; op=CAPDIVIDE; right=$3} }
+  | capexpr TIMES  capexpr { CapacityOp {left=$1; op=CAPMULTIPLY; right=$3} }
 
 moduleQualifier:
   | ID COLON COLON ID { {module_=$1; name=$4} }

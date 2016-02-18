@@ -11,9 +11,11 @@ and TypeAliasRec = { name : string; originalTy : TyExpr; template : Template opt
 and Declaration = FunctionDec of FunctionRec
                 | RecordDec of RecordRec
                 | UnionDec of UnionRec
+                | LetDec of LetRec
                 | Export of string list
                 | ModuleNameDec of string
                 | TypeAliasDec of TypeAliasRec
+                | OpenDec of string list
 
 // A template is associated with a function, record or union
 and TemplateRec = { tyVars : string list; capVars : string list }
@@ -63,8 +65,7 @@ and ModQualifierRec = { module_ : string; name : string }
 and SequenceRec =     { exps : Expr list }
 and BinaryOpRec =     { op : BinaryOps; left : Expr; right : Expr }
 and IfElseRec =       { condition : Expr; trueBranch : Expr; falseBranch : Expr }
-and DecLetRec =       { varName : string; typ : TyExpr option; right : Expr }
-and DecVarRec =       { varName : string; typ : TyExpr option; right : Expr }
+and LetRec =          { varName : string; typ : TyExpr option; right : Expr; mutable_ : bool }
 and AssignRec =       { left : LeftAssign; right : Expr }
 and ForLoopRec =      { init : Expr; condition : Expr; afterthought : Expr }
 and WhileLoopRec =    { condition : Expr; body : Expr }
@@ -76,12 +77,12 @@ and ArrayAccessRec =  { array : Expr; index : Expr }
 and VarExpRec =       { name : string }
 and LambdaRec =       { clause : FunctionClause; returnTy : TyExpr }
 and CallRec =         { func : Expr; templateArgs : TemplateApply option; args : Expr list }
+and RecordExprRec =   { recordTy : TyExpr; templateArgs : TemplateApply option; initFields : (string * Expr) list }
 and Expr = SequenceExp of SequenceRec
           | BreakExp
           | BinaryOpExp of BinaryOpRec
           | IfElseExp of IfElseRec
-          | DecLetExp of DecLetRec
-          | DecVarExp of DecVarRec
+          | LetExp of LetRec
           | AssignExp of AssignRec
           | ForLoopExp of ForLoopRec
           | WhileLoopExp of WhileLoopRec
@@ -99,6 +100,8 @@ and Expr = SequenceExp of SequenceRec
           | FloatExp of string
           | CallExp of CallRec
           | ModQualifierExp of ModQualifierRec
+          | RecordExp of RecordExprRec
+          | ListLitExp of Expr list
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
 and UnaryOps = LogicalNot | BitwiseNot
 

@@ -7,7 +7,7 @@ open Parser
 open System
 
 let newline (lexbuf: LexBuffer<_>) = 
-  lexbuf.StartPos <- lexbuf.StartPos.NextLine
+  lexbuf.EndPos <- lexbuf.EndPos.NextLine
 
 let lexeme lexbuf =
     LexBuffer<char>.LexemeString lexbuf
@@ -21,6 +21,7 @@ let newline = ('\n' | '\r' '\n')
 rule token = parse
 | whitespace     { token lexbuf }
 | newline        { newline lexbuf; token lexbuf }
+| "=>"          { RFATARROW }
 | "alias"       { ALIAS }
 | "record"      { RECORD }
 | "type"        { TYPE }
@@ -29,8 +30,10 @@ rule token = parse
 | "export"      { EXPORT }
 | "open"        { OPEN }
 | "module"		{ MODULE }
+| "set"         { SET }
 | "break"		{ BREAK }
 | "fun"         { FUN }
+| "fn"          { FN }
 | "if"			{ IF }
 | "then"        { THEN }
 | "else"        { ELSE }
@@ -38,8 +41,9 @@ rule token = parse
 | "while"       { WHILE }
 | "do"          { DO }
 | "!="          { NOTEQUAL }
+| "=="          { DOUBLEEQUAL }
 | "let"         { LET }
-| "var"         { VAR }
+| "mutable"     { MUTABLE }
 | "for"         { FOR }
 | "("           { LPAREN }
 | ")"           { RPAREN }
@@ -79,6 +83,7 @@ rule token = parse
 | ['-']?digit+('.'digit+)?(['e''E']digit+)?   { FLOAT (lexeme lexbuf) }
 | ['a'-'z' 'A'-'Z' '0'-'9' '_']+     { ID(lexeme lexbuf) }
 | eof           { EOF }
+| _ { failwith ("ParseError" + LexBuffer<_>.LexemeString lexbuf) }
 
 
 and read_string str ignorequote =

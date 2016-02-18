@@ -16,6 +16,7 @@
 %token MODULE
 %token BREAK
 %token FUN
+%token FN
 %token IF
 %token THEN
 %token ELSE
@@ -23,7 +24,7 @@
 %token WHILE
 %token DO
 %token LET
-%token VAR
+%token MUTABLE
 %token FOR
 %token LPAREN
 %token RPAREN
@@ -50,6 +51,7 @@
 %token COLON
 %token SEMICOLON
 %token NOTEQUAL
+%token DOUBLEEQUAL
 %token EQUAL
 %token GTHAN
 %token LTHAN
@@ -60,12 +62,14 @@
 %token FALSE
 %token UNDERSCORE
 %token DOT
+%token SET
+%token RFATARROW
 %token EOF
 
 %type < Module > start
 
 %left SEMICOLON COMMA
-%left EQUAL NETEQUAL
+%left EQUAL DOUBLEEQUAL NOTEQUAL
 %left OR AND
 %left UNDERSCORE
 %left ID
@@ -93,20 +97,31 @@ declaration:
   | recorddec       { $1 }
   | uniondec        { $1 }
   | typealiasdec    { $1 }
+  | letdec          { $1 }
+  | opendec         { $1 }
+
+opendec:
+  | OPEN LPAREN idList RPAREN { OpenDec $3 }
+
+letdec:
+  | LET ID EQUAL expr                 { LetDec { varName=$2; typ=None; right=$4; mutable_=false }}
+  | LET tyexpr ID EQUAL expr          { LetDec { varName=$3; typ=Some $2; right=$5; mutable_=false }}
+  | LET MUTABLE ID EQUAL expr         { LetDec { varName=$3; typ=None; right=$5; mutable_=true }}
+  | LET MUTABLE tyexpr ID EQUAL expr  { LetDec { varName=$4; typ=Some $3; right=$6; mutable_=true}}
 
 exports:
   | EXPORT LPAREN idList RPAREN { Export $3 }
 
 typealiasdec:
-  | TYPE ALIAS ID EQUAL tyexpr { TypeAliasDec {name=$3; originalTy=$5; template=None} }
-  | TYPE ALIAS ID LTHAN tycapvars GTHAN EQUAL tyexpr { TypeAliasDec {name=$3; originalTy=$8; template=Some $5} }
+  | TYPE ALIAS ID EQUAL tyexpr {  TypeAliasDec {name=$3; originalTy=$5; template=None} }
+  | TYPE ALIAS ID LTHAN tycapvars GTHAN EQUAL tyexpr {  TypeAliasDec {name=$3; originalTy=$8; template=Some $5} }
 
 moduleNameDec:
   | MODULE ID             { ModuleNameDec $2 }
 
 fundec:
-  | FUN tyexpr ID LPAREN funargList RPAREN EQUAL expr { FunctionDec {name=$3; template=None; clause=FunctionClause {arguments=$5; body=$8}; returnTy=$2 } }
-  | FUN tyexpr ID LTHAN tycapvars GTHAN LPAREN funargList RPAREN EQUAL expr { FunctionDec {name=$3; template=Some $5; clause=FunctionClause {arguments=$8; body=$11}; returnTy=$2}}
+  | FUN tyexpr ID LPAREN funargList RPAREN EQUAL expr {  FunctionDec {name=$3; template=None; clause=FunctionClause {arguments=$5; body=$8}; returnTy=$2 } }
+  | FUN tyexpr ID LTHAN tycapvars GTHAN LPAREN funargList RPAREN EQUAL expr {  FunctionDec {name=$3; template=Some $5; clause=FunctionClause {arguments=$8; body=$11}; returnTy=$2}}
 
 funargList:
   | tyexpr ID COMMA funargList  {($1,$2) :: $4}
@@ -137,11 +152,11 @@ capExprs:
   |                         { [] }
 
 recorddec:
-  | TYPE ID EQUAL LCURLYBRACE recordList RCURLYBRACE                       { RecordDec {name=$2; fields=$5; template=None}}
-  | TYPE ID LTHAN tycapvars GTHAN EQUAL LCURLYBRACE recordList RCURLYBRACE { RecordDec {name=$2; fields=$8; template=Some $4}}
+  | TYPE ID EQUAL LCURLYBRACE recordDecList RCURLYBRACE                       { RecordDec {name=$2; fields=$5; template=None}}
+  | TYPE ID LTHAN tycapvars GTHAN EQUAL LCURLYBRACE recordDecList RCURLYBRACE { RecordDec {name=$2; fields=$8; template=Some $4}}
 
-recordList:
-  | tyexpr ID SEMICOLON recordList  {($1, $2) :: $4}
+recordDecList:
+  | tyexpr ID SEMICOLON recordDecList  {($1, $2) :: $4}
   | tyexpr ID                       {[($1, $2)]}
   |                                 {[]}
 
@@ -158,18 +173,33 @@ valueCon:
   | ID LPAREN tyexprList RPAREN {($1, $3)}
 
 expr:
+  // Calling a function with no templates
   | expr LPAREN callExprList RPAREN   { CallExp {func=$1; templateArgs=None; args=$3}}
+  // Calling a function in the same module with a template  
   | ID LTHAN tycapExprs GTHAN LPAREN callExprList RPAREN { CallExp {func=VarExp {name=$1}; templateArgs=Some $3; args=$6} }
+  // Calling a function in another module with a template
+  | ID COLON ID LTHAN tycapExprs GTHAN LPAREN callExprList RPAREN { CallExp {func=ModQualifierExp {module_=$1; name=$3}; templateArgs=Some $5; args=$8} }
+  // Accessing an array element
   | expr LBRACK expr RBRACK           {ArrayAccessExp {array=$1; index=$3}}
+  // Sequence of expressions separated by semicolons
   | LPAREN seqExprList RPAREN         {SequenceExp {exps=$2}}
+  // If statement with no else
   | IF expr THEN expr END             {IfElseExp {condition=$2; trueBranch=$4; falseBranch=UnitExp}}
+  // If statement with elifs and/or else statements
   | IF expr THEN expr elifList        {IfElseExp {condition=$2; trueBranch=$4; falseBranch=$5}}
-  | LET ID EQUAL expr                 {DecLetExp { varName=$2; typ=None; right=$4 }}
-  | LET tyexpr ID EQUAL expr          {DecLetExp { varName=$3; typ=Some $2; right=$5 }}
-  | VAR ID EQUAL expr                 {DecVarExp { varName=$2; typ=None; right=$4}}
-  | VAR tyexpr ID EQUAL expr          {DecVarExp { varName=$3; typ=Some $2; right=$5}}
-  | ID EQUAL expr                     {AssignExp { left=VarMutation{varName=$1}; right=$3}}
+  // Let statment with type inference
+  | LET ID EQUAL expr                 { LetExp { varName=$2; typ=None; right=$4; mutable_=false }}
+  // Let statement with type constraint
+  | LET tyexpr ID EQUAL expr          { LetExp { varName=$3; typ=Some $2; right=$5; mutable_=false }}
+  // Let mutable statement with type inference
+  | LET MUTABLE ID EQUAL expr         { LetExp { varName=$3; typ=None; right=$5; mutable_=true }}
+  // Let mutable statement without type inference
+  | LET MUTABLE tyexpr ID EQUAL expr  { LetExp { varName=$4; typ=Some $3; right=$6; mutable_=true}}
+  // Set expression for mutating a variable
+  | SET leftAssign EQUAL expr         { AssignExp { left=$2; right=$4 } }
+  // For loop
   | FOR LPAREN expr SEMICOLON expr SEMICOLON expr RPAREN expr END {ForLoopExp { init=$3; condition=$5; afterthought=$7 }}
+  // Do loop
   | DO expr WHILE LPAREN expr RPAREN  {DoWhileLoopExp {condition=$5; body=$2}}
   | WHILE LPAREN expr RPAREN expr END {WhileLoopExp {condition=$3; body=$5}}
   | moduleQualifier                   {ModQualifierExp $1}
@@ -192,17 +222,27 @@ expr:
   | expr LTHANEQ expr                 {BinaryOpExp {op=LessOrEqual; left=$1; right=$3}}
   | expr GTHAN expr                   {BinaryOpExp {op=Greater; left=$1; right=$3}}
   | expr LTHAN expr                   {BinaryOpExp {op=Less; left=$1; right=$3}}
-  | expr EQUAL EQUAL expr             {BinaryOpExp {op=Equal; left=$1; right=$4}}
-  | expr LTHAN GTHAN expr             {BinaryOpExp {op=NotEqual; left=$1; right=$4}}
-  | FUN tyexpr LPAREN funargList RPAREN MINUS GTHAN expr { LambdaExp {clause=FunctionClause {arguments=$4; body=$8}; returnTy=$2 }}
-  | ID                                {VarExp {name=$1}}
+  | expr DOUBLEEQUAL expr             { BinaryOpExp {op=Equal; left=$1; right=$3}}
+  | expr NOTEQUAL expr                {BinaryOpExp {op=NotEqual; left=$1; right=$3}}
+  | FN tyexpr LPAREN funargList RPAREN MINUS GTHAN expr { LambdaExp {clause=FunctionClause {arguments=$4; body=$8}; returnTy=$2 }}
+  | ID                                { VarExp {name=$1}}
   | INT                               { IntExp $1 }
   | FLOAT                             { FloatExp $1 }
   | CASE expr OF caseClauseList END   { CaseExp {on=$2; clauses=$4}}
+  | ID LCURLYBRACE recordInitList RCURLYBRACE          { RecordExp { recordTy=TyName $1; initFields=$3; templateArgs=None } }
+  | ID COLON ID LCURLYBRACE recordInitList RCURLYBRACE { RecordExp { recordTy=TyModuleQualifier{module_=$1; name=$3}; initFields=$5; templateArgs=None} }
+  | ID LTHAN tycapExprs GTHAN LCURLYBRACE recordInitList RCURLYBRACE          { RecordExp { recordTy=TyName $1; initFields=$6; templateArgs=Some $3 } }
+  | ID COLON ID LTHAN tycapExprs GTHAN LCURLYBRACE recordInitList RCURLYBRACE { RecordExp { recordTy=TyModuleQualifier{module_=$1; name=$3}; initFields=$8; templateArgs=Some $5} }
+  | LBRACK seqExprList RBRACK         { ListLitExp $2 }
+
+recordInitList:
+  | ID EQUAL expr SEMICOLON recordInitList { ($1,$3)::$5 }
+  | ID EQUAL expr                          { [($1,$3)] }
+  |                                        { [] }
 
 caseClauseList:
-  | pattern EQUAL GTHAN expr PIPE caseClauseList {($1, $4) :: $6}
-  | pattern EQUAL GTHAN expr                     {[($1, $4)]}
+  | pattern RFATARROW expr PIPE caseClauseList { ($1, $3)::$5 }
+  | pattern RFATARROW expr                     { [($1, $3)] }
 
 pattern:
   | INT                                       { MatchIntVal $1}
@@ -218,8 +258,8 @@ valConPatternList:
   |                                 {[]}
 
 recPatternList:
-  | ID EQUAL pattern SEMICOLON recPatternList {($1, $3) :: $5}
-  | ID EQUAL pattern                          {[($1, $3)]}
+  | ID EQUAL pattern SEMICOLON recPatternList { ($1, $3) :: $5}
+  | ID EQUAL pattern                          { [($1, $3)]}
   |                                           {[]}
 
 elifList:
@@ -270,4 +310,9 @@ capexpr:
   | capexpr TIMES  capexpr { CapacityOp {left=$1; op=CAPMULTIPLY; right=$3} }
 
 moduleQualifier:
-  | ID COLON COLON ID { {module_=$1; name=$4} }
+  | ID COLON ID { {module_=$1; name=$3} }
+
+leftAssign:
+  | leftAssign LBRACK expr RBRACK { ArrayMutation {array=$1; index=$3} }
+  | leftAssign DOT ID             { RecordMutation {record=$1; fieldName=$3} }
+  | ID                            { VarMutation { varName=$1 } }

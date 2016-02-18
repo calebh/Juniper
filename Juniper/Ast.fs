@@ -51,10 +51,13 @@ and TyExpr = BaseTy of BaseTypes
            | FunTy of FunTyRec
 
 and Pattern = MatchVar of string
+            | MatchModQualifier of ModQualifierRec
             | MatchIntVal of string
             | MatchFloatVal of string
             | MatchValCon of string * (Pattern list)
+            | MatchValConModQualifier of ModQualifierRec * (Pattern list)
             | MatchRecCon of string * ((string * Pattern) list)
+            | MatchRecConModQualifier of ModQualifierRec * ((string * Pattern) list)
             | MatchUnderscore
 
 and FunctionClauseRec = {arguments : (TyExpr * string) list; body : Expr}

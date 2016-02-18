@@ -245,12 +245,14 @@ caseClauseList:
   | pattern RFATARROW expr                     { [($1, $3)] }
 
 pattern:
-  | INT                                       { MatchIntVal $1}
-  | FLOAT                                     { MatchFloatVal $1}
-  | ID                                        { MatchVar $1}
-  | UNDERSCORE                                { MatchUnderscore}
-  | ID LPAREN valConPatternList RPAREN        { MatchValCon ($1, $3)}
-  | ID LCURLYBRACE recPatternList RCURLYBRACE { MatchRecCon ($1, $3)}
+  | INT                                              { MatchIntVal $1}
+  | FLOAT                                            { MatchFloatVal $1}
+  | ID                                               { MatchVar $1}
+  | UNDERSCORE                                       { MatchUnderscore}
+  | ID LPAREN valConPatternList RPAREN               { MatchValCon ($1, $3)}
+  | moduleQualifier LPAREN valConPatternList RPAREN  { MatchValConModQualifier ($1, $3)}
+  | ID LCURLYBRACE recPatternList RCURLYBRACE        { MatchRecCon ($1, $3)}
+  | moduleQualifier LCURLYBRACE recPatternList RCURLYBRACE { MatchRecConModQualifier ($1, $3)}
 
 valConPatternList:
   | pattern COMMA valConPatternList {$1 :: $3}
@@ -280,6 +282,8 @@ tyexpr:
   | moduleQualifier LTHAN nonEmptyTyExprList GTHAN {TyApply {tyConstructor=TyModuleQualifier $1; args=$3}}
   | ID LTHAN nonEmptyTyExprList GTHAN              {TyApply {tyConstructor=TyName $1; args=$3}}
   | LPAREN tyexprList RPAREN MINUS GTHAN tyexpr    {FunTy {args=$2; returnType=$6}}
+  | ID LBRACK capexpr RBRACK                       {ArrayTy {valueType=TyName $1; capacity=$3}}
+  | moduleQualifier LBRACK capexpr RBRACK          {ArrayTy {valueType=TyModuleQualifier $1; capacity=$3}}
   | ID                                             {match $1 with
                                                         | "uint8" -> BaseTy TyUint8
                                                         | "uint16" -> BaseTy TyUint16

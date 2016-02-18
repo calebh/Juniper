@@ -17,9 +17,9 @@
 <let>               ::= "let" ["mutable"] [<ty-expr>] <id> "=" <expr>;
 <function>          ::= "fun" <ty-expr> <id> <template-dec> "(" [<ty-expr> <id> {"," <ty-expr> <id>}] ")" "=" <expr>;
 <declaration-ref>   ::= <id> | <module-qualifier>;
-<ty-expr>           ::= <declaration-ref> ["<" <template-apply> ">"] (* Check template-apply ability *)
+<ty-expr>           ::= <declaration-ref> ["<" <template-apply> ">"]
                      |  "(" [<ty-expr> {"," <ty-expr>}] ")" "->" <ty-expr>
-                     |  <ty-expr> "[" <capacity-expr> "]"; (* Check if implemented *)
+                     |  <ty-expr> "[" <capacity-expr> "]";
 <capacity-expr>     ::= <capacity-expr> <capacity-op> <capacity-expr>
                      |  <id>
                      |  <natural-number>;
@@ -31,7 +31,7 @@
                      |  "(" <expr> {";" <expr>} ")"
                      |  <expr> "(" [<expr-list>] ")"
                      |  <declaration-ref> "<" <template-apply> ">" "(" [<expr-list>] ")"
-                     |  <expr> "[" <expr> "]" (* Check if implemented *)
+                     |  <expr> "[" <expr> "]"
                      |  <expr> <binary-op> <expr>
                      |  "if" <expr> "then" <expr> [{"elif" <expr> "then" <expr>}] ["else" <expr>] "end"
                      |  <let>
@@ -58,5 +58,5 @@
                      |  <integer>
                      |  <float>
                      |  "_"
-                     |  <declaration-ref> "(" [<pattern> {"," <pattern>}] ")"  (* check module qualifier ability on this*)
-                     |  <declaration-ref> "{" [<id> "=" <pattern> {"," <id> "=" <pattern>}] "}" (* check module qualifier ability on this *)
+                     |  <declaration-ref> "(" [<pattern> {"," <pattern>}] ")"
+                     |  <declaration-ref> "{" [<id> "=" <pattern> {"," <id> "=" <pattern>}] "}";

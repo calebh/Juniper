@@ -15,7 +15,10 @@ let main argv =
           | _ -> printfn "Syntax error on line %d, column %d" (lexbuf.StartPos.Line+1) lexbuf.StartPos.Column
                  failwith "Parser error"
     
-    let ast = parseFromFile @"C:\Users\caleb\Documents\juniper_programs\test.jun"
-    printfn "%A" ast
+    
+    let asts = List.map parseFromFile (List.ofArray argv)
+    let typedAsts = TypeChecker.typecheck asts
+    //let ast = parseFromFile @"C:\Users\caleb\Documents\juniper_programs\test.jun"
+    printfn "%A" typedAsts
     System.Console.ReadKey() |> ignore
     0 // return an integer exit code

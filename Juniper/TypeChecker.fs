@@ -2,6 +2,7 @@
 
 open Ast
 
+(*
 let nameInModule (Module decs) =
     let names = List.filter (fun dec -> match dec with
                                             | ModuleNameDec _ -> true
@@ -33,3 +34,4 @@ let typecheck (modlist : Module list) =
                                             Map.add modName (wrap <| typesInModule modl) map)
                                         Map.empty modlist
     modNameToTypesInMod
+*)

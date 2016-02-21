@@ -1,39 +1,56 @@
 ﻿module Ast
 
-type Module = Module of Declaration list
+open Microsoft.FSharp.Text.Lexing
+
+type Module = Module of PosAdorn<Declaration> list
+
+and PosAdorn<'a> = (Position * Position) * 'a
 
 // Top level declarations
-and FunctionRec = { name : string; template : Template option; clause : FunctionClause; returnTy : TyExpr}
-and RecordRec =   { name : string; fields : (TyExpr * string) list; template : Template option }
-and ValueCon =    string * (TyExpr list)
-and UnionRec =    { name : string; valCons : ValueCon list; template : Template option }
-and TypeAliasRec = { name : string; originalTy : TyExpr; template : Template option }
-and Declaration = FunctionDec of FunctionRec
-                | RecordDec of RecordRec
-                | UnionDec of UnionRec
-                | LetDec of LetRec
-                | Export of string list
-                | ModuleNameDec of string
-                | TypeAliasDec of TypeAliasRec
-                | OpenDec of string list
+and FunctionRec = { name     : PosAdorn<string>; 
+                    template : PosAdorn<Template option> option;
+                    clause   : PosAdorn<FunctionClause>;
+                    returnTy : PosAdorn<TyExpr> }
+
+and RecordRec =   { name     : PosAdorn<string>;
+                    fields   : PosAdorn<(TyExpr * string) list>;
+                    template : PosAdorn<Template option> option }
+
+and ValueCon =    PosAdorn<string> * PosAdorn<PosAdorn<TyExpr> list>
+and UnionRec =    { name     : PosAdorn<string>;
+                    valCons  : PosAdorn<ValueCon list>;
+                    template : PosAdorn<Template option> option }
+
+and TypeAliasRec = { name       : PosAdorn<string>;
+                     originalTy : PosAdorn<TyExpr>;
+                     template   : PosAdorn<Template option> option }
+
+and Declaration = FunctionDec   of FunctionRec
+                | RecordDec     of RecordRec
+                | UnionDec      of UnionRec
+                | LetDec        of LetRec
+                | Export        of PosAdorn<PosAdorn<string> list>
+                | ModuleNameDec of PosAdorn<string>
+                | TypeAliasDec  of TypeAliasRec
+                | OpenDec       of PosAdorn<PosAdorn<string> list>
 
 // A template is associated with a function, record or union
-and TemplateRec = { tyVars : string list; capVars : string list }
+and TemplateRec = { tyVars : PosAdorn<PosAdorn<string> list>; capVars : PosAdorn<PosAdorn<string> list> }
 and Template = Template of TemplateRec
 
 // Use these to apply a template (ex: when calling a function with a template)
-and TemplateApplyRec = { tyExprs : TyExpr list; capExprs : CapacityExpr list }
+and TemplateApplyRec = { tyExprs : PosAdorn<PosAdorn<TyExpr> list>; capExprs : PosAdorn<PosAdorn<CapacityExpr> list> }
 and TemplateApply = TemplateApply of TemplateApplyRec
 
 and CapacityArithOp = CAPPLUS | CAPMINUS | CAPMULTIPLY | CAPDIVIDE
-and CapacityOpRec = { left : CapacityExpr; op : CapacityArithOp; right : CapacityExpr }
-and CapacityExpr = CapacityNameExpr of string
+and CapacityOpRec = { left : PosAdorn<CapacityExpr>; op : PosAdorn<CapacityArithOp>; right : PosAdorn<CapacityExpr> }
+and CapacityExpr = CapacityNameExpr of PosAdorn<string>
                  | CapacityOp of CapacityOpRec
-                 | CapacityConst of string
+                 | CapacityConst of PosAdorn<string>
 
-and TyApplyRec = { tyConstructor : TyExpr; args : TyExpr list }
-and ArrayTyRec = { valueType : TyExpr; capacity : CapacityExpr }
-and FunTyRec = { args : TyExpr list; returnType : TyExpr }
+and TyApplyRec = { tyConstructor : PosAdorn<TyExpr>; args : PosAdorn<PosAdorn<TyExpr> list> }
+and ArrayTyRec = { valueType : PosAdorn<TyExpr>; capacity : PosAdorn<CapacityExpr> }
+and FunTyRec = { args : PosAdorn<PosAdorn<TyExpr> list>; returnType : PosAdorn<TyExpr> }
 and BaseTypes = TyUint8
               | TyUint16
               | TyUint32
@@ -43,30 +60,30 @@ and BaseTypes = TyUint8
               | TyInt32
               | TyInt64
               | TyBool
-and TyExpr = BaseTy of BaseTypes
+and TyExpr = BaseTy of PosAdorn<BaseTypes>
            | TyModuleQualifier of ModQualifierRec
-           | TyName of string
+           | TyName of PosAdorn<string>
            | TyApply of TyApplyRec
            | ArrayTy of ArrayTyRec
            | FunTy of FunTyRec
 
-and Pattern = MatchVar of string
+and Pattern = MatchVar of PosAdorn<string>
             | MatchModQualifier of ModQualifierRec
-            | MatchIntVal of string
-            | MatchFloatVal of string
-            | MatchValCon of string * (Pattern list)
-            | MatchValConModQualifier of ModQualifierRec * (Pattern list)
-            | MatchRecCon of string * ((string * Pattern) list)
-            | MatchRecConModQualifier of ModQualifierRec * ((string * Pattern) list)
+            | MatchIntVal of PosAdorn<string>
+            | MatchFloatVal of PosAdorn<string>
+            | MatchValCon of PosAdorn<string> * PosAdorn<PosAdorn<Pattern> list>
+            | MatchValConModQualifier of PosAdorn<ModQualifierRec> * PosAdorn<PosAdorn<Pattern> list>
+            | MatchRecCon of PosAdorn<string> * PosAdorn<(PosAdorn<string> * PosAdorn<Pattern>) list>
+            | MatchRecConModQualifier of PosAdorn<ModQualifierRec> *  PosAdorn<(PosAdorn<string> * PosAdorn<Pattern>) list>
             | MatchUnderscore
 
-and FunctionClauseRec = {arguments : (TyExpr * string) list; body : Expr}
+and FunctionClauseRec = {arguments : PosAdorn<(PosAdorn<TyExpr> * PosAdorn<string>) list>; body : PosAdorn<Expr>}
 and FunctionClause = FunctionClause of FunctionClauseRec
 
-and ModQualifierRec = { module_ : string; name : string }
+and ModQualifierRec = { module_ : PosAdorn<string>; name : PosAdorn<string> }
 
-and SequenceRec =     { exps : Expr list }
-and BinaryOpRec =     { op : BinaryOps; left : Expr; right : Expr }
+and SequenceRec =     { exps : PosAdorn<PosAdorn<Expr> list> }
+and BinaryOpRec =     { left : PosAdorn<Expr>; op : PosAdorn<BinaryOps>; right : PosAdorn<Expr> }
 and IfElseRec =       { condition : Expr; trueBranch : Expr; falseBranch : Expr }
 and LetRec =          { varName : string; typ : TyExpr option; right : Expr; mutable_ : bool }
 and AssignRec =       { left : LeftAssign; right : Expr }
@@ -78,7 +95,7 @@ and UnaryOpRec =      { op : UnaryOps; exp : Expr }
 and RecordAccessRec = { record : Expr; fieldName : string }
 and ArrayAccessRec =  { array : Expr; index : Expr }
 and VarExpRec =       { name : string }
-and LambdaRec =       { clause : FunctionClause; returnTy : TyExpr }
+and LambdaRec =       { clause : PosAdorn<FunctionClause>; returnTy : PosAdorn<TyExpr> }
 and CallRec =         { func : Expr; templateArgs : TemplateApply option; args : Expr list }
 and RecordExprRec =   { recordTy : TyExpr; templateArgs : TemplateApply option; initFields : (string * Expr) list }
 and Expr = SequenceExp of SequenceRec
@@ -104,7 +121,7 @@ and Expr = SequenceExp of SequenceRec
           | CallExp of CallRec
           | ModQualifierExp of ModQualifierRec
           | RecordExp of RecordExprRec
-          | ListLitExp of Expr list
+          | ListLitExp of PosAdorn<PosAdorn<Expr> list>
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
 and UnaryOps = LogicalNot | BitwiseNot
 

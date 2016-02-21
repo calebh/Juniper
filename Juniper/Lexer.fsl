@@ -6,8 +6,9 @@ open Microsoft.FSharp.Text.Lexing
 open Parser
 open System
 
-let newline (lexbuf: LexBuffer<_>) = 
+let newline (lexbuf: LexBuffer<_>) =
   lexbuf.EndPos <- lexbuf.EndPos.NextLine
+  lexbuf.StartPos <- lexbuf.StartPos.NextLine
 
 let lexeme lexbuf =
     LexBuffer<char>.LexemeString lexbuf

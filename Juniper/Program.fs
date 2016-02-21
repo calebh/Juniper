@@ -12,13 +12,11 @@ let main argv =
         try
             Parser.start Lexer.token lexbuf
         with
-          | _ -> printfn "Syntax error on line %d, column %d" (lexbuf.StartPos.Line+1) lexbuf.StartPos.Column
-                 failwith "Parser error"
-    
+          | _ -> failwith "Syntax error in %s on line %d, column %d" fileName (lexbuf.StartPos.Line+1) (lexbuf.StartPos.Column+1)
     
     let asts = List.map parseFromFile (List.ofArray argv)
     let typedAsts = TypeChecker.typecheck asts
     //let ast = parseFromFile @"C:\Users\caleb\Documents\juniper_programs\test.jun"
-    printfn "%A" typedAsts
+    printfn "%A" asts
     System.Console.ReadKey() |> ignore
     0 // return an integer exit code

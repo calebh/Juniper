@@ -4,26 +4,27 @@ open Microsoft.FSharp.Text.Lexing
 
 type Module = Module of PosAdorn<Declaration> list
 
+// Tuple of starting position and ending position
 and PosAdorn<'a> = (Position * Position) * 'a
 
 // Top level declarations
 and FunctionRec = { name     : PosAdorn<string>; 
-                    template : PosAdorn<Template option> option;
+                    template : PosAdorn<Template> option;
                     clause   : PosAdorn<FunctionClause>;
                     returnTy : PosAdorn<TyExpr> }
 
 and RecordRec =   { name     : PosAdorn<string>;
                     fields   : PosAdorn<(TyExpr * string) list>;
-                    template : PosAdorn<Template option> option }
+                    template : PosAdorn<Template> option }
 
 and ValueCon =    PosAdorn<string> * PosAdorn<PosAdorn<TyExpr> list>
 and UnionRec =    { name     : PosAdorn<string>;
                     valCons  : PosAdorn<ValueCon list>;
-                    template : PosAdorn<Template option> option }
+                    template : PosAdorn<Template> option }
 
 and TypeAliasRec = { name       : PosAdorn<string>;
                      originalTy : PosAdorn<TyExpr>;
-                     template   : PosAdorn<Template option> option }
+                     template   : PosAdorn<Template> option }
 
 and Declaration = FunctionDec   of FunctionRec
                 | RecordDec     of RecordRec
@@ -84,20 +85,20 @@ and ModQualifierRec = { module_ : PosAdorn<string>; name : PosAdorn<string> }
 
 and SequenceRec =     { exps : PosAdorn<PosAdorn<Expr> list> }
 and BinaryOpRec =     { left : PosAdorn<Expr>; op : PosAdorn<BinaryOps>; right : PosAdorn<Expr> }
-and IfElseRec =       { condition : Expr; trueBranch : Expr; falseBranch : Expr }
-and LetRec =          { varName : string; typ : TyExpr option; right : Expr; mutable_ : bool }
-and AssignRec =       { left : LeftAssign; right : Expr }
-and ForLoopRec =      { init : Expr; condition : Expr; afterthought : Expr }
-and WhileLoopRec =    { condition : Expr; body : Expr }
-and DoWhileLoopRec =  { condition : Expr; body: Expr }
-and CaseRec =         { on : Expr; clauses : (Pattern * Expr) list }
-and UnaryOpRec =      { op : UnaryOps; exp : Expr }
-and RecordAccessRec = { record : Expr; fieldName : string }
-and ArrayAccessRec =  { array : Expr; index : Expr }
-and VarExpRec =       { name : string }
+and IfElseRec =       { condition : PosAdorn<Expr>; trueBranch : PosAdorn<Expr>; falseBranch : PosAdorn<Expr> }
+and LetRec =          { varName : PosAdorn<string>; typ : PosAdorn<TyExpr> option; right : PosAdorn<Expr>; mutable_ : PosAdorn<bool> }
+and AssignRec =       { left : PosAdorn<LeftAssign>; right : PosAdorn<Expr> }
+and ForLoopRec =      { init : PosAdorn<Expr>; condition : PosAdorn<Expr>; afterthought : PosAdorn<Expr> }
+and WhileLoopRec =    { condition : PosAdorn<Expr>; body : PosAdorn<Expr> }
+and DoWhileLoopRec =  { condition : PosAdorn<Expr>; body: PosAdorn<Expr> }
+and CaseRec =         { on : PosAdorn<Expr>; clauses : PosAdorn<(PosAdorn<Pattern> * PosAdorn<Expr>) list> }
+and UnaryOpRec =      { op : PosAdorn<UnaryOps>; exp : PosAdorn<Expr> }
+and RecordAccessRec = { record : PosAdorn<Expr>; fieldName : PosAdorn<string> }
+and ArrayAccessRec =  { array : PosAdorn<Expr>; index : PosAdorn<Expr> }
+and VarExpRec =       { name : PosAdorn<string> }
 and LambdaRec =       { clause : PosAdorn<FunctionClause>; returnTy : PosAdorn<TyExpr> }
-and CallRec =         { func : Expr; templateArgs : TemplateApply option; args : Expr list }
-and RecordExprRec =   { recordTy : TyExpr; templateArgs : TemplateApply option; initFields : (string * Expr) list }
+and CallRec =         { func : PosAdorn<Expr>; templateArgs : PosAdorn<TemplateApply> option; args : PosAdorn<PosAdorn<Expr> list> }
+and RecordExprRec =   { recordTy : PosAdorn<TyExpr>; templateArgs : PosAdorn<TemplateApply> option; initFields : PosAdorn<(PosAdorn<string> * PosAdorn<Expr>) list> }
 and Expr = SequenceExp of SequenceRec
           | BreakExp
           | BinaryOpExp of BinaryOpRec
@@ -112,12 +113,12 @@ and Expr = SequenceExp of SequenceRec
           | RecordAccessExp of RecordAccessRec
           | ArrayAccessExp of ArrayAccessRec
           | VarExp of VarExpRec
-          | UnitExp
-          | TrueExp
-          | FalseExp
+          | UnitExp of PosAdorn<unit>
+          | TrueExp of PosAdorn<unit>
+          | FalseExp of PosAdorn<unit>
           | LambdaExp of LambdaRec
-          | IntExp of string
-          | FloatExp of string
+          | IntExp of PosAdorn<string>
+          | FloatExp of PosAdorn<string>
           | CallExp of CallRec
           | ModQualifierExp of ModQualifierRec
           | RecordExp of RecordExprRec
@@ -125,9 +126,9 @@ and Expr = SequenceExp of SequenceRec
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
 and UnaryOps = LogicalNot | BitwiseNot
 
-and VarMutationRec =    { varName : string }
-and ArrayMutationRec =  { array : LeftAssign; index : Expr }
-and RecordMutationRec = { record : LeftAssign; fieldName : string }
+and VarMutationRec =    { varName : PosAdorn<string> }
+and ArrayMutationRec =  { array : PosAdorn<LeftAssign>; index : PosAdorn<Expr> }
+and RecordMutationRec = { record : PosAdorn<LeftAssign>; fieldName : PosAdorn<string> }
 and LeftAssign = VarMutation of VarMutationRec
                | ArrayMutation of ArrayMutationRec
                | RecordMutation of RecordMutationRec

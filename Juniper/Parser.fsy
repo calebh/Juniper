@@ -110,33 +110,14 @@ opendec:
   | OPEN LPAREN idList RPAREN { OpenDec (pos parseState 3 3, $3) }
 
 letdec:
-  | LET ID EQUAL expr                 {
-        LetDec {
-            varName = (pos parseState 2 2, $2);
-            typ = None;
-            right = (pos parseState 4 4, $4);
-            mutable_ = (pos parseState 1 1, false) }}
   | LET tyexpr ID EQUAL expr {
         LetDec {
             varName = (pos parseState 3 3, $3);
-            typ = Some (pos parseState 2 2, $2);
-            right = (pos parseState 5 5, $5);
-            mutable_ = (pos parseState 1 1, false) }}
-  | LET MUTABLE ID EQUAL expr {
-        LetDec {
-            varName = (pos parseState 3 3, $3);
-            typ = None;
-            right = (pos parseState 5 5, $5);
-            mutable_ = (pos parseState 2 2, true) }}
-  | LET MUTABLE tyexpr ID EQUAL expr {
-        LetDec {
-            varName = (pos parseState 4 4, $4);
-            typ = Some (pos parseState 3 3, $3);
-            right = (pos parseState 6 6, $6);
-            mutable_ = (pos parseState 2 2, true)}}
+            typ = (pos parseState 2 2, $2);
+            right = (pos parseState 5 5, $5) }}
 
 exports:
-  | EXPORT LPAREN idList RPAREN { Export (pos parseState 3 3, $3) }
+  | EXPORT LPAREN idList RPAREN { ExportDec (pos parseState 3 3, $3) }
 
 typealiasdec:
   | TYPE ALIAS ID EQUAL tyexpr { 

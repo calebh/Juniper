@@ -109,17 +109,17 @@ let preorder5Fold f g h i j accum0 src =
 let mapToMapFold (f:'b->'b) =
     fun acc elem -> (acc, f elem)
 
-let preorder1Map f src =
+let map1 f src =
     preorder1MapFold (mapToMapFold f) () src |> snd
 
-let preorder2Map f g src =
+let map2 f g src =
     preorder2MapFold (mapToMapFold f) (mapToMapFold g) () src |> snd
 
-let preorder3Map f g h src =
+let map3 f g h src =
     preorder3MapFold (mapToMapFold f) (mapToMapFold g) (mapToMapFold h) () src |> snd
 
-let preorder4Map f g h i src =
+let map4 f g h i src =
     preorder4MapFold (mapToMapFold f) (mapToMapFold g) (mapToMapFold h) (mapToMapFold i) () src |> snd
 
-let preorder5Map f g h i j src =
+let map5 f g h i j src =
     preorder5MapFold (mapToMapFold f) (mapToMapFold g) (mapToMapFold h) (mapToMapFold i) (mapToMapFold j) () src |> snd

@@ -26,11 +26,15 @@ and TypeAliasRec = { name       : PosAdorn<string>;
                      originalTy : PosAdorn<TyExpr>;
                      template   : PosAdorn<Template> option }
 
+and LetDecRec = { varName : PosAdorn<string>;
+                  typ     : PosAdorn<TyExpr>;
+                  right   : PosAdorn<Expr>; }
+
 and Declaration = FunctionDec   of FunctionRec
                 | RecordDec     of RecordRec
                 | UnionDec      of UnionRec
-                | LetDec        of LetRec
-                | Export        of PosAdorn<PosAdorn<string> list>
+                | LetDec        of LetDecRec
+                | ExportDec     of PosAdorn<PosAdorn<string> list>
                 | ModuleNameDec of PosAdorn<string>
                 | TypeAliasDec  of TypeAliasRec
                 | OpenDec       of PosAdorn<PosAdorn<string> list>

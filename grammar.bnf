@@ -14,7 +14,7 @@
 <type-alias>        ::= "type" <id> ["<" <template-dec> ">"] "=" <ty-expr>;
 <algebraic-type>    ::= "type" <id> ["<" <template-dec> ">"] "=" <value-constructor> {"|" <value-constructor>};
 <value-constructor> ::= <id> "(" [<ty-expr> {, <ty-expr>}] ")";
-<let>               ::= "let" ["mutable"] [<ty-expr>] <id> "=" <expr>;
+<let>               ::= "let" <ty-expr> <id> "=" <expr>;
 <function>          ::= "fun" <ty-expr> <id> <template-dec> "(" [<ty-expr> <id> {"," <ty-expr> <id>}] ")" "=" <expr>;
 <declaration-ref>   ::= <id> | <module-qualifier>;
 <ty-expr>           ::= <declaration-ref> ["<" <template-apply> ">"]
@@ -34,7 +34,7 @@
                      |  <expr> "[" <expr> "]"
                      |  <expr> <binary-op> <expr>
                      |  "if" <expr> "then" <expr> [{"elif" <expr> "then" <expr>}] ["else" <expr>] "end"
-                     |  <let>
+                     |  "let" ["mutable"] [<ty-expr>] <id> "=" <expr>
                      |  "set" <left-assign> "=" <expr>
                      |  "for" "(" <expr> ";" <expr> ";" <expr> ")" <expr> "end"
                      |  "do" <expr> "while" "(" <expr> ")"

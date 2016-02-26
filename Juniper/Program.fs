@@ -4,11 +4,16 @@
 module Progam
 open Microsoft.FSharp.Text.Lexing
 
+
 [<EntryPoint>]
 let main argv =
     let parseFromFile (fileName:string) = 
         let fileStr = System.IO.File.ReadAllText fileName
         let lexbuf = LexBuffer<char>.FromString fileStr
+        lexbuf.EndPos <- { pos_bol = 0;
+                           pos_fname=fileName;
+                           pos_cnum=0;
+                           pos_lnum=1 }
         try
             Parser.start Lexer.token lexbuf
         with

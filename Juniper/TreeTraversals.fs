@@ -13,21 +13,24 @@ let rec mapfoldl f accu0 list =
 
 open Microsoft.FSharp.Reflection
 let drill<'accum> (traverse : 'accum->obj->('accum*obj)) (accum0 : 'accum) (o:obj) =
-    let ot = o.GetType()
-    if FSharpType.IsUnion(ot) then
-        let info,vals = FSharpValue.GetUnionFields(o, ot)
-        let (accum1, vals2) = mapfoldl traverse accum0 (Array.toList vals) 
-        (accum1, FSharpValue.MakeUnion(info, List.toArray vals2))
-    elif FSharpType.IsTuple(ot) then
-        let fields = FSharpValue.GetTupleFields(o)
-        let (accum1, fields2) = mapfoldl traverse accum0 (Array.toList fields)
-        (accum1, FSharpValue.MakeTuple(List.toArray fields2, ot))
-    elif FSharpType.IsRecord(ot) then
-        let fields = FSharpValue.GetRecordFields(o)
-        let (accum1, fields2) = mapfoldl traverse accum0 (Array.toList fields)
-        (accum1, FSharpValue.MakeRecord(ot, List.toArray fields2))
-    else
+    if o = null then
         (accum0, o)
+    else
+        let ot = o.GetType()
+        if FSharpType.IsUnion(ot) then
+            let info,vals = FSharpValue.GetUnionFields(o, ot)
+            let (accum1, vals2) = mapfoldl traverse accum0 (Array.toList vals) 
+            (accum1, FSharpValue.MakeUnion(info, List.toArray vals2))
+        elif FSharpType.IsTuple(ot) then
+            let fields = FSharpValue.GetTupleFields(o)
+            let (accum1, fields2) = mapfoldl traverse accum0 (Array.toList fields)
+            (accum1, FSharpValue.MakeTuple(List.toArray fields2, ot))
+        elif FSharpType.IsRecord(ot) then
+            let fields = FSharpValue.GetRecordFields(o)
+            let (accum1, fields2) = mapfoldl traverse accum0 (Array.toList fields)
+            (accum1, FSharpValue.MakeRecord(ot, List.toArray fields2))
+        else
+            (accum0, o)
 
 let mapFoldIdentity acc elem =
     (acc, elem)
@@ -37,6 +40,12 @@ let mapFoldIdentity acc elem =
     Simultaneously maps and folds as the traversal proceeds
     Calls f, g, h, i, j which determine the next accumulated value
     and also the mapping of the current node being considered
+
+    WARNING: Not able to handle option types
+    At runtime, option None values are represented as null and so you cannot determine their runtime type.
+
+    See http://stackoverflow.com/questions/21855356/dynamically-determine-type-of-option-when-it-has-value-none
+    http://stackoverflow.com/questions/13366647/how-to-generalize-f-option
 *)
 open Microsoft.FSharp.Reflection
 let preorder5MapFold<'a,'b,'c,'d,'e,'z,'acc> (f:'acc->'a->('acc*'a)) (g:'acc->'b->('acc*'b)) (h:'acc->'c->('acc*'c)) (i:'acc->'d->('acc*'d)) (j:'acc->'e->('acc*'e)) (accum0 : 'acc) (src:'z) =
@@ -46,24 +55,28 @@ let preorder5MapFold<'a,'b,'c,'d,'e,'z,'acc> (f:'acc->'a->('acc*'a)) (g:'acc->'b
     let it = typeof<'d>
     let jt = typeof<'e>
     let rec traverse (accum1) (o:obj) =
-        let ot = o.GetType()
-        let (accum2, parent) = if ft = ot then
-                                   let (acc, elem) = f accum1 (o :?> 'a)
-                                   (acc, box elem)
-                               elif gt = ot then
-                                   let (acc, elem) = g accum1 (o :?> 'b)
-                                   (acc, box elem)
-                               elif ht = ot then
-                                   let (acc, elem) = h accum1 (o :?> 'c)
-                                   (acc, box elem)
-                               elif it = ot then
-                                   let (acc, elem) = i accum1 (o :?> 'd)
-                                   (acc, box elem)
-                               elif jt = ot then
-                                   let (acc, elem) = j accum1 (o :?> 'e)
-                                   (acc, box elem)
-                               else
-                                    (accum1, o)
+        let (accum2, parent) =
+            if o = null then
+                (accum1, o)
+            else
+                let ot = o.GetType()
+                if ft = ot then
+                    let (acc, elem) = f accum1 (o :?> 'a)
+                    (acc, box elem)
+                elif gt = ot then
+                    let (acc, elem) = g accum1 (o :?> 'b)
+                    (acc, box elem)
+                elif ht = ot then
+                    let (acc, elem) = h accum1 (o :?> 'c)
+                    (acc, box elem)
+                elif it = ot then
+                    let (acc, elem) = i accum1 (o :?> 'd)
+                    (acc, box elem)
+                elif jt = ot then
+                    let (acc, elem) = j accum1 (o :?> 'e)
+                    (acc, box elem)
+                else
+                    (accum1, o)
         drill traverse accum2 parent
     let (accumFinal, tree) = traverse accum0 src
     (accumFinal, ((unbox tree) : 'z))

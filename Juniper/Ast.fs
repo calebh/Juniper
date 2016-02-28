@@ -5,7 +5,7 @@ open Microsoft.FSharp.Text.Lexing
 type Module = Module of PosAdorn<Declaration> list
 
 // Tuple of starting position and ending position
-and PosAdorn<'a> = (Position * Position) * 'a
+and PosAdorn<'a> = (Position * Position) * TyExpr option * 'a
 
 // Top level declarations
 and FunctionRec = { name     : PosAdorn<string>; 
@@ -71,6 +71,7 @@ and TyExpr = BaseTy of PosAdorn<BaseTypes>
            | TyApply of TyApplyRec
            | ArrayTy of ArrayTyRec
            | FunTy of FunTyRec
+           | ForallTy of PosAdorn<string>
 
 and Pattern = MatchVar of PosAdorn<string>
             | MatchModQualifier of ModQualifierRec
@@ -137,4 +138,4 @@ and LeftAssign = VarMutation of VarMutationRec
                | ArrayMutation of ArrayMutationRec
                | RecordMutation of RecordMutationRec
 
-let unwrap<'a> (((a, b), c) : PosAdorn<'a>) = c
+let unwrap<'a> ((_, _, c) : PosAdorn<'a>) = c

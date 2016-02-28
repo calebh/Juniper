@@ -97,101 +97,106 @@ declarationList:
   |                              { [] }
 
 declaration:
-  | moduleNameDec   { (pos parseState 1 1, $1) }
-  | exports         { (pos parseState 1 1, $1) }
-  | fundec          { (pos parseState 1 1, $1) }
-  | recorddec       { (pos parseState 1 1, $1) }
-  | uniondec        { (pos parseState 1 1, $1) }
-  | typealiasdec    { (pos parseState 1 1, $1) }
-  | letdec          { (pos parseState 1 1, $1) }
-  | opendec         { (pos parseState 1 1, $1) }
+  | moduleNameDec   { (pos parseState 1 1, None, $1) }
+  | exports         { (pos parseState 1 1, None, $1) }
+  | fundec          { (pos parseState 1 1, None, $1) }
+  | recorddec       { (pos parseState 1 1, None, $1) }
+  | uniondec        { (pos parseState 1 1, None, $1) }
+  | typealiasdec    { (pos parseState 1 1, None, $1) }
+  | letdec          { (pos parseState 1 1, None, $1) }
+  | opendec         { (pos parseState 1 1, None, $1) }
 
 opendec:
-  | OPEN LPAREN idList RPAREN { OpenDec (pos parseState 3 3, $3) }
+  | OPEN LPAREN idList RPAREN { OpenDec (pos parseState 3 3, None, $3) }
 
 letdec:
   | LET tyexpr ID EQUAL expr {
         LetDec {
-            varName = (pos parseState 3 3, $3);
-            typ = (pos parseState 2 2, $2);
-            right = (pos parseState 5 5, $5) }}
+            varName = (pos parseState 3 3, None, $3);
+            typ = (pos parseState 2 2, None, $2);
+            right = (pos parseState 5 5, None, $5) }}
 
 exports:
-  | EXPORT LPAREN idList RPAREN { ExportDec (pos parseState 3 3, $3) }
+  | EXPORT LPAREN idList RPAREN { ExportDec (pos parseState 3 3, None, $3) }
 
 typealiasdec:
   | TYPE ALIAS ID EQUAL tyexpr { 
         TypeAliasDec {
-            name=(pos parseState 3 3, $3);
-            originalTy=(pos parseState 5 5, $5);
+            name=(pos parseState 3 3, None, $3);
+            originalTy=(pos parseState 5 5, None, $5);
             template=None}}
   | TYPE ALIAS ID LTHAN tycapvars GTHAN EQUAL tyexpr {
         TypeAliasDec {
-            name = (pos parseState 3 3, $3);
-            originalTy = (pos parseState 8 8, $8);
-            template = Some (pos parseState 5 5, $5)}}
+            name = (pos parseState 3 3, None, $3);
+            originalTy = (pos parseState 8 8, None, $8);
+            template = Some (pos parseState 5 5, None, $5)}}
 
 moduleNameDec:
-  | MODULE ID             { ModuleNameDec (pos parseState 2 2, $2) }
+  | MODULE ID             { ModuleNameDec (pos parseState 2 2, None, $2) }
 
 fundec:
   | FUN tyexpr ID LPAREN funargList RPAREN EQUAL expr {
         FunctionDec {
-             name=(pos parseState 3 3, $3);
+             name=(pos parseState 3 3, None, $3);
              template=None;
-             clause=(pos parseState 4 8, FunctionClause {
-                 arguments=(pos parseState 5 5, $5);
-                 body=(pos parseState 8 8, $8)});
-             returnTy=(pos parseState 2 2, $2)}}
+             clause=(pos parseState 4 8, None, FunctionClause {
+                 arguments=(pos parseState 5 5, None, $5);
+                 body=(pos parseState 8 8, None, $8)});
+             returnTy=(pos parseState 2 2, None, $2)}}
 
   | FUN tyexpr ID LTHAN tycapvars GTHAN LPAREN funargList RPAREN EQUAL expr {
         FunctionDec {
-             name = (pos parseState 3 3, $3);
-             template = Some (pos parseState 5 5, $5);
-             clause = (pos parseState 7 11, FunctionClause {
-                arguments = (pos parseState 8 8, $8);
-                body = (pos parseState 11 11, $11)});
-             returnTy = (pos parseState 2 2, $2)}}
+             name = (pos parseState 3 3, None, $3);
+             template = Some (pos parseState 5 5, None, $5);
+             clause = (pos parseState 7 11, None, FunctionClause {
+                arguments = (pos parseState 8 8, None, $8);
+                body = (pos parseState 11 11, None, $11)});
+             returnTy = (pos parseState 2 2, None, $2)}}
 
 funargList:
-  | tyexpr ID COMMA funargList  {((pos parseState 1 1, $1), (pos parseState 2 2, $2)) :: $4}
-  | tyexpr ID                   {[((pos parseState 1 1, $1), (pos parseState 2 2, $2))]}
+  | tyexpr ID COMMA funargList  {((pos parseState 1 1, None, $1), (pos parseState 2 2, None, $2)) :: $4}
+  | tyexpr ID                   {[((pos parseState 1 1, None, $1), (pos parseState 2 2, None, $2))]}
   |                             {[]}
 
 tycapvars:
-  | idList SEMICOLON idList  { Template {tyVars=(pos parseState 1 1, $1); capVars=(pos parseState 3 3, $3)} }
-  | idList                   { Template {tyVars=(pos parseState 1 1, $1); capVars=(pos parseState 1 1, [])} }
+  | tyVarList SEMICOLON idList  { Template {tyVars=(pos parseState 1 1, None, $1); capVars=(pos parseState 3 3, None, $3)} }
+  | tyVarList                   { Template {tyVars=(pos parseState 1 1, None, $1); capVars=(pos parseState 1 1, None, [])} }
+
+tyVarList:
+  | TICK ID COMMA tyVarList {(pos parseState 1 2, None, $2) :: $4}
+  | TICK ID                 {[(pos parseState 1 2, None, $2)]}
+  |                         {[]}
 
 idList:
-  | ID COMMA idList         { (pos parseState 1 1, $1)::$3 }
-  | ID                      { [(pos parseState 1 1, $1)] }
+  | ID COMMA idList         { (pos parseState 1 1, None, $1)::$3 }
+  | ID                      { [(pos parseState 1 1, None, $1)] }
   |                         { [] }
 
 tycapExprs:
-  | tyExprs SEMICOLON capExprs {TemplateApply {tyExprs=(pos parseState 1 1, $1); capExprs=(pos parseState 3 3, $3)}}
-  | tyExprs                    {TemplateApply {tyExprs=(pos parseState 1 1, $1); capExprs=(pos parseState 1 1, [])}}
+  | tyExprs SEMICOLON capExprs {TemplateApply {tyExprs=(pos parseState 1 1, None, $1); capExprs=(pos parseState 3 3, None, $3)}}
+  | tyExprs                    {TemplateApply {tyExprs=(pos parseState 1 1, None, $1); capExprs=(pos parseState 1 1, None, [])}}
 
 tyExprs:
-  | tyexpr COMMA tyExprs {(pos parseState 1 1, $1)::$3}
-  | tyexpr               {[(pos parseState 1 1, $1)]}
+  | tyexpr COMMA tyExprs {(pos parseState 1 1, None, $1)::$3}
+  | tyexpr               {[(pos parseState 1 1, None, $1)]}
   |                      { [] }
 
 capExprs:
-  | capexpr COMMA capExprs  { (pos parseState 1 1, $1)::$3 }
-  | capexpr                 { [(pos parseState 1 1, $1)] }
+  | capexpr COMMA capExprs  { (pos parseState 1 1, None, $1)::$3 }
+  | capexpr                 { [(pos parseState 1 1, None, $1)] }
   |                         { [] }
 
 recorddec:
   | TYPE ID EQUAL LCURLYBRACE recordDecList RCURLYBRACE {
         RecordDec {
-            name =     (pos parseState 2 2, $2);
-            fields =   (pos parseState 5 5, $5);
+            name =     (pos parseState 2 2, None, $2);
+            fields =   (pos parseState 5 5, None, $5);
             template = None}}
   | TYPE ID LTHAN tycapvars GTHAN EQUAL LCURLYBRACE recordDecList RCURLYBRACE {
         RecordDec {
-            name =     (pos parseState 2 2, $2);
-            fields =   (pos parseState 8 8, $8);
-            template = Some (pos parseState 4 4, $4)}}
+            name =     (pos parseState 2 2, None, $2);
+            fields =   (pos parseState 8 8, None, $8);
+            template = Some (pos parseState 4 4, None, $4)}}
 
 recordDecList:
   | tyexpr ID SEMICOLON recordDecList  {($1, $2) :: $4}
@@ -201,14 +206,14 @@ recordDecList:
 uniondec:
   | TYPE ID EQUAL valueConList                       {
         UnionDec {
-            name =     (pos parseState 2 2, $2);
-            valCons =  (pos parseState 4 4, $4);
+            name =     (pos parseState 2 2, None, $2);
+            valCons =  (pos parseState 4 4, None, $4);
             template = None}}
   | TYPE ID LTHAN tycapvars GTHAN EQUAL valueConList {
         UnionDec {
-            name =     (pos parseState 2 2, $2);
-            valCons =  (pos parseState 7 7, $7);
-            template = Some (pos parseState 4 4, $4)}}
+            name =     (pos parseState 2 2, None, $2);
+            valCons =  (pos parseState 7 7, None, $7);
+            template = Some (pos parseState 4 4, None, $4)}}
 
 valueConList:
   | valueCon PIPE valueConList {$1 :: $3}
@@ -216,277 +221,278 @@ valueConList:
   |                            {[]}
 
 valueCon:
-  | ID LPAREN tyexprList RPAREN {((pos parseState 1 1, $1), (pos parseState 3 3, $3))}
+  | ID LPAREN tyexprList RPAREN {((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3))}
 
 seqExprList:
-  | expr SEMICOLON seqExprList {(pos parseState 1 1, $1)::$3}
-  | expr                       {[(pos parseState 1 1, $1)]}
+  | expr SEMICOLON seqExprList {(pos parseState 1 1, None, $1)::$3}
+  | expr                       {[(pos parseState 1 1, None, $1)]}
 
 recordInitList:
-  | ID EQUAL expr SEMICOLON recordInitList { ((pos parseState 1 1, $1),(pos parseState 3 3, $3))::$5 }
-  | ID EQUAL expr                          { [((pos parseState 1 1, $1),(pos parseState 3 3, $3))] }
+  | ID EQUAL expr SEMICOLON recordInitList { ((pos parseState 1 1, None, $1),(pos parseState 3 3, None, $3))::$5 }
+  | ID EQUAL expr                          { [((pos parseState 1 1, None, $1),(pos parseState 3 3, None, $3))] }
   |                                        { [] }
 
 expr:
   // Calling a function with no templates
   | expr LPAREN callExprList RPAREN {
         CallExp {
-            func = (pos parseState 1 1, $1);
+            func = (pos parseState 1 1, None, $1);
             templateArgs = None;
-            args = (pos parseState 3 3, $3)}}
+            args = (pos parseState 3 3, None, $3)}}
   // Calling a function in the same module with a template  
   | ID LTHAN tycapExprs GTHAN LPAREN callExprList RPAREN {
         CallExp {
-            func = (pos parseState 1 1, VarExp { name = (pos parseState 1 1, $1) });
-            templateArgs = Some (pos parseState 3 3, $3);
-            args = (pos parseState 6 6, $6)} }
+            func = (pos parseState 1 1, None, VarExp { name = (pos parseState 1 1, None, $1) });
+            templateArgs = Some (pos parseState 3 3, None, $3);
+            args = (pos parseState 6 6, None, $6)} }
   // Calling a function in another module with a template
   | ID COLON ID LTHAN tycapExprs GTHAN LPAREN callExprList RPAREN {
         CallExp {
-            func = (pos parseState 1 1, ModQualifierExp {module_=(pos parseState 1 1, $1); name=(pos parseState 3 3, $3)});
-            templateArgs = Some (pos parseState 5 5, $5);
-            args = (pos parseState 8 8, $8)} }
+            func = (pos parseState 1 1, None, ModQualifierExp {module_=(pos parseState 1 1, None, $1); name=(pos parseState 3 3, None, $3)});
+            templateArgs = Some (pos parseState 5 5, None, $5);
+            args = (pos parseState 8 8, None, $8)} }
   // Accessing an array element
   | expr LBRACK expr RBRACK {
         ArrayAccessExp {
-            array = (pos parseState 1 1, $1);
-            index = (pos parseState 3 3, $3)}}
+            array = (pos parseState 1 1, None, $1);
+            index = (pos parseState 3 3, None, $3)}}
   // Sequence of expressions separated by semicolons
-  | LPAREN seqExprList RPAREN         {SequenceExp {exps=(pos parseState 2 2, $2)}}
+  | LPAREN seqExprList RPAREN         {SequenceExp {exps=(pos parseState 2 2, None, $2)}}
   // If statement with no else
   | IF expr THEN expr END {
         IfElseExp {
-            condition = (pos parseState 2 2, $2);
-            trueBranch = (pos parseState 4 4, $4);
-            falseBranch = (pos parseState 5 5, UnitExp (pos parseState 5 5, ()))}}
+            condition = (pos parseState 2 2, None, $2);
+            trueBranch = (pos parseState 4 4, None, $4);
+            falseBranch = (pos parseState 5 5, None, UnitExp (pos parseState 5 5, None, ()))}}
   // If statement with elifs and/or else statements
   | IF expr THEN expr elifList {
         IfElseExp {
-            condition = (pos parseState 2 2, $2);
-            trueBranch = (pos parseState 4 4, $4);
-            falseBranch = (pos parseState 5 5, $5)}}
+            condition = (pos parseState 2 2, None, $2);
+            trueBranch = (pos parseState 4 4, None, $4);
+            falseBranch = (pos parseState 5 5, None, $5)}}
   // Let statment with type inference
   | LET ID EQUAL expr {
         LetExp {
-            varName = (pos parseState 2 2, $2);
+            varName = (pos parseState 2 2, None, $2);
             typ = None;
-            right = (pos parseState 4 4, $4);
-            mutable_ = (pos parseState 1 1, false) }}
+            right = (pos parseState 4 4, None, $4);
+            mutable_ = (pos parseState 1 1, None, false) }}
   // Let statement with type constraint
   | LET tyexpr ID EQUAL expr {
         LetExp {
-            varName = (pos parseState 3 3, $3);
-            typ = Some (pos parseState 2 2, $2);
-            right = (pos parseState 5 5, $5);
-            mutable_ = (pos parseState 1 1, false) }}
+            varName = (pos parseState 3 3, None, $3);
+            typ = Some (pos parseState 2 2, None, $2);
+            right = (pos parseState 5 5, None, $5);
+            mutable_ = (pos parseState 1 1, None, false) }}
   // Let mutable statement with type inference
   | LET MUTABLE ID EQUAL expr {
         LetExp {
-            varName = (pos parseState 3 3, $3);
+            varName = (pos parseState 3 3, None, $3);
             typ = None;
-            right = (pos parseState 5 5, $5);
-            mutable_ = (pos parseState 2 2, true) }}
+            right = (pos parseState 5 5, None, $5);
+            mutable_ = (pos parseState 2 2, None, true) }}
   // Let mutable statement without type inference
   | LET MUTABLE tyexpr ID EQUAL expr {
         LetExp {
-            varName = (pos parseState 4 4, $4);
-            typ = Some (pos parseState 3 3, $3);
-            right = (pos parseState 6 6, $6);
-            mutable_ = (pos parseState 2 2, true)}}
+            varName = (pos parseState 4 4, None, $4);
+            typ = Some (pos parseState 3 3, None, $3);
+            right = (pos parseState 6 6, None, $6);
+            mutable_ = (pos parseState 2 2, None, true)}}
   // Set expression for mutating a variable
   | SET leftAssign EQUAL expr {
         AssignExp {
-            left = (pos parseState 2 2, $2);
-            right = (pos parseState 4 4, $4) } }
+            left = (pos parseState 2 2, None, $2);
+            right = (pos parseState 4 4, None, $4) } }
   // For loop
   | FOR LPAREN expr SEMICOLON expr SEMICOLON expr RPAREN expr END {
         ForLoopExp {
-            init = (pos parseState 3 3, $3);
-            condition = (pos parseState 5 5, $5);
-            afterthought = (pos parseState 7 7, $7) }}
+            init = (pos parseState 3 3, None, $3);
+            condition = (pos parseState 5 5, None, $5);
+            afterthought = (pos parseState 7 7, None, $7) }}
   // Do loop
   | DO expr WHILE LPAREN expr RPAREN {
         DoWhileLoopExp {
-            condition = (pos parseState 5 5, $5);
-            body = (pos parseState 2 2, $2) }}
+            condition = (pos parseState 5 5, None, $5);
+            body = (pos parseState 2 2, None, $2) }}
   | WHILE LPAREN expr RPAREN expr END {
         WhileLoopExp {
-            condition = (pos parseState 3 3, $3);
-            body = (pos parseState 5 5, $5) }}
+            condition = (pos parseState 3 3, None, $3);
+            body = (pos parseState 5 5, None, $5) }}
   | moduleQualifier                   {ModQualifierExp $1}
-  | NOT expr                          {UnaryOpExp {op = (pos parseState 1 1, LogicalNot); exp = (pos parseState 2 2, $2)}}
-  | TILDE TILDE TILDE expr            {UnaryOpExp {op = (pos parseState 1 3, BitwiseNot); exp = (pos parseState 4 4, $4)}}
-  | UNIT                              {UnitExp (pos parseState 1 1, ())}
-  | TRUE                              {TrueExp (pos parseState 1 1, ())}
-  | FALSE                             {FalseExp (pos parseState 1 1, ())}
+  | NOT expr                          {UnaryOpExp {op = (pos parseState 1 1, None, LogicalNot); exp = (pos parseState 2 2, None, $2)}}
+  | TILDE TILDE TILDE expr            {UnaryOpExp {op = (pos parseState 1 3, None, BitwiseNot); exp = (pos parseState 4 4, None, $4)}}
+  | UNIT                              {UnitExp (pos parseState 1 1, None, ())}
+  | TRUE                              {TrueExp (pos parseState 1 1, None, ())}
+  | FALSE                             {FalseExp (pos parseState 1 1, None, ())}
   | expr DOT ID {
         RecordAccessExp {
-            record = (pos parseState 1 1, $1);
-            fieldName = (pos parseState 3 3, $3)}}
-  | expr PLUS expr                          {BinaryOpExp {op = (pos parseState 2 2, Add); left=(pos parseState 1 1, $1); right=(pos parseState 3 3, $3)}}
-  | expr MINUS expr                         {BinaryOpExp {op = (pos parseState 2 2, Subtract); left=(pos parseState 1 1, $1); right=(pos parseState 3 3, $3)}}
-  | expr TIMES expr                         {BinaryOpExp {op = (pos parseState 2 2, Multiply); left=(pos parseState 1 1, $1); right=(pos parseState 3 3, $3)}}
-  | expr DIVIDE expr                        {BinaryOpExp {op = (pos parseState 2 2, Divide); left=(pos parseState 1 1, $1); right=(pos parseState 3 3, $3)}}
-  | expr MOD expr                           {BinaryOpExp {op = (pos parseState 2 2, Modulo); left=(pos parseState 1 1, $1); right=(pos parseState 3 3, $3)}}
-  | expr AND expr                           {BinaryOpExp {op = (pos parseState 2 2, LogicalAnd); left=(pos parseState 1 1, $1); right=(pos parseState 3 3, $3)}}
-  | expr OR expr                            {BinaryOpExp {op = (pos parseState 2 2, LogicalOr); left=(pos parseState 1 1, $1); right=(pos parseState 3 3, $3)}}
-  | expr AMPERSAND AMPERSAND AMPERSAND expr {BinaryOpExp {op = (pos parseState 2 2, BitwiseAnd); left=(pos parseState 1 1, $1); right=(pos parseState 5 5, $5)}}
-  | expr PIPE PIPE PIPE expr                {BinaryOpExp {op = (pos parseState 2 2, BitwiseOr); left=(pos parseState 1 1, $1); right=(pos parseState 5 5, $5)}}
-  | expr GTHANEQ expr                       {BinaryOpExp {op = (pos parseState 2 2, GreaterOrEqual); left=(pos parseState 1 1, $1); right=(pos parseState 3 3, $3)}}
-  | expr LTHANEQ expr                       {BinaryOpExp {op = (pos parseState 2 2, LessOrEqual); left=(pos parseState 1 1, $1); right=(pos parseState 3 3, $3)}}
-  | expr GTHAN expr                         {BinaryOpExp {op = (pos parseState 2 2, Greater); left=(pos parseState 1 1, $1); right=(pos parseState 3 3, $3)}}
-  | expr LTHAN expr                         {BinaryOpExp {op = (pos parseState 2 2, Less); left=(pos parseState 1 1, $1); right=(pos parseState 3 3, $3)}}
-  | expr DOUBLEEQUAL expr                   {BinaryOpExp {op = (pos parseState 2 2, Equal); left=(pos parseState 1 1, $1); right=(pos parseState 3 3, $3)}}
-  | expr NOTEQUAL expr                      {BinaryOpExp {op = (pos parseState 2 2, NotEqual); left=(pos parseState 1 1, $1); right=(pos parseState 3 3, $3)}}
+            record = (pos parseState 1 1, None, $1);
+            fieldName = (pos parseState 3 3, None, $3)}}
+  | expr PLUS expr                          {BinaryOpExp {op = (pos parseState 2 2, None, Add); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
+  | expr MINUS expr                         {BinaryOpExp {op = (pos parseState 2 2, None, Subtract); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
+  | expr TIMES expr                         {BinaryOpExp {op = (pos parseState 2 2, None, Multiply); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
+  | expr DIVIDE expr                        {BinaryOpExp {op = (pos parseState 2 2, None, Divide); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
+  | expr MOD expr                           {BinaryOpExp {op = (pos parseState 2 2, None, Modulo); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
+  | expr AND expr                           {BinaryOpExp {op = (pos parseState 2 2, None, LogicalAnd); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
+  | expr OR expr                            {BinaryOpExp {op = (pos parseState 2 2, None, LogicalOr); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
+  | expr AMPERSAND AMPERSAND AMPERSAND expr {BinaryOpExp {op = (pos parseState 2 2, None, BitwiseAnd); left=(pos parseState 1 1, None, $1); right=(pos parseState 5 5, None, $5)}}
+  | expr PIPE PIPE PIPE expr                {BinaryOpExp {op = (pos parseState 2 2, None, BitwiseOr); left=(pos parseState 1 1, None, $1); right=(pos parseState 5 5, None, $5)}}
+  | expr GTHANEQ expr                       {BinaryOpExp {op = (pos parseState 2 2, None, GreaterOrEqual); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
+  | expr LTHANEQ expr                       {BinaryOpExp {op = (pos parseState 2 2, None, LessOrEqual); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
+  | expr GTHAN expr                         {BinaryOpExp {op = (pos parseState 2 2, None, Greater); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
+  | expr LTHAN expr                         {BinaryOpExp {op = (pos parseState 2 2, None, Less); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
+  | expr DOUBLEEQUAL expr                   {BinaryOpExp {op = (pos parseState 2 2, None, Equal); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
+  | expr NOTEQUAL expr                      {BinaryOpExp {op = (pos parseState 2 2, None, NotEqual); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
   | FN tyexpr LPAREN funargList RPAREN MINUS GTHAN expr {
         LambdaExp {
-            clause = (pos parseState 4 8, FunctionClause {
-                arguments = (pos parseState 4 4, $4);
-                body = (pos parseState 8 8, $8)});
-            returnTy = (pos parseState 2 2, $2) }}
-  | ID                                { VarExp { name = (pos parseState 1 1, $1) }}
-  | INT                               { IntExp (pos parseState 1 1, $1) }
-  | FLOAT                             { FloatExp (pos parseState 1 1, $1) }
+            clause = (pos parseState 4 8, None, FunctionClause {
+                arguments = (pos parseState 4 4, None, $4);
+                body = (pos parseState 8 8, None, $8)});
+            returnTy = (pos parseState 2 2, None, $2) }}
+  | ID                                { VarExp { name = (pos parseState 1 1, None, $1) }}
+  | INT                               { IntExp (pos parseState 1 1, None, $1) }
+  | FLOAT                             { FloatExp (pos parseState 1 1, None, $1) }
   | CASE expr OF caseClauseList END   {
         CaseExp {
-            on = (pos parseState 2 2, $2);
-            clauses = (pos parseState 4 4, $4)}}
+            on = (pos parseState 2 2, None, $2);
+            clauses = (pos parseState 4 4, None, $4)}}
   | ID LCURLYBRACE recordInitList RCURLYBRACE {
         RecordExp {
-            recordTy = (pos parseState 1 1, TyName (pos parseState 1 1, $1));
-            initFields = (pos parseState 3 3, $3);
+            recordTy = (pos parseState 1 1, None, TyName (pos parseState 1 1, None, $1));
+            initFields = (pos parseState 3 3, None, $3);
             templateArgs=None } }
   | ID COLON ID LCURLYBRACE recordInitList RCURLYBRACE {
         RecordExp {
-            recordTy = (pos parseState 1 3, TyModuleQualifier{module_=(pos parseState 1 1, $1); name=(pos parseState 3 3, $3)});
-            initFields = (pos parseState 5 5, $5);
+            recordTy = (pos parseState 1 3, None, TyModuleQualifier{module_=(pos parseState 1 1, None, $1); name=(pos parseState 3 3, None, $3)});
+            initFields = (pos parseState 5 5, None, $5);
             templateArgs=None} }
   | ID LTHAN tycapExprs GTHAN LCURLYBRACE recordInitList RCURLYBRACE {
         RecordExp {
-            recordTy = (pos parseState 1 1, TyName (pos parseState 1 1, $1));
-            initFields = (pos parseState 6 6, $6);
-            templateArgs = Some (pos parseState 3 3, $3) } }
+            recordTy = (pos parseState 1 1, None, TyName (pos parseState 1 1, None, $1));
+            initFields = (pos parseState 6 6, None, $6);
+            templateArgs = Some (pos parseState 3 3, None, $3) } }
   | ID COLON ID LTHAN tycapExprs GTHAN LCURLYBRACE recordInitList RCURLYBRACE {
         RecordExp { 
-            recordTy = (pos parseState 1 3, TyModuleQualifier{
-                module_ = (pos parseState 1 1, $1);
-                name = (pos parseState 3 3, $3)});
-            initFields = (pos parseState 8 8, $8);
-            templateArgs = Some (pos parseState 5 5, $5)} }
-  | LBRACK seqExprList RBRACK { ListLitExp (pos parseState 2 2, $2) }
+            recordTy = (pos parseState 1 3, None, TyModuleQualifier{
+                module_ = (pos parseState 1 1, None, $1);
+                name = (pos parseState 3 3, None, $3)});
+            initFields = (pos parseState 8 8, None, $8);
+            templateArgs = Some (pos parseState 5 5, None, $5)} }
+  | LBRACK seqExprList RBRACK { ListLitExp (pos parseState 2 2, None, $2) }
 
 caseClauseList:
-  | pattern RFATARROW expr PIPE caseClauseList { ((pos parseState 1 1, $1), (pos parseState 3 3, $3))::$5 }
-  | pattern RFATARROW expr                     { [((pos parseState 1 1, $1), (pos parseState 3 3, $3))] }
+  | pattern RFATARROW expr PIPE caseClauseList { ((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3))::$5 }
+  | pattern RFATARROW expr                     { [((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3))] }
 
 pattern:
-  | INT                                              { MatchIntVal (pos parseState 1 1, $1)}
-  | FLOAT                                            { MatchFloatVal (pos parseState 1 1, $1)}
-  | ID                                               { MatchVar (pos parseState 1 1, $1)}
+  | INT                                              { MatchIntVal (pos parseState 1 1, None, $1)}
+  | FLOAT                                            { MatchFloatVal (pos parseState 1 1, None, $1)}
+  | ID                                               { MatchVar (pos parseState 1 1, None, $1)}
   | UNDERSCORE                                       { MatchUnderscore}
-  | ID LPAREN valConPatternList RPAREN               { MatchValCon ((pos parseState 1 1, $1), (pos parseState 3 3, $3))}
-  | moduleQualifier LPAREN valConPatternList RPAREN  { MatchValConModQualifier ((pos parseState 1 1, $1), (pos parseState 3 3, $3))}
-  | ID LCURLYBRACE recPatternList RCURLYBRACE        { MatchRecCon ((pos parseState 1 1, $1), (pos parseState 3 3, $3))}
-  | moduleQualifier LCURLYBRACE recPatternList RCURLYBRACE { MatchRecConModQualifier ((pos parseState 1 1, $1), (pos parseState 3 3, $3))}
+  | ID LPAREN valConPatternList RPAREN               { MatchValCon ((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3))}
+  | moduleQualifier LPAREN valConPatternList RPAREN  { MatchValConModQualifier ((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3))}
+  | ID LCURLYBRACE recPatternList RCURLYBRACE        { MatchRecCon ((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3))}
+  | moduleQualifier LCURLYBRACE recPatternList RCURLYBRACE { MatchRecConModQualifier ((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3))}
 
 valConPatternList:
-  | pattern COMMA valConPatternList {(pos parseState 1 1, $1) :: $3}
-  | pattern                         {[(pos parseState 1 1, $1)]}
+  | pattern COMMA valConPatternList {(pos parseState 1 1, None, $1) :: $3}
+  | pattern                         {[(pos parseState 1 1, None, $1)]}
   |                                 {[]}
 
 recPatternList:
-  | ID EQUAL pattern SEMICOLON recPatternList { ((pos parseState 1 1, $1), (pos parseState 3 3, $3)) :: $5}
-  | ID EQUAL pattern                          { [((pos parseState 1 1, $1), (pos parseState 3 3, $3))]}
+  | ID EQUAL pattern SEMICOLON recPatternList { ((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3)) :: $5}
+  | ID EQUAL pattern                          { [((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3))]}
   |                                           {[]}
 
 elifList:
   | ELSE expr END {$2}
   | ELIF expr THEN expr END {
         IfElseExp {
-            condition = (pos parseState 2 2, $2);
-            trueBranch = (pos parseState 4 4, $4);
-            falseBranch = (pos parseState 5 5, UnitExp (pos parseState 5 5, ()))}}
+            condition = (pos parseState 2 2, None, $2);
+            trueBranch = (pos parseState 4 4, None, $4);
+            falseBranch = (pos parseState 5 5, None, UnitExp (pos parseState 5 5, None, ()))}}
   | ELIF expr THEN expr elifList {
         IfElseExp {
-            condition = (pos parseState 2 2, $2);
-            trueBranch = (pos parseState 4 4, $4);
-            falseBranch = (pos parseState 5 5, $5) }}
+            condition = (pos parseState 2 2, None, $2);
+            trueBranch = (pos parseState 4 4, None, $4);
+            falseBranch = (pos parseState 5 5, None, $5) }}
 
 callExprList:
-  | expr COMMA callExprList {(pos parseState 1 1, $1)::$3}
-  | expr                    {[(pos parseState 1 1, $1)]}
+  | expr COMMA callExprList {(pos parseState 1 1, None, $1)::$3}
+  | expr                    {[(pos parseState 1 1, None, $1)]}
   |                         {[]}  
 
 tyexpr:
   | moduleQualifier LTHAN nonEmptyTyExprList GTHAN {
         TyApply {
-            tyConstructor = (pos parseState 1 1, TyModuleQualifier $1);
-            args = (pos parseState 3 3, $3)}}
+            tyConstructor = (pos parseState 1 1, None, TyModuleQualifier $1);
+            args = (pos parseState 3 3, None, $3)}}
   | ID LTHAN nonEmptyTyExprList GTHAN {
         TyApply {
-            tyConstructor = (pos parseState 1 1, TyName (pos parseState 1 1, $1));
-            args = (pos parseState 3 3, $3)}}
+            tyConstructor = (pos parseState 1 1, None, TyName (pos parseState 1 1, None, $1));
+            args = (pos parseState 3 3, None, $3)}}
   | LPAREN tyexprList RPAREN MINUS GTHAN tyexpr {
         FunTy {
-            args = (pos parseState 2 2, $2);
-            returnType = (pos parseState 6 6, $6)}}
+            args = (pos parseState 2 2, None, $2);
+            returnType = (pos parseState 6 6, None, $6)}}
   | ID LBRACK capexpr RBRACK {
         ArrayTy {
-            valueType = (pos parseState 1 1, TyName (pos parseState 1 1, $1));
-            capacity = (pos parseState 3 3, $3)}}
+            valueType = (pos parseState 1 1, None, TyName (pos parseState 1 1, None, $1));
+            capacity = (pos parseState 3 3, None, $3)}}
   | moduleQualifier LBRACK capexpr RBRACK {
         ArrayTy {
-            valueType = (pos parseState 1 1, TyModuleQualifier $1);
-            capacity = (pos parseState 3 3, $3)}}
-| ID { match $1 with
-           | "uint8" -> BaseTy (pos parseState 1 1, TyUint8)
-           | "uint16" -> BaseTy (pos parseState 1 1, TyUint16)
-           | "uint32" -> BaseTy (pos parseState 1 1, TyUint32)
-           | "uint64" -> BaseTy (pos parseState 1 1, TyUint64)
-           | "int8" -> BaseTy (pos parseState 1 1, TyInt8)
-           | "int16" -> BaseTy (pos parseState 1 1, TyInt16)
-           | "int32" -> BaseTy (pos parseState 1 1, TyInt32)
-           | "int64" -> BaseTy (pos parseState 1 1, TyInt64)
-           | "bool" -> BaseTy (pos parseState 1 1, TyBool)
-           | _ -> TyName (pos parseState 1 1, $1) }
+            valueType = (pos parseState 1 1, None, TyModuleQualifier $1);
+            capacity = (pos parseState 3 3, None, $3)}}
+  | TICK ID { ForallTy (pos parseState 2 2, None, $2) }
+  | ID { match $1 with
+             | "uint8" -> BaseTy (pos parseState 1 1, None, TyUint8)
+             | "uint16" -> BaseTy (pos parseState 1 1, None, TyUint16)
+             | "uint32" -> BaseTy (pos parseState 1 1, None, TyUint32)
+             | "uint64" -> BaseTy (pos parseState 1 1, None, TyUint64)
+             | "int8" -> BaseTy (pos parseState 1 1, None, TyInt8)
+             | "int16" -> BaseTy (pos parseState 1 1, None, TyInt16)
+             | "int32" -> BaseTy (pos parseState 1 1, None, TyInt32)
+             | "int64" -> BaseTy (pos parseState 1 1, None, TyInt64)
+             | "bool" -> BaseTy (pos parseState 1 1, None, TyBool)
+             | _ -> TyName (pos parseState 1 1, None, $1) }
 
 nonEmptyTyExprList:
-  | tyexpr COMMA nonEmptyTyExprList {(pos parseState 1 1, $1)::$3}
-  | tyexpr                          {[(pos parseState 1 1, $1)]}
+  | tyexpr COMMA nonEmptyTyExprList {(pos parseState 1 1, None, $1)::$3}
+  | tyexpr                          {[(pos parseState 1 1, None, $1)]}
 
 tyexprList:
-  | tyexpr COMMA tyexprList {(pos parseState 1 1, $1)::$3}
-  | tyexpr                  {[(pos parseState 1 1, $1)]}
+  | tyexpr COMMA tyexprList {(pos parseState 1 1, None, $1)::$3}
+  | tyexpr                  {[(pos parseState 1 1, None, $1)]}
   |                         {[]}
 
 capexpr:
-  | ID                              { CapacityNameExpr (pos parseState 1 1, $1)}
-  | INT                             { CapacityConst (pos parseState 1 1, $1) }
+  | ID                              { CapacityNameExpr (pos parseState 1 1, None, $1)}
+  | INT                             { CapacityConst (pos parseState 1 1, None, $1) }
   | capexpr PLUS capexpr {
         CapacityOp {
-            left = (pos parseState 1 1, $1);
-            op = (pos parseState 2 2, CAPPLUS);
-            right = (pos parseState 3 3, $3)}}
+            left = (pos parseState 1 1, None, $1);
+            op = (pos parseState 2 2, None, CAPPLUS);
+            right = (pos parseState 3 3, None, $3)}}
   | capexpr MINUS  capexpr {
         CapacityOp {
-            left = (pos parseState 1 1, $1);
-            op = (pos parseState 2 2, CAPMINUS);
-            right = (pos parseState 3 3, $3)} }
+            left = (pos parseState 1 1, None, $1);
+            op = (pos parseState 2 2, None, CAPMINUS);
+            right = (pos parseState 3 3, None, $3)} }
   | capexpr DIVIDE capexpr {
         CapacityOp {
-            left = (pos parseState 1 1, $1);
-            op = (pos parseState 2 2, CAPDIVIDE);
-            right = (pos parseState 3 3, $3)} }
+            left = (pos parseState 1 1, None, $1);
+            op = (pos parseState 2 2, None, CAPDIVIDE);
+            right = (pos parseState 3 3, None, $3)} }
   | capexpr TIMES  capexpr {
         CapacityOp {
-            left = (pos parseState 1 1, $1);
-            op=(pos parseState 2 2, CAPMULTIPLY);
-            right = (pos parseState 3 3, $3)} }
+            left = (pos parseState 1 1, None, $1);
+            op=(pos parseState 2 2, None, CAPMULTIPLY);
+            right = (pos parseState 3 3, None, $3)} }
 
 moduleQualifier:
-  | ID COLON ID { {module_=(pos parseState 1 1, $1); name=(pos parseState 3 3, $3)} }
+  | ID COLON ID { {module_=(pos parseState 1 1, None, $1); name=(pos parseState 3 3, None, $3)} }
 
 leftAssign:
-  | leftAssign LBRACK expr RBRACK { ArrayMutation { array = (pos parseState 1 1, $1); index = (pos parseState 3 3, $3) } }
-  | leftAssign DOT ID             { RecordMutation { record = (pos parseState 1 1, $1); fieldName = (pos parseState 3 3, $3) } }
-  | ID                            { VarMutation { varName = (pos parseState 1 1, $1) } }
+  | leftAssign LBRACK expr RBRACK { ArrayMutation { array = (pos parseState 1 1, None, $1); index = (pos parseState 3 3, None, $3) } }
+  | leftAssign DOT ID             { RecordMutation { record = (pos parseState 1 1, None, $1); fieldName = (pos parseState 3 3, None, $3) } }
+  | ID                            { VarMutation { varName = (pos parseState 1 1, None, $1) } }

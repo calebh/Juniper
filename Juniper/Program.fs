@@ -17,7 +17,7 @@ let main argv =
         try
             Parser.start Lexer.token lexbuf
         with
-          | _ -> printfn "Syntax error in %s on line %d, column %d" fileName (lexbuf.StartPos.Line+1) (lexbuf.StartPos.Column+1);
+          | _ -> printfn "Syntax error in %s on line %d, column %d" fileName (lexbuf.StartPos.Line) (lexbuf.StartPos.Column);
                  failwith "Syntax error"
     let fnames = List.map System.IO.Path.GetFullPath (List.ofArray argv)
     let asts = List.map parseFromFile fnames

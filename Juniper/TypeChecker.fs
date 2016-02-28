@@ -3,67 +3,70 @@
 open Ast
 open Microsoft.FSharp.Text.Lexing
 
+let posString (p1 : Position, p2 : Position) : string = 
+    sprintf "file %s, line %d column %d to line %d column %d" p1.FileName p1.Line p1.Column p2.Line p2.Column
+
 let nameInModule (Module decs) =
     let names = List.filter (fun dec -> match dec with
-                                            | (_, ModuleNameDec _) -> true
+                                            | (_, _, ModuleNameDec _) -> true
                                             | _ -> false) decs
     match names with
-        | [((_, _), ModuleNameDec name)] -> name
+        | [((_, _), _, ModuleNameDec name)] -> name
         | [] -> failwith "Module name not found"
         | _ -> failwith "Multiple module names found in module"
 
 let typesInModule (Module decs) = 
     let typeDecs = List.filter (fun dec -> match dec with
-                                               | (_, RecordDec _) -> true
-                                               | (_, UnionDec _ ) -> true
-                                               | (_, TypeAliasDec _) -> true
+                                               | (_, _, RecordDec _) -> true
+                                               | (_, _, UnionDec _ ) -> true
+                                               | (_, _, TypeAliasDec _) -> true
                                                | _ -> false) decs
     List.map (fun dec -> match dec with
-                             | (_, RecordDec {name=name}) -> name
-                             | (_, UnionDec {name=name}) -> name
-                             | (_, TypeAliasDec {name=name}) -> name
+                             | (_, _, RecordDec {name=name}) -> name
+                             | (_, _, UnionDec {name=name}) -> name
+                             | (_, _, TypeAliasDec {name=name}) -> name
                              | _ -> failwith "This should never happen") typeDecs
 
 let opensInModule (Module decs) =
     let opens = List.filter (fun dec -> match dec with
-                                            | (_, OpenDec _) -> true
+                                            | (_, _, OpenDec _) -> true
                                             | _ -> false) decs
     List.concat (List.map (fun dec -> match dec with
-                                          | (_, OpenDec (_, names)) -> names
+                                          | (_, _, OpenDec (_, _, names)) -> names
                                           | _ -> failwith "This should never happen") opens)
 
 let exportsInModule (Module decs) =
     let exports = List.filter (fun dec -> match dec with
-                                              | (_, ExportDec _) -> true
+                                              | (_, _, ExportDec _) -> true
                                               | _ -> false) decs
     List.concat (List.map (fun dec -> match dec with
-                                          | (_, ExportDec (_, names)) -> names
+                                          | (_, _, ExportDec (_, _, names)) -> names
                                           | _ -> failwith "This should never happen") exports)
 
 let declarationsInModule (Module decs) =
     let namedDecs = List.filter (fun dec -> match dec with
-                                                | (_, FunctionDec _) -> true
-                                                | (_, RecordDec _) -> true
-                                                | (_, UnionDec _) -> true
-                                                | (_, LetDec _) -> true
-                                                | (_, TypeAliasDec _) -> true
+                                                | (_, _, FunctionDec _) -> true
+                                                | (_, _, RecordDec _) -> true
+                                                | (_, _, UnionDec _) -> true
+                                                | (_, _, LetDec _) -> true
+                                                | (_, _, TypeAliasDec _) -> true
                                                 | _ -> false) decs
     List.map (fun dec -> match dec with
-                             | (_, FunctionDec {name=name}) -> name
-                             | (_, RecordDec {name=name}) -> name
-                             | (_, UnionDec {name=name}) -> name
-                             | (_, LetDec {varName=name}) -> name
-                             | (_, TypeAliasDec {name=name}) -> name
+                             | (_, _, FunctionDec {name=name}) -> name
+                             | (_, _, RecordDec {name=name}) -> name
+                             | (_, _, UnionDec {name=name}) -> name
+                             | (_, _, LetDec {varName=name}) -> name
+                             | (_, _, TypeAliasDec {name=name}) -> name
                              | _ -> failwith "This should never happen") namedDecs
 
 let valueDecsInModule (Module decs) =
     let namedDecs = List.filter (fun dec -> match dec with
-                                                | (_, FunctionDec _) -> true
-                                                | (_, LetDec _) -> true
+                                                | (_, _, FunctionDec _) -> true
+                                                | (_, _, LetDec _) -> true
                                                 | _ -> false) decs
     List.map (fun dec -> match dec with
-                             | (_, FunctionDec {name=name}) -> name
-                             | (_, LetDec {varName=name}) -> name
+                             | (_, _, FunctionDec {name=name}) -> name
+                             | (_, _, LetDec {varName=name}) -> name
                              | _ -> failwith "This should never happen") namedDecs
 
 let qualifierWrap modName decName =
@@ -94,6 +97,27 @@ let typecheckProgram (modlist : Module list) (fnames : string list) =
             failwith "Semantic error"
     ) (List.zip modlist fnames)
 
+    // SEMANTIC CHECK: Type names in template declarations are unique
+    (List.iter (fun (Module decs, fname) ->
+        let checkTemplate (Template {tyVars=(tpos, _, tyVars); capVars=(cpos, _, capVars)}) =
+            if ListExtensions.hasDuplicates tyVars then
+                printfn "Semantic error in %s: Template contains duplicate definitions of a type parameter" (posString tpos)
+                failwith "Semantic error"
+            elif ListExtensions.hasDuplicates capVars then
+                printfn "Semantic error in %s: Template contains duplicate definitions of a capacity parameter" (posString cpos)
+                failwith "Semantic error"
+            else
+                ()
+        (List.iter (fun (_, _, dec) ->
+            match dec with
+                | FunctionDec {template=Some template} -> checkTemplate (unwrap template)
+                | UnionDec {template=Some template} -> checkTemplate (unwrap template)
+                | TypeAliasDec {template=Some template} -> checkTemplate (unwrap template)
+                | RecordDec {template=Some template} -> checkTemplate (unwrap template)
+                | _ -> ()
+        ) decs)
+    ) (List.zip modlist fnames))
+
     // Maps module names to type environments
     // Each type environment maps names to module qualifiers
     let modNamesToTenvs =
@@ -103,7 +127,7 @@ let typecheckProgram (modlist : Module list) (fnames : string list) =
             let modName = nameInModule (Module decs)
             let names = typesInModule (Module decs)
             List.fold (fun map2 name ->
-                let (_, name2) = name
+                let (_, _, name2) = name
                 Map.add name2 (qualifierWrap modName name) map2
             ) Map.empty names
         ) modlist)
@@ -130,21 +154,21 @@ let typecheckProgram (modlist : Module list) (fnames : string list) =
         let modName = nameInModule (Module decs)
 
         let typeDecs = List.filter (fun dec -> match dec with
-                                                   | (_, RecordDec _) -> true
-                                                   | (_, UnionDec _)  -> true
-                                                   | (_, TypeAliasDec _) -> true
+                                                   | (_, _, RecordDec _) -> true
+                                                   | (_, _, UnionDec _)  -> true
+                                                   | (_, _, TypeAliasDec _) -> true
                                                    | _ -> false) decs
         List.fold (fun map2 dec0 ->
             // Replace all TyNames with the more precise TyModuleQualifier
             let dec1 = TreeTraversals.map1 (fun tyexpr -> match tyexpr with
-                                                              | TyName (pos, name) ->
+                                                              | TyName (pos, _, name) ->
                                                                    let tenv = Map.find (unwrap modName) modNamesToTenvs
                                                                    TyModuleQualifier (Map.find name tenv)
                                                               | x -> x) dec0
             let decName = match dec1 with
-                              | (_, RecordDec {name=name}) -> name
-                              | (_, UnionDec {name=name}) -> name
-                              | (_, TypeAliasDec {name=name}) -> name
+                              | (_, _, RecordDec {name=name}) -> name
+                              | (_, _, UnionDec {name=name}) -> name
+                              | (_, _, TypeAliasDec {name=name}) -> name
                               | _ -> failwith "This should never happen"
             let qual = qualifierWrap modName decName
             Map.add qual dec1 map2) map typeDecs
@@ -159,7 +183,7 @@ let typecheckProgram (modlist : Module list) (fnames : string list) =
             let modName = nameInModule (Module decs)
             let names = valueDecsInModule (Module decs)
             List.fold (fun map2 name ->
-                let (_, name2) = name
+                let (_, _, name2) = name
                 Map.add name2 (qualifierWrap modName name) map2
             ) Map.empty names
         ) modlist)
@@ -182,22 +206,41 @@ let typecheckProgram (modlist : Module list) (fnames : string list) =
         ) modNamesToVenvs0)
     ()
 
+let applyTemplate dec (substitutions : TyExpr list) =
+    match dec with
+        | FunctionDec {name=name; template=Some (_, _, Template {tyVars=(_, _, tyVars)}); returnTy=returnTy; clause=clause} ->
+            let m = Map.ofList (List.zip (List.map unwrap tyVars) substitutions)
+            let replace tyExpr =
+                match tyExpr with
+                    | ForallTy (_, _, name) -> Map.find name m
+                    | x -> x
+            FunctionDec {
+                name = name;
+                template = None
+                returnTy = TreeTraversals.map1 replace returnTy
+                clause = TreeTraversals.map1 replace clause
+            }
+        | x -> x
+    
+//let typeof tenv venv expr
+
 let eqTypes (ty1 : TyExpr) (ty2 : TyExpr) : bool = (ty1 = ty2)
 
 let rec capacityString (cap : CapacityExpr) : string =
     match cap with
-        | CapacityNameExpr (_, name) -> name
-        | CapacityOp {left=(_,left); op=(_,op); right=(_,right)} ->
+        | CapacityNameExpr (_, _, name) -> name
+        | CapacityOp {left=(_, _, left); op=(_, _, op); right=(_, _, right)} ->
             let opStr = match op with
                             | CAPPLUS -> "+"
                             | CAPMINUS -> "-"
                             | CAPDIVIDE -> "/"
                             | CAPMULTIPLY -> "*"
             sprintf "%s %s %s" (capacityString left) opStr (capacityString right)
+        | CapacityConst (_, _, name) -> name
 
 let rec typeString (ty : TyExpr) : string =
     match ty with
-        | BaseTy (_, baseTy) -> match baseTy with
+        | BaseTy (_, _, baseTy) -> match baseTy with
                                     | TyUint8 -> "uint8"
                                     | TyUint16 -> "uint16"
                                     | TyUint32 -> "uint32"
@@ -207,22 +250,22 @@ let rec typeString (ty : TyExpr) : string =
                                     | TyInt32 -> "int32"
                                     | TyInt64 -> "int64"
                                     | TyBool -> "bool"
-        | TyModuleQualifier {module_=(_, module_); name=(_, name)} -> sprintf "%s:%s" module_ name
-        | TyName (_, name) -> name
-        | TyApply {tyConstructor=(_,tyConstructor); args=(_, args)} ->
+        | TyModuleQualifier {module_=(_, _, module_); name=(_, _, name)} -> sprintf "%s:%s" module_ name
+        | TyName (_, _, name) -> name
+        | TyApply {tyConstructor=(_, _, tyConstructor); args=(_, _, args)} ->
                 sprintf "%s<%s>" (typeString tyConstructor) (String.concat "," (List.map (typeString << unwrap) args))
-        | ArrayTy {valueType=(_,valueType); capacity=(_,capacity)} ->
+        | ArrayTy {valueType=(_, _, valueType); capacity=(_, _, capacity)} ->
                 sprintf "%s[%s]" (typeString valueType) (capacityString capacity)
-        | FunTy {args=(_, args); returnType=(_,returnType)} ->
-                sprintf "(%s) -> %s" (String.concat "," (List.map (typeString << unwrap) args)) (typeString returnType)
-
-let posString (p1 : Position, p2 : Position) : string = 
-    sprintf "file %s, line %d column %d to line %d column %d" p1.FileName p1.Line p1.Column p2.Line p2.Column
+        | FunTy {args=(_, _, args); returnType=(_, _, returnType)} ->
+                sprintf "((%s) -> %s)" (String.concat "," (List.map (typeString << unwrap) args)) (typeString returnType)
+        | ForallTy (_, _, name) -> sprintf "'%s" name
 
 // Finally we can typecheck each module!
-let typecheckModule (Module decs) tenv venv : unit =
+
+(*
+let typecheckModule (Module decs) tenv venv : Module =
     let typeOf' = typeOf tenv venv
-    (List.iter (fun (pos, dec) ->
+    (List.map (fun (pos, _, dec) ->
         match dec with
             | LetDec {varName=varName; typ=typ; right=right} ->
                 let lhs = unwrap typ
@@ -236,4 +279,4 @@ let typecheckModule (Module decs) tenv venv : unit =
                 ()
             | _ -> ()
     ) decs)
-    ()
+*)

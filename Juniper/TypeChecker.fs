@@ -72,7 +72,123 @@ let valueDecsInModule (Module decs) =
 let qualifierWrap modName decName =
     {module_ = modName; name = decName}
 
-let typecheckProgram (modlist : Module list) (fnames : string list) =
+
+let applyTemplate dec (substitutions : TyExpr list) =
+    match dec with
+        | FunctionDec {name=name; template=Some (_, _, Template {tyVars=(_, _, tyVars)}); returnTy=returnTy; clause=clause} ->
+            let m = Map.ofList (List.zip (List.map unwrap tyVars) substitutions)
+            let replace tyExpr =
+                match tyExpr with
+                    | ForallTy (_, _, name) -> Map.find name m
+                    | x -> x
+            FunctionDec {
+                name = name;
+                template = None
+                returnTy = TreeTraversals.map1 replace returnTy
+                clause = TreeTraversals.map1 replace clause
+            }
+        | x -> x
+   
+
+
+let eqTypes (ty1 : TyExpr) (ty2 : TyExpr) : bool = (ty1 = ty2)
+
+let rec capacityString (cap : CapacityExpr) : string =
+    match cap with
+        | CapacityNameExpr (_, _, name) -> name
+        | CapacityOp {left=(_, _, left); op=(_, _, op); right=(_, _, right)} ->
+            let opStr = match op with
+                            | CAPPLUS -> "+"
+                            | CAPMINUS -> "-"
+                            | CAPDIVIDE -> "/"
+                            | CAPMULTIPLY -> "*"
+            sprintf "%s %s %s" (capacityString left) opStr (capacityString right)
+        | CapacityConst (_, _, name) -> name
+
+let rec typeString (ty : TyExpr) : string =
+    match ty with
+        | BaseTy (_, _, baseTy) -> match baseTy with
+                                    | TyUint8 -> "uint8"
+                                    | TyUint16 -> "uint16"
+                                    | TyUint32 -> "uint32"
+                                    | TyUint64 -> "uint64"
+                                    | TyInt8 -> "int8"
+                                    | TyInt16 -> "int16"
+                                    | TyInt32 -> "int32"
+                                    | TyInt64 -> "int64"
+                                    | TyBool -> "bool"
+        | TyModuleQualifier {module_=(_, _, module_); name=(_, _, name)} -> sprintf "%s:%s" module_ name
+        | TyName (_, _, name) -> name
+        | TyApply {tyConstructor=(_, _, tyConstructor); args=(_, _, args)} ->
+                sprintf "%s<%s>" (typeString tyConstructor) (String.concat "," (List.map (typeString << unwrap) args))
+        | ArrayTy {valueType=(_, _, valueType); capacity=(_, _, capacity)} ->
+                sprintf "%s[%s]" (typeString valueType) (capacityString capacity)
+        | FunTy {args=(_, _, args); returnType=(_, _, returnType)} ->
+                sprintf "((%s) -> %s)" (String.concat "," (List.map (typeString << unwrap) args)) (typeString returnType)
+        | ForallTy (_, _, name) -> sprintf "'%s" name
+
+(*
+    denv => type module qualifiers to actual definition
+    menv => type names to module qualifiers
+    tenv => variable names to type module qualifiers
+*)
+let rec typeCheckExpr (denv : Map<ModQualifierRec, PosAdorn<Declaration>>)
+                      (menv : Map<string, ModQualifierRec>)
+                      (tenv : Map<string, ModQualifierRec>)
+                      (expr : Expr)
+                      : PosAdorn<Expr> =
+    let tc = typeCheckExpr denv menv tenv
+    match expr with
+        | IfElseExp {condition=(posc, _, condition);
+                     trueBranch=(post, _, trueBranch);
+                     falseBranch=(posf, _, falseBranch)} ->
+            // cCondition stands for type checked condition
+            let (_, Some typec, cCondition) = tc condition
+            let tbool = BaseTy (dummyWrap TyBool)
+            if eqTypes typec tbool then
+                let (_, Some typet, cTrueBranch) = tc trueBranch
+                let (_, Some typef, cFalseBranch) = tc falseBranch
+                if eqTypes typet typef then
+                    wrapWithType
+                        typet
+                        (IfElseExp {condition = (posc, Some typec, cCondition);
+                                    trueBranch = (post, Some typet, cTrueBranch);
+                                    falseBranch = (posf, Some typef, cFalseBranch)})
+                else
+                    printfn "Type error in %s and %s: true branch of if statement has type %s and false branch has type %s. These types were expected to match." (posString post) (posString posf) (typeString typet) (typeString typef)
+                    failwith "Type error"
+            else
+                printfn "Type error in %s: condition of if statement expected to have type %s" (posString posc) (typeString tbool)
+                failwith "Type error"
+        | x -> ((dummyPos, dummyPos), None, x)
+
+// Finally we can typecheck each module!
+let typecheckModule (Module decs) denv menv tenv : Module =
+    let typeCheckExpr' = typeCheckExpr denv menv tenv
+    Module (List.map (fun (pos, _, dec) ->
+        (pos, None,
+            match dec with
+                | LetDec {varName=varName;
+                          typ=typ;
+                          right=(posr, _, right)} ->
+                    let lhs = unwrap typ
+                    let (_, Some rhs, cRight) = typeCheckExpr' right
+                    if eqTypes lhs rhs then
+                        LetDec {varName=varName;
+                                typ=typ;
+                                right=(posr, Some rhs, cRight)}
+                    else
+                        printfn "Type error in %s: The let declaration's left hand side type of %s did not match the right hand side type of %s" (posString pos) (typeString lhs) (typeString rhs)
+                        failwith "Semantic error"
+                | x -> x
+                (*| FunctionDec {name=name; template=template; clause=clause; returnTy=returnTy} ->
+                    ()
+                | _ -> ()*)
+        )
+    ) decs)
+
+
+let typecheckProgram (modlist : Module list) (fnames : string list) : Module list =
     // SEMANTIC CHECK: All modules contain exactly one module declaration
     let modNamesToAst =
         let names = (List.map (fun (module_, fname) -> try
@@ -119,11 +235,11 @@ let typecheckProgram (modlist : Module list) (fnames : string list) =
     ) (List.zip modlist fnames))
 
     // Maps module names to type environments
-    // Each type environment maps names to module qualifiers
-    let modNamesToTenvs =
+    // Each module environment maps names to module qualifiers
+    let modNamesToMenvs =
         // Now build the type environments for every module
         // maps names to module qualifiers
-        let tenvs0 = (List.map (fun (Module decs) ->
+        let menvs0 = (List.map (fun (Module decs) ->
             let modName = nameInModule (Module decs)
             let names = typesInModule (Module decs)
             List.fold (fun map2 name ->
@@ -132,22 +248,22 @@ let typecheckProgram (modlist : Module list) (fnames : string list) =
             ) Map.empty names
         ) modlist)
 
-        let modNamesToTenvs0 = Map.ofList (List.zip (List.map (nameInModule >> unwrap) modlist) tenvs0)
+        let modNamesToMenvs0 = Map.ofList (List.zip (List.map (nameInModule >> unwrap) modlist) menvs0)
         
-        // Same as tenvs0 except we filter out entries in the tenv that
+        // Same as menvs0 except we filter out entries in the menv that
         // are not exported
-        let modNamesToExportedTenvs = (Map.map (fun modName tenv0 ->
+        let modNamesToExportedMenvs = (Map.map (fun modName menv0 ->
             let allExports = Set.ofList (List.map unwrap (exportsInModule (Map.find modName modNamesToAst)))
-            Map.filter (fun tyName qualifier -> Set.contains tyName allExports) tenv0
-        ) modNamesToTenvs0)
+            Map.filter (fun tyName qualifier -> Set.contains tyName allExports) menv0
+        ) modNamesToMenvs0)
 
-        // Merge the tenvs together based on the open declarations
-        (Map.map (fun modName tenv0 ->
+        // Merge the menvs together based on the open declarations
+        (Map.map (fun modName menv0 ->
             let allOpens = List.map unwrap (opensInModule (Map.find modName modNamesToAst))
-            List.fold (fun tenv1 nameToMerge ->
-                MapExtensions.merge (Map.find nameToMerge modNamesToExportedTenvs) tenv1 
-            ) tenv0 allOpens
-        ) modNamesToTenvs0)
+            List.fold (fun menv1 nameToMerge ->
+                MapExtensions.merge (Map.find nameToMerge modNamesToExportedMenvs) menv1 
+            ) menv0 allOpens
+        ) modNamesToMenvs0)
 
     // Maps module qualifiers to type definitions
     let modQualToTypeDec = (List.fold (fun map (Module decs) ->
@@ -162,8 +278,8 @@ let typecheckProgram (modlist : Module list) (fnames : string list) =
             // Replace all TyNames with the more precise TyModuleQualifier
             let dec1 = TreeTraversals.map1 (fun tyexpr -> match tyexpr with
                                                               | TyName (pos, _, name) ->
-                                                                   let tenv = Map.find (unwrap modName) modNamesToTenvs
-                                                                   TyModuleQualifier (Map.find name tenv)
+                                                                   let menv = Map.find (unwrap modName) modNamesToMenvs
+                                                                   TyModuleQualifier (Map.find name menv)
                                                               | x -> x) dec0
             let decName = match dec1 with
                               | (_, _, RecordDec {name=name}) -> name
@@ -174,12 +290,12 @@ let typecheckProgram (modlist : Module list) (fnames : string list) =
             Map.add qual dec1 map2) map typeDecs
     ) Map.empty modlist)
 
-    // Maps module names to value environments
-    // Each value environment maps names to type names
-    let modNamesToVenvs =
-        // Now build the value environments for every module
+    // Maps module names to type environments
+    // Each type environment maps variable names to type module qualifiers
+    let modNamesToTenvs =
+        // Now build the type environments for every module
         // maps names to module qualifiers
-        let venvs0 = (List.map (fun (Module decs) ->
+        let tenvs0 = (List.map (fun (Module decs) ->
             let modName = nameInModule (Module decs)
             let names = valueDecsInModule (Module decs)
             List.fold (fun map2 name ->
@@ -188,95 +304,25 @@ let typecheckProgram (modlist : Module list) (fnames : string list) =
             ) Map.empty names
         ) modlist)
 
-        let modNamesToVenvs0 = Map.ofList (List.zip (List.map (nameInModule >> unwrap) modlist) venvs0)
+        let modNamesToTenvs0 = Map.ofList (List.zip (List.map (nameInModule >> unwrap) modlist) tenvs0)
 
-        // Same as venvs0 except we filter out entries in the venv that
+        // Same as tenvs0 except we filter out entries in the tenv that
         // are not exported
-        let modNamesToExportedVenvs = (Map.map (fun modName venv0 ->
+        let modNamesToExportedTenvs = (Map.map (fun modName tenv0 ->
             let allExports = Set.ofList (List.map unwrap (exportsInModule (Map.find modName modNamesToAst)))
-            Map.filter (fun tyName qualifier -> Set.contains tyName allExports) venv0
-        ) modNamesToVenvs0)
+            Map.filter (fun tyName qualifier -> Set.contains tyName allExports) tenv0
+        ) modNamesToTenvs0)
 
-        // Merge the venvs together based on the open declarations
+        // Merge the tenvs together based on the open declarations
         (Map.map (fun modName tenv0 ->
             let allOpens = List.map unwrap (opensInModule (Map.find modName modNamesToAst))
-            List.fold (fun venv1 nameToMerge ->
-                MapExtensions.merge (Map.find nameToMerge modNamesToExportedVenvs) venv1 
+            List.fold (fun tenv1 nameToMerge ->
+                MapExtensions.merge (Map.find nameToMerge modNamesToExportedTenvs) tenv1 
             ) tenv0 allOpens
-        ) modNamesToVenvs0)
-    ()
-
-let applyTemplate dec (substitutions : TyExpr list) =
-    match dec with
-        | FunctionDec {name=name; template=Some (_, _, Template {tyVars=(_, _, tyVars)}); returnTy=returnTy; clause=clause} ->
-            let m = Map.ofList (List.zip (List.map unwrap tyVars) substitutions)
-            let replace tyExpr =
-                match tyExpr with
-                    | ForallTy (_, _, name) -> Map.find name m
-                    | x -> x
-            FunctionDec {
-                name = name;
-                template = None
-                returnTy = TreeTraversals.map1 replace returnTy
-                clause = TreeTraversals.map1 replace clause
-            }
-        | x -> x
+        ) modNamesToTenvs0)
     
-//let typeof tenv venv expr
-
-let eqTypes (ty1 : TyExpr) (ty2 : TyExpr) : bool = (ty1 = ty2)
-
-let rec capacityString (cap : CapacityExpr) : string =
-    match cap with
-        | CapacityNameExpr (_, _, name) -> name
-        | CapacityOp {left=(_, _, left); op=(_, _, op); right=(_, _, right)} ->
-            let opStr = match op with
-                            | CAPPLUS -> "+"
-                            | CAPMINUS -> "-"
-                            | CAPDIVIDE -> "/"
-                            | CAPMULTIPLY -> "*"
-            sprintf "%s %s %s" (capacityString left) opStr (capacityString right)
-        | CapacityConst (_, _, name) -> name
-
-let rec typeString (ty : TyExpr) : string =
-    match ty with
-        | BaseTy (_, _, baseTy) -> match baseTy with
-                                    | TyUint8 -> "uint8"
-                                    | TyUint16 -> "uint16"
-                                    | TyUint32 -> "uint32"
-                                    | TyUint64 -> "uint64"
-                                    | TyInt8 -> "int8"
-                                    | TyInt16 -> "int16"
-                                    | TyInt32 -> "int32"
-                                    | TyInt64 -> "int64"
-                                    | TyBool -> "bool"
-        | TyModuleQualifier {module_=(_, _, module_); name=(_, _, name)} -> sprintf "%s:%s" module_ name
-        | TyName (_, _, name) -> name
-        | TyApply {tyConstructor=(_, _, tyConstructor); args=(_, _, args)} ->
-                sprintf "%s<%s>" (typeString tyConstructor) (String.concat "," (List.map (typeString << unwrap) args))
-        | ArrayTy {valueType=(_, _, valueType); capacity=(_, _, capacity)} ->
-                sprintf "%s[%s]" (typeString valueType) (capacityString capacity)
-        | FunTy {args=(_, _, args); returnType=(_, _, returnType)} ->
-                sprintf "((%s) -> %s)" (String.concat "," (List.map (typeString << unwrap) args)) (typeString returnType)
-        | ForallTy (_, _, name) -> sprintf "'%s" name
-
-// Finally we can typecheck each module!
-
-(*
-let typecheckModule (Module decs) tenv venv : Module =
-    let typeOf' = typeOf tenv venv
-    (List.map (fun (pos, _, dec) ->
-        match dec with
-            | LetDec {varName=varName; typ=typ; right=right} ->
-                let lhs = unwrap typ
-                let rhs = typeOf' (unwrap right)
-                if eqTypes lhs rhs then
-                    ()
-                else
-                    printfn "Type error in %s: The let declaration's left hand side type of %s did not match the right hand side type of %s" (posString pos) (typeString lhs) (typeString rhs)
-                    failwith "Semantic error"
-            | FunctionDec {name=name; template=template; clause=clause; returnTy=returnTy} ->
-                ()
-            | _ -> ()
-    ) decs)
-*)
+    (List.map (fun module_ ->
+        let moduleName = unwrap (nameInModule module_)
+        // denv menv tenv
+        typecheckModule module_ modQualToTypeDec (Map.find moduleName modNamesToMenvs) (Map.find moduleName modNamesToTenvs)
+    ) modlist)

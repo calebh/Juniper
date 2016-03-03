@@ -139,3 +139,10 @@ and LeftAssign = VarMutation of VarMutationRec
                | RecordMutation of RecordMutationRec
 
 let unwrap<'a> ((_, _, c) : PosAdorn<'a>) = c
+let dummyPos : Position = {pos_fname="dummy pos"
+                           pos_lnum = -1
+                           pos_bol = -1
+                           pos_cnum = -1}
+let dummyWrap<'a> c : PosAdorn<'a> = ((dummyPos, dummyPos), None, c)
+
+let wrapWithType<'a> t c : PosAdorn<'a> = ((dummyPos, dummyPos), Some t, c)

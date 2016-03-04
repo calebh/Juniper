@@ -13,7 +13,7 @@ let main argv =
         lexbuf.EndPos <- { pos_bol = 0;
                            pos_fname=fileName;
                            pos_cnum=0;
-                           pos_lnum=1 }
+                           pos_lnum=0 }
         try
             Parser.start Lexer.token lexbuf
         with

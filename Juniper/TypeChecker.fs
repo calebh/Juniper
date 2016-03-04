@@ -2,9 +2,34 @@
 
 open Ast
 open Microsoft.FSharp.Text.Lexing
+open System.IO
 
 let posString (p1 : Position, p2 : Position) : string = 
-    sprintf "file %s, line %d column %d to line %d column %d" p1.FileName p1.Line p1.Column p2.Line p2.Column
+    let inRange line column =
+        let notInRange = line < p1.Line ||
+                         line > p2.Line ||
+                         (line = p1.Line && column < p1.Column) ||
+                         (line = p2.Line && column > p2.Column)
+        not notInRange
+    let badCode =
+        if File.Exists p1.FileName then
+            let lines = File.ReadAllLines p1.FileName
+            let relevantLines = lines.[p1.Line .. p2.Line]
+            let arrows = Array.create relevantLines.Length (Array.create 0 ' ')
+            for line in p1.Line .. p2.Line do
+                let line' = line - p1.Line
+                let lineLength = relevantLines.[line'].Length
+                let arrowLine = Array.create lineLength ' '
+                Array.set arrows line' arrowLine
+                for column in 0 .. lineLength - 1 do
+                    if inRange line column then
+                        Array.set arrowLine column '^'
+            let flattenedArrows = List.ofArray arrows |> List.map System.String.Concat
+            let final = List.zip (List.ofArray relevantLines) flattenedArrows |> List.map (fun (a,b) -> a+"\n"+b+"\n") |> System.String.Concat
+            sprintf "\n\n%s\n" final
+        else
+            ""
+    sprintf "file %s, line %d column %d to line %d column %d%s" p1.FileName (p1.Line+1) p1.Column (p2.Line+1) p2.Column badCode
 
 let nameInModule (Module decs) =
     let names = List.filter (fun dec -> match dec with
@@ -91,7 +116,10 @@ let applyTemplate dec (substitutions : TyExpr list) =
    
 
 
-let eqTypes (ty1 : TyExpr) (ty2 : TyExpr) : bool = (ty1 = ty2)
+let eqTypes (ty1 : TyExpr) (ty2 : TyExpr) : bool =
+    match (ty1, ty2) with
+        | (BaseTy (_, _, b1), BaseTy (_, _, b2)) -> b1 = b2
+        | _ -> (ty1 = ty2)
 
 let rec capacityString (cap : CapacityExpr) : string =
     match cap with
@@ -117,6 +145,7 @@ let rec typeString (ty : TyExpr) : string =
                                     | TyInt32 -> "int32"
                                     | TyInt64 -> "int64"
                                     | TyBool -> "bool"
+                                    | TyUnit -> "unit"
         | TyModuleQualifier {module_=(_, _, module_); name=(_, _, name)} -> sprintf "%s:%s" module_ name
         | TyName (_, _, name) -> name
         | TyApply {tyConstructor=(_, _, tyConstructor); args=(_, _, args)} ->
@@ -158,8 +187,24 @@ let rec typeCheckExpr (denv : Map<ModQualifierRec, PosAdorn<Declaration>>)
                     printfn "Type error in %s and %s: true branch of if statement has type %s and false branch has type %s. These types were expected to match." (posString post) (posString posf) (typeString typet) (typeString typef)
                     failwith "Type error"
             else
-                printfn "Type error in %s: condition of if statement expected to have type %s" (posString posc) (typeString tbool)
+                printfn "Type error in %s: condition of if statement expected to have type %s but had type %s instead" (posString posc) (typeString tbool) (typeString typec)
                 failwith "Type error"
+        | UnitExp (posu, _, ()) ->
+            wrapWithType
+                (BaseTy (dummyWrap TyUnit))
+                (UnitExp (posu, None, ()))
+        | IntExp (posi, _, number) ->
+            wrapWithType
+                (BaseTy (dummyWrap TyInt32))
+                (IntExp (posi, None, number))
+        | TrueExp (post, _, ()) ->
+            wrapWithType
+                (BaseTy (dummyWrap TyBool))
+                (TrueExp (post, None, ()))
+        | FalseExp (post, _, ()) ->
+            wrapWithType
+                (BaseTy (dummyWrap TyBool))
+                (FalseExp (post, None, ()))
         | x -> ((dummyPos, dummyPos), None, x)
 
 // Finally we can typecheck each module!
@@ -188,7 +233,13 @@ let typecheckModule (Module decs) denv menv tenv : Module =
     ) decs)
 
 
-let typecheckProgram (modlist : Module list) (fnames : string list) : Module list =
+let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module list =
+    let modlist = (TreeTraversals.map1 (fun expr ->
+        match expr with
+            | SequenceExp { exps=(pos, ty, []) } -> UnitExp (pos, ty, ())
+            | x -> x
+    ) modlist0)
+
     // SEMANTIC CHECK: All modules contain exactly one module declaration
     let modNamesToAst =
         let names = (List.map (fun (module_, fname) -> try

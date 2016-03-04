@@ -60,19 +60,19 @@ let preorder5MapFold<'a,'b,'c,'d,'e,'z,'acc> (f:'acc->'a->('acc*'a)) (g:'acc->'b
                 (accum1, o)
             else
                 let ot = o.GetType()
-                if ft = ot then
+                if ft = ot || ot.IsSubclassOf(ft) then
                     let (acc, elem) = f accum1 (o :?> 'a)
                     (acc, box elem)
-                elif gt = ot then
+                elif gt = ot || ot.IsSubclassOf(gt) then
                     let (acc, elem) = g accum1 (o :?> 'b)
                     (acc, box elem)
-                elif ht = ot then
+                elif ht = ot || ot.IsSubclassOf(ht) then
                     let (acc, elem) = h accum1 (o :?> 'c)
                     (acc, box elem)
-                elif it = ot then
+                elif it = ot || ot.IsSubclassOf(it) then
                     let (acc, elem) = i accum1 (o :?> 'd)
                     (acc, box elem)
-                elif jt = ot then
+                elif jt = ot || ot.IsSubclassOf(jt) then
                     let (acc, elem) = j accum1 (o :?> 'e)
                     (acc, box elem)
                 else

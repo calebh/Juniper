@@ -226,6 +226,7 @@ valueCon:
 seqExprList:
   | expr SEMICOLON seqExprList {(pos parseState 1 1, None, $1)::$3}
   | expr                       {[(pos parseState 1 1, None, $1)]}
+  |                            {[]}
 
 recordInitList:
   | ID EQUAL expr SEMICOLON recordInitList { ((pos parseState 1 1, None, $1),(pos parseState 3 3, None, $3))::$5 }
@@ -454,6 +455,7 @@ tyexpr:
              | "int32" -> BaseTy (pos parseState 1 1, None, TyInt32)
              | "int64" -> BaseTy (pos parseState 1 1, None, TyInt64)
              | "bool" -> BaseTy (pos parseState 1 1, None, TyBool)
+             | "unit" -> BaseTy (pos parseState 1 1, None, TyUnit)
              | _ -> TyName (pos parseState 1 1, None, $1) }
 
 nonEmptyTyExprList:

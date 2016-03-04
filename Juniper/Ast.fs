@@ -65,6 +65,7 @@ and BaseTypes = TyUint8
               | TyInt32
               | TyInt64
               | TyBool
+              | TyUnit
 and TyExpr = BaseTy of PosAdorn<BaseTypes>
            | TyModuleQualifier of ModQualifierRec
            | TyName of PosAdorn<string>

@@ -9,7 +9,7 @@ let posString (p1 : Position, p2 : Position) : string =
         let notInRange = line < p1.Line ||
                          line > p2.Line ||
                          (line = p1.Line && column < p1.Column) ||
-                         (line = p2.Line && column > p2.Column)
+                         (line = p2.Line && column >= p2.Column)
         not notInRange
     let badCode =
         if File.Exists p1.FileName then
@@ -114,11 +114,35 @@ let applyTemplate dec (substitutions : TyExpr list) =
             }
         | x -> x
    
+let rec eqCapacities (cap1 : CapacityExpr) (cap2 : CapacityExpr) : bool =
+    match (cap1, cap2) with
+        | (CapacityConst c1, CapacityConst c2) ->
+                unwrap c1 = unwrap c2
+        | (CapacityNameExpr c1, CapacityNameExpr c2) ->
+                unwrap c1 = unwrap c2
+        | (CapacityOp c1, CapacityOp c2) ->
+                unwrap c1.op = unwrap c2.op &&
+                eqCapacities (unwrap c1.left) (unwrap c2.left) &&
+                eqCapacities (unwrap c1.right) (unwrap c2.right)
+        | _ -> cap1 = cap2
 
-
-let eqTypes (ty1 : TyExpr) (ty2 : TyExpr) : bool =
+let rec eqTypes (ty1 : TyExpr) (ty2 : TyExpr) : bool =
     match (ty1, ty2) with
-        | (BaseTy (_, _, b1), BaseTy (_, _, b2)) -> b1 = b2
+        | (BaseTy (_, _, t1), BaseTy (_, _, t2)) ->
+                t1 = t2
+        | (TyModuleQualifier t1, TyModuleQualifier t2) ->
+                unwrap t1.module_ = unwrap t2.module_ && unwrap t1.name = unwrap t2.name
+        | (TyApply t1, TyApply t2) ->
+                (eqTypes (unwrap t1.tyConstructor) (unwrap t2.tyConstructor)) &&
+                List.forall2 eqTypes (unwrap t1.args |> List.map unwrap) (unwrap t2.args |> List.map unwrap)
+        | (FunTy t1, FunTy t2) ->
+                (eqTypes (unwrap t1.returnType) (unwrap t2.returnType)) &&
+                List.forall2 eqTypes (unwrap t1.args |> List.map unwrap) (unwrap t2.args |> List.map unwrap)
+        | (ForallTy _, _) -> true
+        | (_, ForallTy _) -> true
+        | (ArrayTy t1, ArrayTy t2) ->
+                eqTypes (unwrap t1.valueType) (unwrap t2.valueType) &&
+                eqCapacities (unwrap t1.capacity) (unwrap t2.capacity)
         | _ -> (ty1 = ty2)
 
 let rec capacityString (cap : CapacityExpr) : string =
@@ -208,8 +232,20 @@ let rec typeCheckExpr (denv : Map<ModQualifierRec, PosAdorn<Declaration>>)
         | x -> ((dummyPos, dummyPos), None, x)
 
 // Finally we can typecheck each module!
-let typecheckModule (Module decs) denv menv tenv : Module =
+let typecheckModule (Module decs0) denv menv tenv : Module =
     let typeCheckExpr' = typeCheckExpr denv menv tenv
+    // TRANSFORM: Begin by transforming all type names to the
+    // more accurate module qualifier (ie, the absolute path to the type)
+    let decs = (TreeTraversals.map1 (fun (tyExpr : TyExpr) ->
+        match tyExpr with
+            | TyName (pos, _, name) ->
+                if Map.containsKey name menv then
+                    TyModuleQualifier (Map.find name menv)
+                else
+                    printfn "Type error in %s: the type %s does not exist." (posString pos) name
+                    failwith "Type error"
+            | x -> x
+    ) decs0)
     Module (List.map (fun (pos, _, dec) ->
         (pos, None,
             match dec with
@@ -225,18 +261,20 @@ let typecheckModule (Module decs) denv menv tenv : Module =
                     else
                         printfn "Type error in %s: The let declaration's left hand side type of %s did not match the right hand side type of %s" (posString pos) (typeString lhs) (typeString rhs)
                         failwith "Semantic error"
-                | x -> x
                 (*| FunctionDec {name=name; template=template; clause=clause; returnTy=returnTy} ->
-                    ()
-                | _ -> ()*)
+                    ()*)
+                | x -> x
         )
     ) decs)
 
 
 let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module list =
+    // TRANSFORM: Transform empty sequences to a unit expression
+    // TRANSFROM: Transform sequences with one expression to just that expression
     let modlist = (TreeTraversals.map1 (fun expr ->
         match expr with
             | SequenceExp { exps=(pos, ty, []) } -> UnitExp (pos, ty, ())
+            | SequenceExp { exps=(pos, ty, [exp]) } -> unwrap exp
             | x -> x
     ) modlist0)
 

@@ -36,9 +36,9 @@
                      |  "if" <expr> "then" <expr> [{"elif" <expr> "then" <expr>}] ["else" <expr>] "end"
                      |  "let" ["mutable"] [<ty-expr>] <id> "=" <expr>
                      |  "set" <left-assign> "=" <expr>
-                     |  "for" "(" <expr> ";" <expr> ";" <expr> ")" <expr> "end"
-                     |  "do" <expr> "while" "(" <expr> ")"
-                     |  "while" "(" <expr> ")" <expr> "end"
+                     |  "for" <id> "in" <expr> ".." <expr> "do" <expr> "end"
+                     |  "do" <expr> "while" <expr> "end"
+                     |  "while" <expr> "do" <expr> "end"
                      |  <module-qualifier>
                      |  <id>
                      |  "not" <expr>

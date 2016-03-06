@@ -20,7 +20,6 @@ let pos (parseState: IParseState) startIdx endIdx =
 %token OPEN
 %token EXPORT
 %token MODULE
-%token BREAK
 %token FUN
 %token FN
 %token IF
@@ -32,6 +31,8 @@ let pos (parseState: IParseState) startIdx endIdx =
 %token LET
 %token MUTABLE
 %token FOR
+%token IN
+%token DOTDOT
 %token LPAREN
 %token RPAREN
 %token LBRACK
@@ -139,19 +140,19 @@ fundec:
         FunctionDec {
              name=(pos parseState 3 3, None, $3);
              template=None;
-             clause=(pos parseState 4 8, None, FunctionClause {
+             clause=(pos parseState 4 8, None, {
                  arguments=(pos parseState 5 5, None, $5);
-                 body=(pos parseState 8 8, None, $8)});
-             returnTy=(pos parseState 2 2, None, $2)}}
+                 body=(pos parseState 8 8, None, $8);
+                 returnTy=(pos parseState 2 2, None, $2)})}}
 
   | FUN tyexpr ID LTHAN tycapvars GTHAN LPAREN funargList RPAREN EQUAL expr {
         FunctionDec {
              name = (pos parseState 3 3, None, $3);
              template = Some (pos parseState 5 5, None, $5);
-             clause = (pos parseState 7 11, None, FunctionClause {
+             clause = (pos parseState 7 11, None, {
                 arguments = (pos parseState 8 8, None, $8);
-                body = (pos parseState 11 11, None, $11)});
-             returnTy = (pos parseState 2 2, None, $2)}}
+                body = (pos parseState 11 11, None, $11);
+                returnTy = (pos parseState 2 2, None, $2)})}}
 
 funargList:
   | tyexpr ID COMMA funargList  {((pos parseState 1 1, None, $1), (pos parseState 2 2, None, $2)) :: $4}
@@ -159,8 +160,8 @@ funargList:
   |                             {[]}
 
 tycapvars:
-  | tyVarList SEMICOLON idList  { Template {tyVars=(pos parseState 1 1, None, $1); capVars=(pos parseState 3 3, None, $3)} }
-  | tyVarList                   { Template {tyVars=(pos parseState 1 1, None, $1); capVars=(pos parseState 1 1, None, [])} }
+  | tyVarList SEMICOLON idList  { {tyVars=(pos parseState 1 1, None, $1); capVars=(pos parseState 3 3, None, $3)} }
+  | tyVarList                   { {tyVars=(pos parseState 1 1, None, $1); capVars=(pos parseState 1 1, None, [])} }
 
 tyVarList:
   | TICK ID COMMA tyVarList {(pos parseState 1 2, None, $2) :: $4}
@@ -305,20 +306,25 @@ expr:
             left = (pos parseState 2 2, None, $2);
             right = (pos parseState 4 4, None, $4) } }
   // For loop
-  | FOR LPAREN expr SEMICOLON expr SEMICOLON expr RPAREN expr END {
+  | FOR tyexpr ID IN expr DOTDOT expr DO expr END {
         ForLoopExp {
-            init = (pos parseState 3 3, None, $3);
-            condition = (pos parseState 5 5, None, $5);
-            afterthought = (pos parseState 7 7, None, $7) }}
-  // Do loop
-  | DO expr WHILE LPAREN expr RPAREN {
+            typ = (pos parseState 2 2, None, $2);
+            varName = (pos parseState 3 3, None, $3);
+            start = (pos parseState 5 5, None, $5);
+            end_ = (pos parseState 7 7, None, $7);
+            body = (pos parseState 9 9, None, $9)
+        }
+  }
+  // Do while loop
+  | DO expr WHILE expr END {
         DoWhileLoopExp {
-            condition = (pos parseState 5 5, None, $5);
+            condition = (pos parseState 4 4, None, $4);
             body = (pos parseState 2 2, None, $2) }}
-  | WHILE LPAREN expr RPAREN expr END {
+  // While loop
+  | WHILE expr DO expr END {
         WhileLoopExp {
-            condition = (pos parseState 3 3, None, $3);
-            body = (pos parseState 5 5, None, $5) }}
+            condition = (pos parseState 2 2, None, $2);
+            body = (pos parseState 4 4, None, $4) }}
   | moduleQualifier                   {ModQualifierExp $1}
   | NOT expr                          {UnaryOpExp {op = (pos parseState 1 1, None, LogicalNot); exp = (pos parseState 2 2, None, $2)}}
   | TILDE TILDE TILDE expr            {UnaryOpExp {op = (pos parseState 1 3, None, BitwiseNot); exp = (pos parseState 4 4, None, $4)}}
@@ -346,10 +352,10 @@ expr:
   | expr NOTEQUAL expr                      {BinaryOpExp {op = (pos parseState 2 2, None, NotEqual); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
   | FN tyexpr LPAREN funargList RPAREN MINUS GTHAN expr {
         LambdaExp {
-            clause = (pos parseState 4 8, None, FunctionClause {
+            clause = (pos parseState 4 8, None, {
                 arguments = (pos parseState 4 4, None, $4);
-                body = (pos parseState 8 8, None, $8)});
-            returnTy = (pos parseState 2 2, None, $2) }}
+                body = (pos parseState 8 8, None, $8);
+                returnTy = (pos parseState 2 2, None, $2)})}}
   | ID                                { VarExp { name = (pos parseState 1 1, None, $1) }}
   | INT                               { IntExp (pos parseState 1 1, None, $1) }
   | FLOAT                             { FloatExp (pos parseState 1 1, None, $1) }
@@ -434,7 +440,9 @@ tyexpr:
             args = (pos parseState 3 3, None, $3)}}
   | LPAREN tyexprList RPAREN MINUS GTHAN tyexpr {
         FunTy {
-            args = (pos parseState 2 2, None, $2);
+            capVarArity = (pos parseState 1 3, None, 0);
+            tyVarArity = (pos parseState 1 3, None, 0);
+            args = $2;
             returnType = (pos parseState 6 6, None, $6)}}
   | ID LBRACK capexpr RBRACK {
         ArrayTy {

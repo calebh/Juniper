@@ -10,8 +10,7 @@ and PosAdorn<'a> = (Position * Position) * TyExpr option * 'a
 // Top level declarations
 and FunctionRec = { name     : PosAdorn<string>; 
                     template : PosAdorn<Template> option;
-                    clause   : PosAdorn<FunctionClause>;
-                    returnTy : PosAdorn<TyExpr> }
+                    clause   : PosAdorn<FunctionClause> }
 
 and RecordRec =   { name     : PosAdorn<string>;
                     fields   : PosAdorn<(TyExpr * string) list>;
@@ -40,8 +39,7 @@ and Declaration = FunctionDec   of FunctionRec
                 | OpenDec       of PosAdorn<PosAdorn<string> list>
 
 // A template is associated with a function, record or union
-and TemplateRec = { tyVars : PosAdorn<PosAdorn<string> list>; capVars : PosAdorn<PosAdorn<string> list> }
-and Template = Template of TemplateRec
+and Template = { tyVars : PosAdorn<PosAdorn<string> list>; capVars : PosAdorn<PosAdorn<string> list> }
 
 // Use these to apply a template (ex: when calling a function with a template)
 and TemplateApplyRec = { tyExprs : PosAdorn<PosAdorn<TyExpr> list>; capExprs : PosAdorn<PosAdorn<CapacityExpr> list> }
@@ -55,7 +53,7 @@ and CapacityExpr = CapacityNameExpr of PosAdorn<string>
 
 and TyApplyRec = { tyConstructor : PosAdorn<TyExpr>; args : PosAdorn<PosAdorn<TyExpr> list> }
 and ArrayTyRec = { valueType : PosAdorn<TyExpr>; capacity : PosAdorn<CapacityExpr> }
-and FunTyRec = { args : PosAdorn<PosAdorn<TyExpr> list>; returnType : PosAdorn<TyExpr> }
+and FunTyRec = { tyVarArity : PosAdorn<int>; capVarArity : PosAdorn<int>; args : PosAdorn<TyExpr> list; returnType : PosAdorn<TyExpr> }
 and BaseTypes = TyUint8
               | TyUint16
               | TyUint32
@@ -84,8 +82,7 @@ and Pattern = MatchVar of PosAdorn<string>
             | MatchRecConModQualifier of PosAdorn<ModQualifierRec> *  PosAdorn<(PosAdorn<string> * PosAdorn<Pattern>) list>
             | MatchUnderscore
 
-and FunctionClauseRec = {arguments : PosAdorn<(PosAdorn<TyExpr> * PosAdorn<string>) list>; body : PosAdorn<Expr>}
-and FunctionClause = FunctionClause of FunctionClauseRec
+and FunctionClause = {returnTy : PosAdorn<TyExpr>; arguments : PosAdorn<(PosAdorn<TyExpr> * PosAdorn<string>) list>; body : PosAdorn<Expr>}
 
 and ModQualifierRec = { module_ : PosAdorn<string>; name : PosAdorn<string> }
 
@@ -94,7 +91,7 @@ and BinaryOpRec =     { left : PosAdorn<Expr>; op : PosAdorn<BinaryOps>; right :
 and IfElseRec =       { condition : PosAdorn<Expr>; trueBranch : PosAdorn<Expr>; falseBranch : PosAdorn<Expr> }
 and LetRec =          { varName : PosAdorn<string>; typ : PosAdorn<TyExpr> option; right : PosAdorn<Expr>; mutable_ : PosAdorn<bool> }
 and AssignRec =       { left : PosAdorn<LeftAssign>; right : PosAdorn<Expr> }
-and ForLoopRec =      { init : PosAdorn<Expr>; condition : PosAdorn<Expr>; afterthought : PosAdorn<Expr> }
+and ForLoopRec =      { typ : PosAdorn<TyExpr>; varName : PosAdorn<string>; start : PosAdorn<Expr>; end_ : PosAdorn<Expr>; body : PosAdorn<Expr> }
 and WhileLoopRec =    { condition : PosAdorn<Expr>; body : PosAdorn<Expr> }
 and DoWhileLoopRec =  { condition : PosAdorn<Expr>; body: PosAdorn<Expr> }
 and CaseRec =         { on : PosAdorn<Expr>; clauses : PosAdorn<(PosAdorn<Pattern> * PosAdorn<Expr>) list> }
@@ -102,7 +99,7 @@ and UnaryOpRec =      { op : PosAdorn<UnaryOps>; exp : PosAdorn<Expr> }
 and RecordAccessRec = { record : PosAdorn<Expr>; fieldName : PosAdorn<string> }
 and ArrayAccessRec =  { array : PosAdorn<Expr>; index : PosAdorn<Expr> }
 and VarExpRec =       { name : PosAdorn<string> }
-and LambdaRec =       { clause : PosAdorn<FunctionClause>; returnTy : PosAdorn<TyExpr> }
+and LambdaRec =       { clause : PosAdorn<FunctionClause> }
 and CallRec =         { func : PosAdorn<Expr>; templateArgs : PosAdorn<TemplateApply> option; args : PosAdorn<PosAdorn<Expr> list> }
 and RecordExprRec =   { recordTy : PosAdorn<TyExpr>; templateArgs : PosAdorn<TemplateApply> option; initFields : PosAdorn<(PosAdorn<string> * PosAdorn<Expr>) list> }
 and Expr = SequenceExp of SequenceRec

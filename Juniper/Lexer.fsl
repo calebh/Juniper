@@ -32,7 +32,6 @@ rule token = parse
 | "open"        { OPEN }
 | "module"		{ MODULE }
 | "set"         { SET }
-| "break"		{ BREAK }
 | "fun"         { FUN }
 | "fn"          { FN }
 | "if"			{ IF }
@@ -46,6 +45,7 @@ rule token = parse
 | "let"         { LET }
 | "mutable"     { MUTABLE }
 | "for"         { FOR }
+| "in"          { IN }
 | "("           { LPAREN }
 | ")"           { RPAREN }
 | "["			{ LBRACK }
@@ -75,6 +75,7 @@ rule token = parse
 | "="           { EQUAL }
 | "<"           { LTHAN }
 | ">"           { GTHAN }
+| ".."          { DOTDOT }
 | "."           { DOT }
 | ";"           { SEMICOLON }
 | "_"           { UNDERSCORE }

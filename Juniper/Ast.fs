@@ -42,8 +42,7 @@ and Declaration = FunctionDec   of FunctionRec
 and Template = { tyVars : PosAdorn<PosAdorn<string> list>; capVars : PosAdorn<PosAdorn<string> list> }
 
 // Use these to apply a template (ex: when calling a function with a template)
-and TemplateApplyRec = { tyExprs : PosAdorn<PosAdorn<TyExpr> list>; capExprs : PosAdorn<PosAdorn<CapacityExpr> list> }
-and TemplateApply = TemplateApply of TemplateApplyRec
+and TemplateApply = { tyExprs : PosAdorn<PosAdorn<TyExpr> list>; capExprs : PosAdorn<PosAdorn<CapacityExpr> list> }
 
 and CapacityArithOp = CAPPLUS | CAPMINUS | CAPMULTIPLY | CAPDIVIDE
 and CapacityOpRec = { left : PosAdorn<CapacityExpr>; op : PosAdorn<CapacityArithOp>; right : PosAdorn<CapacityExpr> }
@@ -100,7 +99,8 @@ and RecordAccessRec = { record : PosAdorn<Expr>; fieldName : PosAdorn<string> }
 and ArrayAccessRec =  { array : PosAdorn<Expr>; index : PosAdorn<Expr> }
 and VarExpRec =       { name : PosAdorn<string> }
 and LambdaRec =       { clause : PosAdorn<FunctionClause> }
-and CallRec =         { func : PosAdorn<Expr>; templateArgs : PosAdorn<TemplateApply> option; args : PosAdorn<PosAdorn<Expr> list> }
+and CallRec =         { func : PosAdorn<Expr>; args : PosAdorn<PosAdorn<Expr> list> }
+and TemplateApplyExpRec = { func : PosAdorn<Expr>; templateArgs : PosAdorn<TemplateApply> }
 and RecordExprRec =   { recordTy : PosAdorn<TyExpr>; templateArgs : PosAdorn<TemplateApply> option; initFields : PosAdorn<(PosAdorn<string> * PosAdorn<Expr>) list> }
 and Expr = SequenceExp of SequenceRec
           | BreakExp
@@ -123,6 +123,7 @@ and Expr = SequenceExp of SequenceRec
           | IntExp of PosAdorn<string>
           | FloatExp of PosAdorn<string>
           | CallExp of CallRec
+          | TemplateApplyExp of TemplateApplyExpRec
           | ModQualifierExp of ModQualifierRec
           | RecordExp of RecordExprRec
           | ListLitExp of PosAdorn<PosAdorn<Expr> list>

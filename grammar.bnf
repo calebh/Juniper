@@ -10,7 +10,7 @@
 <export>            ::= "export" "(" [<id> {"," <id>}] ")";
 <template-dec>      ::= <id> {"," <id>} [";" <id> {"," <id>}];
 <template-apply>    ::= <ty-expr> {"," <ty-expr>} [";" <capacity-expr> {"," <capacity-expr>}];
-<record>            ::= "type" <id> ["<" <template-dec> ">"] "=" "{" [<ty-expr> <id> {"," <ty-expr> <id>}] "}";
+<record>            ::= "type" <id> ["<" <template-dec> ">"] "=" "{" [<ty-expr> <id> {";" <ty-expr> <id>}] "}";
 <type-alias>        ::= "type" <id> ["<" <template-dec> ">"] "=" <ty-expr>;
 <algebraic-type>    ::= "type" <id> ["<" <template-dec> ">"] "=" <value-constructor> {"|" <value-constructor>};
 <value-constructor> ::= <id> "(" [<ty-expr> {, <ty-expr>}] ")";
@@ -27,24 +27,24 @@
 <module-qualifier>  ::= <id> ":" <id>;
 <expr-list>         ::= <expr> {"," <expr>};
 <field-assign-list> ::= <id> "=" <expr> {";" <id> "=" <expr>};
-<expr>              ::= "()" | "true" | "false" | <number>
-                     |  "(" <expr> {";" <expr>} ")"
+<expr>              ::= "()" | "true" | "false" | <number>                                               // X
+                     |  "(" <expr> {";" <expr>} ")"                                                      // X
                      |  <expr> "(" [<expr-list>] ")"
                      |  <declaration-ref> "<" <template-apply> ">" "(" [<expr-list>] ")"
                      |  <expr> "[" <expr> "]"
                      |  <expr> <binary-op> <expr>
-                     |  "if" <expr> "then" <expr> [{"elif" <expr> "then" <expr>}] ["else" <expr>] "end"
-                     |  "let" ["mutable"] [<ty-expr>] <id> "=" <expr>
+                     |  "if" <expr> "then" <expr> [{"elif" <expr> "then" <expr>}] ["else" <expr>] "end"  // X
+                     |  "let" ["mutable"] [<ty-expr>] <id> "=" <expr>                                    // X
                      |  "set" <left-assign> "=" <expr>
                      |  "for" <id> "in" <expr> ".." <expr> "do" <expr> "end"
                      |  "do" <expr> "while" <expr> "end"
                      |  "while" <expr> "do" <expr> "end"
                      |  <module-qualifier>
-                     |  <id>
+                     |  <id>                                                                              // X
                      |  "not" <expr>
                      |  "~~~" <expr>
                      |  <expr> "." <id>
-                     |  "fn" <ty-expr> "(" [<ty-expr> {, <ty-expr>}] ")" "->" <expr>
+                     |  "fn" <ty-expr> "(" [<ty-expr> {, <ty-expr>}] ")" "->" <expr>                      // X
                      |  "case" <expr> "of" <case-clause> {"|" <case-clause>} "end"
                      |  <declaration-ref> ["<" <template-apply> ">"] "{" [<field-assign-list>] "}"
                      |  "[" <expr-list> "]";

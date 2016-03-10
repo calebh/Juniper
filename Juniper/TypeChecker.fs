@@ -188,14 +188,20 @@ let rec typeString (ty : TyExpr) : string =
                 sprintf "((%s) -> %s)" (String.concat ", " (List.map (typeString << unwrap) args)) (typeString returnType)
         | ForallTy (_, _, name) -> sprintf "'%s" name
 
+let toModuleQual (module_, name) =
+    {module_=dummyWrap module_; name=dummyWrap name}
+
+let toStringPair {module_=module_; name=name} =
+    (unwrap module_, unwrap name)
+
 (*
     denv => type module qualifiers to actual definition
     menv => type names to module qualifiers
     tenv => variable names to types and a bool which tells
         if the variable is mutable
 *)
-let rec typeCheckExpr (denv : Map<ModQualifierRec, PosAdorn<Declaration>>)
-                      (menv : Map<string, ModQualifierRec>)
+let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
+                      (menv : Map<string, string * string>)
                       (tenv : Map<string, bool * TyExpr>)
                       (expr : Expr)
                       : PosAdorn<Expr> =
@@ -262,10 +268,11 @@ let rec typeCheckExpr (denv : Map<ModQualifierRec, PosAdorn<Declaration>>)
                 (let (_, Some tr, cRight) = tc right
                  match typ with
                      | None -> ()
-                     | Some typ' -> if eqTypes tr (unwrap typ') then
+                     | Some typ' -> let (post, _, _) = typ'
+                                    if eqTypes tr (unwrap typ') then
                                         ()
                                     else
-                                        printfn ""
+                                        printfn "Type error: The type %s given on the left hand side of the let expression in %s does not match the type %s of the right hand side expression in %s" (typeString (unwrap typ')) (posString post) (typeString tr) (posString posr)
                                         failwith "Type error"
                  LetExp {
                     mutable_=mutable_;
@@ -307,6 +314,117 @@ let rec typeCheckExpr (denv : Map<ModQualifierRec, PosAdorn<Declaration>>)
                     arguments=clause.arguments;
                     body=(posb, Some typeb, cBody)
                 })})
+        | AssignExp {left=(posl, _, left); right=(posr, _, right)} ->
+            let (_, Some typer, cRight) = tc right
+            let rec checkLeft left : TyExpr =
+                match left with
+                    | VarMutation {varName=varName} ->
+                        let (mutable_, typel) = Map.find (unwrap varName) tenv
+                        if mutable_ then
+                            Map.find (unwrap varName) tenv |> snd
+                        else
+                            printfn "%sError in set expression: The left hand side is not mutable." (posString posl)
+                            failwith "Error"
+                    | ArrayMutation {array=(posa, _, array); index=(posi, _, index)} ->
+                        let (_, Some typei, cIndex) = tc index
+                        let intType = BaseTy (dummyWrap TyInt32)
+                        if eqTypes typei intType then
+                            let tyArray = checkLeft array
+                            match tyArray with
+                                | ArrayTy {valueType=valueType} -> unwrap valueType
+                                | ForallTy ty -> tyArray
+                                | _ ->
+                                    printfn "%sType error in array set expression: expected an array type for array access but was given %s instead." (posString posa) (typeString tyArray)
+                                    failwith "Type error"
+                        else
+                            printfn "%sType error in array set expression: The index of the array has type %s, but was expected to have type %s." (posString posi) (typeString typei) (typeString intType)
+                            failwith "Type error"
+                    | RecordMutation {record=(posr, _, record); fieldName=(posf, _, fieldName)} ->
+                        let tyRecord = checkLeft record
+                        match tyRecord with
+                            | TyModuleQualifier qual ->
+                                let actualDef = Map.find (toStringPair qual) denv
+                                match unwrap actualDef with
+                                    | RecordDec {fields=fields} ->
+                                        let maybeFoundField = (List.tryFind (fun (ty, thisField) ->
+                                                                                thisField = fieldName)
+                                                                            (unwrap fields))
+                                        match maybeFoundField with
+                                            | None ->
+                                                printfn "%sType error: could not find field named %s in record with type %s." (posString posf) fieldName (typeString tyRecord)
+                                                failwith "Type error"
+                                            | Some (ty, _) -> ty
+                                    | _ ->
+                                        printfn "%sType error: Can only access a record with the field lookup operation." (posString posr)
+                                        failwith "Type error."
+                            | ForallTy _ -> tyRecord
+                            | _ -> printfn "%sType error: Attempted to access a field of a nonrecord with type %s." (posString posr) (typeString tyRecord)
+                                   failwith "Type error"
+            let typel = checkLeft left
+            if eqTypes typer typel then
+                wrapWithType typer cRight
+            else
+                printfn "Type error in set expression: The left hand side in %s has type %s, but the right hand side in %s is of type %s. The left and the right hand sides were expected to have the same type." (posString posl) (typeString typel) (posString posr) (typeString typer)
+                failwith "Type error"
+        | RecordExp {recordTy=(posrt, _, recordTy); templateArgs=templateArgs; initFields=(posif, _, initFields)} ->
+            match recordTy with
+                | ForallTy _ ->
+                    wrapWithType
+                        recordTy
+                        (RecordExp {
+                            recordTy = (posrt, None, recordTy);
+                            templateArgs = templateArgs
+                            initFields = (posif, None, initFields)
+                        })
+                | TyModuleQualifier qual ->
+                    let maybeActualDef = Map.tryFind (toStringPair qual) denv
+                    match maybeActualDef with
+                        | Some actualDef ->
+                            match unwrap actualDef with
+                                | RecordDec r ->
+                                    // Now make sure that the field types are correct
+                                    let flipTuple = fun (a,b) -> (b,a)    
+                                    // Map of field names to what their types should be
+                                    let defFieldsMap = Map.ofList (List.map flipTuple (unwrap r.fields))
+                                    let initFieldNames = List.map fst initFields |> List.map unwrap
+                                    let defFieldNames = unwrap r.fields |> List.map snd
+                                    if ListExtensions.hasDuplicates initFieldNames then
+                                        printfn "%sType error: Duplicate field names in record expression." (posString posif)
+                                        failwith "Type error"
+                                    else
+                                        ()
+                                    let nameDiff = Set.difference (Set.ofList defFieldNames) (Set.ofList initFieldNames)
+                                    if Set.isEmpty nameDiff then
+                                        ()
+                                    else
+                                        let missingFields = String.concat "," nameDiff
+                                        printfn "%sType error: Missing fields named %s from record expression." (posString posif) missingFields
+                                        failwith "Type error"
+                                    let cInitFields = (List.map (fun ((posfn, _, fieldName), (pose, _, expr)) ->
+                                        let (_, Some typee, cExpr) = tc expr
+                                        match Map.tryFind fieldName defFieldsMap with
+                                            | None ->
+                                                printfn "%sType error: Could not find field named %s in record of type %s." (posString posfn) fieldName (typeString recordTy)
+                                                failwith "Type error"
+                                            | Some fieldType ->
+                                                if eqTypes typee fieldType then
+                                                    ((posfn, None, fieldName), (pose, Some typee, cExpr))
+                                                else
+                                                    printfn "%sType error: Field named %s should have type %s but the expression given has type %s." (posString pose) fieldName (typeString fieldType) (typeString typee)
+                                                    failwith "Type error"
+                                        ) initFields)
+                                    wrapWithType
+                                        recordTy
+                                        (RecordExp {
+                                            recordTy = (posrt, None, recordTy);
+                                            // TODO
+                                            templateArgs = None;
+                                            initFields = (posif, None, cInitFields)
+                                        })
+                                | _ -> printfn "%sType error: Could not find record type named %s in module named %s." (posString posrt) (unwrap qual.name) (unwrap qual.module_)
+                                       failwith "Type error"
+                        | None -> printfn "%sType error: Could not find record type named %s in module named %s." (posString posrt) (unwrap qual.name) (unwrap qual.module_)
+                                  failwith "Type error"
         | UnitExp (posu, _, ()) ->
             wrapWithType
                 (BaseTy (dummyWrap TyUnit))
@@ -334,7 +452,7 @@ let typecheckModule (Module decs0) denv menv tenv : Module =
         match tyExpr with
             | TyName (pos, _, name) ->
                 if Map.containsKey name menv then
-                    TyModuleQualifier (Map.find name menv)
+                    TyModuleQualifier (toModuleQual (Map.find name menv))
                 else
                     printfn "Type error in %s: the type %s does not exist." (posString pos) name
                     failwith "Type error"
@@ -355,8 +473,9 @@ let typecheckModule (Module decs0) denv menv tenv : Module =
                     else
                         printfn "Type error in %s: The let declaration's left hand side type of %s did not match the right hand side type of %s" (posString pos) (typeString lhs) (typeString rhs)
                         failwith "Semantic error"
-                (*| FunctionDec {name=name; template=template; clause=clause; returnTy=returnTy} ->
-                    ()*)
+                (*| FunctionDec {name=name; template=template; clause=clause} ->
+                    let clause' = unwrap clause*)
+                    
                 | x -> x
         )
     ) decs)
@@ -429,7 +548,7 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
             let names = typesInModule (Module decs)
             List.fold (fun map2 name ->
                 let (_, _, name2) = name
-                Map.add name2 (qualifierWrap modName name) map2
+                Map.add name2 (unwrap modName, unwrap name) map2
             ) Map.empty names
         ) modlist1)
 
@@ -461,7 +580,7 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
                     match tyExpr with
                         | TyName (pos, _, name) ->
                             if Map.containsKey name menv then
-                                TyModuleQualifier (Map.find name menv)
+                                TyModuleQualifier (toModuleQual (Map.find name menv))
                             else
                                 printfn "Type error in %s: the type %s does not exist." (posString pos) name
                                 failwith "Type error"
@@ -482,18 +601,18 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
                                                    | _ -> false) decs
         List.fold (fun map2 dec0 ->
             // Replace all TyNames with the more precise TyModuleQualifier
-            let dec1 = TreeTraversals.map1 (fun tyexpr -> match tyexpr with
-                                                              | TyName (pos, _, name) ->
-                                                                   let menv = Map.find (unwrap modName) modNamesToMenvs
-                                                                   TyModuleQualifier (Map.find name menv)
-                                                              | x -> x) dec0
-            let decName = match dec1 with
+            //let dec1 = TreeTraversals.map1 (fun tyexpr -> match tyexpr with
+            //                                                  | TyName (pos, _, name) ->
+            //                                                       let menv = Map.find (unwrap modName) modNamesToMenvs
+            //                                                       TyModuleQualifier (Map.find name menv)
+            //                                                  | x -> x) dec0
+            let decName = match dec0 with
                               | (_, _, RecordDec {name=name}) -> name
                               | (_, _, UnionDec {name=name}) -> name
                               | (_, _, TypeAliasDec {name=name}) -> name
                               | _ -> failwith "This should never happen"
-            let qual = qualifierWrap modName decName
-            Map.add qual dec1 map2) map typeDecs
+            let qual = (unwrap modName, unwrap decName)
+            Map.add qual dec0 map2) map typeDecs
     ) Map.empty modlist2)
 
     // Maps module names to type environments
@@ -558,6 +677,5 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
     
     (List.map (fun module_ ->
         let moduleName = unwrap (nameInModule module_)
-        // denv menv tenv
         typecheckModule module_ modQualToTypeDec (Map.find moduleName modNamesToMenvs) (Map.find moduleName modNamesToTenvs)
     ) modlist2)

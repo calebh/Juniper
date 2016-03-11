@@ -437,8 +437,7 @@ tyexpr:
             args = (pos parseState 3 3, None, $3)}}
   | LPAREN tyexprList RPAREN MINUS GTHAN tyexpr {
         FunTy {
-            capVarArity = (pos parseState 1 3, None, 0);
-            tyVarArity = (pos parseState 1 3, None, 0);
+            template = None
             args = $2;
             returnType = (pos parseState 6 6, None, $6)}}
   | ID LBRACK capexpr RBRACK {
@@ -449,7 +448,7 @@ tyexpr:
         ArrayTy {
             valueType = (pos parseState 1 1, None, TyModuleQualifier $1);
             capacity = (pos parseState 3 3, None, $3)}}
-  | TICK ID { ForallTy (pos parseState 2 2, None, $2) }
+  | TICK ID { ForallTy (pos parseState 1 2, None, $2) }
   | ID { match $1 with
              | "uint8" -> BaseTy (pos parseState 1 1, None, TyUint8)
              | "uint16" -> BaseTy (pos parseState 1 1, None, TyUint16)

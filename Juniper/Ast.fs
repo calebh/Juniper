@@ -52,7 +52,7 @@ and CapacityExpr = CapacityNameExpr of PosAdorn<string>
 
 and TyApplyRec = { tyConstructor : PosAdorn<TyExpr>; args : PosAdorn<PosAdorn<TyExpr> list> }
 and ArrayTyRec = { valueType : PosAdorn<TyExpr>; capacity : PosAdorn<CapacityExpr> }
-and FunTyRec = { tyVarArity : PosAdorn<int>; capVarArity : PosAdorn<int>; args : PosAdorn<TyExpr> list; returnType : PosAdorn<TyExpr> }
+and FunTyRec = { template : PosAdorn<Template> option; args : PosAdorn<TyExpr> list; returnType : PosAdorn<TyExpr> }
 and BaseTypes = TyUint8
               | TyUint16
               | TyUint32

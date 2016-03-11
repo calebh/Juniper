@@ -15,7 +15,7 @@
 <algebraic-type>    ::= "type" <id> ["<" <template-dec> ">"] "=" <value-constructor> {"|" <value-constructor>};
 <value-constructor> ::= <id> "(" [<ty-expr> {, <ty-expr>}] ")";
 <let>               ::= "let" <ty-expr> <id> "=" <expr>;
-<function>          ::= "fun" <ty-expr> <id> <template-dec> "(" [<ty-expr> <id> {"," <ty-expr> <id>}] ")" "=" <expr>;
+<function>          ::= "fun" <ty-expr> <id> ["<" <template-dec> ">"] "(" [<ty-expr> <id> {"," <ty-expr> <id>}] ")" "=" <expr>;
 <declaration-ref>   ::= <id> | <module-qualifier>;
 <ty-expr>           ::= <declaration-ref> ["<" <template-apply> ">"]
                      |  "(" [<ty-expr> {"," <ty-expr>}] ")" "->" <ty-expr>

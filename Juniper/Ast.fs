@@ -61,6 +61,7 @@ and BaseTypes = TyUint8
               | TyInt16
               | TyInt32
               | TyInt64
+              | TyFloat
               | TyBool
               | TyUnit
 and TyExpr = BaseTy of PosAdorn<BaseTypes>
@@ -126,7 +127,7 @@ and Expr = SequenceExp of SequenceRec
           | TemplateApplyExp of TemplateApplyExpRec
           | ModQualifierExp of ModQualifierRec
           | RecordExp of RecordExprRec
-          | ListLitExp of PosAdorn<PosAdorn<Expr> list>
+          | ArrayLitExp of PosAdorn<PosAdorn<Expr> list>
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
 and UnaryOps = LogicalNot | BitwiseNot
 

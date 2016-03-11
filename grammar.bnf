@@ -32,11 +32,11 @@
                      |  <expr> "(" [<expr-list>] ")"
                      |  <declaration-ref> "<" <template-apply> ">" "(" [<expr-list>] ")"
                      |  <expr> "[" <expr> "]"
-                     |  <expr> <binary-op> <expr>
+                     |  <expr> <binary-op> <expr>                                                        // X
                      |  "if" <expr> "then" <expr> [{"elif" <expr> "then" <expr>}] ["else" <expr>] "end"  // X
                      |  "let" ["mutable"] [<ty-expr>] <id> "=" <expr>                                    // X
-                     |  "set" <left-assign> "=" <expr>
-                     |  "for" <id> "in" <expr> ".." <expr> "do" <expr> "end"
+                     |  "set" <left-assign> "=" <expr>                                                   // X
+                     |  "for" <ty-expr> <id> "in" <expr> ".." <expr> "do" <expr> "end"                   // X
                      |  "do" <expr> "while" <expr> "end"
                      |  "while" <expr> "do" <expr> "end"
                      |  <module-qualifier>
@@ -46,7 +46,7 @@
                      |  <expr> "." <id>
                      |  "fn" <ty-expr> "(" [<ty-expr> {, <ty-expr>}] ")" "->" <expr>                      // X
                      |  "case" <expr> "of" <case-clause> {"|" <case-clause>} "end"
-                     |  <declaration-ref> ["<" <template-apply> ">"] "{" [<field-assign-list>] "}"
+                     |  <declaration-ref> ["<" <template-apply> ">"] "{" [<field-assign-list>] "}"        // X
                      |  "[" <expr-list> "]";
 <binary-op>         ::= "+" | "-" | "*" | "/" | "mod" | "and" | "or" | "&&&"
                      |  "|||" | ">=" | "<=" | ">" | "<" | "==" | "!=";

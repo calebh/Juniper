@@ -4,6 +4,83 @@ open Ast
 open Microsoft.FSharp.Text.Lexing
 open System.IO
 
+let arithResultTy numTypel numTyper = 
+    match (numTypel, numTyper) with
+        | (x, y) when x=y -> x
+        | (TyFloat,TyUint8) -> TyFloat
+        | (TyFloat,TyUint16) -> TyFloat
+        | (TyFloat,TyUint32) -> TyFloat
+        | (TyFloat,TyUint64) -> TyFloat
+        | (TyFloat,TyInt8) -> TyFloat
+        | (TyFloat,TyInt16) -> TyFloat
+        | (TyFloat,TyInt32) -> TyFloat
+        | (TyFloat,TyInt64) -> TyFloat
+        | (TyUint8,TyFloat) -> TyFloat
+        | (TyUint8,TyUint16) -> TyUint16
+        | (TyUint8,TyUint32) -> TyUint32
+        | (TyUint8,TyUint64) -> TyUint64
+        | (TyUint8,TyInt8) -> TyInt8
+        | (TyUint8,TyInt16) -> TyInt16
+        | (TyUint8,TyInt32) -> TyInt32
+        | (TyUint8,TyInt64) -> TyInt64
+        | (TyUint16,TyFloat) -> TyFloat
+        | (TyUint16,TyUint8) -> TyUint16
+        | (TyUint16,TyUint32) -> TyUint32
+        | (TyUint16,TyUint64) -> TyUint64
+        | (TyUint16,TyInt8) -> TyInt16
+        | (TyUint16,TyInt16) -> TyInt16
+        | (TyUint16,TyInt32) -> TyInt32
+        | (TyUint16,TyInt64) -> TyInt64
+        | (TyUint32,TyFloat) -> TyFloat
+        | (TyUint32,TyUint8) -> TyUint32
+        | (TyUint32,TyUint16) -> TyUint32
+        | (TyUint32,TyUint64) -> TyUint64
+        | (TyUint32,TyInt8) -> TyInt32
+        | (TyUint32,TyInt16) -> TyInt32
+        | (TyUint32,TyInt32) -> TyInt32
+        | (TyUint32,TyInt64) -> TyInt64
+        | (TyUint64,TyFloat) -> TyFloat
+        | (TyUint64,TyUint8) -> TyUint64
+        | (TyUint64,TyUint16) -> TyUint64
+        | (TyUint64,TyUint32) -> TyUint64
+        | (TyUint64,TyInt8) -> TyInt64
+        | (TyUint64,TyInt16) -> TyInt64
+        | (TyUint64,TyInt32) -> TyInt64
+        | (TyUint64,TyInt64) -> TyInt64
+        | (TyInt8,TyFloat) -> TyFloat
+        | (TyInt8,TyUint8) -> TyInt8
+        | (TyInt8,TyUint16) -> TyInt16
+        | (TyInt8,TyUint32) -> TyInt32
+        | (TyInt8,TyUint64) -> TyInt64
+        | (TyInt8,TyInt16) -> TyInt16
+        | (TyInt8,TyInt32) -> TyInt32
+        | (TyInt8,TyInt64) -> TyInt64
+        | (TyInt16,TyFloat) -> TyFloat
+        | (TyInt16,TyUint8) -> TyInt16
+        | (TyInt16,TyUint16) -> TyInt16
+        | (TyInt16,TyUint32) -> TyInt32
+        | (TyInt16,TyUint64) -> TyInt64
+        | (TyInt16,TyInt8) -> TyInt16
+        | (TyInt16,TyInt32) -> TyInt32
+        | (TyInt16,TyInt64) -> TyInt64
+        | (TyInt32,TyFloat) -> TyFloat
+        | (TyInt32,TyUint8) -> TyInt32
+        | (TyInt32,TyUint16) -> TyInt32
+        | (TyInt32,TyUint32) -> TyInt32
+        | (TyInt32,TyUint64) -> TyInt64
+        | (TyInt32,TyInt8) -> TyInt32
+        | (TyInt32,TyInt16) -> TyInt32
+        | (TyInt32,TyInt64) -> TyInt64
+        | (TyInt64,TyFloat) -> TyFloat
+        | (TyInt64,TyUint8) -> TyInt64
+        | (TyInt64,TyUint16) -> TyInt64
+        | (TyInt64,TyUint32) -> TyInt64
+        | (TyInt64,TyUint64) -> TyInt64
+        | (TyInt64,TyInt8) -> TyInt64
+        | (TyInt64,TyInt16) -> TyInt64
+        | (TyInt64,TyInt32) -> TyInt64
+        | _ -> failwith "Not a numerical type"
+
 let posString (p1 : Position, p2 : Position) : string = 
     let inRange line column =
         let notInRange = line < p1.Line ||
@@ -104,6 +181,7 @@ let applyTemplate dec (substitutions : TyExpr list) =
                                                | x -> x) haystack
     match dec with
         | FunctionDec {name=name; template=Some (_, _, {tyVars=(_, _, tyVars)}); clause=clause} ->
+            // TODO: Better error message here when the zip fails
             let m = Map.ofList (List.zip (List.map unwrap tyVars) substitutions)
             FunctionDec {
                 name = name;
@@ -112,6 +190,7 @@ let applyTemplate dec (substitutions : TyExpr list) =
             }
         | RecordDec {name=name; template=Some template; fields=fields} ->
             let keys = (unwrap template).tyVars |> unwrap |> List.map unwrap
+            // TODO: Better error message here when the zip fails
             let m = List.zip keys substitutions |> Map.ofList
             RecordDec {
                 name=name;
@@ -131,6 +210,24 @@ let rec eqCapacities (cap1 : CapacityExpr) (cap2 : CapacityExpr) : bool =
                 eqCapacities (unwrap c1.left) (unwrap c2.left) &&
                 eqCapacities (unwrap c1.right) (unwrap c2.right)
         | _ -> cap1 = cap2
+
+let isIntType (ty : TyExpr) =
+    match ty with
+        | BaseTy (_, _, t1) ->
+            match t1 with
+                | (TyUint8 | TyUint16 | TyUint32 | TyUint64 | TyInt8 | TyInt16 | TyInt32 | TyInt64) -> true
+                | _ -> false
+        | ForallTy _ -> true
+        | _ -> false
+
+let isNumericalType (ty : TyExpr) =
+    match ty with
+        | BaseTy (_, _, t1) ->
+            match t1 with
+                | (TyUint8 | TyUint16 | TyUint32 | TyUint64 | TyInt8 | TyInt16 | TyInt32 | TyInt64 | TyFloat) -> true
+                | _ -> false
+        | ForallTy _ -> true
+        | _ -> false
 
 let rec eqTypes (ty1 : TyExpr) (ty2 : TyExpr) : bool =
     match (ty1, ty2) with
@@ -186,6 +283,7 @@ let rec typeString (ty : TyExpr) : string =
                                     | TyInt64 -> "int64"
                                     | TyBool -> "bool"
                                     | TyUnit -> "unit"
+                                    | TyFloat -> "float"
         | TyModuleQualifier {module_=(_, _, module_); name=(_, _, name)} -> sprintf "%s:%s" module_ name
         | TyName (_, _, name) -> name
         | TyApply {tyConstructor=(_, _, tyConstructor); args=(_, _, args)} ->
@@ -459,10 +557,155 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                   failwith "Type error"
                 | _ -> printfn "%sType error: Attempting to access a record field of non-record type %s" (posString posrt) (typeString recordTy)
                        failwith "Type error"
+        | ForLoopExp {typ=typ; varName=varName; start=(poss, _, start); end_=(pose, _, end_); body=(posb, _, body)} ->
+            // First check that the starting exp is a numeral type
+            let (_, Some types, cStart) = tc start
+            if isIntType types then
+                ()
+            else
+                printfn "%sType error: Starting expression has type of %s, which is not an integer type." (posString poss) (typeString types)
+                failwith "Type error"
+            // Now check that the starting exp is a numeral type
+            let (_, Some typee, cEnd) = tc end_
+            if isIntType typee then
+                ()
+            else
+                printfn "%sType error: Ending expression has type of %s, which is not an integer type." (posString pose) (typeString typee)
+                failwith "Type error"
+            let tenv' = Map.add (unwrap varName) (false, unwrap typ) tenv
+            let tc' = typeCheckExpr denv menv tenv'
+            let (_, Some typeb, cBody) = tc' body
+            wrapWithType
+                (BaseTy (dummyWrap TyUnit))
+                (ForLoopExp {
+                    typ=typ;
+                    varName=varName;
+                    start=(poss, Some types, cStart);
+                    end_=(pose, Some typee, cEnd);
+                    body=(posb, Some typeb, cBody)
+                })
+        | BinaryOpExp {left=(posl, _, left); op=(poso, _, op); right=(posr, _, right)} ->
+            let (_, Some typel, cLeft) = tc left
+            let (_, Some typer, cRight) = tc right
+            match op with
+                | (Add | Subtract | Multiply | Divide) ->
+                    if isNumericalType typel then
+                        ()
+                    else
+                        printfn "%sType error: The expression has a type of %s which is not a numerical type." (posString posl) (typeString typel)
+                        failwith "Type error"
+                    if isNumericalType typer then
+                        ()
+                    else
+                        printfn "%sType error: The expression has a type of %s which is not a numerical type." (posString posr) (typeString typer)
+                        failwith "Type error"
+                    let numTypel = match typel with
+                                       | BaseTy (_, _, t1) -> t1
+                                       | _ -> failwith "This should never happen"
+                    let numTyper = match typer with
+                                       | BaseTy (_, _, t1) -> t1
+                                       | _ -> failwith "This should never happen"
+                    let numTypeResult = arithResultTy numTypel numTyper
+                    wrapWithType
+                        (BaseTy (dummyWrap numTypeResult))
+                        (BinaryOpExp{
+                            left=(posl, Some typel, cLeft)
+                            right=(posr, Some typer, cRight)
+                            op=(poso, None, op)
+                        })
+                | (GreaterOrEqual | LessOrEqual | Greater | Less) ->
+                    if isNumericalType typel then
+                        ()
+                    else
+                        printfn "%sType error: The expression has a type of %s which is not a numerical type." (posString posl) (typeString typel)
+                    if isNumericalType typer then
+                        ()
+                    else
+                        printfn "%sType error: The expression has a type of %s which is not a numerical type." (posString posr) (typeString typer)
+                    wrapWithType
+                        (BaseTy (dummyWrap TyBool))
+                        (BinaryOpExp{
+                            left=(posl, Some typel, cLeft)
+                            right=(posr, Some typer, cRight)
+                            op=(poso, None, op)
+                        })
+                | (LogicalOr | LogicalAnd) ->
+                    match (typel, typer) with
+                        | (BaseTy (_, _, TyBool), BaseTy (_, _, TyBool)) -> ()
+                        | (BaseTy (_, _, TyBool), _) -> printfn "%sType error: Expected the expression to have type bool, but had type %s instead." (posString posr) (typeString typer)
+                                                        failwith "Type error"
+                        | _ -> printfn "%sType error: Expected the expression to have type bool, but had type %s instead." (posString posl) (typeString typel)
+                               failwith "Type error"
+                    wrapWithType
+                        (BaseTy (dummyWrap TyBool))
+                        (BinaryOpExp{
+                            left=(posl, Some typel, cLeft)
+                            right=(posr, Some typer, cRight)
+                            op=(poso, None, op)
+                        })
+                | (Equal | NotEqual) ->
+                    if eqTypes typel typer then
+                        wrapWithType
+                            (BaseTy (dummyWrap TyBool))
+                            (BinaryOpExp{
+                                left=(posl, Some typel, cLeft)
+                                right=(posr, Some typer, cRight)
+                                op=(poso, None, op)
+                            })   
+                    else
+                        printfn "%s%sType error: Expected the left and right hand side to have the same types, but the left hand side is of type %s while the right hand side is of type %s" (posString posl) (posString posr) (typeString typel) (typeString typer)
+                        failwith "Type error"
+                | (Modulo | BitwiseAnd | BitwiseOr) ->
+                    if isIntType typel then
+                        ()
+                    else
+                        printfn "%sType error: Expected an expression of integer type but the type of the expression is %s instead." (posString posl) (typeString typel)
+                        failwith "Type error"
+                    if isIntType typer then
+                        ()
+                    else
+                        printfn "%sType error: Expected an expression of integer type but the type of the expression is %s instead." (posString posr) (typeString typer)
+                        failwith "Type error"
+                    let numTypel = match typel with
+                                       | BaseTy (_, _, t1) -> t1
+                                       | _ -> failwith "This should never happen"
+                    let numTyper = match typer with
+                                       | BaseTy (_, _, t1) -> t1
+                                       | _ -> failwith "This should never happen"
+                    let numTypeResult = arithResultTy numTypel numTyper
+                    wrapWithType
+                        (BaseTy (dummyWrap numTypeResult))
+                        (BinaryOpExp{
+                            left=(posl, Some typel, cLeft)
+                            right=(posr, Some typer, cRight)
+                            op=(poso, None, op)
+                        })
+        | ArrayLitExp (pose, _, []) ->
+            printfn "%sSemantic error: Array literals of length zero are not allowed." (posString pose)
+            failwith "Semantic error"
+        | ArrayLitExp (pose, _, exps) ->
+            let (_, _, head)::_ = exps
+            let (_, Some typeh, _) = tc head
+            let expsTys = (List.map (fun (posexp, _, exp) ->
+                let (_, Some typeexp, cExp) = tc exp
+                if eqTypes typeexp typeh then
+                    (posexp, Some typeexp, cExp)
+                else
+                    printfn "%sType error: Expression in array literal expected to have type %s but has type %s instead." (posString posexp) (typeString typeh) (typeString typeexp)
+                    failwith "Type error"
+            ) exps)
+            let capacity = sprintf "%d" (List.length exps) |> dummyWrap |> CapacityConst
+            (wrapWithType
+                (ArrayTy {valueType=dummyWrap typeh; capacity=dummyWrap capacity})
+                (ArrayLitExp (pose, None, expsTys)))
         | UnitExp (posu, _, ()) ->
             wrapWithType
                 (BaseTy (dummyWrap TyUnit))
                 (UnitExp (posu, None, ()))
+        | FloatExp (posf, _, number) ->
+            wrapWithType
+                (BaseTy (dummyWrap TyFloat))
+                (FloatExp (posf, None, number))
         | IntExp (posi, _, number) ->
             wrapWithType
                 (BaseTy (dummyWrap TyInt32))

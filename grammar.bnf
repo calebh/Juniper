@@ -29,25 +29,25 @@
 <field-assign-list> ::= <id> "=" <expr> {";" <id> "=" <expr>};
 <expr>              ::= "()" | "true" | "false" | <number>                                               // X
                      |  "(" <expr> {";" <expr>} ")"                                                      // X
-                     |  <expr> "(" [<expr-list>] ")"
-                     |  <declaration-ref> "<" <template-apply> ">" "(" [<expr-list>] ")"
-                     |  <expr> "[" <expr> "]"
+                     |  <expr> "(" [<expr-list>] ")"                                                     // X
+                     |  <declaration-ref> "<" <template-apply> ">"
+                     |  <expr> "[" <expr> "]"                                                            // X
                      |  <expr> <binary-op> <expr>                                                        // X
                      |  "if" <expr> "then" <expr> [{"elif" <expr> "then" <expr>}] ["else" <expr>] "end"  // X
                      |  "let" ["mutable"] [<ty-expr>] <id> "=" <expr>                                    // X
                      |  "set" <left-assign> "=" <expr>                                                   // X
                      |  "for" <ty-expr> <id> "in" <expr> ".." <expr> "do" <expr> "end"                   // X
-                     |  "do" <expr> "while" <expr> "end"
-                     |  "while" <expr> "do" <expr> "end"
+                     |  "do" <expr> "while" <expr> "end"                                                 // X
+                     |  "while" <expr> "do" <expr> "end"                                                 // X
                      |  <module-qualifier>
-                     |  <id>                                                                              // X
-                     |  "not" <expr>
-                     |  "~~~" <expr>
+                     |  <id>                                                                             // X
+                     |  "not" <expr>                                                                     // X
+                     |  "~~~" <expr>                                                                     // X
                      |  <expr> "." <id>
-                     |  "fn" <ty-expr> "(" [<ty-expr> {, <ty-expr>}] ")" "->" <expr>                      // X
+                     |  "fn" <ty-expr> "(" [<ty-expr> {, <ty-expr>}] ")" "->" <expr>                     // X
                      |  "case" <expr> "of" <case-clause> {"|" <case-clause>} "end"
-                     |  <declaration-ref> ["<" <template-apply> ">"] "{" [<field-assign-list>] "}"        // X
-                     |  "[" <expr-list> "]";
+                     |  <declaration-ref> ["<" <template-apply> ">"] "{" [<field-assign-list>] "}"       // X
+                     |  "[" <expr-list> "]";                                                             // X
 <binary-op>         ::= "+" | "-" | "*" | "/" | "mod" | "and" | "or" | "&&&"
                      |  "|||" | ">=" | "<=" | ">" | "<" | "==" | "!=";
 <left-assign>       ::= <id>

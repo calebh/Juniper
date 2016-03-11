@@ -584,6 +584,52 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                     end_=(pose, Some typee, cEnd);
                     body=(posb, Some typeb, cBody)
                 })
+        | DoWhileLoopExp {body=(posb, _, body); condition=(posc, _, condition)} ->
+            let (_, Some typeb, _) = tc body
+            let (_, Some typec, _) = tc condition
+            if eqTypes typec (BaseTy (dummyWrap TyBool)) then
+                ()
+            else
+                printfn "%sType error: Condition of do while loop expected to be of type bool but was of type %s." (posString posc) (typeString typec)
+                failwith "Type error"
+            wrapWithType
+                (BaseTy (dummyWrap TyUnit))
+                (DoWhileLoopExp {
+                    body = (posb, Some typeb, body);
+                    condition = (posc, Some typec, condition)
+                })
+        | WhileLoopExp {body=(posb, _, body); condition=(posc, _, condition)} ->
+            let (_, Some typeb, _) = tc body
+            let (_, Some typec, _) = tc condition
+            if eqTypes typec (BaseTy (dummyWrap TyBool)) then
+                ()
+            else
+                printfn "%sType error: Condition of do while loop expected to be of type bool but was of type %s." (posString posc) (typeString typec)
+                failwith "Type error"
+            wrapWithType
+                (BaseTy (dummyWrap TyUnit))
+                (WhileLoopExp {
+                    body = (posb, Some typeb, body);
+                    condition = (posc, Some typec, condition)
+                })
+        | ArrayAccessExp {array=(posa, _, array); index=(posi, _, index)} ->
+            let (_, Some typea, cArray) = tc array
+            let (_, Some typei, cIndex) = tc index
+            if isIntType typei then
+                ()
+            else
+                printfn "%sType error: Array access index expression expected to have integer type, but was of type %s instead." (posString posi) (typeString typea)
+                failwith "Type error"
+            match typea with
+                | ArrayTy {valueType=valueType} ->
+                    wrapWithType
+                        (unwrap valueType)
+                        (ArrayAccessExp {
+                            array=(posa, Some typea, cArray);
+                            index=(posi, Some typei, index)
+                        })
+                | _ -> printfn "%sType error: Array access operation can only be applied to arrays, but was attempted to be applied to expression of type %s." (posString posa) (typeString typea)
+                       failwith "Type error"
         | BinaryOpExp {left=(posl, _, left); op=(poso, _, op); right=(posr, _, right)} ->
             let (_, Some typel, cLeft) = tc left
             let (_, Some typer, cRight) = tc right
@@ -698,6 +744,56 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             (wrapWithType
                 (ArrayTy {valueType=dummyWrap typeh; capacity=dummyWrap capacity})
                 (ArrayLitExp (pose, None, expsTys)))
+        | CallExp {func=(posf, _, func); args=(posa, _, args)} ->
+            let (_, Some typef, cFunc) = tc func
+            let tcArgs = args |> List.map (unwrap >> tc)
+            match typef with
+                | FunTy {template=None; args=funArgs; returnType=returnType} ->
+                    if List.length tcArgs = List.length funArgs then
+                        List.iter (fun ((posArg, _, _), (_, Some typea, tcArg), (_, _, fArg)) ->
+                            if eqTypes typea fArg then
+                                ()
+                            else
+                                printfn "%sType error: Function argument expected to be of type %s but was of type %s." (posString posArg) (typeString fArg) (typeString typea)
+                                failwith "Type error"
+                        ) (List.zip3 args tcArgs funArgs)
+                        wrapWithType
+                            (unwrap returnType)
+                            (CallExp {
+                                func=(posf, Some typef, cFunc)
+                                args=(posa, None, tcArgs)
+                            })
+                    else
+                        printfn "%sType error: incorrect number of arguments applied to function of type %s." (posString posa) (typeString typef)
+                        failwith "Type error"
+                | FunTy {template=Some _} ->
+                    printfn "%sType error: Expected type arguments to be applied before calling function. The type of the function being called is %s." (posString posf) (typeString typef)
+                    failwith "Type error"
+        | UnaryOpExp {op=(poso, _, op); exp=(pose, _, exp)} ->
+            let (_, Some typee, cExp) = tc exp
+            match op with
+                | LogicalNot ->
+                    if eqTypes typee (BaseTy (dummyWrap TyBool)) then
+                        wrapWithType
+                            (BaseTy (dummyWrap TyBool))
+                            (UnaryOpExp {
+                                op=(poso, None, op);
+                                exp=(pose, Some typee, cExp)
+                            })
+                    else
+                        printfn "%sType error: Expression has type %s when type bool was expected for logical not expression." (posString pose) (typeString typee)
+                        failwith "Type error"
+                | BitwiseNot ->
+                    if isIntType typee then
+                        wrapWithType
+                            typee
+                            (UnaryOpExp {
+                                op=(poso, None, op);
+                                exp=(pose, Some typee, cExp)
+                            })
+                    else
+                        printfn "%sType error: Expression has type %s when integer type was expected for bitwise not operation." (posString pose) (typeString typee)
+                        failwith "Type error"
         | UnitExp (posu, _, ()) ->
             wrapWithType
                 (BaseTy (dummyWrap TyUnit))

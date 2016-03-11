@@ -445,9 +445,9 @@ tyexpr:
             template = None
             args = $2;
             returnType = (pos parseState 6 6, None, $6)}}
-  | ID LBRACK capexpr RBRACK {
+  | tyexpr LBRACK capexpr RBRACK {
         ArrayTy {
-            valueType = (pos parseState 1 1, None, TyName (pos parseState 1 1, None, $1));
+            valueType = (pos parseState 1 1, None, $1);
             capacity = (pos parseState 3 3, None, $3)}}
   | moduleQualifier LBRACK capexpr RBRACK {
         ArrayTy {

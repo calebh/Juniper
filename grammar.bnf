@@ -39,11 +39,11 @@
                      |  "for" <ty-expr> <id> "in" <expr> ".." <expr> "do" <expr> "end"                   // X
                      |  "do" <expr> "while" <expr> "end"                                                 // X
                      |  "while" <expr> "do" <expr> "end"                                                 // X
-                     |  <module-qualifier>
+                     |  <module-qualifier>                                                               // X
                      |  <id>                                                                             // X
                      |  "not" <expr>                                                                     // X
                      |  "~~~" <expr>                                                                     // X
-                     |  <expr> "." <id>
+                     |  <expr> "." <id>                                                                  // X
                      |  "fn" <ty-expr> "(" [<ty-expr> {, <ty-expr>}] ")" "->" <expr>                     // X
                      |  "case" <expr> "of" <case-clause> {"|" <case-clause>} "end"
                      |  <declaration-ref> ["<" <template-apply> ">"] "{" [<field-assign-list>] "}"       // X

@@ -257,6 +257,8 @@ let rec eqTypes (ty1 : TyExpr) (ty2 : TyExpr) : bool =
         | (ArrayTy t1, ArrayTy t2) ->
                 eqTypes (unwrap t1.valueType) (unwrap t2.valueType) &&
                 eqCapacities (unwrap t1.capacity) (unwrap t2.capacity)
+        | (RefTy ty1, RefTy ty2) ->
+                eqTypes (unwrap ty1) (unwrap ty2)
         | _ -> (ty1 = ty2)
 
 let rec capacityString (cap : CapacityExpr) : string =
@@ -303,6 +305,7 @@ let rec typeString (ty : TyExpr) : string =
                                                 sprintf "<%s; %s>" tyVarStr capVarStr
                 sprintf "%s((%s) -> %s)" templateStr (String.concat ", " (List.map (typeString << unwrap) args)) (typeString returnType)
         | ForallTy (_, _, name) -> sprintf "'%s" name
+        | RefTy (_, _, ty) -> sprintf "%s ref" (typeString ty)
 
 let toModuleQual (module_, name) =
     {module_=dummyWrap module_; name=dummyWrap name}
@@ -452,13 +455,13 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                     arguments=clause.arguments;
                     body=(posb, Some typeb, cBody)
                 })})
-        | AssignExp {left=(posl, _, left); right=(posr, _, right)} ->
+        | AssignExp {left=(posl, _, left); right=(posr, _, right); ref=(posref, _, ref)} ->
             let (_, Some typer, cRight) = tc right
             let rec checkLeft left : TyExpr =
                 match left with
                     | VarMutation {varName=varName} ->
                         let (mutable_, typel) = Map.find (unwrap varName) tenv
-                        if mutable_ then
+                        if mutable_ || ref then
                             Map.find (unwrap varName) tenv |> snd
                         else
                             printfn "%sError in set expression: The left hand side is not mutable." (posString posl)
@@ -505,11 +508,25 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                             | _ -> printfn "%sType error: Attempted to access a field of a nonrecord with type %s." (posString posr) (typeString tyRecord)
                                    failwith "Type error"
             let typel = checkLeft left
-            if eqTypes typer typel then
-                wrapWithType typer cRight
+            if ref then
+                match typel with
+                    | RefTy (posRefTy, _, refTy) ->
+                        if eqTypes refTy typer then
+                            wrapWithType typer cRight
+                        else
+                            printfn "%sType error: The ref on the left hand side holds a value of type %s, which does not match the right hand side type of %s." (posString posl) (typeString refTy) (typeString typer)
+                            failwith "Type error"
+                    | ForallTy _ ->
+                        wrapWithType typer cRight
+                    | _ ->
+                        printfn "%sType error: The left hand side of the set expression has type %s, which is not a ref type." (posString posl) (typeString typel)
+                        failwith "Type error"
             else
-                printfn "%s%sType error in set expression: The left hand side has type %s, but the right hand side has type %s. The left and the right hand sides were expected to have the same type." (posString posl) (posString posr) (typeString typel) (typeString typer)
-                failwith "Type error"
+                if eqTypes typer typel then
+                    wrapWithType typer cRight
+                else
+                    printfn "%s%sType error: The left hand side of the set expression has type %s, but the right hand side has type %s. The left and the right hand sides were expected to have the same type." (posString posl) (posString posr) (typeString typel) (typeString typer)
+                    failwith "Type error"   
         | RecordExp {recordTy=(posrt, _, recordTy); templateArgs=maybeTemplateArgs; initFields=(posif, _, initFields)} ->
             match recordTy with
                 | ForallTy _ ->
@@ -864,6 +881,36 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             wrapWithType
                 ty
                 (ModQualifierExp {module_=(posm, None, module_); name=(posn, None, name)})
+        | TemplateApplyExp {func=(posf, _, func); templateArgs=(posTempArgs, _, templateArgs)} ->
+            let (_, Some typef, cFunc) = tc func
+            match typef with
+                | FunTy {template=None} ->
+                    printfn "%sType error: Function does not require application of a template." (posString posf)
+                    failwith "Type error"
+                | FunTy {template=Some (posTemp, _, template); args=args; returnType=returnType} ->
+                    let requiredTyVarArity = List.length (unwrap template.tyVars)
+                    let givenTyVarArity = List.length (unwrap templateArgs.tyExprs)
+                    if requiredTyVarArity = givenTyVarArity then
+                        ()
+                    else
+                        printfn "%sType error: Function template's type variable arity is %d, but %d types were passed to the template." (getPos templateArgs.tyExprs |> posString) requiredTyVarArity givenTyVarArity
+                        failwith "Type error"
+                    let requiredCapVarArity = List.length (unwrap template.capVars)
+                    let givenCapVarArity = List.length (unwrap templateArgs.capExprs)
+                    if requiredCapVarArity = givenCapVarArity then
+                        ()
+                    else
+                        printfn "%sType error: Function template's capacity variable arity is %d, but %d capacities were passed to the template." (getPos templateArgs.capExprs |> posString) requiredCapVarArity givenCapVarArity
+                        failwith "Type error"
+                    // TODO: Finish this case
+                    wrapWithType
+                        (FunTy {template=None; args=args; returnType=returnType})
+                        (TemplateApplyExp {func=(posf, Some  typef, cFunc); templateArgs=(posTempArgs, None, templateArgs)})
+        | RefExp (pose, _, expr) ->
+            let (_, Some typee, cExpr) = tc expr
+            wrapWithType
+                (RefTy (pose, None, typee))
+                (RefExp (pose, Some typee, cExpr))
         | UnitExp (posu, _, ()) ->
             wrapWithType
                 (BaseTy (dummyWrap TyUnit))
@@ -884,7 +931,6 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             wrapWithType
                 (BaseTy (dummyWrap TyBool))
                 (FalseExp (post, None, ()))
-        | x -> ((dummyPos, dummyPos), None, x)
 
 let typecheckDec denv dtenv tenv dec =
     match dec with

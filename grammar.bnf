@@ -30,7 +30,7 @@
 <expr>              ::= "()" | "true" | "false" | <number>                                               // X
                      |  "(" <expr> {";" <expr>} ")"                                                      // X
                      |  <expr> "(" [<expr-list>] ")"                                                     // X
-                     |  <declaration-ref> "<" <template-apply> ">"
+                     |  <declaration-ref> "<" <template-apply> ">"                                       
                      |  <expr> "[" <expr> "]"                                                            // X
                      |  <expr> <binary-op> <expr>                                                        // X
                      |  "if" <expr> "then" <expr> [{"elif" <expr> "then" <expr>}] ["else" <expr>] "end"  // X

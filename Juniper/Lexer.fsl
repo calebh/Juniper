@@ -29,6 +29,7 @@ rule token = parse
 | "end"         { END }
 | "return"		{ RETURN }
 | "export"      { EXPORT }
+| "ref"         { REF }
 | "open"        { OPEN }
 | "module"		{ MODULE }
 | "set"         { SET }
@@ -43,6 +44,7 @@ rule token = parse
 | "!="          { NOTEQUAL }
 | "=="          { DOUBLEEQUAL }
 | "let"         { LET }
+| "!"           { DEREF }
 | "mutable"     { MUTABLE }
 | "for"         { FOR }
 | "in"          { IN }

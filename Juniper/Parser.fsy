@@ -71,6 +71,8 @@ let pos (parseState: IParseState) startIdx endIdx =
 %token DOT
 %token SET
 %token RFATARROW
+%token REF
+%token DEREF
 %token EOF
 
 %type < Module > start
@@ -83,6 +85,8 @@ let pos (parseState: IParseState) startIdx endIdx =
 %left LTHAN LTHANEQ GTHAN GTHANEQ
 %left PLUS MINUS PIPE
 %left TIMES DIVIDE MOD AMPERSAND
+%left REF
+%left DEREF
 %left NOT TILDE
 %left DOT
 %left LBRACK
@@ -251,7 +255,7 @@ expr:
             func = (pos parseState 1 1, None, VarExp { name = (pos parseState 1 1, None, $1) });
             templateArgs = (pos parseState 3 3, None, $3)} }
   // Refering to a function in another module with a template
-  | ID COLON ID LTHAN tycapExprs GTHAN LPAREN callExprList RPAREN {
+  | ID COLON ID LTHAN tycapExprs GTHAN {
         TemplateApplyExp {
             func = (pos parseState 1 1, None, ModQualifierExp {module_=(pos parseState 1 1, None, $1); name=(pos parseState 3 3, None, $3)});
             templateArgs = (pos parseState 5 5, None, $5)} }
@@ -306,7 +310,13 @@ expr:
   | SET leftAssign EQUAL expr {
         AssignExp {
             left = (pos parseState 2 2, None, $2);
-            right = (pos parseState 4 4, None, $4) } }
+            right = (pos parseState 4 4, None, $4);
+            ref = (pos parseState 1 1, None, false) } }
+  | SET REF leftAssign EQUAL expr {
+        AssignExp {
+            left = (pos parseState 3 3, None, $3);
+            right = (pos parseState 5 5, None, $5);
+            ref = (pos parseState 2 2, None, true)}}
   // For loop
   | FOR tyexpr ID IN expr DOTDOT expr DO expr END {
         ForLoopExp {
@@ -388,6 +398,8 @@ expr:
             initFields = (pos parseState 8 8, None, $8);
             templateArgs = Some (pos parseState 5 5, None, $5)} }
   | LBRACK arrayExprList RBRACK { ArrayLitExp (pos parseState 1 3, None, $2) }
+  | REF expr { RefExp (pos parseState 2 2, None, $2) }
+  | DEREF expr { DerefExp (pos parseState 2 2, None, $2) }
 
 caseClauseList:
   | pattern RFATARROW expr PIPE caseClauseList { ((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3))::$5 }
@@ -449,6 +461,9 @@ tyexpr:
         ArrayTy {
             valueType = (pos parseState 1 1, None, $1);
             capacity = (pos parseState 3 3, None, $3)}}
+  | tyexpr REF {
+        RefTy (pos parseState 1 1, None, $1) }
+  | LPAREN tyexpr RPAREN { $2 }
   | moduleQualifier LBRACK capexpr RBRACK {
         ArrayTy {
             valueType = (pos parseState 1 1, None, TyModuleQualifier $1);

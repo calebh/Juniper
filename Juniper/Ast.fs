@@ -71,6 +71,7 @@ and TyExpr = BaseTy of PosAdorn<BaseTypes>
            | ArrayTy of ArrayTyRec
            | FunTy of FunTyRec
            | ForallTy of PosAdorn<string>
+           | RefTy of PosAdorn<TyExpr>
 
 and Pattern = MatchVar of PosAdorn<string>
             | MatchModQualifier of ModQualifierRec
@@ -90,7 +91,7 @@ and SequenceRec =     { exps : PosAdorn<PosAdorn<Expr> list> }
 and BinaryOpRec =     { left : PosAdorn<Expr>; op : PosAdorn<BinaryOps>; right : PosAdorn<Expr> }
 and IfElseRec =       { condition : PosAdorn<Expr>; trueBranch : PosAdorn<Expr>; falseBranch : PosAdorn<Expr> }
 and LetRec =          { varName : PosAdorn<string>; typ : PosAdorn<TyExpr> option; right : PosAdorn<Expr>; mutable_ : PosAdorn<bool> }
-and AssignRec =       { left : PosAdorn<LeftAssign>; right : PosAdorn<Expr> }
+and AssignRec =       { left : PosAdorn<LeftAssign>; right : PosAdorn<Expr>; ref : PosAdorn<bool> }
 and ForLoopRec =      { typ : PosAdorn<TyExpr>; varName : PosAdorn<string>; start : PosAdorn<Expr>; end_ : PosAdorn<Expr>; body : PosAdorn<Expr> }
 and WhileLoopRec =    { condition : PosAdorn<Expr>; body : PosAdorn<Expr> }
 and DoWhileLoopRec =  { condition : PosAdorn<Expr>; body: PosAdorn<Expr> }
@@ -128,6 +129,8 @@ and Expr = SequenceExp of SequenceRec
           | ModQualifierExp of ModQualifierRec
           | RecordExp of RecordExprRec
           | ArrayLitExp of PosAdorn<PosAdorn<Expr> list>
+          | RefExp of PosAdorn<Expr>
+          | DerefExp of PosAdorn<Expr>
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
 and UnaryOps = LogicalNot | BitwiseNot
 
@@ -139,10 +142,12 @@ and LeftAssign = VarMutation of VarMutationRec
                | RecordMutation of RecordMutationRec
 
 let unwrap<'a> ((_, _, c) : PosAdorn<'a>) = c
-let dummyPos : Position = {pos_fname="dummy pos"
+let getPos<'a> ((a, _, _) : PosAdorn<'a>) = a
+let dummyPos : Position = {pos_fname=""
                            pos_lnum = -1
                            pos_bol = -1
                            pos_cnum = -1}
 let dummyWrap<'a> c : PosAdorn<'a> = ((dummyPos, dummyPos), None, c)
+let clean<'a> ((_, _, c) : PosAdorn<'a>) : PosAdorn<'a> = dummyWrap c
 
 let wrapWithType<'a> t c : PosAdorn<'a> = ((dummyPos, dummyPos), Some t, c)

@@ -19,7 +19,9 @@
 <declaration-ref>   ::= <id> | <module-qualifier>;
 <ty-expr>           ::= <declaration-ref> ["<" <template-apply> ">"]
                      |  "(" [<ty-expr> {"," <ty-expr>}] ")" "->" <ty-expr>
-                     |  <ty-expr> "[" <capacity-expr> "]";
+                     |  <ty-expr> "[" <capacity-expr> "]"
+                     |  "(" <ty-expr> ")"
+                     |  <ty-expr> "ref";
 <capacity-expr>     ::= <capacity-expr> <capacity-op> <capacity-expr>
                      |  <id>
                      |  <natural-number>;
@@ -30,7 +32,7 @@
 <expr>              ::= "()" | "true" | "false" | <number>                                               // X
                      |  "(" <expr> {";" <expr>} ")"                                                      // X
                      |  <expr> "(" [<expr-list>] ")"                                                     // X
-                     |  <declaration-ref> "<" <template-apply> ">"                                       
+                     |  <declaration-ref> "<" <template-apply> ">"
                      |  <expr> "[" <expr> "]"                                                            // X
                      |  <expr> <binary-op> <expr>                                                        // X
                      |  "if" <expr> "then" <expr> [{"elif" <expr> "then" <expr>}] ["else" <expr>] "end"  // X
@@ -47,7 +49,8 @@
                      |  "fn" <ty-expr> "(" [<ty-expr> {, <ty-expr>}] ")" "->" <expr>                     // X
                      |  "case" <expr> "of" <case-clause> {"|" <case-clause>} "end"
                      |  <declaration-ref> ["<" <template-apply> ">"] "{" [<field-assign-list>] "}"       // X
-                     |  "[" <expr-list> "]";                                                             // X
+                     |  "[" <expr-list> "]"                                                              // X
+                     |  "ref" <expr>;                                                                    // X
 <binary-op>         ::= "+" | "-" | "*" | "/" | "mod" | "and" | "or" | "&&&"
                      |  "|||" | ">=" | "<=" | ">" | "<" | "==" | "!=";
 <left-assign>       ::= <id>

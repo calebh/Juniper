@@ -10,18 +10,19 @@
 <export>            ::= "export" "(" [<id> {"," <id>}] ")";
 <template-dec>      ::= <id> {"," <id>} [";" <id> {"," <id>}];
 <template-apply>    ::= <ty-expr> {"," <ty-expr>} [";" <capacity-expr> {"," <capacity-expr>}];
-<record>            ::= "type" <id> ["<" <template-dec> ">"] "=" "{" [<ty-expr> <id> {";" <ty-expr> <id>}] "}";
+<record>            ::= "type" <id> ["<" <template-dec> ">"] "=" "{" [<id> ":" <ty-expr> {";" <id> ":" <ty-expr>}] "}";
 <type-alias>        ::= "type" <id> ["<" <template-dec> ">"] "=" <ty-expr>;
 <algebraic-type>    ::= "type" <id> ["<" <template-dec> ">"] "=" <value-constructor> {"|" <value-constructor>};
-<value-constructor> ::= <id> "(" [<ty-expr> {, <ty-expr>}] ")";
-<let>               ::= "let" <ty-expr> <id> "=" <expr>;
-<function>          ::= "fun" <ty-expr> <id> ["<" <template-dec> ">"] "(" [<ty-expr> <id> {"," <ty-expr> <id>}] ")" "=" <expr>;
+<value-constructor> ::= <id> "of" <ty-expr>;
+<let>               ::= "let" <id> ":" <ty-expr> "=" <expr>;
+<function>          ::= "fun" <id> ["<" <template-dec> ">"] "(" [<id> ":" <ty-expr> {"," <id> ":" <ty-expr>}] ")" ":" <ty-expr> "=" <expr>;
 <declaration-ref>   ::= <id> | <module-qualifier>;
 <ty-expr>           ::= <declaration-ref> ["<" <template-apply> ">"]
                      |  "(" [<ty-expr> {"," <ty-expr>}] ")" "->" <ty-expr>
                      |  <ty-expr> "[" <capacity-expr> "]"
                      |  "(" <ty-expr> ")"
-                     |  <ty-expr> "ref";
+                     |  <ty-expr> "ref"
+                     |  "(" <ty-expr> "*" <ty-expr> [{"*" <ty-expr>}] ")";
 <capacity-expr>     ::= <capacity-expr> <capacity-op> <capacity-expr>
                      |  <id>
                      |  <natural-number>;
@@ -31,12 +32,13 @@
 <field-assign-list> ::= <id> "=" <expr> {";" <id> "=" <expr>};
 <expr>              ::= "()" | "true" | "false" | <number>                                               // X
                      |  "(" <expr> {";" <expr>} ")"                                                      // X
+                     |  "(" <expr> "," <expr> [{"," <expr>}] ")"
                      |  <expr> "(" [<expr-list>] ")"                                                     // X
                      |  <declaration-ref> "<" <template-apply> ">"
                      |  <expr> "[" <expr> "]"                                                            // X
                      |  <expr> <binary-op> <expr>                                                        // X
                      |  "if" <expr> "then" <expr> [{"elif" <expr> "then" <expr>}] ["else" <expr>] "end"  // X
-                     |  "let" ["mutable"] [<ty-expr>] <id> "=" <expr>                                    // X
+                     |  "let" <pattern> "=" <expr>                                                       // CHANGED
                      |  "set" <left-assign> "=" <expr>                                                   // X
                      |  "for" <ty-expr> <id> "in" <expr> ".." <expr> "do" <expr> "end"                   // X
                      |  "do" <expr> "while" <expr> "end"                                                 // X
@@ -46,7 +48,7 @@
                      |  "not" <expr>                                                                     // X
                      |  "~~~" <expr>                                                                     // X
                      |  <expr> "." <id>                                                                  // X
-                     |  "fn" <ty-expr> "(" [<ty-expr> {, <ty-expr>}] ")" "->" <expr>                     // X
+                     |  "fn" <ty-expr> "(" [<id> ":" <ty-expr> {"," <id> ":" <ty-expr>}] ")" "->" <expr>         // X
                      |  "case" <expr> "of" <case-clause> {"|" <case-clause>} "end"
                      |  <declaration-ref> ["<" <template-apply> ">"] "{" [<field-assign-list>] "}"       // X
                      |  "[" <expr-list> "]"                                                              // X
@@ -57,9 +59,10 @@
                      |  <left-assign> "[" <expr> "]"
                      |  <left-assign> "." <id>;
 <case-clause>       ::= <pattern> "=>" <expr>;
-<pattern>           ::= <id>
+<pattern>           ::= ["mutable"] <id> [":" <ty-expr>] // CHANGED
                      |  <integer>
                      |  <float>
                      |  "_"
-                     |  <declaration-ref> "(" [<pattern> {"," <pattern>}] ")"
-                     |  <declaration-ref> "{" [<id> "=" <pattern> {"," <id> "=" <pattern>}] "}";
+                     |  <declaration-ref> "(" <pattern> ")" // CHANGED
+                     |  <declaration-ref> "{" [<id> "=" <pattern> {"," <id> "=" <pattern>}] "}"
+                     |  "(" <pattern> "," <pattern> {"," <pattern>} ")"; // ADDED

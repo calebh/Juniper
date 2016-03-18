@@ -13,3 +13,14 @@ The purpose of Juniper is to provide a functional reactive programming platform 
 - Statically typed
 - Algebraic datatypes
 - Use of records as datatypes (the equivalent of structs in C++)
+- First class functions in the form of tylambdas
+- Use of templates to create maximum capacity length lists.
+
+## Repository Contents
+
+### juniper.sln - Microsoft Visual F# Solution used for developing this project
+
+### grammar.bnf - Juniper Grammar and Concrete Syntax
+This is the grammar used for our language in this repository. It is represented in Extended Backus-Naur Form (EBNF), a metasyntax language used for the planning of Juniper's concrete syntax.
+
+### Juniper Subfolder, which contains the code used for the compiler

@@ -6,7 +6,7 @@ The grammar in EBNF (extended Backus-Naur Form) is now available in grammer.bnf
 
 The purpose of Juniper is to provide a functional reactive programming platform for designing Arduino projects. FRP's high-level approach to timing-based events fits naturally with Arduino, with which programming almost entirely revolves around reacting to realtime events. Juniper transpiles to Arduino C++, which is then compiled to an Arduino executable.
 
-## Language Features
+### Language Features
 
 - Compiler written in F#, FsLex and FsYacc
 - Transpiled to C++
@@ -16,11 +16,17 @@ The purpose of Juniper is to provide a functional reactive programming platform 
 - First class functions in the form of tylambdas
 - Use of templates to create maximum capacity length lists.
 
-## Repository Contents
+### Repository Contents
 
-### juniper.sln - Microsoft Visual F# Solution used for developing this project
+#### juniper.sln 
 
-### grammar.bnf - Juniper Grammar and Concrete Syntax
-This is the grammar used for our language in this repository. It is represented in Extended Backus-Naur Form (EBNF), a metasyntax language used for the planning of Juniper's concrete syntax.
+- Microsoft Visual F# Solution used for developing this project
 
-### Juniper Subfolder, which contains the code used for the compiler
+#### grammar.bnf 
+
+- Juniper Grammar and Concrete Syntax
+- This is the grammar used for our language in this repository. It is represented in Extended Backus-Naur Form (EBNF), a metasyntax language used for the planning of Juniper's concrete syntax.
+
+#### Juniper Subfolder
+
+- Contains the code used for the compiler

@@ -1,12 +1,19 @@
 ﻿module TypeChecker
 
 // TODO: Prevent programmer from saving templated functions in variables
-// TODO: Typecheck function after template instantiation
 
 open Ast
 open Microsoft.FSharp.Text.Lexing
 open System.IO
 open Extensions
+
+let mutable alreadyCheckedFunctions : Set<ModQualifierRec * TemplateApply> = Set.empty
+
+let addToAlreadyCheckedFunctions m t =
+    alreadyCheckedFunctions <- Set.add (cleanAll m, cleanAll t) alreadyCheckedFunctions
+
+let isAlreadyCheckedFunction m t =
+    Set.contains (cleanAll m, cleanAll t) alreadyCheckedFunctions
 
 let arithResultTy numTypel numTyper = 
     match (numTypel, numTyper) with
@@ -191,12 +198,19 @@ let applyTemplate dec (substitutions : TemplateApply) =
     match dec with
         | FunctionDec {name=name; template=Some (_, _, {tyVars=(_, _, tyVars); capVars=(_, _, capVars)}); clause=clause} ->
             // TODO: Better error message here when the zip fails
+
+            // Notice that we don't substitute the capacities in here
+            // This is because the only place where we need to use applyTemplate for
+            // functions is when typechecking templated functions after types have
+            // been substituted. Bad coding practice? Possibly... but it works
             let tyMap = Map.ofList (List.zip (List.map unwrap tyVars) tySubstitutions)
             let capMap = Map.ofList (List.zip (List.map unwrap capVars) capSubstitutions)
             FunctionDec {
                 name = name;
                 template = None;
-                clause = replace tyMap capMap clause
+                clause = TreeTraversals.map1 (fun tyExpr -> match tyExpr with
+                                                                | ForallTy (_, _, name) -> Map.find name tyMap
+                                                                | x -> x) clause
             }
         | RecordDec {name=name; template=Some (_, _, {tyVars=(_, _, tyVars); capVars=(_, _, capVars)}); fields=fields} ->
             // TODO: Better error message here when the zip fails
@@ -249,7 +263,7 @@ let isNumericalType (ty : TyExpr) =
 
 let rec eqTypes (ty1 : TyExpr) (ty2 : TyExpr) : bool =
     match (ty1, ty2) with
-        | (x, y) when isIntType x && isIntType y -> true
+        | (x, y) when isNumericalType x && isNumericalType y -> true
         | (BaseTy (_, _, t1), BaseTy (_, _, t2)) ->
                 t1 = t2
         | (TyModuleQualifier t1, TyModuleQualifier t2) ->
@@ -387,16 +401,6 @@ let isTypedDec dec = match dec with
                          | (LetDec _ | FunctionDec _) -> true
                          | _ -> false
 
-let typeOfDec dec = match dec with
-                        | LetDec {typ=typ} -> (unwrap typ)
-                        | FunctionDec fun_ ->
-                            let clause = unwrap fun_.clause
-                            let args = clause.arguments |> unwrap |> List.unzip |> fst
-                            FunTy {template=fun_.template;
-                                   returnType=clause.returnTy;
-                                   args=args}
-                        | _ -> failwith "This declaration doesn't have a type"
-
 (*
     denv => module qualifiers to actual declarations
     dtenv => module qualifiers to the type of declarations
@@ -407,9 +411,12 @@ let typeOfDec dec = match dec with
 let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                       (dtenv : Map<string * string, TyExpr>)
                       (tenv : Map<string, bool * TyExpr>)
+                      (modNamesToTenvs : Map<string,Map<string,(bool * TyExpr)>>)
+                      (capEnv : Set<string>)
                       (expr : Expr)
                       : PosAdorn<Expr> =
-    let tc = typeCheckExpr denv dtenv tenv
+    let tc = typeCheckExpr denv dtenv tenv modNamesToTenvs capEnv
+
     let rec checkPattern (pattern : Pattern) (path : Expr) : (PosAdorn<Pattern> * Map<string, bool*TyExpr>) =
         let mutable tenv' = tenv
         let rec checkPattern' (pattern : Pattern) (path : Expr) : PosAdorn<Pattern> =
@@ -561,7 +568,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             let tc' = match exp with
                           | LetExp {left=left; right=right} ->
                                 let (_, tenv') = checkPattern (unwrap left) (unwrap right)
-                                typeCheckExpr denv dtenv tenv'
+                                typeCheckExpr denv dtenv tenv' modNamesToTenvs capEnv
                           | _ -> tc
 
             let (seqType, cRest) =
@@ -608,7 +615,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             let args = unwrap clause.arguments |> List.map (fun (ty, name) -> (unwrap name, (false, unwrap ty)))
             let tenv' = tenv |> Map.map (fun name (mut, typ) -> (false, typ))
             let tenv'' = Map.merge tenv' (Map.ofList args)
-            let tc' = typeCheckExpr denv dtenv tenv''
+            let tc' = typeCheckExpr denv dtenv tenv'' modNamesToTenvs capEnv
             let (posb, _, _) = clause.body
             let (posr, _, _) = clause.returnTy
             let (_, Some typeb, cBody) = tc' (unwrap clause.body)
@@ -620,6 +627,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             let argsTypes = unwrap clause.arguments |> List.unzip |> fst
             let lambdaType = FunTy {template=None;
                                     args=argsTypes;
+                                    source=None;
                                     returnType=clause.returnTy}
             wrapWithType
                 lambdaType
@@ -788,7 +796,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                 printfn "%sType error: Ending expression has type of %s, which is not an integer type." (posString pose) (typeString typee)
                 failwith "Type error"
             let tenv' = Map.add (unwrap varName) (false, unwrap typ) tenv
-            let tc' = typeCheckExpr denv dtenv tenv'
+            let tc' = typeCheckExpr denv dtenv tenv' modNamesToTenvs capEnv
             let (_, Some typeb, cBody) = tc' body
             wrapWithType
                 (BaseTy (dummyWrap TyUnit))
@@ -860,15 +868,13 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                     else
                         printfn "%sType error: The expression has a type of %s which is not a numerical type." (posString posr) (typeString typer)
                         failwith "Type error"
-                    let numTypel = match typel with
-                                       | BaseTy (_, _, t1) -> t1
-                                       | _ -> failwith "This should never happen"
-                    let numTyper = match typer with
-                                       | BaseTy (_, _, t1) -> t1
-                                       | _ -> failwith "This should never happen"
-                    let numTypeResult = arithResultTy numTypel numTyper
+                    let numTypeResult = match (typel, typer) with
+                                            | (BaseTy (_, _, t1), BaseTy (_, _, t2)) -> BaseTy (dummyWrap (arithResultTy t1 t2))
+                                            | (ForallTy _, _) -> typel
+                                            | (_, ForallTy _) -> typer
+                                            | _ -> failwith "This should never happen"
                     wrapWithType
-                        (BaseTy (dummyWrap numTypeResult))
+                        numTypeResult
                         (BinaryOpExp{
                             left=(posl, Some typel, cLeft)
                             right=(posr, Some typer, cRight)
@@ -1060,6 +1066,20 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                     printfn "%sType error: Function does not require application of a template." (posString posf)
                     failwith "Type error"
                 | FunTy {template=Some _} ->
+                    match func with
+                        | (VarExp _ | ModQualifierExp _) -> ()
+                        | _ -> printfn "%sSemantic error: Template can only be applied directly to a function." (posString posf)
+                               failwith "Semantic error"
+                    match typef with
+                        | FunTy {source=Some {module_=(_, _, module_); name=(_, _, name)}} ->
+                            let funDec = Map.find (module_, name) denv |> unwrap
+                            if isAlreadyCheckedFunction {module_=dummyWrap module_; name=dummyWrap name} templateArgs then
+                                ()
+                            else
+                                let tenvOfFunc = Map.find module_ modNamesToTenvs
+                                addToAlreadyCheckedFunctions {module_=dummyWrap module_; name=dummyWrap name} templateArgs
+                                applyTemplate funDec templateArgs |> typecheckDec denv dtenv tenvOfFunc modNamesToTenvs |> ignore
+                        | _ -> ()
                     wrapWithType
                         (applyTemplateToFunctionType typef templateArgs)
                         (TemplateApplyExp {func=(posf, Some  typef, cFunc); templateArgs=(posTempArgs, None, templateArgs)})
@@ -1084,7 +1104,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             let (_, Some typeOn, cOn) = tc on
             let clauses' = clauses |> List.map (fun ((posOverallPattern, _, overallPattern), (posExprIfMatched, _, exprIfMatched)) ->
                         let ((_, typeOverallPattern, cOverallPattern), tenv') = checkPattern overallPattern on
-                        let (_, Some typeExprIfMatched, cExprIfMatched) = typeCheckExpr denv dtenv tenv' exprIfMatched
+                        let (_, Some typeExprIfMatched, cExprIfMatched) = typeCheckExpr denv dtenv tenv' modNamesToTenvs capEnv exprIfMatched
                         ((posOverallPattern, typeOverallPattern, cOverallPattern),
                          (posExprIfMatched, Some typeExprIfMatched, cExprIfMatched)))
             let (_, (_, Some resultTy, _)) = List.head clauses'
@@ -1143,10 +1163,10 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                 (BaseTy (dummyWrap TyBool))
                 (FalseExp (post, None, ()))
 
-let typecheckDec denv dtenv tenv dec =
+and typecheckDec denv dtenv tenv modNamesToTenvs dec =
     match dec with
         | LetDec {varName=varName; typ=(postyp, _, typ); right=(posr, _, right)} ->
-            let (_, Some typeRhs, cRight) = typeCheckExpr denv dtenv tenv right
+            let (_, Some typeRhs, cRight) = typeCheckExpr denv dtenv tenv modNamesToTenvs Set.empty right
             if eqTypes typ typeRhs then
                 LetDec {varName=varName;
                         typ=(postyp, None, typ);
@@ -1167,7 +1187,24 @@ let typecheckDec denv dtenv tenv dec =
                                  let capTenv = temp.capVars |> unwrap |> List.map (unwrap >> fun capName -> (capName, (false, capType))) |> Map.ofList
                                  Map.merge capTenv tenv'
                              | None -> tenv'
-            let (_, Some bodyTy, cBody) = typeCheckExpr denv dtenv tenv'' body
+            let capEnv = match template with
+                             | Some (_, _, temp) ->
+                                 temp.capVars |> unwrap |> List.map unwrap |> Set.ofList
+                             | None -> Set.empty
+            
+            // Check that all capacity variable references are valid
+            TreeTraversals.map1 (fun (cap : CapacityExpr) ->
+                match cap with
+                    | CapacityNameExpr (posn, _, name) ->
+                        if Set.contains name capEnv then
+                            cap
+                        else
+                            printfn "%sError: capacity variable named %s does not exist." (posString posn) name
+                            failwith "Error"
+                    | _ -> cap
+            ) clause |> ignore
+
+            let (_, Some bodyTy, cBody) = typeCheckExpr denv dtenv tenv'' modNamesToTenvs capEnv body
             // Check that the type of the body matches the given return type
             if eqTypes bodyTy return_ then
                 FunctionDec{
@@ -1206,7 +1243,7 @@ let typecheckDec denv dtenv tenv dec =
         | x -> x
 
 // Finally we can typecheck each module!
-let typecheckModule (Module decs0) denv dtenv menv tenv : Module =
+let typecheckModule (Module decs0) denv dtenv menv tenv modNamesToTenvs : Module =
     let typeCheckExpr' = typeCheckExpr denv dtenv tenv
     // TRANSFORM: Begin by transforming all type names to the
     // more accurate module qualifier (ie, the absolute path to the type)
@@ -1221,7 +1258,7 @@ let typecheckModule (Module decs0) denv dtenv menv tenv : Module =
             | x -> x
     ) decs0)
     Module (List.map (fun (pos, _, dec) ->
-        (pos, None, typecheckDec denv dtenv tenv dec)
+        (pos, None, typecheckDec denv dtenv tenv modNamesToTenvs dec)
     ) decs)
 
 let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module list =
@@ -1366,6 +1403,7 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
                 | FunctionDec {name=name; clause=(_, _, clause); template=template} ->
                     let args = clause.arguments |> unwrap |> List.unzip |> fst
                     let ty = FunTy {template=template;
+                                    source=Some {module_=modName; name=name}
                                     returnType=clause.returnTy;
                                     args=args}
                     Map.add (unwrap modName, unwrap name) ty map1
@@ -1385,6 +1423,7 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
                                        | None -> []
                                        | Some x -> [x]
                         Map.add (unwrap modName, unwrap union_.name) (FunTy {template=union_.template;
+                                                                             source=None;
                                                                              returnType=dummyWrap returnType';
                                                                              args=args}) map1
                     ) map0 (unwrap union_.valCons))
@@ -1407,6 +1446,7 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
                         let clause = unwrap fun_.clause
                         let args = clause.arguments |> unwrap |> List.unzip |> fst
                         Map.add (unwrap fun_.name) (false, FunTy {template=fun_.template;
+                                                                  source=Some {module_=modName; name=fun_.name}
                                                                   returnType=clause.returnTy;
                                                                   args=args}) map0
                     // Type unions add their value constructors as functions
@@ -1427,6 +1467,7 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
                                            | None -> []
                                            | Some x -> [x]
                             Map.add (unwrap conName) (false, FunTy {template=union_.template;
+                                                                    source=None;
                                                                     returnType=dummyWrap returnType';
                                                                     args=args}) map1
                         ) map0 (unwrap union_.valCons)
@@ -1453,5 +1494,5 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
     
     (List.map (fun module_ ->
         let moduleName = unwrap (nameInModule module_)
-        typecheckModule module_ denv dtenv (Map.find moduleName modNamesToMenvs) (Map.find moduleName modNamesToTenvs)
+        typecheckModule module_ denv dtenv (Map.find moduleName modNamesToMenvs) (Map.find moduleName modNamesToTenvs) modNamesToTenvs
     ) modlist2)

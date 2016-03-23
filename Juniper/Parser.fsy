@@ -475,6 +475,7 @@ tyexpr:
         FunTy {
             template = None
             args = $2;
+            source=None;
             returnType = (pos parseState 6 6, None, $6)}}
   | tyexpr LBRACK capexpr RBRACK {
         ArrayTy {
@@ -500,6 +501,7 @@ tyexpr:
              | "int64" -> BaseTy (pos parseState 1 1, None, TyInt64)
              | "bool" -> BaseTy (pos parseState 1 1, None, TyBool)
              | "unit" -> BaseTy (pos parseState 1 1, None, TyUnit)
+             | "float" -> BaseTy (pos parseState 1 1, None, TyFloat)
              | _ -> TyName (pos parseState 1 1, None, $1) }
 
 tupleTyList:

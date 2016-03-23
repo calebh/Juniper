@@ -52,7 +52,7 @@ and CapacityExpr = CapacityNameExpr of PosAdorn<string>
 
 and TyApplyRec = { tyConstructor : PosAdorn<TyExpr>; args : PosAdorn<TemplateApply> }
 and ArrayTyRec = { valueType : PosAdorn<TyExpr>; capacity : PosAdorn<CapacityExpr> }
-and FunTyRec = { template : PosAdorn<Template> option; args : PosAdorn<TyExpr> list; returnType : PosAdorn<TyExpr> }
+and FunTyRec = { template : PosAdorn<Template> option; source : ModQualifierRec option; args : PosAdorn<TyExpr> list; returnType : PosAdorn<TyExpr> }
 and BaseTypes = TyUint8
               | TyUint16
               | TyUint32
@@ -160,5 +160,6 @@ let dummyPos : Position = {pos_fname=""
                            pos_cnum = -1}
 let dummyWrap<'a> c : PosAdorn<'a> = ((dummyPos, dummyPos), None, c)
 let clean<'a> ((_, _, c) : PosAdorn<'a>) : PosAdorn<'a> = dummyWrap c
+let cleanAll haystack = TreeTraversals.map1 (fun pos -> dummyPos) haystack
 
 let wrapWithType<'a> t c : PosAdorn<'a> = ((dummyPos, dummyPos), Some t, c)

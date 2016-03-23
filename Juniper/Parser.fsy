@@ -63,6 +63,7 @@ let pos (parseState: IParseState) startIdx endIdx =
 %token GTHAN
 %token LTHAN
 %token GTHANEQ
+%token ARRAY
 %token LTHANEQ
 %token UNIT
 %token TRUE
@@ -245,6 +246,10 @@ recordInitList:
   |                                        { [] }
 
 expr:
+  | ARRAY tyexpr OF expr END {
+        ArrayMakeExp {
+            typ = (pos parseState 2 2, None, $2)
+            initializer = (pos parseState 4 4, None, $4)}}
   // Calling a function with no templates
   | expr LPAREN callExprList RPAREN {
         CallExp {
@@ -295,13 +300,13 @@ expr:
             right = (pos parseState 5 5, None, $5);
             ref = (pos parseState 2 2, None, true)}}
   // For loop
-  | FOR tyexpr ID IN expr DOTDOT expr DO expr END {
+  | FOR ID COLON tyexpr IN expr DOTDOT expr DO expr END {
         ForLoopExp {
-            typ = (pos parseState 2 2, None, $2);
-            varName = (pos parseState 3 3, None, $3);
-            start = (pos parseState 5 5, None, $5);
-            end_ = (pos parseState 7 7, None, $7);
-            body = (pos parseState 9 9, None, $9)
+            typ = (pos parseState 4 4, None, $4);
+            varName = (pos parseState 2 2, None, $2);
+            start = (pos parseState 6 6, None, $6);
+            end_ = (pos parseState 8 8, None, $8);
+            body = (pos parseState 10 10, None, $10)
         }
   }
   // Do while loop
@@ -513,12 +518,13 @@ tyexprList:
 capexpr:
   | ID                              { CapacityNameExpr (pos parseState 1 1, None, $1)}
   | INT                             { CapacityConst (pos parseState 1 1, None, $1) }
+  | LPAREN capexpr RPAREN { $2 }
   | capexpr PLUS capexpr {
         CapacityOp {
             left = (pos parseState 1 1, None, $1);
             op = (pos parseState 2 2, None, CAPPLUS);
             right = (pos parseState 3 3, None, $3)}}
-  | capexpr MINUS  capexpr {
+  | capexpr MINUS capexpr {
         CapacityOp {
             left = (pos parseState 1 1, None, $1);
             op = (pos parseState 2 2, None, CAPMINUS);

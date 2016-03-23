@@ -30,30 +30,31 @@
 <module-qualifier>  ::= <id> ":" <id>;
 <expr-list>         ::= <expr> {"," <expr>};
 <field-assign-list> ::= <id> "=" <expr> {";" <id> "=" <expr>};
-<expr>              ::= "()" | "true" | "false" | <number>                                               // X
-                     |  "(" <expr> {";" <expr>} ")"                                                      // X
-                     |  "(" <expr> "," <expr> [{"," <expr>}] ")"                                         // X
-                     |  <expr> "(" [<expr-list>] ")"                                                     // X
-                     |  <declaration-ref> "<" <template-apply> ">"                                       // X
-                     |  <expr> "[" <expr> "]"                                                            // X
-                     |  <expr> <binary-op> <expr>                                                        // X
-                     |  "if" <expr> "then" <expr> [{"elif" <expr> "then" <expr>}] ["else" <expr>] "end"  // X
-                     |  "let" <pattern> "=" <expr>                                                       // CHANGED
-                     |  "set" <left-assign> "=" <expr>                                                   // X
-                     |  "for" <ty-expr> <id> "in" <expr> ".." <expr> "do" <expr> "end"                   // X
-                     |  "do" <expr> "while" <expr> "end"                                                 // X
-                     |  "while" <expr> "do" <expr> "end"                                                 // X
-                     |  <module-qualifier>                                                               // X
-                     |  <id>                                                                             // X
-                     |  "not" <expr>                                                                     // X
-                     |  "~~~" <expr>                                                                     // X
-                     |  <expr> "." <id>                                                                  // X
-                     |  "fn" <ty-expr> "(" [<id> ":" <ty-expr> {"," <id> ":" <ty-expr>}] ")" "->" <expr> // X
-                     |  "case" <expr> "of" "|" <case-clause> {"|" <case-clause>} "end"                   // X
-                     |  <declaration-ref> ["<" <template-apply> ">"] "{" [<field-assign-list>] "}"       // X
-                     |  "[" <expr-list> "]"                                                              // X
-                     |  "ref" <expr>                                                                     // X
-                     |  "!" <expr>;                                                                      // X
+<expr>              ::= "()" | "true" | "false" | <number>
+                     |  "(" <expr> {";" <expr>} ")"
+                     |  "(" <expr> "," <expr> [{"," <expr>}] ")"
+                     |  <expr> "(" [<expr-list>] ")"
+                     |  <declaration-ref> "<" <template-apply> ">"
+                     |  <expr> "[" <expr> "]"
+                     |  <expr> <binary-op> <expr>
+                     |  "if" <expr> "then" <expr> [{"elif" <expr> "then" <expr>}] ["else" <expr>] "end"
+                     |  "let" <pattern> "=" <expr>
+                     |  "set" <left-assign> "=" <expr>
+                     |  "for" <id> ":" <ty-expr> "in" <expr> ".." <expr> "do" <expr> "end"
+                     |  "do" <expr> "while" <expr> "end"
+                     |  "while" <expr> "do" <expr> "end"
+                     |  <module-qualifier>
+                     |  <id>
+                     |  "not" <expr>
+                     |  "~~~" <expr>
+                     |  <expr> "." <id>
+                     |  "fn" <ty-expr> "(" [<id> ":" <ty-expr> {"," <id> ":" <ty-expr>}] ")" "->" <expr>
+                     |  "case" <expr> "of" "|" <case-clause> {"|" <case-clause>} "end"
+                     |  <declaration-ref> ["<" <template-apply> ">"] "{" [<field-assign-list>] "}"
+                     |  "[" <expr-list> "]"
+                     |  "ref" <expr>
+                     |  "!" <expr>
+                     |  "array" <ty-expr> "of" <expr> "end";
 <binary-op>         ::= "+" | "-" | "*" | "/" | "mod" | "and" | "or" | "&&&"
                      |  "|||" | ">=" | "<=" | ">" | "<" | "==" | "!=";
 <left-assign>       ::= <id>

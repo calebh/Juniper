@@ -1,6 +1,7 @@
 ﻿module TypeChecker
 
 // TODO: Prevent programmer from saving templated functions in variables
+// TODO: Typecheck function after template instantiation
 
 open Ast
 open Microsoft.FSharp.Text.Lexing
@@ -1108,6 +1109,15 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             wrapWithType
                 returnTy
                 (DerefExp (pose, Some typee, cExpr))
+        | ArrayMakeExp { typ=(post, _, typ); initializer=(posi, _, initializer) } ->
+            match typ with
+                | ArrayTy _ -> ()
+                | _ -> printfn "%sType error: Expected an array type in array initializer expression." (posString post)
+                       failwith "Type error"
+            let (_, Some typei, cInitializer) = tc initializer
+            wrapWithType
+                typ
+                (ArrayMakeExp { typ=(post, None, typ); initializer=(posi, Some typei, cInitializer) })
         | InternalValConAccess { valCon=valCon; typ=typ } ->
             wrapWithType
                 (unwrap typ)
@@ -1150,7 +1160,14 @@ let typecheckDec denv dtenv tenv dec =
             let (posret, _, return_) = clause.returnTy
             let argTenv = arguments |> List.map (fun (argTy, argName) -> (unwrap argName, (false, unwrap argTy))) |> Map.ofList
             let tenv' = Map.merge tenv argTenv
-            let (_, Some bodyTy, cBody) = typeCheckExpr denv dtenv tenv' body
+            // Capacity variables are also available inside the function!
+            let tenv'' = match template with
+                             | Some (_, _, temp) ->
+                                 let capType = BaseTy (dummyWrap TyInt32)
+                                 let capTenv = temp.capVars |> unwrap |> List.map (unwrap >> fun capName -> (capName, (false, capType))) |> Map.ofList
+                                 Map.merge capTenv tenv'
+                             | None -> tenv'
+            let (_, Some bodyTy, cBody) = typeCheckExpr denv dtenv tenv'' body
             // Check that the type of the body matches the given return type
             if eqTypes bodyTy return_ then
                 FunctionDec{

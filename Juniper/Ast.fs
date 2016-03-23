@@ -108,6 +108,7 @@ and InternalValConAccessRec = { valCon : PosAdorn<Expr>; typ : PosAdorn<TyExpr> 
 and CallRec =         { func : PosAdorn<Expr>; args : PosAdorn<PosAdorn<Expr> list> }
 and TemplateApplyExpRec = { func : PosAdorn<Expr>; templateArgs : PosAdorn<TemplateApply> }
 and RecordExprRec =   { recordTy : PosAdorn<TyExpr>; templateArgs : PosAdorn<TemplateApply> option; initFields : PosAdorn<(PosAdorn<string> * PosAdorn<Expr>) list> }
+and ArrayMakeExpRec = { typ : PosAdorn<TyExpr>; initializer : PosAdorn<Expr> }
 and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | BinaryOpExp of BinaryOpRec
           | IfElseExp of IfElseRec
@@ -136,6 +137,7 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | ModQualifierExp of ModQualifierRec
           | RecordExp of RecordExprRec
           | ArrayLitExp of PosAdorn<PosAdorn<Expr> list>
+          | ArrayMakeExp of ArrayMakeExpRec
           | RefExp of PosAdorn<Expr>
           | DerefExp of PosAdorn<Expr>
           | TupleExp of PosAdorn<Expr> list

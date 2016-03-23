@@ -32,9 +32,9 @@
 <field-assign-list> ::= <id> "=" <expr> {";" <id> "=" <expr>};
 <expr>              ::= "()" | "true" | "false" | <number>                                               // X
                      |  "(" <expr> {";" <expr>} ")"                                                      // X
-                     |  "(" <expr> "," <expr> [{"," <expr>}] ")"
+                     |  "(" <expr> "," <expr> [{"," <expr>}] ")"                                         // X
                      |  <expr> "(" [<expr-list>] ")"                                                     // X
-                     |  <declaration-ref> "<" <template-apply> ">"
+                     |  <declaration-ref> "<" <template-apply> ">"                                       // X
                      |  <expr> "[" <expr> "]"                                                            // X
                      |  <expr> <binary-op> <expr>                                                        // X
                      |  "if" <expr> "then" <expr> [{"elif" <expr> "then" <expr>}] ["else" <expr>] "end"  // X
@@ -48,11 +48,12 @@
                      |  "not" <expr>                                                                     // X
                      |  "~~~" <expr>                                                                     // X
                      |  <expr> "." <id>                                                                  // X
-                     |  "fn" <ty-expr> "(" [<id> ":" <ty-expr> {"," <id> ":" <ty-expr>}] ")" "->" <expr>         // X
-                     |  "case" <expr> "of" <case-clause> {"|" <case-clause>} "end"
+                     |  "fn" <ty-expr> "(" [<id> ":" <ty-expr> {"," <id> ":" <ty-expr>}] ")" "->" <expr> // X
+                     |  "case" <expr> "of" "|" <case-clause> {"|" <case-clause>} "end"                   // X
                      |  <declaration-ref> ["<" <template-apply> ">"] "{" [<field-assign-list>] "}"       // X
                      |  "[" <expr-list> "]"                                                              // X
-                     |  "ref" <expr>;                                                                    // X
+                     |  "ref" <expr>                                                                     // X
+                     |  "!" <expr>;                                                                      // X
 <binary-op>         ::= "+" | "-" | "*" | "/" | "mod" | "and" | "or" | "&&&"
                      |  "|||" | ">=" | "<=" | ">" | "<" | "==" | "!=";
 <left-assign>       ::= <id>
@@ -63,6 +64,6 @@
                      |  <integer>
                      |  <float>
                      |  "_"
-                     |  <declaration-ref> "(" <pattern> ")" // CHANGED
-                     |  <declaration-ref> "{" [<id> "=" <pattern> {"," <id> "=" <pattern>}] "}"
+                     |  <declaration-ref> ["<" <ty-expr> {"," <ty-expr>} ">"] "(" <pattern> ")" // CHANGED
+                     |  <ty-expr> "{" [<id> "=" <pattern> {"," <id> "=" <pattern>}] "}"
                      |  "(" <pattern> "," <pattern> {"," <pattern>} ")"; // ADDED

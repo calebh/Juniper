@@ -65,8 +65,8 @@
       <OtherFlags>--unicode</OtherFlags>
     </FsLex>
     <Compile Include="TreeTraversals.fs" />
-    <Compile Include="MapExtensions.fs" />
-    <Compile Include="ListExtensions.fs" />
+    <Compile Include="Extensions.fs" />
+    <Compile Include="Guid.fs" />
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />

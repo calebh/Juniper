@@ -16,7 +16,7 @@ and RecordRec =   { name     : PosAdorn<string>;
                     fields   : PosAdorn<(TyExpr * string) list>;
                     template : PosAdorn<Template> option }
 
-and ValueCon =    PosAdorn<string> * PosAdorn<PosAdorn<TyExpr> list>
+and ValueCon =    PosAdorn<string> * (PosAdorn<TyExpr> option)
 and UnionRec =    { name     : PosAdorn<string>;
                     valCons  : PosAdorn<ValueCon list>;
                     template : PosAdorn<Template> option }
@@ -50,7 +50,7 @@ and CapacityExpr = CapacityNameExpr of PosAdorn<string>
                  | CapacityOp of CapacityOpRec
                  | CapacityConst of PosAdorn<string>
 
-and TyApplyRec = { tyConstructor : PosAdorn<TyExpr>; args : PosAdorn<PosAdorn<TyExpr> list> }
+and TyApplyRec = { tyConstructor : PosAdorn<TyExpr>; args : PosAdorn<TemplateApply> }
 and ArrayTyRec = { valueType : PosAdorn<TyExpr>; capacity : PosAdorn<CapacityExpr> }
 and FunTyRec = { template : PosAdorn<Template> option; args : PosAdorn<TyExpr> list; returnType : PosAdorn<TyExpr> }
 and BaseTypes = TyUint8
@@ -72,25 +72,27 @@ and TyExpr = BaseTy of PosAdorn<BaseTypes>
            | FunTy of FunTyRec
            | ForallTy of PosAdorn<string>
            | RefTy of PosAdorn<TyExpr>
+           | TupleTy of PosAdorn<TyExpr> list
 
-and Pattern = MatchVar of PosAdorn<string>
-            | MatchModQualifier of ModQualifierRec
+and MatchVarRec = {varName : PosAdorn<string>; mutable_ : PosAdorn<bool>; typ : PosAdorn<TyExpr> option}
+
+and Pattern = MatchVar of MatchVarRec
             | MatchIntVal of PosAdorn<string>
             | MatchFloatVal of PosAdorn<string>
-            | MatchValCon of PosAdorn<string> * PosAdorn<PosAdorn<Pattern> list>
-            | MatchValConModQualifier of PosAdorn<ModQualifierRec> * PosAdorn<PosAdorn<Pattern> list>
-            | MatchRecCon of PosAdorn<string> * PosAdorn<(PosAdorn<string> * PosAdorn<Pattern>) list>
-            | MatchRecConModQualifier of PosAdorn<ModQualifierRec> *  PosAdorn<(PosAdorn<string> * PosAdorn<Pattern>) list>
+            | MatchValCon of PosAdorn<string> * PosAdorn<TemplateApply> option * PosAdorn<Pattern>
+            | MatchValConModQualifier of PosAdorn<ModQualifierRec> * PosAdorn<TemplateApply> option * PosAdorn<Pattern>
+            | MatchRecCon of PosAdorn<TyExpr> * PosAdorn<(PosAdorn<string> * PosAdorn<Pattern>) list>
             | MatchUnderscore
+            | MatchTuple of PosAdorn<PosAdorn<Pattern> list>
+            | MatchEmpty
 
 and FunctionClause = {returnTy : PosAdorn<TyExpr>; arguments : PosAdorn<(PosAdorn<TyExpr> * PosAdorn<string>) list>; body : PosAdorn<Expr>}
 
 and ModQualifierRec = { module_ : PosAdorn<string>; name : PosAdorn<string> }
 
-and SequenceRec =     { exps : PosAdorn<PosAdorn<Expr> list> }
 and BinaryOpRec =     { left : PosAdorn<Expr>; op : PosAdorn<BinaryOps>; right : PosAdorn<Expr> }
 and IfElseRec =       { condition : PosAdorn<Expr>; trueBranch : PosAdorn<Expr>; falseBranch : PosAdorn<Expr> }
-and LetRec =          { varName : PosAdorn<string>; typ : PosAdorn<TyExpr> option; right : PosAdorn<Expr>; mutable_ : PosAdorn<bool> }
+and LetRec =          { left : PosAdorn<Pattern>; right : PosAdorn<Expr> }
 and AssignRec =       { left : PosAdorn<LeftAssign>; right : PosAdorn<Expr>; ref : PosAdorn<bool> }
 and ForLoopRec =      { typ : PosAdorn<TyExpr>; varName : PosAdorn<string>; start : PosAdorn<Expr>; end_ : PosAdorn<Expr>; body : PosAdorn<Expr> }
 and WhileLoopRec =    { condition : PosAdorn<Expr>; body : PosAdorn<Expr> }
@@ -101,14 +103,19 @@ and RecordAccessRec = { record : PosAdorn<Expr>; fieldName : PosAdorn<string> }
 and ArrayAccessRec =  { array : PosAdorn<Expr>; index : PosAdorn<Expr> }
 and VarExpRec =       { name : PosAdorn<string> }
 and LambdaRec =       { clause : PosAdorn<FunctionClause> }
+and InternalDeclareVarExpRec = { varName : PosAdorn<string>; typ : PosAdorn<TyExpr> option; right : PosAdorn<Expr>; mutable_ : PosAdorn<bool> }
+and InternalValConAccessRec = { valCon : PosAdorn<Expr>; typ : PosAdorn<TyExpr> }
 and CallRec =         { func : PosAdorn<Expr>; args : PosAdorn<PosAdorn<Expr> list> }
 and TemplateApplyExpRec = { func : PosAdorn<Expr>; templateArgs : PosAdorn<TemplateApply> }
 and RecordExprRec =   { recordTy : PosAdorn<TyExpr>; templateArgs : PosAdorn<TemplateApply> option; initFields : PosAdorn<(PosAdorn<string> * PosAdorn<Expr>) list> }
-and Expr = SequenceExp of SequenceRec
-          | BreakExp
+and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | BinaryOpExp of BinaryOpRec
           | IfElseExp of IfElseRec
           | LetExp of LetRec
+          | InternalDeclareVar of InternalDeclareVarExpRec // Only used internally for declaring variables
+                                                           // that will actually be outputted by the compiler
+          | InternalValConAccess of InternalValConAccessRec // Only used internally for type checking pattern
+                                                            // matching. Essentially acts like a type cast
           | AssignExp of AssignRec
           | ForLoopExp of ForLoopRec
           | WhileLoopExp of WhileLoopRec
@@ -131,6 +138,7 @@ and Expr = SequenceExp of SequenceRec
           | ArrayLitExp of PosAdorn<PosAdorn<Expr> list>
           | RefExp of PosAdorn<Expr>
           | DerefExp of PosAdorn<Expr>
+          | TupleExp of PosAdorn<Expr> list
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
 and UnaryOps = LogicalNot | BitwiseNot
 
@@ -143,6 +151,7 @@ and LeftAssign = VarMutation of VarMutationRec
 
 let unwrap<'a> ((_, _, c) : PosAdorn<'a>) = c
 let getPos<'a> ((a, _, _) : PosAdorn<'a>) = a
+let getType<'a> ((_, b, _) : PosAdorn<'a>) = b
 let dummyPos : Position = {pos_fname=""
                            pos_lnum = -1
                            pos_bol = -1

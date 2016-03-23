@@ -1,8 +1,11 @@
 ﻿module TypeChecker
 
+// TODO: Prevent programmer from saving templated functions in variables
+
 open Ast
 open Microsoft.FSharp.Text.Lexing
 open System.IO
+open Extensions
 
 let arithResultTy numTypel numTyper = 
     match (numTypel, numTyper) with
@@ -174,28 +177,42 @@ let valueDecsInModule (Module decs) =
 let qualifierWrap modName decName =
     {module_ = modName; name = decName}
 
-let applyTemplate dec (substitutions : TyExpr list) =
-    let replace m haystack =
-        TreeTraversals.map1 (fun tyExpr -> match tyExpr with
-                                               | ForallTy (_, _, name) -> Map.find name m
-                                               | x -> x) haystack
+let applyTemplate dec (substitutions : TemplateApply) =
+    let replace tyMap capMap haystack =
+        TreeTraversals.map2 (fun tyExpr -> match tyExpr with
+                                               | ForallTy (_, _, name) -> Map.find name tyMap
+                                               | x -> x)
+                            (fun capExpr -> match capExpr with
+                                                | CapacityNameExpr (_, _, name) -> Map.find name capMap
+                                                | x -> x) haystack
+    let tySubstitutions = substitutions.tyExprs |> unwrap |> List.map unwrap
+    let capSubstitutions = substitutions.capExprs |> unwrap |> List.map unwrap
     match dec with
-        | FunctionDec {name=name; template=Some (_, _, {tyVars=(_, _, tyVars)}); clause=clause} ->
+        | FunctionDec {name=name; template=Some (_, _, {tyVars=(_, _, tyVars); capVars=(_, _, capVars)}); clause=clause} ->
             // TODO: Better error message here when the zip fails
-            let m = Map.ofList (List.zip (List.map unwrap tyVars) substitutions)
+            let tyMap = Map.ofList (List.zip (List.map unwrap tyVars) tySubstitutions)
+            let capMap = Map.ofList (List.zip (List.map unwrap capVars) capSubstitutions)
             FunctionDec {
                 name = name;
                 template = None;
-                clause = replace m clause
+                clause = replace tyMap capMap clause
             }
-        | RecordDec {name=name; template=Some template; fields=fields} ->
-            let keys = (unwrap template).tyVars |> unwrap |> List.map unwrap
+        | RecordDec {name=name; template=Some (_, _, {tyVars=(_, _, tyVars); capVars=(_, _, capVars)}); fields=fields} ->
             // TODO: Better error message here when the zip fails
-            let m = List.zip keys substitutions |> Map.ofList
+            let tyMap = List.zip (List.map unwrap tyVars) tySubstitutions |> Map.ofList
+            let capMap = List.zip (List.map unwrap capVars) capSubstitutions |> Map.ofList
             RecordDec {
                 name=name;
                 template=None;
-                fields=replace m fields
+                fields=replace tyMap capMap fields
+            }
+        | UnionDec {name=name; template=Some (_, _, {tyVars=(_, _, tyVars); capVars=(_, _, capVars)}); valCons=valCons} ->
+            let tyMap = List.zip (List.map unwrap tyVars) tySubstitutions |> Map.ofList
+            let capMap = List.zip (List.map unwrap capVars) capSubstitutions |> Map.ofList
+            UnionDec {
+                name = name;
+                template = None;
+                valCons = replace tyMap capMap valCons
             }
         | x -> x
    
@@ -238,7 +255,8 @@ let rec eqTypes (ty1 : TyExpr) (ty2 : TyExpr) : bool =
                 unwrap t1.module_ = unwrap t2.module_ && unwrap t1.name = unwrap t2.name
         | (TyApply t1, TyApply t2) ->
                 (eqTypes (unwrap t1.tyConstructor) (unwrap t2.tyConstructor)) &&
-                List.forall2 eqTypes (unwrap t1.args |> List.map unwrap) (unwrap t2.args |> List.map unwrap)
+                List.forall2 eqTypes ((unwrap t1.args).tyExprs |> unwrap |> List.map unwrap) ((unwrap t2.args).tyExprs |> unwrap |> List.map unwrap) &&
+                List.forall2 eqCapacities ((unwrap t1.args).capExprs |> unwrap |> List.map unwrap) ((unwrap t2.args).capExprs |> unwrap |> List.map unwrap)
         | (FunTy t1, FunTy t2) ->
                 // Check that the return types are the same
                 (eqTypes (unwrap t1.returnType) (unwrap t2.returnType)) &&
@@ -259,6 +277,8 @@ let rec eqTypes (ty1 : TyExpr) (ty2 : TyExpr) : bool =
                 eqCapacities (unwrap t1.capacity) (unwrap t2.capacity)
         | (RefTy ty1, RefTy ty2) ->
                 eqTypes (unwrap ty1) (unwrap ty2)
+        | (TupleTy ty1, TupleTy ty2) ->
+                List.forall2 eqTypes (List.map unwrap ty1) (List.map unwrap ty2)
         | _ -> (ty1 = ty2)
 
 let rec capacityString (cap : CapacityExpr) : string =
@@ -289,8 +309,12 @@ let rec typeString (ty : TyExpr) : string =
                                     | TyFloat -> "float"
         | TyModuleQualifier {module_=(_, _, module_); name=(_, _, name)} -> sprintf "%s:%s" module_ name
         | TyName (_, _, name) -> name
-        | TyApply {tyConstructor=(_, _, tyConstructor); args=(_, _, args)} ->
-                sprintf "%s<%s>" (typeString tyConstructor) (String.concat "," (List.map (typeString << unwrap) args))
+        | TyApply {tyConstructor=(_, _, tyConstructor); args=(_, _, {tyExprs=(_, _, tyExprs); capExprs=(_, _, capExprs)})} ->
+                let join = String.concat ","
+                if List.length capExprs = 0 then
+                    sprintf "%s<%s>" (typeString tyConstructor) (join (List.map (unwrap >> typeString) tyExprs))
+                else
+                    sprintf "%s<%s; %s>" (typeString tyConstructor) (join (List.map (unwrap >> typeString) tyExprs)) (join (List.map (unwrap >> capacityString) capExprs))
         | ArrayTy {valueType=(_, _, valueType); capacity=(_, _, capacity)} ->
                 sprintf "%s[%s]" (typeString valueType) (capacityString capacity)
         | FunTy {template=maybeTemplate; args=args; returnType=(_, _, returnType)} ->
@@ -303,9 +327,46 @@ let rec typeString (ty : TyExpr) : string =
                                                 sprintf "<%s>" tyVarStr
                                             else
                                                 sprintf "<%s; %s>" tyVarStr capVarStr
-                sprintf "%s((%s) -> %s)" templateStr (String.concat ", " (List.map (typeString << unwrap) args)) (typeString returnType)
+                sprintf "%s((%s) -> %s)" templateStr (String.concat ", " (List.map (unwrap >> typeString) args)) (typeString returnType)
         | ForallTy (_, _, name) -> sprintf "'%s" name
         | RefTy (_, _, ty) -> sprintf "%s ref" (typeString ty)
+        | TupleTy tupleTys -> sprintf "(%s)" (List.map (unwrap >> typeString) tupleTys |> String.concat " * ")
+
+// Prior to calling this function, it should be verified that funType actually
+// has a template
+let rec applyTemplateToFunctionType (funType : TyExpr) (template : TemplateApply) =
+    let foo = typeString funType
+    let (FunTy {template=Some (_, _, funTemplate); args=_; returnType=_}) = funType
+    let templateTyVarsLen = template.tyExprs |> unwrap |> List.length
+    let funTemplateTyVarsLen = funTemplate.tyVars |> unwrap |> List.length
+    if templateTyVarsLen = funTemplateTyVarsLen then
+        ()
+    else
+        printfn "%sType error: Function template's type arity is %d, but %d types were passed to the template." (template.tyExprs |> getPos |> posString) funTemplateTyVarsLen templateTyVarsLen
+        failwith "Type error"
+    let templateCapVarsLen = template.capExprs |> unwrap |> List.length
+    let funTemplateCapVarsLen = funTemplate.capVars |> unwrap |> List.length
+    if funTemplateCapVarsLen = templateCapVarsLen then
+        ()
+    else
+        printfn "%sType error: Function template's capacity arity is %d, but %d capacities were passed to the template." (template.capExprs |> getPos |> posString) funTemplateCapVarsLen templateCapVarsLen
+        failwith "Type error"
+    let tyMap = List.zip (funTemplate.tyVars |> unwrap |> List.map unwrap) (template.tyExprs |> unwrap) |> Map.ofList
+    let capMap = List.zip (funTemplate.capVars |> unwrap |> List.map unwrap) (template.capExprs |> unwrap) |> Map.ofList
+    let (FunTy result) =
+        (TreeTraversals.map2
+            (fun (ty : TyExpr) ->
+                match ty with
+                    | ForallTy (_, _, name) ->
+                        Map.find name tyMap |> unwrap
+                    | x -> x)
+            (fun (cap : CapacityExpr) ->
+                match cap with
+                    | CapacityNameExpr (_, _, name) ->
+                        Map.find name capMap |> unwrap
+                    | x -> x)
+            funType)
+    FunTy {result with template=None}
 
 let toModuleQual (module_, name) =
     {module_=dummyWrap module_; name=dummyWrap name}
@@ -348,6 +409,125 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                       (expr : Expr)
                       : PosAdorn<Expr> =
     let tc = typeCheckExpr denv dtenv tenv
+    let rec checkPattern (pattern : Pattern) (path : Expr) : (PosAdorn<Pattern> * Map<string, bool*TyExpr>) =
+        let mutable tenv' = tenv
+        let rec checkPattern' (pattern : Pattern) (path : Expr) : PosAdorn<Pattern> =
+            let (_, Some pathTy, _) = tc path
+            let pattern' = 
+                match pattern with
+                    | MatchEmpty -> dummyWrap MatchEmpty
+                    | MatchUnderscore -> dummyWrap MatchUnderscore
+                    | MatchVar {varName=varName; mutable_=mutable_; typ=tyConstraint} ->
+                        match tyConstraint with
+                            | Some (posTyConstraint, _, ty) when not (eqTypes pathTy ty) ->
+                                printfn "%sType error: Type constraint given in pattern does not match the type of expression being matched on." (posString posTyConstraint)
+                                failwith "Type error"
+                            | _ ->
+                                tenv' <- Map.add (unwrap varName) (unwrap mutable_, pathTy) tenv'
+                                wrapWithType
+                                    pathTy
+                                    (MatchVar {varName=varName; mutable_=mutable_; typ=tyConstraint})
+                    | MatchIntVal (posn, _, num) ->
+                        if isIntType pathTy then
+                            wrapWithType
+                                pathTy
+                                (MatchIntVal (posn, None, num))
+                        else
+                            printfn "%sType error: Integer type constraint given in pattern does not match the type of the expression being matched upon." (posString posn)
+                            failwith "Type error"
+                    | MatchFloatVal (posn, _, num) ->
+                        let floatTy = BaseTy (dummyWrap TyFloat)
+                        if eqTypes floatTy pathTy then
+                            wrapWithType
+                                pathTy
+                                (MatchIntVal (posn, None, num))
+                        else
+                            printfn "%sType error: Float type constraint given in pattern does not match the type of the expression being matched upon." (posString posn)
+                            failwith "Type error"
+                    | MatchTuple (post, _, tuple) ->
+                        let tuple' = (List.mapi (fun index (_, _, subPattern) ->
+                                            checkPattern' subPattern (RecordAccessExp {
+                                                                    record=dummyWrap path;
+                                                                    fieldName=dummyWrap (sprintf "e%d" index)})
+                                        ) tuple)
+                        dummyWrap (MatchTuple (post, None, tuple'))
+                    | MatchRecCon ((posRecTy, _, recTy), (posFieldList, _, fieldList)) ->
+                        if eqTypes recTy pathTy then
+                            let fieldList' = (List.map (fun ((posFieldName, _, fieldName), (posFieldPattern, _, fieldPattern)) ->
+                                let path' = RecordAccessExp { record = dummyWrap path;
+                                                              fieldName = (posFieldName, None, fieldName)}
+                                let fieldPattern' = checkPattern' fieldPattern path'
+                                ((posFieldName, None, fieldName), fieldPattern')
+                            ) fieldList)
+                            MatchRecCon ((posRecTy, None, recTy), (posFieldList, None, fieldList')) |> dummyWrap
+                        else
+                            printfn "%sType error: Record type given in pattern does not match the type of the expression being matched upon." (posString posRecTy)
+                            failwith "Type error"
+                    | (MatchValConModQualifier ((_, _, {name=(posn, _, name)}), maybeTemplate, (posValConPattern, _, valConPattern))
+                        | MatchValCon ((posn, _, name), maybeTemplate, (posValConPattern, _, valConPattern)) ) ->
+                        // Value constructors are implemented as functions so
+                        // the return type of the function should be the type
+                        // we need
+
+                        // TODO: What if the programmer pattern matches on a function instead
+                        // of a value constructor. From the type alone there is no way to tell
+                        // if the programmer is being honest
+                        let ty =
+                            match pattern with
+                                | MatchValConModQualifier ((posModQual, _, {module_=(_, _, module_)}), _, _) ->
+                                    match Map.tryFind (module_, name) dtenv with
+                                        | Some ty -> ty
+                                        | None ->
+                                            printfn "%s%sError: Could not find value constructor declaration named %s in module named %s." (posString posModQual) (posString posn) module_ name
+                                            failwith "Error"
+                                | MatchValCon _ ->
+                                    match Map.tryFind name tenv with
+                                        | Some (_, ty) -> ty
+                                        | None ->
+                                            printfn "%sError: Could not find value constructor named %s." (posString posn) name
+                                            failwith "Error"
+                        let valConPattern' =
+                            match ty with
+                                | FunTy {args=args; template=maybeFunTemplate; returnType=(_, _, funReturnType)} ->
+                                    let funReturnType' =
+                                        match (maybeTemplate, maybeFunTemplate) with
+                                            | (Some (_, _, template), Some (_, _, funTemplate)) ->
+                                                let ty' = applyTemplateToFunctionType ty template
+                                                let (FunTy {returnType=(_, _, returnType')}) = ty'
+                                                returnType'
+                                            | (None, None) ->
+                                                funReturnType
+                                            | (Some (posTemplate, _, _), None) ->
+                                                printfn "%sType error: Value constructor does not have a template." (posString posTemplate)
+                                                failwith "Type error"
+                                            | (None, Some (posFunTemplate, _, _)) ->
+                                                printfn "%sType error: Value constructor requires a template." (posString posn)
+                                                failwith "Type error"
+                                    if eqTypes funReturnType' pathTy then
+                                        ()
+                                    else
+                                        printfn "%sType error: Value constructor given in pattern does not match the type of the expression." (posString posn)
+                                    match List.tryHead args with
+                                        | None ->
+                                            dummyWrap MatchEmpty
+                                        | Some h ->
+                                            let path' = InternalValConAccess {valCon=(posn, None, path); typ=h}
+                                            checkPattern' valConPattern path'
+                                | _ ->
+                                    printfn "%sType Error: Declaration named %s is not a value constructor." (posString posn) name
+                                    failwith "Type error"
+                        match pattern with
+                            | MatchValConModQualifier (a, b, c) ->
+                                wrapWithType
+                                    ty
+                                    (MatchValConModQualifier (a, b, (posValConPattern, None, unwrap valConPattern')))
+                            | MatchValCon (a, b, c) ->
+                                wrapWithType
+                                    ty
+                                    (MatchValCon (a, b, (posValConPattern, None, unwrap valConPattern')))
+            pattern'
+        (checkPattern' pattern path, tenv')
+
     match expr with
         | IfElseExp {condition=(posc, _, condition);
                      trueBranch=(post, _, trueBranch);
@@ -370,62 +550,54 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             else
                 printfn "Type error in %s: condition of if statement expected to have type %s but had type %s instead" (posString posc) (typeString tbool) (typeString typec)
                 failwith "Type error"
-        | SequenceExp {exps=(poss, _, exps)} ->
+        | SequenceExp (poss, _, exps) ->
+            // This pattern match cannot fail since
+            // sequences of length 0 are transformed to unit
+            // expressions
             let (pose, _, exp)::rest = exps
             let (_, Some typee, cExp) = tc exp
-            // Notice that we're matching on the typechecked AST here
-            let tc' = match cExp with
-                          // The first element of the sequence is a let expression
-                          // and it has introduced a new binding
-                          | LetExp {varName=varName; mutable_=mutable_; typ=typ; right=right} ->
-                                let (_, Some tr, _) = right
-                                let tenv' = Map.add (unwrap varName) (unwrap mutable_, tr) tenv
+
+            let tc' = match exp with
+                          | LetExp {left=left; right=right} ->
+                                let (_, tenv') = checkPattern (unwrap left) (unwrap right)
                                 typeCheckExpr denv dtenv tenv'
                           | _ -> tc
+
             let (seqType, cRest) =
                 match rest with
                     // Last thing in the sequence
                     // so the type of the sequence is the type
                     // of the expression
-                    | [] -> (typee, [])
+                    | [] ->
+                        (typee, [])
                     // Not the last thing in the sequence
                     // so the type of the sequence is the type
                     // of the rest
-                    | _ -> let (_, Some typer, SequenceExp {exps=(_, _, cRest)}) = tc' (SequenceExp {exps=dummyWrap rest})
-                           (typer, cRest)
+                    | _ ->
+                        let (_, Some typer, SequenceExp (_, _, cRest)) = tc' (SequenceExp (dummyWrap rest))
+                        (typer, cRest)
             (wrapWithType
                 seqType
-                (SequenceExp {
-                    exps=(poss, Some seqType, (pose, Some typee, cExp)::cRest)
-                }))
+                (SequenceExp
+                    (poss, Some seqType, (pose, Some typee, cExp)::cRest)
+                ))
         // Hit a let expression that is not part of a sequence
-        // In this case its binding is useless, but the right hand side might still
+        // In this case its variable bindings are useless, but the right hand side might still
         // produce side effects
-        | LetExp {varName=varName;
-                  typ=typ;
-                  right=(posr, _, right);
-                  mutable_=mutable_} ->
+        // We also have to make sure that the pattern matching agrees with the type of the right
+        | LetExp { left=(posl, _, left); right=(posr, _, right) } ->
+            let (_, Some typer, cRight) = tc right
+            let (cPattern, _) = checkPattern left right
             wrapWithType
-                (BaseTy (dummyWrap TyUnit))
-                (let (_, Some tr, cRight) = tc right
-                 match typ with
-                     | None -> ()
-                     | Some typ' -> let (post, _, _) = typ'
-                                    if eqTypes tr (unwrap typ') then
-                                        ()
-                                    else
-                                        printfn "%s%sType error: The type constraint of %s given on the left hand side of the let does not match type %s, which is the type of the right hand side expression." (posString post) (posString posr) (typeString (unwrap typ')) (typeString tr) 
-                                        failwith "Type error"
-                 LetExp {
-                    mutable_=mutable_;
-                    varName=varName;
-                    typ=typ;
-                    right=(posr, Some tr, cRight)
-                 })
+                typer
+                (LetExp {
+                    left=cPattern;
+                    right=(posr, Some typer, cRight)
+                })
         | VarExp {name=(posn, _, name)} ->
             let typ = match Map.tryFind name tenv with
                       | None ->
-                            printfn "Error in %s: variable named %s could not be found" (posString posn) name
+                            printfn "%sError: variable named %s could not be found." (posString posn) name
                             failwith "Error"
                       | Some (_, typ') -> typ'
             wrapWithType
@@ -434,7 +606,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
         | LambdaExp {clause=(posc, _, clause)} ->
             let args = unwrap clause.arguments |> List.map (fun (ty, name) -> (unwrap name, (false, unwrap ty)))
             let tenv' = tenv |> Map.map (fun name (mut, typ) -> (false, typ))
-            let tenv'' = MapExtensions.merge tenv' (Map.ofList args)
+            let tenv'' = Map.merge tenv' (Map.ofList args)
             let tc' = typeCheckExpr denv dtenv tenv''
             let (posb, _, _) = clause.body
             let (posr, _, _) = clause.returnTy
@@ -489,7 +661,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                                               failwith "Type error"
                                 let actualDef' = match tyRecord with
                                                      | TyModuleQualifier _ -> actualDef
-                                                     | TyApply {args=args} -> applyTemplate actualDef (args |> unwrap |> List.map unwrap)
+                                                     | TyApply {args=args} -> applyTemplate actualDef (unwrap args)
                                                      | _ -> failwith "This should never happen"
                                 match actualDef' with
                                     | RecordDec {fields=fields} ->
@@ -552,9 +724,8 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                                               printfn "%sType error: Record expression expects %d type arguments." (posString posrt) tyVarArity
                                                               failwith "Type error"
                                             | Some templateArgs ->
-                                                let substitutions = (unwrap templateArgs).tyExprs |> unwrap |> List.map unwrap
-                                                let (RecordDec r1) = applyTemplate (RecordDec r0) substitutions
-                                                let newTy = TyApply {tyConstructor=(posrt, None, recordTy); args=(unwrap templateArgs).tyExprs}
+                                                let (RecordDec r1) = applyTemplate (RecordDec r0) (unwrap templateArgs)
+                                                let newTy = TyApply {tyConstructor=(posrt, None, recordTy); args=templateArgs}
                                                 (r1, newTy)
                                     // Now make sure that the field types are correct
                                     let flipTuple = fun (a,b) -> (b,a)    
@@ -562,7 +733,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                     let defFieldsMap = Map.ofList (List.map flipTuple (unwrap r.fields))
                                     let initFieldNames = List.map fst initFields |> List.map unwrap
                                     let defFieldNames = unwrap r.fields |> List.map snd
-                                    if ListExtensions.hasDuplicates initFieldNames then
+                                    if List.hasDuplicates initFieldNames then
                                         printfn "%sType error: Duplicate field names in record expression." (posString posif)
                                         failwith "Type error"
                                     else
@@ -851,7 +1022,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                     let actualDef = unwrap (Map.find (toStringPair qual) denv)
                     let actualDef' = match typer with
                                          | TyModuleQualifier _ -> actualDef
-                                         | TyApply {args=args} -> applyTemplate actualDef (args |> unwrap |> List.map unwrap)
+                                         | TyApply {args=args} -> applyTemplate actualDef (unwrap args)
                                          | _ -> failwith "This should never happen"
                     match actualDef' with
                         | RecordDec {fields=fields} ->
@@ -887,30 +1058,60 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                 | FunTy {template=None} ->
                     printfn "%sType error: Function does not require application of a template." (posString posf)
                     failwith "Type error"
-                | FunTy {template=Some (posTemp, _, template); args=args; returnType=returnType} ->
-                    let requiredTyVarArity = List.length (unwrap template.tyVars)
-                    let givenTyVarArity = List.length (unwrap templateArgs.tyExprs)
-                    if requiredTyVarArity = givenTyVarArity then
-                        ()
-                    else
-                        printfn "%sType error: Function template's type variable arity is %d, but %d types were passed to the template." (getPos templateArgs.tyExprs |> posString) requiredTyVarArity givenTyVarArity
-                        failwith "Type error"
-                    let requiredCapVarArity = List.length (unwrap template.capVars)
-                    let givenCapVarArity = List.length (unwrap templateArgs.capExprs)
-                    if requiredCapVarArity = givenCapVarArity then
-                        ()
-                    else
-                        printfn "%sType error: Function template's capacity variable arity is %d, but %d capacities were passed to the template." (getPos templateArgs.capExprs |> posString) requiredCapVarArity givenCapVarArity
-                        failwith "Type error"
-                    // TODO: Finish this case
+                | FunTy {template=Some _} ->
                     wrapWithType
-                        (FunTy {template=None; args=args; returnType=returnType})
+                        (applyTemplateToFunctionType typef templateArgs)
                         (TemplateApplyExp {func=(posf, Some  typef, cFunc); templateArgs=(posTempArgs, None, templateArgs)})
+                | _ ->
+                    printfn "%sType error: Attempting to apply a template to an expression of type %s. Templates can only be applied to functions." (posString posf) (typeString typef)
+                    failwith "Type error"
         | RefExp (pose, _, expr) ->
             let (_, Some typee, cExpr) = tc expr
             wrapWithType
                 (RefTy (pose, None, typee))
                 (RefExp (pose, Some typee, cExpr))
+        | TupleExp tuple ->
+            let (typeCheckedTuple, tupleTypes) = (List.map (fun (pose, _, expr) ->
+                                                    let (_, Some typee, cExpr) = tc expr
+                                                    ((pose, Some typee, cExpr),
+                                                     (pose, None, typee))
+                                                  ) tuple) |> List.unzip
+            wrapWithType
+                (TupleTy tupleTypes)
+                (TupleExp typeCheckedTuple)
+        | CaseExp {on=(posOn, _, on); clauses=(posClauses, _, clauses)} ->
+            let (_, Some typeOn, cOn) = tc on
+            let clauses' = clauses |> List.map (fun ((posOverallPattern, _, overallPattern), (posExprIfMatched, _, exprIfMatched)) ->
+                        let ((_, typeOverallPattern, cOverallPattern), tenv') = checkPattern overallPattern on
+                        let (_, Some typeExprIfMatched, cExprIfMatched) = typeCheckExpr denv dtenv tenv' exprIfMatched
+                        ((posOverallPattern, typeOverallPattern, cOverallPattern),
+                         (posExprIfMatched, Some typeExprIfMatched, cExprIfMatched)))
+            let (_, (_, Some resultTy, _)) = List.head clauses'
+            // All bodies in the case expression must return the same type
+            clauses' |> List.iter (fun (_, (posExprIfMatched, Some typeExprIfMatched, _)) ->
+                                        if eqTypes typeExprIfMatched resultTy then
+                                            ()
+                                        else
+                                            printfn "%sType error: Expected all bodies of case expression to have type %s, but this body had type %s instead." (posString posExprIfMatched) (typeString resultTy) (typeString typeExprIfMatched)
+                                            failwith "Type error")
+            wrapWithType
+                resultTy
+                (CaseExp {
+                    on=(posOn, Some typeOn, cOn);
+                    clauses=(posClauses, None, clauses')})
+        | DerefExp (pose, _, expr) ->
+            let (_, Some typee, cExpr) = tc expr
+            let returnTy = match typee with
+                               | RefTy (_, _, ty) -> ty
+                               | _ -> printfn "%sType error: Attempting to dereference a non-reference expression of type %s" (posString pose) (typeString typee)
+                                      failwith "Type error"
+            wrapWithType
+                returnTy
+                (DerefExp (pose, Some typee, cExpr))
+        | InternalValConAccess { valCon=valCon; typ=typ } ->
+            wrapWithType
+                (unwrap typ)
+                (InternalValConAccess { valCon=valCon; typ=typ })
         | UnitExp (posu, _, ()) ->
             wrapWithType
                 (BaseTy (dummyWrap TyUnit))
@@ -942,13 +1143,13 @@ let typecheckDec denv dtenv tenv dec =
                         right=(posr, Some typeRhs, cRight)}
             else
                 printfn "%s%sType error: The let declaration's left hand side type of %s did not match the right hand side type of %s" (posString postyp) (posString posr) (typeString typ) (typeString typeRhs)
-                failwith "Semantic error"
+                failwith "Type error"
         | FunctionDec {name=name; template=template; clause=(posc, _, clause)} ->
             let (posargs, _, arguments) = clause.arguments
             let (posbody, _, body) = clause.body
             let (posret, _, return_) = clause.returnTy
             let argTenv = arguments |> List.map (fun (argTy, argName) -> (unwrap argName, (false, unwrap argTy))) |> Map.ofList
-            let tenv' = MapExtensions.merge tenv argTenv
+            let tenv' = Map.merge tenv argTenv
             let (_, Some bodyTy, cBody) = typeCheckExpr denv dtenv tenv' body
             // Check that the type of the body matches the given return type
             if eqTypes bodyTy return_ then
@@ -965,7 +1166,7 @@ let typecheckDec denv dtenv tenv dec =
                 printfn "%s%sType error: The body of the function returns a value of type %s, but the function was declared to return type %s." (posString posret) (posString posbody) (typeString bodyTy) (typeString return_)
                 failwith "Type error"
         | RecordDec {name=name; fields=(posf, _, fields); template=maybeTemplate} ->
-            if fields |> List.map snd |> ListExtensions.hasDuplicates then
+            if fields |> List.map snd |> List.hasDuplicates then
                 printfn "%sSemantic error: The record declaration contains duplicate field names." (posString posf)
                 failwith "Semantic error"
             else
@@ -1010,7 +1211,7 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
     // TRANSFORM: Transform empty sequences to a unit expression
     let modlist1 = (TreeTraversals.map1 (fun expr ->
         match expr with
-            | SequenceExp { exps=(pos, ty, []) } -> UnitExp (pos, ty, ())
+            | SequenceExp (pos, ty, []) -> UnitExp (pos, ty, ())
             | x -> x
     ) modlist0)
 
@@ -1043,10 +1244,10 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
         let checkTemplate {tyVars=(tpos, _, tyVars); capVars=(cpos, _, capVars)} =
             let tyVars' = List.map unwrap tyVars
             let capVars' = List.map unwrap capVars
-            if ListExtensions.hasDuplicates tyVars' then
+            if List.hasDuplicates tyVars' then
                 printfn "Semantic error in %s: Template contains duplicate definitions of a type parameter" (posString tpos)
                 failwith "Semantic error"
-            elif ListExtensions.hasDuplicates capVars' then
+            elif List.hasDuplicates capVars' then
                 printfn "Semantic error in %s: Template contains duplicate definitions of a capacity parameter" (posString cpos)
                 failwith "Semantic error"
             else
@@ -1104,7 +1305,7 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
         (Map.map (fun modName menv0 ->
             let allOpens = List.map unwrap (opensInModule (Map.find modName modNamesToAst))
             List.fold (fun menv1 nameToMerge ->
-                MapExtensions.merge (Map.find nameToMerge modNamesToExportedMenvs) menv1 
+                Map.merge (Map.find nameToMerge modNamesToExportedMenvs) menv1 
             ) menv0 allOpens
         ) modNamesToMenvs0)
 
@@ -1153,11 +1354,22 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
                     Map.add (unwrap modName, unwrap name) ty map1
                 | UnionDec union_ ->
                     let returnType = TyModuleQualifier {module_=modName; name=union_.name}
+                    let returnType' =
+                        match union_.template with
+                            | None -> returnType
+                            | Some (_, _, template) ->
+                                // Convert the Template type to a TemplateApply type
+                                let tyExprs = template.tyVars |> unwrap |> List.map (ForallTy >> dummyWrap) |> dummyWrap
+                                let capExprs = template.capVars |> unwrap |> List.map (CapacityNameExpr >> dummyWrap) |> dummyWrap
+                                TyApply {tyConstructor=dummyWrap returnType; args=dummyWrap {tyExprs=tyExprs; capExprs=capExprs}}
                     // Add all of the value constructors as functions
-                    (List.fold (fun map1 (conName, typs) ->
+                    (List.fold (fun map1 (conName, typ) ->
+                        let args = match typ with
+                                       | None -> []
+                                       | Some x -> [x]
                         Map.add (unwrap modName, unwrap union_.name) (FunTy {template=union_.template;
-                                                                             returnType=dummyWrap returnType;
-                                                                             args=unwrap typs}) map1
+                                                                             returnType=dummyWrap returnType';
+                                                                             args=args}) map1
                     ) map0 (unwrap union_.valCons))
                 | _ -> map0
           ) map0 decs)
@@ -1184,11 +1396,22 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
                     // to the type environment
                     | UnionDec union_ ->
                         let returnType = TyModuleQualifier {module_=modName; name=union_.name}
+                        let returnType' =
+                            match union_.template with
+                                | None -> returnType
+                                | Some (_, _, template) ->
+                                    // Convert the Template type to a TemplateApply type
+                                    let tyExprs = template.tyVars |> unwrap |> List.map (ForallTy >> dummyWrap) |> dummyWrap
+                                    let capExprs = template.capVars |> unwrap |> List.map (CapacityNameExpr >> dummyWrap) |> dummyWrap
+                                    TyApply {tyConstructor=dummyWrap returnType; args=dummyWrap {tyExprs=tyExprs; capExprs=capExprs}}
                         // Add all of the value constructors as functions
-                        List.fold (fun map1 (conName, typs) ->
+                        List.fold (fun map1 (conName, typ) ->
+                            let args = match typ with
+                                           | None -> []
+                                           | Some x -> [x]
                             Map.add (unwrap conName) (false, FunTy {template=union_.template;
-                                                                    returnType=dummyWrap returnType;
-                                                                    args=unwrap typs}) map1
+                                                                    returnType=dummyWrap returnType';
+                                                                    args=args}) map1
                         ) map0 (unwrap union_.valCons)
                     | _ -> map0
             ) Map.empty decs
@@ -1207,7 +1430,7 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
         (Map.map (fun modName tenv0 ->
             let allOpens = List.map unwrap (opensInModule (Map.find modName modNamesToAst))
             List.fold (fun tenv1 nameToMerge ->
-                MapExtensions.merge (Map.find nameToMerge modNamesToExportedTenvs) tenv1 
+                Map.merge (Map.find nameToMerge modNamesToExportedTenvs) tenv1 
             ) tenv0 allOpens
         ) modNamesToTenvs0)
     

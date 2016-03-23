@@ -115,11 +115,11 @@ opendec:
   | OPEN LPAREN idList RPAREN { OpenDec (pos parseState 3 3, None, $3) }
 
 letdec:
-  | LET tyexpr ID EQUAL expr {
+  | LET ID COLON tyexpr EQUAL expr {
         LetDec {
-            varName = (pos parseState 3 3, None, $3);
-            typ = (pos parseState 2 2, None, $2);
-            right = (pos parseState 5 5, None, $5) }}
+            varName = (pos parseState 2 2, None, $2);
+            typ = (pos parseState 4 4, None, $4);
+            right = (pos parseState 6 6, None, $6) }}
 
 exports:
   | EXPORT LPAREN idList RPAREN { ExportDec (pos parseState 3 3, None, $3) }
@@ -140,31 +140,31 @@ moduleNameDec:
   | MODULE ID             { ModuleNameDec (pos parseState 2 2, None, $2) }
 
 fundec:
-  | FUN tyexpr ID LPAREN funargList RPAREN EQUAL expr {
+  | FUN ID LPAREN funargList RPAREN COLON tyexpr EQUAL expr {
         FunctionDec {
-             name=(pos parseState 3 3, None, $3);
+             name=(pos parseState 2 2, None, $2);
              template=None;
-             clause=(pos parseState 4 8, None, {
-                 arguments=(pos parseState 5 5, None, $5);
-                 body=(pos parseState 8 8, None, $8);
-                 returnTy=(pos parseState 2 2, None, $2)})}}
+             clause=(pos parseState 3 9, None, {
+                 arguments=(pos parseState 4 4, None, $4);
+                 body=(pos parseState 9 9, None, $9);
+                 returnTy=(pos parseState 7 7, None, $7)})}}
 
-  | FUN tyexpr ID LTHAN tycapvars GTHAN LPAREN funargList RPAREN EQUAL expr {
+  | FUN ID LTHAN tycapvars GTHAN LPAREN funargList RPAREN COLON tyexpr EQUAL expr {
         FunctionDec {
-             name = (pos parseState 3 3, None, $3);
-             template = Some (pos parseState 5 5, None, $5);
-             clause = (pos parseState 7 11, None, {
-                arguments = (pos parseState 8 8, None, $8);
-                body = (pos parseState 11 11, None, $11);
-                returnTy = (pos parseState 2 2, None, $2)})}}
+             name = (pos parseState 2 2, None, $2);
+             template = Some (pos parseState 4 4, None, $4);
+             clause = (pos parseState 6 12, None, {
+                arguments = (pos parseState 7 7, None, $7);
+                body = (pos parseState 12 12, None, $12);
+                returnTy = (pos parseState 10 10, None, $10)})}}
 
 funargList:
-  | tyexpr ID COMMA funargList  {((pos parseState 1 1, None, $1), (pos parseState 2 2, None, $2)) :: $4}
-  | tyexpr ID                   {[((pos parseState 1 1, None, $1), (pos parseState 2 2, None, $2))]}
-  |                             {[]}
+  | ID COLON tyexpr COMMA funargList  {((pos parseState 3 3, None, $3), (pos parseState 1 1, None, $1)) :: $5}
+  | ID COLON tyexpr                   {[((pos parseState 3 3, None, $3), (pos parseState 1 1, None, $1))]}
+  |                                   {[]}
 
 tycapvars:
-  | tyVarList SEMICOLON idList  { {tyVars=(pos parseState 1 1, None, $1); capVars=(pos parseState 3 3, None, $3)} }
+  | tyVarList SEMICOLON idList  {{tyVars=(pos parseState 1 1, None, $1); capVars=(pos parseState 3 3, None, $3)} }
   | tyVarList                   { {tyVars=(pos parseState 1 1, None, $1); capVars=(pos parseState 1 1, None, [])} }
 
 tyVarList:
@@ -204,9 +204,9 @@ recorddec:
             template = Some (pos parseState 4 4, None, $4)}}
 
 recordDecList:
-  | tyexpr ID SEMICOLON recordDecList  {($1, $2) :: $4}
-  | tyexpr ID                       {[($1, $2)]}
-  |                                 {[]}
+  | ID COLON tyexpr SEMICOLON recordDecList  {($3, $1) :: $5}
+  | ID COLON tyexpr                          {[($3, $1)]}
+  |                                          {[]}
 
 uniondec:
   | TYPE ID EQUAL valueConList                       {
@@ -226,7 +226,8 @@ valueConList:
   |                            {[]}
 
 valueCon:
-  | ID LPAREN tyexprList RPAREN {((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3))}
+  | ID OF tyexpr {((pos parseState 1 1, None, $1), Some (pos parseState 3 3, None, $3))}
+  | ID           {((pos parseState 1 1, None, $1), None)}
 
 seqExprList:
   | expr SEMICOLON seqExprList {(pos parseState 1 1, None, $1)::$3}
@@ -265,7 +266,7 @@ expr:
             array = (pos parseState 1 1, None, $1);
             index = (pos parseState 3 3, None, $3)}}
   // Sequence of expressions separated by semicolons
-  | LPAREN seqExprList RPAREN         {SequenceExp {exps=(pos parseState 2 2, None, $2)}}
+  | LPAREN seqExprList RPAREN         {SequenceExp (pos parseState 2 2, None, $2)}
   // If statement with no else
   | IF expr THEN expr END {
         IfElseExp {
@@ -278,34 +279,10 @@ expr:
             condition = (pos parseState 2 2, None, $2);
             trueBranch = (pos parseState 4 4, None, $4);
             falseBranch = (pos parseState 5 5, None, $5)}}
-  // Let statment with type inference
-  | LET ID EQUAL expr {
+  | LET pattern EQUAL expr {
         LetExp {
-            varName = (pos parseState 2 2, None, $2);
-            typ = None;
-            right = (pos parseState 4 4, None, $4);
-            mutable_ = (pos parseState 1 1, None, false) }}
-  // Let statement with type constraint
-  | LET tyexpr ID EQUAL expr {
-        LetExp {
-            varName = (pos parseState 3 3, None, $3);
-            typ = Some (pos parseState 2 2, None, $2);
-            right = (pos parseState 5 5, None, $5);
-            mutable_ = (pos parseState 1 1, None, false) }}
-  // Let mutable statement with type inference
-  | LET MUTABLE ID EQUAL expr {
-        LetExp {
-            varName = (pos parseState 3 3, None, $3);
-            typ = None;
-            right = (pos parseState 5 5, None, $5);
-            mutable_ = (pos parseState 2 2, None, true) }}
-  // Let mutable statement without type inference
-  | LET MUTABLE tyexpr ID EQUAL expr {
-        LetExp {
-            varName = (pos parseState 4 4, None, $4);
-            typ = Some (pos parseState 3 3, None, $3);
-            right = (pos parseState 6 6, None, $6);
-            mutable_ = (pos parseState 2 2, None, true)}}
+            left = (pos parseState 2 2, None, $2);
+            right = (pos parseState 4 4, None, $4)} }
   // Set expression for mutating a variable
   | SET leftAssign EQUAL expr {
         AssignExp {
@@ -400,25 +377,62 @@ expr:
   | LBRACK arrayExprList RBRACK { ArrayLitExp (pos parseState 1 3, None, $2) }
   | REF expr { RefExp (pos parseState 2 2, None, $2) }
   | DEREF expr { DerefExp (pos parseState 2 2, None, $2) }
+  | LPAREN tupleExprList RPAREN { TupleExp $2 }
+
+tupleExprList:
+  | expr COMMA tupleExprList {(pos parseState 1 1, None, $1)::$3}
+  | expr COMMA expr          {[(pos parseState 1 1, None, $1); (pos parseState 3 3, None, $3)]}
 
 caseClauseList:
-  | pattern RFATARROW expr PIPE caseClauseList { ((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3))::$5 }
+  | PIPE pattern RFATARROW expr PIPE caseClauseList { ((pos parseState 2 2, None, $2), (pos parseState 4 4, None, $4))::$6 }
   | pattern RFATARROW expr                     { [((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3))] }
 
 pattern:
   | INT                                              { MatchIntVal (pos parseState 1 1, None, $1)}
   | FLOAT                                            { MatchFloatVal (pos parseState 1 1, None, $1)}
-  | ID                                               { MatchVar (pos parseState 1 1, None, $1)}
-  | UNDERSCORE                                       { MatchUnderscore}
-  | ID LPAREN valConPatternList RPAREN               { MatchValCon ((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3))}
-  | moduleQualifier LPAREN valConPatternList RPAREN  { MatchValConModQualifier ((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3))}
-  | ID LCURLYBRACE recPatternList RCURLYBRACE        { MatchRecCon ((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3))}
-  | moduleQualifier LCURLYBRACE recPatternList RCURLYBRACE { MatchRecConModQualifier ((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3))}
+  | ID {
+        MatchVar { varName = (pos parseState 1 1, None, $1);
+                   mutable_ = (pos parseState 1 1, None, false);
+                   typ = None}}
+  | ID COLON tyexpr {
+        MatchVar { varName = (pos parseState 1 1, None, $1);
+                   mutable_ = (pos parseState 1 1, None, false);
+                   typ = Some (pos parseState 3 3, None, $3)}}
+  | MUTABLE ID {
+        MatchVar { varName = (pos parseState 2 2, None, $2);
+                   mutable_ = (pos parseState 1 1, None, true);
+                   typ = None}}
+  | MUTABLE ID COLON tyexpr {
+        MatchVar { varName = (pos parseState 2 2, None, $2);
+                   mutable_ = (pos parseState 1 1, None, false);
+                   typ = Some (pos parseState 4 4, None, $4)}}
+  | UNDERSCORE                                       { MatchUnderscore }
+  | ID LPAREN pattern RPAREN               { MatchValCon ((pos parseState 1 1, None, $1), None, (pos parseState 3 3, None, $3))}
+  | moduleQualifier LPAREN pattern RPAREN  { MatchValConModQualifier ((pos parseState 1 1, None, $1), None, (pos parseState 3 3, None, $3))}
+  | ID LTHAN tycapExprs GTHAN LPAREN pattern RPAREN {
+        MatchValCon ((pos parseState 1 1, None, $1), Some (pos parseState 3 3, None, $3), (pos parseState 6 6, None, $6)) }
+  | moduleQualifier LTHAN tycapExprs GTHAN LPAREN pattern RPAREN {
+        MatchValConModQualifier ((pos parseState 1 1, None, $1), Some (pos parseState 3 3, None, $3), (pos parseState 6 6, None, $6)) }
+  | moduleQualifier LCURLYBRACE recPatternList RCURLYBRACE {
+        MatchRecCon ((pos parseState 1 1, None, TyModuleQualifier $1), (pos parseState 3 3, None, $3))}
+  | ID LCURLYBRACE recPatternList RCURLYBRACE {
+        MatchRecCon ((pos parseState 1 1, None, TyName (pos parseState 1 1, None, $1)), (pos parseState 3 3, None, $3))}
+  | moduleQualifier LTHAN tycapExprs GTHAN LCURLYBRACE recPatternList RCURLYBRACE {
+        let ty = TyApply {
+                    tyConstructor = (pos parseState 1 1, None, TyModuleQualifier $1);
+                    args = (pos parseState 3 3, None, $3)}
+        MatchRecCon ((pos parseState 1 4, None, ty), (pos parseState 6 6, None, $6))}
+  | ID LTHAN tycapExprs GTHAN LCURLYBRACE recPatternList RCURLYBRACE {
+        let ty = TyApply {
+                    tyConstructor = (pos parseState 1 1, None, TyName (pos parseState 1 1, None, $1));
+                    args = (pos parseState 3 3, None, $3)}
+        MatchRecCon ((pos parseState 1 4, None, ty), (pos parseState 6 6, None, $6))}
+  | LPAREN tuplePatternList RPAREN { MatchTuple (pos parseState 2 2, None, $2) }
+  |                                                  { MatchEmpty }
 
-valConPatternList:
-  | pattern COMMA valConPatternList {(pos parseState 1 1, None, $1) :: $3}
-  | pattern                         {[(pos parseState 1 1, None, $1)]}
-  |                                 {[]}
+tuplePatternList:
+  | pattern COMMA tuplePatternList  {(pos parseState 1 1, None, $1) :: $3}
+  | pattern COMMA pattern           {[(pos parseState 1 1, None, $1); (pos parseState 3 3, None, $3)]}
 
 recPatternList:
   | ID EQUAL pattern SEMICOLON recPatternList { ((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3)) :: $5}
@@ -444,11 +458,11 @@ callExprList:
   |                         {[]}  
 
 tyexpr:
-  | moduleQualifier LTHAN nonEmptyTyExprList GTHAN {
+  | moduleQualifier LTHAN tycapExprs GTHAN {
         TyApply {
             tyConstructor = (pos parseState 1 1, None, TyModuleQualifier $1);
             args = (pos parseState 3 3, None, $3)}}
-  | ID LTHAN nonEmptyTyExprList GTHAN {
+  | ID LTHAN tycapExprs GTHAN {
         TyApply {
             tyConstructor = (pos parseState 1 1, None, TyName (pos parseState 1 1, None, $1));
             args = (pos parseState 3 3, None, $3)}}
@@ -468,6 +482,7 @@ tyexpr:
         ArrayTy {
             valueType = (pos parseState 1 1, None, TyModuleQualifier $1);
             capacity = (pos parseState 3 3, None, $3)}}
+  | LPAREN tupleTyList RPAREN {TupleTy $2 }
   | TICK ID { ForallTy (pos parseState 1 2, None, $2) }
   | ID { match $1 with
              | "uint8" -> BaseTy (pos parseState 1 1, None, TyUint8)
@@ -481,6 +496,10 @@ tyexpr:
              | "bool" -> BaseTy (pos parseState 1 1, None, TyBool)
              | "unit" -> BaseTy (pos parseState 1 1, None, TyUnit)
              | _ -> TyName (pos parseState 1 1, None, $1) }
+
+tupleTyList:
+  | tyexpr TIMES tupleTyList {(pos parseState 1 1, None, $1)::$3}
+  | tyexpr TIMES tyexpr      {[(pos parseState 1 1, None, $1); (pos parseState 3 3, None, $3)]}
 
 nonEmptyTyExprList:
   | tyexpr COMMA nonEmptyTyExprList {(pos parseState 1 1, None, $1)::$3}

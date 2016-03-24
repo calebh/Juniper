@@ -40,7 +40,8 @@
                      |  "if" <expr> "then" <expr> [{"elif" <expr> "then" <expr>}] ["else" <expr>] "end"
                      |  "let" <pattern> "=" <expr>
                      |  "set" <left-assign> "=" <expr>
-                     |  "for" <id> ":" <ty-expr> "in" <expr> ".." <expr> "do" <expr> "end"
+                     |  "for" <id> ":" <ty-expr> "in" <expr> "to" <expr> "do" <expr> "end"
+                     |  "for" <id> ":" <ty-expr> "in" <expr> "downto" <expr> "do" <expr> "end"
                      |  "do" <expr> "while" <expr> "end"
                      |  "while" <expr> "do" <expr> "end"
                      |  <module-qualifier>

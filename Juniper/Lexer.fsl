@@ -78,7 +78,8 @@ rule token = parse
 | "="           { EQUAL }
 | "<"           { LTHAN }
 | ">"           { GTHAN }
-| ".."          { DOTDOT }
+| "to"          { TO }
+| "downto"      { DOWNTO }
 | "."           { DOT }
 | ";"           { SEMICOLON }
 | "_"           { UNDERSCORE }

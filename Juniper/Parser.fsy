@@ -32,7 +32,8 @@ let pos (parseState: IParseState) startIdx endIdx =
 %token MUTABLE
 %token FOR
 %token IN
-%token DOTDOT
+%token TO
+%token DOWNTO
 %token LPAREN
 %token RPAREN
 %token LBRACK
@@ -300,11 +301,22 @@ expr:
             right = (pos parseState 5 5, None, $5);
             ref = (pos parseState 2 2, None, true)}}
   // For loop
-  | FOR ID COLON tyexpr IN expr DOTDOT expr DO expr END {
+  | FOR ID COLON tyexpr IN expr TO expr DO expr END {
         ForLoopExp {
             typ = (pos parseState 4 4, None, $4);
             varName = (pos parseState 2 2, None, $2);
             start = (pos parseState 6 6, None, $6);
+            direction = (pos parseState 7 7, None, Upto)
+            end_ = (pos parseState 8 8, None, $8);
+            body = (pos parseState 10 10, None, $10)
+        }
+  }
+  | FOR ID COLON tyexpr IN expr DOWNTO expr DO expr END {
+        ForLoopExp {
+            typ = (pos parseState 4 4, None, $4);
+            varName = (pos parseState 2 2, None, $2);
+            start = (pos parseState 6 6, None, $6);
+            direction = (pos parseState 7 7, None, Downto)
             end_ = (pos parseState 8 8, None, $8);
             body = (pos parseState 10 10, None, $10)
         }

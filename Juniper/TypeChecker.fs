@@ -780,7 +780,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                   failwith "Type error"
                 | _ -> printfn "%sType error: Attempting to access a record field of non-record type %s" (posString posrt) (typeString recordTy)
                        failwith "Type error"
-        | ForLoopExp {typ=typ; varName=varName; start=(poss, _, start); end_=(pose, _, end_); body=(posb, _, body)} ->
+        | ForLoopExp {typ=typ; varName=varName; start=(poss, _, start); direction=direction; end_=(pose, _, end_); body=(posb, _, body)} ->
             // First check that the starting exp is a numeral type
             let (_, Some types, cStart) = tc start
             if isIntType types then
@@ -804,6 +804,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                     typ=typ;
                     varName=varName;
                     start=(poss, Some types, cStart);
+                    direction=direction;
                     end_=(pose, Some typee, cEnd);
                     body=(posb, Some typeb, cBody)
                 })

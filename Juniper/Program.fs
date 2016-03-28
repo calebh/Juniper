@@ -22,7 +22,8 @@ let main argv =
     let fnames = List.map System.IO.Path.GetFullPath (List.ofArray argv)
     let asts = List.map parseFromFile fnames
     let typedAsts = TypeChecker.typecheckProgram asts fnames
+    let compiledProgram = Compiler.compileProgram typedAsts
     //let ast = parseFromFile @"C:\Users\caleb\Documents\juniper_programs\test.jun"
-    printfn "%A" asts
+    printfn "%s" compiledProgram
     System.Console.ReadKey() |> ignore
     0 // return an integer exit code

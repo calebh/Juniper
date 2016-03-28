@@ -28,7 +28,7 @@
     <DocumentationFile>bin\Debug\Juniper.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
     <StartWorkingDirectory>C:\Users\caleb\Documents\juniper_programs\</StartWorkingDirectory>
-    <StartArguments>test.jun</StartArguments>
+    <StartArguments>Prelude.jun test.jun</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -71,6 +71,7 @@
     <None Include="App.config" />
     <Content Include="packages.config" />
     <Compile Include="Ast.fs" />
+    <Compile Include="Module.fs" />
     <Compile Include="Parser.fsi" />
     <Compile Include="Parser.fs" />
     <Compile Include="Lexer.fs" />

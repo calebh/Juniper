@@ -21,10 +21,6 @@ and UnionRec =    { name     : PosAdorn<string>;
                     valCons  : PosAdorn<ValueCon list>;
                     template : PosAdorn<Template> option }
 
-and TypeAliasRec = { name       : PosAdorn<string>;
-                     originalTy : PosAdorn<TyExpr>;
-                     template   : PosAdorn<Template> option }
-
 and LetDecRec = { varName : PosAdorn<string>;
                   typ     : PosAdorn<TyExpr>;
                   right   : PosAdorn<Expr>; }
@@ -35,7 +31,6 @@ and Declaration = FunctionDec   of FunctionRec
                 | LetDec        of LetDecRec
                 | ExportDec     of PosAdorn<PosAdorn<string> list>
                 | ModuleNameDec of PosAdorn<string>
-                | TypeAliasDec  of TypeAliasRec
                 | OpenDec       of PosAdorn<PosAdorn<string> list>
 
 // A template is associated with a function, record or union
@@ -75,13 +70,16 @@ and TyExpr = BaseTy of PosAdorn<BaseTypes>
            | TupleTy of PosAdorn<TyExpr> list
 
 and MatchVarRec = {varName : PosAdorn<string>; mutable_ : PosAdorn<bool>; typ : PosAdorn<TyExpr> option}
+and MatchValConRec = { name : PosAdorn<string>; template : PosAdorn<TemplateApply> option; innerPattern : PosAdorn<Pattern>; id : int option }
+and MatchValConModQualifierRec = { modQualifier : PosAdorn<ModQualifierRec>; template : PosAdorn<TemplateApply> option; innerPattern : PosAdorn<Pattern>; id : int option }
+and MatchRecConRec = { typ : PosAdorn<TyExpr>; fields : PosAdorn<(PosAdorn<string> * PosAdorn<Pattern>) list> }
 
 and Pattern = MatchVar of MatchVarRec
             | MatchIntVal of PosAdorn<string>
             | MatchFloatVal of PosAdorn<string>
-            | MatchValCon of PosAdorn<string> * PosAdorn<TemplateApply> option * PosAdorn<Pattern>
-            | MatchValConModQualifier of PosAdorn<ModQualifierRec> * PosAdorn<TemplateApply> option * PosAdorn<Pattern>
-            | MatchRecCon of PosAdorn<TyExpr> * PosAdorn<(PosAdorn<string> * PosAdorn<Pattern>) list>
+            | MatchValCon of MatchValConRec
+            | MatchValConModQualifier of MatchValConModQualifierRec
+            | MatchRecCon of MatchRecConRec
             | MatchUnderscore
             | MatchTuple of PosAdorn<PosAdorn<Pattern> list>
             | MatchEmpty
@@ -106,7 +104,7 @@ and RecordAccessRec = { record : PosAdorn<Expr>; fieldName : PosAdorn<string> }
 and ArrayAccessRec =  { array : PosAdorn<Expr>; index : PosAdorn<Expr> }
 and VarExpRec =       { name : PosAdorn<string> }
 and LambdaRec =       { clause : PosAdorn<FunctionClause> }
-and InternalDeclareVarExpRec = { varName : PosAdorn<string>; typ : PosAdorn<TyExpr> option; right : PosAdorn<Expr>; mutable_ : PosAdorn<bool> }
+and InternalDeclareVarExpRec = { varName : PosAdorn<string>; typ : PosAdorn<TyExpr>; right : PosAdorn<Expr> }
 and InternalValConAccessRec = { valCon : PosAdorn<Expr>; typ : PosAdorn<TyExpr> }
 and CallRec =         { func : PosAdorn<Expr>; args : PosAdorn<PosAdorn<Expr> list> }
 and TemplateApplyExpRec = { func : PosAdorn<Expr>; templateArgs : PosAdorn<TemplateApply> }
@@ -120,6 +118,7 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
                                                            // that will actually be outputted by the compiler
           | InternalValConAccess of InternalValConAccessRec // Only used internally for type checking pattern
                                                             // matching. Essentially acts like a type cast
+          | InlineCode of PosAdorn<string>
           | AssignExp of AssignRec
           | ForLoopExp of ForLoopRec
           | WhileLoopExp of WhileLoopRec
@@ -166,3 +165,8 @@ let clean<'a> ((_, _, c) : PosAdorn<'a>) : PosAdorn<'a> = dummyWrap c
 let cleanAll haystack = TreeTraversals.map1 (fun pos -> dummyPos) haystack
 
 let wrapWithType<'a> t c : PosAdorn<'a> = ((dummyPos, dummyPos), Some t, c)
+
+let templateToTemplateApply template =
+    let tyExprs = template.tyVars |> unwrap |> List.map (ForallTy >> dummyWrap) |> dummyWrap
+    let capExprs = template.capVars |> unwrap |> List.map (CapacityNameExpr >> dummyWrap) |> dummyWrap
+    {tyExprs=tyExprs; capExprs=capExprs}

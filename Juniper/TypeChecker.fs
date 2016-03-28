@@ -6,6 +6,7 @@ open Ast
 open Microsoft.FSharp.Text.Lexing
 open System.IO
 open Extensions
+open Module
 
 let mutable alreadyCheckedFunctions : Set<ModQualifierRec * TemplateApply> = Set.empty
 
@@ -118,69 +119,6 @@ let posString (p1 : Position, p2 : Position) : string =
         else
             ""
     sprintf "file %s, line %d column %d to line %d column %d%s" p1.FileName (p1.Line+1) p1.Column (p2.Line+1) p2.Column badCode
-
-let nameInModule (Module decs) =
-    let names = List.filter (fun dec -> match dec with
-                                            | (_, _, ModuleNameDec _) -> true
-                                            | _ -> false) decs
-    match names with
-        | [((_, _), _, ModuleNameDec name)] -> name
-        | [] -> failwith "Module name not found"
-        | _ -> failwith "Multiple module names found in module"
-
-let typesInModule (Module decs) = 
-    let typeDecs = List.filter (fun dec -> match dec with
-                                               | (_, _, RecordDec _) -> true
-                                               | (_, _, UnionDec _ ) -> true
-                                               | (_, _, TypeAliasDec _) -> true
-                                               | _ -> false) decs
-    List.map (fun dec -> match dec with
-                             | (_, _, RecordDec {name=name}) -> name
-                             | (_, _, UnionDec {name=name}) -> name
-                             | (_, _, TypeAliasDec {name=name}) -> name
-                             | _ -> failwith "This should never happen") typeDecs
-
-let opensInModule (Module decs) =
-    let opens = List.filter (fun dec -> match dec with
-                                            | (_, _, OpenDec _) -> true
-                                            | _ -> false) decs
-    List.concat (List.map (fun dec -> match dec with
-                                          | (_, _, OpenDec (_, _, names)) -> names
-                                          | _ -> failwith "This should never happen") opens)
-
-let exportsInModule (Module decs) =
-    let exports = List.filter (fun dec -> match dec with
-                                              | (_, _, ExportDec _) -> true
-                                              | _ -> false) decs
-    List.concat (List.map (fun dec -> match dec with
-                                          | (_, _, ExportDec (_, _, names)) -> names
-                                          | _ -> failwith "This should never happen") exports)
-
-let declarationsInModule (Module decs) =
-    let namedDecs = List.filter (fun dec -> match dec with
-                                                | (_, _, FunctionDec _) -> true
-                                                | (_, _, RecordDec _) -> true
-                                                | (_, _, UnionDec _) -> true
-                                                | (_, _, LetDec _) -> true
-                                                | (_, _, TypeAliasDec _) -> true
-                                                | _ -> false) decs
-    List.map (fun dec -> match dec with
-                             | (_, _, FunctionDec {name=name}) -> name
-                             | (_, _, RecordDec {name=name}) -> name
-                             | (_, _, UnionDec {name=name}) -> name
-                             | (_, _, LetDec {varName=name}) -> name
-                             | (_, _, TypeAliasDec {name=name}) -> name
-                             | _ -> failwith "This should never happen") namedDecs
-
-let valueDecsInModule (Module decs) =
-    let namedDecs = List.filter (fun dec -> match dec with
-                                                | (_, _, FunctionDec _) -> true
-                                                | (_, _, LetDec _) -> true
-                                                | _ -> false) decs
-    List.map (fun dec -> match dec with
-                             | (_, _, FunctionDec {name=name}) -> name
-                             | (_, _, LetDec {varName=name}) -> name
-                             | _ -> failwith "This should never happen") namedDecs
 
 let qualifierWrap modName decName =
     {module_ = modName; name = decName}
@@ -390,11 +328,11 @@ let toStringPair {module_=module_; name=name} =
     (unwrap module_, unwrap name)
 
 let nameOfDec dec = match dec with
-                        | (RecordDec {name=name} | UnionDec {name=name} | TypeAliasDec {name=name} | LetDec {varName=name} | FunctionDec {name=name}) -> name
+                        | (RecordDec {name=name} | UnionDec {name=name} | LetDec {varName=name} | FunctionDec {name=name}) -> name
                         | _ -> failwith "This declaration doesn't have a name"
 
 let isNamedDec dec = match dec with
-                         | (RecordDec _ | UnionDec _ | TypeAliasDec _ | LetDec _ | FunctionDec _) -> true
+                         | (RecordDec _ | UnionDec _ | LetDec _ | FunctionDec _) -> true
                          | _ -> false
 
 let isTypedDec dec = match dec with
@@ -459,7 +397,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                                                     fieldName=dummyWrap (sprintf "e%d" index)})
                                         ) tuple)
                         dummyWrap (MatchTuple (post, None, tuple'))
-                    | MatchRecCon ((posRecTy, _, recTy), (posFieldList, _, fieldList)) ->
+                    | MatchRecCon {typ=(posRecTy, _, recTy); fields=(posFieldList, _, fieldList)} ->
                         if eqTypes recTy pathTy then
                             let fieldList' = (List.map (fun ((posFieldName, _, fieldName), (posFieldPattern, _, fieldPattern)) ->
                                 let path' = RecordAccessExp { record = dummyWrap path;
@@ -467,12 +405,12 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                 let fieldPattern' = checkPattern' fieldPattern path'
                                 ((posFieldName, None, fieldName), fieldPattern')
                             ) fieldList)
-                            MatchRecCon ((posRecTy, None, recTy), (posFieldList, None, fieldList')) |> dummyWrap
+                            MatchRecCon {typ=(posRecTy, None, recTy); fields=(posFieldList, None, fieldList')} |> dummyWrap
                         else
                             printfn "%sType error: Record type given in pattern does not match the type of the expression being matched upon." (posString posRecTy)
                             failwith "Type error"
-                    | (MatchValConModQualifier ((_, _, {name=(posn, _, name)}), maybeTemplate, (posValConPattern, _, valConPattern))
-                        | MatchValCon ((posn, _, name), maybeTemplate, (posValConPattern, _, valConPattern)) ) ->
+                    | (MatchValConModQualifier {modQualifier=(_, _, {name=(posn, _, name)}); template=maybeTemplate; innerPattern=(posValConPattern, _, valConPattern)}
+                        | MatchValCon {name=(posn, _, name); template=maybeTemplate; innerPattern=(posValConPattern, _, valConPattern)} ) ->
                         // Value constructors are implemented as functions so
                         // the return type of the function should be the type
                         // we need
@@ -482,7 +420,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                         // if the programmer is being honest
                         let ty =
                             match pattern with
-                                | MatchValConModQualifier ((posModQual, _, {module_=(_, _, module_)}), _, _) ->
+                                | MatchValConModQualifier {modQualifier=(posModQual, _, {module_=(_, _, module_)})} ->
                                     match Map.tryFind (module_, name) dtenv with
                                         | Some ty -> ty
                                         | None ->
@@ -494,9 +432,9 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                         | None ->
                                             printfn "%sError: Could not find value constructor named %s." (posString posn) name
                                             failwith "Error"
-                        let valConPattern' =
+                        let (valConPattern', index) =
                             match ty with
-                                | FunTy {args=args; template=maybeFunTemplate; returnType=(_, _, funReturnType)} ->
+                                | FunTy {args=args; template=maybeFunTemplate; returnType=(_, _, funReturnType); source=Some {module_=srcModule; name=srcName}} ->
                                     let funReturnType' =
                                         match (maybeTemplate, maybeFunTemplate) with
                                             | (Some (_, _, template), Some (_, _, funTemplate)) ->
@@ -515,24 +453,39 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                         ()
                                     else
                                         printfn "%sType error: Value constructor given in pattern does not match the type of the expression." (posString posn)
-                                    match List.tryHead args with
+                                    let unionDec = Map.find (unwrap srcModule, unwrap srcName) denv |> unwrap
+                                    let index = match unionDec with
+                                                    | UnionDec {valCons=valCons} ->
+                                                        valCons |> unwrap |> List.tryFindIndex (fun (valConName, _) -> (unwrap valConName) = name)
+                                                    | _ ->
+                                                        printfn "%sType Error: Declaration named %s is not a value constructor." (posString posn) name
+                                                        failwith "Type error"
+                                    let index' =
+                                        match index with
+                                            | Some i -> i
+                                            | None ->
+                                                printfn "%sType Error: Declaration named %s is not a value constructor." (posString posn) name
+                                                failwith "Type error"
+                                    ((match List.tryHead args with
                                         | None ->
                                             dummyWrap MatchEmpty
                                         | Some h ->
                                             let path' = InternalValConAccess {valCon=(posn, None, path); typ=h}
-                                            checkPattern' valConPattern path'
+                                            checkPattern' valConPattern path'), index')
                                 | _ ->
                                     printfn "%sType Error: Declaration named %s is not a value constructor." (posString posn) name
                                     failwith "Type error"
                         match pattern with
-                            | MatchValConModQualifier (a, b, c) ->
+                            | MatchValConModQualifier a ->
                                 wrapWithType
                                     ty
-                                    (MatchValConModQualifier (a, b, (posValConPattern, None, unwrap valConPattern')))
-                            | MatchValCon (a, b, c) ->
+                                    (MatchValConModQualifier {a with innerPattern = (posValConPattern, None, unwrap valConPattern');
+                                                                     id = Some index})
+                            | MatchValCon a ->
                                 wrapWithType
                                     ty
-                                    (MatchValCon (a, b, (posValConPattern, None, unwrap valConPattern')))
+                                    (MatchValCon {a with innerPattern = (posValConPattern, None, unwrap valConPattern');
+                                                         id = Some index})
             pattern'
         (checkPattern' pattern path, tenv')
 
@@ -823,8 +776,8 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                     condition = (posc, Some typec, condition)
                 })
         | WhileLoopExp {body=(posb, _, body); condition=(posc, _, condition)} ->
-            let (_, Some typeb, _) = tc body
-            let (_, Some typec, _) = tc condition
+            let (_, Some typeb, cBody) = tc body
+            let (_, Some typec, cCondition) = tc condition
             if eqTypes typec (BaseTy (dummyWrap TyBool)) then
                 ()
             else
@@ -833,8 +786,8 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             wrapWithType
                 (BaseTy (dummyWrap TyUnit))
                 (WhileLoopExp {
-                    body = (posb, Some typeb, body);
-                    condition = (posc, Some typec, condition)
+                    body = (posb, Some typeb, cBody);
+                    condition = (posc, Some typec, cCondition)
                 })
         | ArrayAccessExp {array=(posa, _, array); index=(posi, _, index)} ->
             let (_, Some typea, cArray) = tc array
@@ -1055,7 +1008,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
         | ModQualifierExp {module_=(posm, _, module_); name=(posn, _, name)} ->
             let ty = match Map.tryFind (module_, name) dtenv with
                          | Some ty -> ty
-                         | None -> printfn "%s%sError: Could not find declaration named %s in module named %s." (posString posm) (posString posn) module_ name
+                         | None -> printfn "%s%sError: Could not find declaration named %s in module named %s." (posString posm) (posString posn) name module_
                                    failwith "Error"
             wrapWithType
                 ty
@@ -1311,7 +1264,6 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
             match dec with
                 | FunctionDec {template=Some template} -> checkTemplate (unwrap template)
                 | UnionDec {template=Some template} -> checkTemplate (unwrap template)
-                | TypeAliasDec {template=Some template} -> checkTemplate (unwrap template)
                 | RecordDec {template=Some template} -> checkTemplate (unwrap template)
                 | _ -> ()
         ) decs)
@@ -1415,16 +1367,14 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
                             | None -> returnType
                             | Some (_, _, template) ->
                                 // Convert the Template type to a TemplateApply type
-                                let tyExprs = template.tyVars |> unwrap |> List.map (ForallTy >> dummyWrap) |> dummyWrap
-                                let capExprs = template.capVars |> unwrap |> List.map (CapacityNameExpr >> dummyWrap) |> dummyWrap
-                                TyApply {tyConstructor=dummyWrap returnType; args=dummyWrap {tyExprs=tyExprs; capExprs=capExprs}}
+                                TyApply {tyConstructor=dummyWrap returnType; args=dummyWrap (templateToTemplateApply template)}
                     // Add all of the value constructors as functions
                     (List.fold (fun map1 (conName, typ) ->
                         let args = match typ with
                                        | None -> []
                                        | Some x -> [x]
                         Map.add (unwrap modName, unwrap union_.name) (FunTy {template=union_.template;
-                                                                             source=None;
+                                                                             source=Some {module_=modName; name=union_.name};
                                                                              returnType=dummyWrap returnType';
                                                                              args=args}) map1
                     ) map0 (unwrap union_.valCons))
@@ -1468,7 +1418,7 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
                                            | None -> []
                                            | Some x -> [x]
                             Map.add (unwrap conName) (false, FunTy {template=union_.template;
-                                                                    source=None;
+                                                                    source=Some {module_=modName; name=union_.name};
                                                                     returnType=dummyWrap returnType';
                                                                     args=args}) map1
                         ) map0 (unwrap union_.valCons)

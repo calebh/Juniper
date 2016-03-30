@@ -28,7 +28,7 @@
     <DocumentationFile>bin\Debug\Juniper.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
     <StartWorkingDirectory>C:\Users\caleb\Documents\juniper_programs\</StartWorkingDirectory>
-    <StartArguments>Prelude.jun test.jun</StartArguments>
+    <StartArguments>"C:\Users\caleb\Documents\Visual Studio 2015\Projects\Juniper\Juniper\junstd\Prelude.jun" test.jun</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>

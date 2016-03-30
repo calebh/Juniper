@@ -1,3 +1,8 @@
+#ifndef JUNIPER_H
+#define JUNIPER_H
+
+#include <stdlib.h>
+
 namespace juniper
 {
     // function written by Evgeny Panasyuk
@@ -163,4 +168,11 @@ namespace juniper
 
         T data[N];
     };
+
+    template<typename T>
+    T death() {
+        exit(1);
+    }
 }
+
+#endif

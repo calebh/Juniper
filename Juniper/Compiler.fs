@@ -27,7 +27,7 @@ let newline () =
     "\n"
 
 let rec getDeathExpr (ty : TyExpr) : PosAdorn<Expr> =
-    let deathFun = dummyWrap (VarExp {name=dummyWrap "__death"})
+    let deathFun = dummyWrap (ModQualifierExp {module_=dummyWrap "juniper"; name=dummyWrap "death"})
     let appliedDeath = TemplateApplyExp { func = deathFun;
                                           templateArgs = dummyWrap {tyExprs = dummyWrap [dummyWrap ty]; 
                                                                     capExprs = dummyWrap []}} |> dummyWrap
@@ -62,13 +62,13 @@ and compileType (ty : TyExpr) : string =
         | ForallTy (_, _, name) ->
             output name
         | ArrayTy {valueType=(_, _, valueType); capacity=(_, _, capacity)} ->
-            output "std::array<" + compileType valueType + output "," + compileCap capacity + output ">"
+            output "juniper::array<" + compileType valueType + output "," + compileCap capacity + output ">"
         | FunTy { args=args; returnType=(_, _, returnType) } ->
-            output "std::function<" + compileType returnType + output "(" +
+            output "juniper::function<" + compileType returnType + output "(" +
             (args |> List.map (unwrap >> compileType) |> String.concat ",")
             + output ")>"
         | RefTy (_, _, ty) ->
-            output "std::shared_ptr<" + compileType ty + ">"
+            output "juniper::shared_ptr<" + compileType ty + ">"
         | TupleTy tys ->
             output (sprintf "Prelude::Tuple%d<" (List.length tys)) +
             (tys |> List.map (unwrap >> compileType) |> String.concat ",") +
@@ -237,10 +237,21 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
         | RecordAccessExp { record=record; fieldName=(_, _, fieldName)} ->
             output "(" + compile record + output ")." + output fieldName
         | LambdaExp {clause=(_, _, {returnTy=(_, _, returnTy); arguments=(_, _, args); body=body})} ->
-            output "std::function<" + compileType returnTy + "(" + (args |> List.map (fst >> unwrap >> compileType) |> String.concat ",") + ")>(" +
+            output "juniper::function<" + compileType returnTy + "(" + (args |> List.map (fst >> unwrap >> compileType) |> String.concat ",") + ")>(" +
             output "[=](" + (args |> List.map (fun (ty, name) -> compileType (unwrap ty) + output " " + output (unwrap name)) |> String.concat ", ") +
             output ") -> " + compileType returnTy + output " { " + newline() +
             indentId() + output "return " + compile body + output ";" + unindentId() + newline() + output " })"
+        | ModQualifierExp {module_=(_, _, module_); name=(_, _, name)} ->
+            output module_ + "::" + name
+        | ArrayLitExp (_, _, exprs) ->
+            let (ArrayTy {valueType=(_, _, valueType); capacity=(_, _, capacity)}) = Option.get maybeTy
+            output "(juniper::array<" + compileType valueType + output ", " + compileCap capacity + output "> { {" +
+            (exprs |> List.map (fun expr -> compile expr) |> String.concat ", ") +
+            output"} })"
+        | ArrayMakeExp {typ=(_, _, typ); initializer=initializer} ->
+            let (ArrayTy {valueType=(_, _, valueType); capacity=(_, _, capacity)}) = typ
+            output "(juniper::array<" + compileType valueType + output ", " + compileCap capacity + output ">().fill(" +
+            compile initializer + output "))"
 
 and compileTemplate (template : Template) : string = 
     let tyVars = template.tyVars |> unwrap |> List.map (unwrap >> (+) "typename ")
@@ -382,13 +393,8 @@ and compileDec (dec : Declaration) : string =
 
 and compileProgram (modList : Module list) : string =
     output "#include <inttypes.h>" + newline() +
-    output "#include <stdlib.h>" + newline() +
-    output "#include <array>" + newline() +
+    output "#include \"juniper.hpp\"" + newline() +
     output "#include <stdbool.h>" + newline() + newline() +
-    output "template<typename T>" + newline() +
-    output "T __death() {" + newline() +
-    indentId() + output "exit(1);" + newline() + unindentId() +
-    output "}" + newline() + newline() +
     (modList |> List.map (fun (Module module_)->
         let moduleName = Module module_ |> Module.nameInModule |> unwrap
         output "namespace " + moduleName + output " {" + newline() +

@@ -1,19 +1,19 @@
 module Prelude
-export(Tuple2, Tuple3, Tuple4, Tuple5, Tuple6, Tuple7, Tuple8, Tuple9, Tuple10, Maybe, Unit, Just, Nothing)
+export(tuple2, tuple3, tuple4, tuple5, tuple6, tuple7, tuple8, tuple9, tuple10, maybe, unit, Just, Nothing, list)
 
-type Tuple2<'a,'b> = {e1 : 'a; e2 : 'b}
-type Tuple3<'a,'b,'c> = {e1 : 'a; e2 : 'b; e3 : 'c}
-type Tuple4<'a,'b,'c,'d> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd}
-type Tuple5<'a,'b,'c,'d,'e> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e}
-type Tuple6<'a,'b,'c,'d,'e,'f> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f}
-type Tuple7<'a,'b,'c,'d,'e,'f,'g> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g}
-type Tuple8<'a,'b,'c,'d,'e,'f,'g,'h> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h}
-type Tuple9<'a,'b,'c,'d,'e,'f,'g,'h,'i> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h; e9 : 'i}
-type Tuple10<'a,'b,'c,'d,'e,'f,'g,'h,'i,'j> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h; e9 : 'i; e10 : 'j}
+type tuple2<'a,'b> = {e1 : 'a; e2 : 'b}
+type tuple3<'a,'b,'c> = {e1 : 'a; e2 : 'b; e3 : 'c}
+type tuple4<'a,'b,'c,'d> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd}
+type tuple5<'a,'b,'c,'d,'e> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e}
+type tuple6<'a,'b,'c,'d,'e,'f> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f}
+type tuple7<'a,'b,'c,'d,'e,'f,'g> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g}
+type tuple8<'a,'b,'c,'d,'e,'f,'g,'h> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h}
+type tuple9<'a,'b,'c,'d,'e,'f,'g,'h,'i> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h; e9 : 'i}
+type tuple10<'a,'b,'c,'d,'e,'f,'g,'h,'i,'j> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h; e9 : 'i; e10 : 'j}
 
-type Maybe<'a> = Just of 'a
+type maybe<'a> = Just of 'a
                | Nothing
 
-type Unit = {}
+type unit = {}
 
-type List<'a; n> = { length : uint32; data : 'a[n]}
+type list<'a; n> = { length : uint32; data : 'a[n]}

@@ -45,12 +45,12 @@ let declarationsInModule (Module decs) =
                                                 | (_, _, LetDec _) -> true
                                                 | _ -> false) decs
     List.concat (List.map (fun dec -> match dec with
-                             | (_, _, FunctionDec {name=name}) -> [name]
-                             | (_, _, RecordDec {name=name}) -> [name]
-                             | (_, _, UnionDec {name=name; valCons=valCons}) ->
-                                    name::(valCons |> unwrap |> List.map fst)
-                             | (_, _, LetDec {varName=name}) -> [name]
-                             | _ -> failwith "This should never happen") namedDecs)
+                                          | (_, _, FunctionDec {name=name}) -> [name]
+                                          | (_, _, RecordDec {name=name}) -> [name]
+                                          | (_, _, UnionDec {name=name; valCons=valCons}) ->
+                                                name::(valCons |> unwrap |> List.map fst)
+                                          | (_, _, LetDec {varName=name}) -> [name]
+                                          | _ -> failwith "This should never happen") namedDecs)
 
 let valueDecsInModule (Module decs) =
     let namedDecs = List.filter (fun dec -> match dec with

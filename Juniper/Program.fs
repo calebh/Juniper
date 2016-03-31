@@ -7,6 +7,10 @@ open Microsoft.FSharp.Text.Lexing
 
 [<EntryPoint>]
 let main argv =
+    let stdLibrary = ["Prelude"; "Io"; "Signal"]
+    let executingDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+    let stdFiles = stdLibrary |> List.map (fun name -> executingDir + "\\junstd\\" + name + ".jun")
+    //let directory2 = System.AppDomain.CurrentDomain.BaseDirectory
     let parseFromFile (fileName:string) = 
         let fileStr = System.IO.File.ReadAllText fileName
         let lexbuf = LexBuffer<char>.FromString fileStr
@@ -19,7 +23,7 @@ let main argv =
         with
           | _ -> printfn "Syntax error in %s on line %d, column %d" fileName (lexbuf.StartPos.Line + 1) (lexbuf.StartPos.Column + 1);
                  failwith "Syntax error"
-    let fnames = List.map System.IO.Path.GetFullPath (List.ofArray argv)
+    let fnames = List.append stdFiles (List.map System.IO.Path.GetFullPath (List.ofArray argv))
     let asts = List.map parseFromFile fnames
     let typedAsts = TypeChecker.typecheckProgram asts fnames
     let compiledProgram = Compiler.compileProgram typedAsts

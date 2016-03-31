@@ -28,7 +28,7 @@
     <DocumentationFile>bin\Debug\Juniper.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
     <StartWorkingDirectory>C:\Users\caleb\Documents\juniper_programs\</StartWorkingDirectory>
-    <StartArguments>"C:\Users\caleb\Documents\Visual Studio 2015\Projects\Juniper\Juniper\junstd\Prelude.jun" test.jun</StartArguments>
+    <StartArguments>test.jun</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -99,6 +99,10 @@
     </PropertyGroup>
     <Error Condition="!Exists('..\packages\FsLexYacc.6.1.0\build\FsLexYacc.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\FsLexYacc.6.1.0\build\FsLexYacc.targets'))" />
   </Target>
+  <PropertyGroup>
+    <PostBuildEvent>xcopy /e/i/y "$(ProjectDir)junstd" "$(ProjectDir)bin\$(ConfigurationName)\junstd"
+xcopy /e/i/y "$(ProjectDir)cppstd" "$(ProjectDir)bin\$(ConfigurationName)\cppstd"</PostBuildEvent>
+  </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

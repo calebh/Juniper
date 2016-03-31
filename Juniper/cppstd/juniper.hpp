@@ -135,7 +135,15 @@ namespace juniper
             return *this;
         }
 
-        // operator->, operator*, operator void*, use_count
+        // operator void*, use_count
+
+        contained& operator*() {
+            return *ptr_;
+        }
+
+        contained* operator->() {
+            return ptr;
+        }
     private:
         void inc_ref() {
             if (ref_count_) {

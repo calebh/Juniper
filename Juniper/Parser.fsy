@@ -13,6 +13,7 @@ let pos (parseState: IParseState) startIdx endIdx =
 %token <string> FLOAT
 %token <string> ID
 %token <string> STRING
+%token <string> INLINECODE
 %token ALIAS
 %token RECORD
 %token RETURN
@@ -234,6 +235,10 @@ recordInitList:
   |                                        { [] }
 
 expr:
+  | INLINECODE {
+        let str = $1
+        let code = str.[1..String.length str - 2]
+        InlineCode (pos parseState 1 1, None, code) }
   | ARRAY tyexpr OF expr END {
         ArrayMakeExp {
             typ = (pos parseState 2 2, None, $2)
@@ -503,7 +508,6 @@ tyexpr:
             capacity = (pos parseState 3 3, None, $3)}}
   | tyexpr REF {
         RefTy (pos parseState 1 1, None, $1) }
-  | LPAREN tyexpr RPAREN { $2 }
   | moduleQualifier LBRACK capexpr RBRACK {
         ArrayTy {
             valueType = (pos parseState 1 1, None, TyModuleQualifier $1);
@@ -570,3 +574,4 @@ leftAssign:
   | leftAssign LBRACK expr RBRACK { ArrayMutation { array = (pos parseState 1 1, None, $1); index = (pos parseState 3 3, None, $3) } }
   | leftAssign DOT ID             { RecordMutation { record = (pos parseState 1 1, None, $1); fieldName = (pos parseState 3 3, None, $3) } }
   | ID                            { VarMutation { varName = (pos parseState 1 1, None, $1) } }
+  | moduleQualifier               { ModQualifierMutation { modQualifier = (pos parseState 1 1, None, $1) } }

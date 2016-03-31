@@ -104,7 +104,7 @@ and RecordAccessRec = { record : PosAdorn<Expr>; fieldName : PosAdorn<string> }
 and ArrayAccessRec =  { array : PosAdorn<Expr>; index : PosAdorn<Expr> }
 and VarExpRec =       { name : PosAdorn<string> }
 and LambdaRec =       { clause : PosAdorn<FunctionClause> }
-and InternalDeclareVarExpRec = { varName : PosAdorn<string>; typ : PosAdorn<TyExpr>; right : PosAdorn<Expr> }
+and InternalDeclareVarExpRec = { varName : PosAdorn<string>; typ : PosAdorn<TyExpr> option; right : PosAdorn<Expr> }
 and InternalValConAccessRec = { valCon : PosAdorn<Expr>; typ : PosAdorn<TyExpr> }
 and CallRec =         { func : PosAdorn<Expr>; args : PosAdorn<PosAdorn<Expr> list> }
 and TemplateApplyExpRec = { func : PosAdorn<Expr>; templateArgs : PosAdorn<TemplateApply> }
@@ -149,7 +149,9 @@ and UnaryOps = LogicalNot | BitwiseNot
 and VarMutationRec =    { varName : PosAdorn<string> }
 and ArrayMutationRec =  { array : PosAdorn<LeftAssign>; index : PosAdorn<Expr> }
 and RecordMutationRec = { record : PosAdorn<LeftAssign>; fieldName : PosAdorn<string> }
+and ModQualifierMutationRec = { modQualifier : PosAdorn<ModQualifierRec> }
 and LeftAssign = VarMutation of VarMutationRec
+               | ModQualifierMutation of ModQualifierMutationRec
                | ArrayMutation of ArrayMutationRec
                | RecordMutation of RecordMutationRec
 

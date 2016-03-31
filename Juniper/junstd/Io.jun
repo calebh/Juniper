@@ -1,0 +1,38 @@
+module Io
+open(Prelude)
+export(digWrite, digRead, anaRead, anaWrite, pinModeToInt, intTopinMode, pinMode, High, Low)
+
+type pinMode = High | Low
+
+fun pinModeToInt(value : pinMode) : uint8 =
+    case value of
+    | Low() => 0
+    | High() => 1
+    end
+
+fun intTopinMode(value : uint8) : pinMode =
+    if value == 0 then
+        Low()
+    else
+        High()
+    end
+
+fun digWrite(pin : uint32, value : pinMode) : unit = (
+    let intVal = pinModeToInt(value);
+    #digitalWrite(pin, intVal);#
+)
+
+fun digRead(pin : uint32) : pinMode = (
+    let intVal : uint8 = 0;
+    #intVal = digitalRead(pin);#;
+    intTopinMode(intVal)
+)
+
+fun anaRead(pin : uint32) : uint16 = (
+    let value : uint16 = 0;
+    #value = analogRead(pin);#;
+    value
+)
+
+fun anaWrite(pin : uint32, value : uint8) : unit =
+    #analogWrite(pin, value);#

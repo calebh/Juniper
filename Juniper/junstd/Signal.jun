@@ -1,0 +1,39 @@
+module Signal
+open(Prelude)
+export(Signal, map, filter, merge, foldP)
+
+type signal<'a> = Signal of maybe<'a>
+
+fun map<'a,'b>(f : ('a) -> 'b, sig : signal<'a>) : signal<'b> =
+    case sig of
+    | Signal<'a>(Just<'a>(val)) => Signal<'b>(Just<'b>(f(val)))
+    | _                         => Signal<'b>(Nothing<'b>())
+    end
+
+fun filter<'a>(f : ('a) -> bool, sig : signal<'a>) : signal<'a> =
+    case sig of
+    | Signal<'a>(Just<'a>(val)) =>
+        if f(val) then
+            Signal<'a>(Nothing<'a>())
+        else
+            sig
+        end
+    | _ =>
+        Signal<'a>(Nothing<'a>())
+    end
+
+fun merge<'a>(sigA : signal<'a>, sigB : signal<'a>) : signal<'a> =
+    case sigA of
+    | Signal<'a>(Just<'a>(_)) => sigA
+    | _                       => sigB
+    end
+
+fun foldP<'a, 'b>(f : ('a,'b)->'b, state : 'b ref, incoming : signal<'a>) : signal<'b> =
+    case incoming of
+    | Signal<'a>(Just<'a>(val)) =>
+        (let newState = f(val, state);
+        set ref state = newState;
+        Signal<'b>(Just<'b>(newState)))
+    | _ =>
+        Signal<'b>(Nothing<'b>())
+    end

@@ -490,6 +490,10 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
         (checkPattern' pattern path, tenv')
 
     match expr with
+        | InlineCode (posc, _, code) ->
+            wrapWithType
+                (BaseTy (dummyWrap TyUnit))
+                (InlineCode (posc, None, code))
         | IfElseExp {condition=(posc, _, condition);
                      trueBranch=(post, _, trueBranch);
                      falseBranch=(posf, _, falseBranch)} ->
@@ -593,10 +597,16 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             let (_, Some typer, cRight) = tc right
             let rec checkLeft left : TyExpr =
                 match left with
+                    | ModQualifierMutation {modQualifier=(_, _ , {module_=(_, _, module_); name=(_, _, name)})} ->
+                        let typel = Map.find (module_, name) dtenv
+                        match typel with
+                            | RefTy _ -> typel
+                            | _ -> printfn "%sError in set expression: The left side is not mutable." (posString posl)
+                                   failwith "Error"
                     | VarMutation {varName=varName} ->
                         let (mutable_, typel) = Map.find (unwrap varName) tenv
                         if mutable_ || ref then
-                            Map.find (unwrap varName) tenv |> snd
+                            typel
                         else
                             printfn "%sError in set expression: The left hand side is not mutable." (posString posl)
                             failwith "Error"
@@ -646,21 +656,24 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                 match typel with
                     | RefTy (posRefTy, _, refTy) ->
                         if eqTypes refTy typer then
-                            wrapWithType typer cRight
+                            ()
                         else
                             printfn "%sType error: The ref on the left hand side holds a value of type %s, which does not match the right hand side type of %s." (posString posl) (typeString refTy) (typeString typer)
                             failwith "Type error"
                     | ForallTy _ ->
-                        wrapWithType typer cRight
+                        ()
                     | _ ->
                         printfn "%sType error: The left hand side of the set expression has type %s, which is not a ref type." (posString posl) (typeString typel)
                         failwith "Type error"
             else
                 if eqTypes typer typel then
-                    wrapWithType typer cRight
+                    ()
                 else
                     printfn "%s%sType error: The left hand side of the set expression has type %s, but the right hand side has type %s. The left and the right hand sides were expected to have the same type." (posString posl) (posString posr) (typeString typel) (typeString typer)
-                    failwith "Type error"   
+                    failwith "Type error"
+            wrapWithType
+                typer
+                (AssignExp {left=(posl, None, left); right=(posr, Some typer, cRight); ref=(posref, None, ref)})
         | RecordExp {recordTy=(posrt, _, recordTy); templateArgs=maybeTemplateArgs; initFields=(posif, _, initFields)} ->
             match recordTy with
                 | ForallTy _ ->

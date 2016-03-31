@@ -85,6 +85,7 @@ rule token = parse
 | "_"           { UNDERSCORE }
 | "true"        { TRUE }
 | "false"       { FALSE }
+| ("#" [^'#']* "#") {INLINECODE (lexeme lexbuf)}
 | ['-']?digit+   { INT (lexeme lexbuf) }
 | ['-']?digit+('.'digit+)?(['e''E']digit+)?   { FLOAT (lexeme lexbuf) }
 | ['a'-'z' 'A'-'Z' '0'-'9' '_']+     { ID(lexeme lexbuf) }

@@ -20,7 +20,6 @@
 <ty-expr>           ::= <declaration-ref> ["<" <template-apply> ">"]
                      |  "(" [<ty-expr> {"," <ty-expr>}] ")" "->" <ty-expr>
                      |  <ty-expr> "[" <capacity-expr> "]"
-                     |  "(" <ty-expr> ")"
                      |  <ty-expr> "ref"
                      |  "(" <ty-expr> "*" <ty-expr> [{"*" <ty-expr>}] ")";
 <capacity-expr>     ::= <capacity-expr> <capacity-op> <capacity-expr>
@@ -49,16 +48,18 @@
                      |  "not" <expr>
                      |  "~~~" <expr>
                      |  <expr> "." <id>
-                     |  "fn" <ty-expr> "(" [<id> ":" <ty-expr> {"," <id> ":" <ty-expr>}] ")" "->" <expr>
+                     |  "fn" "(" [<id> ":" <ty-expr> {"," <id> ":" <ty-expr>}] ")" ":" <ty-expr> "->" <expr>
                      |  "case" <expr> "of" "|" <case-clause> {"|" <case-clause>} "end"
                      |  <declaration-ref> ["<" <template-apply> ">"] "{" [<field-assign-list>] "}"
                      |  "[" <expr-list> "]"
                      |  "ref" <expr>
                      |  "!" <expr>
-                     |  "array" <ty-expr> "of" <expr> "end";
+                     |  "array" <ty-expr> "of" <expr> "end"
+                     |  "#" <inline-cpp> "#";
 <binary-op>         ::= "+" | "-" | "*" | "/" | "mod" | "and" | "or" | "&&&"
                      |  "|||" | ">=" | "<=" | ">" | "<" | "==" | "!=";
 <left-assign>       ::= <id>
+                     |  <module-qualifier>
                      |  <left-assign> "[" <expr> "]"
                      |  <left-assign> "." <id>;
 <case-clause>       ::= <pattern> "=>" <expr>;

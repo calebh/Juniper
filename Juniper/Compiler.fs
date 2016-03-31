@@ -50,7 +50,7 @@ and compileType (ty : TyExpr) : string =
                 | TyInt64 -> output "int64_t"
                 | TyFloat -> output "float"
                 | TyBool -> output "bool"
-                | TyUnit -> output "Prelude::Unit"
+                | TyUnit -> output "Prelude::unit"
         | TyModuleQualifier {module_ = (_, _, module_); name=(_, _, name)} ->
             output module_ +
             output "::" +
@@ -70,7 +70,7 @@ and compileType (ty : TyExpr) : string =
         | RefTy (_, _, ty) ->
             output "juniper::shared_ptr<" + compileType ty + ">"
         | TupleTy tys ->
-            output (sprintf "Prelude::Tuple%d<" (List.length tys)) +
+            output (sprintf "Prelude::tuple%d<" (List.length tys)) +
             (tys |> List.map (unwrap >> compileType) |> String.concat ",") +
             output ">"
 
@@ -89,14 +89,16 @@ and compileLeftAssign (left : LeftAssign) : string =
             compileLeftAssign record +
             output ")." +
             output fieldName
+        | ModQualifierMutation {modQualifier=(_, _, {module_=(_, _, module_); name=(_, _, name)})} ->
+            output module_ + output "::" + output name
 
 and compilePattern (pattern : PosAdorn<Pattern>) (path : PosAdorn<Expr>) =
     let mutable conditions = []
     let mutable assignments = []
     let rec compilePattern' (pattern : PosAdorn<Pattern>) path : unit =
         match pattern with
-            | (_, Some typ, MatchVar {varName=varName}) ->
-                let varDec = InternalDeclareVar {varName=varName; typ=dummyWrap typ; right=path}
+            | (_, typ, MatchVar {varName=varName}) ->
+                let varDec = InternalDeclareVar {varName=varName; typ=Option.map dummyWrap typ; right=path}
                 assignments <- varDec::assignments
             | (_, _, MatchIntVal intLit) ->
                 let check = BinaryOpExp {op=dummyWrap Equal; left=path; right=IntExp intLit |> dummyWrap}
@@ -121,15 +123,19 @@ and compilePattern (pattern : PosAdorn<Pattern>) (path : PosAdorn<Expr>) =
                                             compilePattern' pat path')
     compilePattern' pattern path
     let truth = dummyWrap (TrueExp (dummyWrap ()))
-    let condition = List.fold (fun andString cond ->
+    let condition = List.foldBack (fun cond andString ->
                                     BinaryOpExp {op = dummyWrap LogicalAnd;
                                                  left = dummyWrap cond;
-                                                 right = andString} |> dummyWrap) truth conditions
+                                                 right = andString} |> dummyWrap) conditions truth
     (condition, assignments)
         
 
 and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
     match expr with
+        | InlineCode (_, _, code) ->
+            output "(([&]() -> " + compileType (BaseTy (dummyWrap TyUnit)) + " {" + newline() + indentId() +
+            output code + newline() + output "return {};" + newline() + unindentId() +
+            output "})())"
         | TrueExp _ ->
             output "true"
         | FalseExp _ ->
@@ -161,16 +167,45 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
             newline() +
             indentId() +
             ((List.mapi (fun i seqElement ->
-                (if i = len - 1 then
-                    output "return "
-                else
-                    output "") +
-                compile seqElement +
-                output ";" +
+                let isLastElem = (i = len - 1)
+                (match unwrap seqElement with
+                    // Hit a let expression embedded in a sequence
+                    | LetExp {left=left; right=right} ->
+                        let varName = Guid.string()
+                        let (condition, assignments) = compilePattern left (dummyWrap (VarExp {name=dummyWrap varName}))
+                        compile (dummyWrap (InternalDeclareVar {varName=dummyWrap varName; typ=None; right=right})) + output ";" + newline() +
+                        output "if (!(" + compile condition + output ")) {" + newline() + indentId() +
+                        compile (getDeathExpr (BaseTy (dummyWrap TyUnit))) + output ";" + newline() + unindentId() +
+                        output "}" + newline() +
+                        (assignments |> List.map (fun expr -> compile (dummyWrap expr) + output ";" + newline()) |> String.concat "") +
+                        (if isLastElem then
+                            output "return " + compile (dummyWrap (VarExp {name=dummyWrap varName})) + output ";"
+                        else
+                            output "")
+                    | _ ->
+                        (if isLastElem then
+                            output "return "
+                        else
+                            output "") +
+                        compile seqElement + output ";") +
                 newline()
             ) sequence) |> String.concat "") +
             unindentId() +
             output "})())"
+        // Hit a let expression not embedded in a sequence
+        // In this case the bindings are useless but the right side might still produce side effects
+        // and the condition might fail
+        | LetExp {left=left; right=right} ->
+            let unitTy = TyUnit |> dummyWrap |> BaseTy
+            let varName = Guid.string()
+            let (condition, assignments) = compilePattern left (dummyWrap (VarExp {name=dummyWrap varName}))
+            output "(([&]() -> " + compileType (Option.get maybeTy) + output " {" + indentId() + newline() +
+            compile (dummyWrap (InternalDeclareVar {varName=dummyWrap varName; typ=None; right=right})) + output ";" + newline() +
+            output "if (!(" + compile condition + output ")) {" + newline() + indentId() +
+            compile (getDeathExpr unitTy) + output ";" + newline() + unindentId() +
+            output "}" + newline() +
+            output "return " + compile (dummyWrap (VarExp {name=dummyWrap varName})) + output ";" +
+            unindentId() + newline() + output "})())"
         | AssignExp {left=(_, _, left); right=right; ref=(_, _, ref)} ->
             output "(" +
             (if ref then
@@ -210,10 +245,13 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
                         let seq = SequenceExp (dummyWrap (List.append assignments' [executeIfMatched]))
                         IfElseExp {condition=condition; trueBranch=wrapWithType ty seq; falseBranch=ifElseTree} |> wrapWithType ty
                     ) clauses (getDeathExpr ty)
-            let decOn = InternalDeclareVar {varName=dummyWrap onVarName; typ=dummyWrap onTy; right=(posOn, Some onTy, on)} |> wrapWithType unitTy
+            let decOn = InternalDeclareVar {varName=dummyWrap onVarName; typ=dummyWrap onTy |> Some; right=(posOn, Some onTy, on)} |> wrapWithType unitTy
             compile (wrapWithType ty (SequenceExp (wrapWithType ty [decOn; equivalentExpr])))
-        | InternalDeclareVar {varName=(_, _, varName); typ=(_, _, typ); right=right} ->
-            compileType typ + output " " + output varName + output " = " + compile right
+        | InternalDeclareVar {varName=(_, _, varName); typ=typ; right=right} ->
+            (match typ with
+                | None -> output "auto"
+                | Some (_, _, typ') -> compileType typ') +
+            output " " + output varName + output " = " + compile right
         | TemplateApplyExp {func=func; templateArgs=(_, _, templateArgs)} ->
             compile func + compileTemplateApply templateArgs
         | BinaryOpExp {left=left; op=op; right=right} ->

@@ -147,6 +147,7 @@ let applyTemplate dec (substitutions : TemplateApply) =
                 name = name;
                 template = None;
                 clause = TreeTraversals.map1 (fun tyExpr -> match tyExpr with
+                                                                // TODO: Bug fix for when Map.find fails
                                                                 | ForallTy (_, _, name) -> Map.find name tyMap
                                                                 | x -> x) clause
             }

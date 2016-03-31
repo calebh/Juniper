@@ -226,7 +226,7 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
             output (unwrap name)
         | WhileLoopExp {condition=condition; body=body} ->
             output "(([&]() -> " +
-            compileType (Option.get maybeTy) +
+            compileType (BaseTy (dummyWrap TyUnit)) +
             output " {" + newline() + indentId() +
             output "while (" + compile condition + ") {" + indentId() + newline() +
             compile body + output ";" + unindentId() + newline() + output "}" + newline() +
@@ -290,6 +290,34 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
             let (ArrayTy {valueType=(_, _, valueType); capacity=(_, _, capacity)}) = typ
             output "(juniper::array<" + compileType valueType + output ", " + compileCap capacity + output ">().fill(" +
             compile initializer + output "))"
+        | UnaryOpExp {op=(_, _, op); exp=exp} ->
+            (match op with
+                 | LogicalNot -> output "!"
+                 | BitwiseNot -> output "~") + output "(" + compile exp + output ")"
+        | ForLoopExp {typ=typ; varName=varName; start=start; direction=direction; end_=end_; body=body} ->
+            let startName = Guid.string()
+            let endName = Guid.string()
+            output "(([&]() -> " +
+            compileType (BaseTy (dummyWrap TyUnit)) +
+            output " {" + newline() + indentId() +
+            compileType (unwrap typ) + output " " + output startName + output " = " + compile start + output ";" + newline() +
+            compileType (unwrap typ) + output " " + output endName + output " = " + compile end_ + output ";" + newline() +
+            output "for (" + compileType (unwrap typ) + output " " + output (unwrap varName) + output " = " + output startName + output "; " +
+            output (unwrap varName) + (match unwrap direction with
+                                           | Upto -> output " <= "
+                                           | Downto -> output " >= ") + output endName + output "; " +
+            output (unwrap varName) + (match unwrap direction with
+                                           | Upto -> output "++"
+                                           | Downto -> output "--") + output ") {" + indentId() + newline() +
+            compile body + unindentId() + newline() +
+            output "}" + newline() +
+            output "return {};" + newline() +
+            unindentId() +
+            output "})())"
+        | ArrayAccessExp {array=array; index=index} ->
+            output "(" + compile array + output ")[" + compile index + "]"
+        | RecordExp {recordTy=recordTy; templateArgs=templateArgs; initFields=initFields} ->
+            
 
 and compileTemplate (template : Template) : string = 
     let tyVars = template.tyVars |> unwrap |> List.map (unwrap >> (+) "typename ")

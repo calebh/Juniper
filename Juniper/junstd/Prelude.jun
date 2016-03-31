@@ -16,4 +16,4 @@ type maybe<'a> = Just of 'a
 
 type unit = {}
 
-type list<'a; n> = { length : uint32; data : 'a[n]}
+type list<'a; n> = { data : 'a[n]; length : uint32}

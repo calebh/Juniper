@@ -4,6 +4,9 @@ export(digWrite, digRead, anaRead, anaWrite, pinModeToInt, intTopinMode, pinMode
 
 type pinMode = High | Low
 
+fun write<;n>(str : list<uint8; n>) : unit =
+    #Serial.write(&str.data);#
+
 fun pinModeToInt(value : pinMode) : uint8 =
     case value of
     | Low() => 0

@@ -416,7 +416,7 @@ pattern:
                    typ = None}}
   | MUTABLE ID COLON tyexpr {
         MatchVar { varName = (pos parseState 2 2, None, $2);
-                   mutable_ = (pos parseState 1 1, None, false);
+                   mutable_ = (pos parseState 1 1, None, true);
                    typ = Some (pos parseState 4 4, None, $4)}}
   | UNDERSCORE { MatchUnderscore }
   | ID LPAREN pattern RPAREN {

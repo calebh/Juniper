@@ -1,14 +1,53 @@
 module List
 open(Prelude)
 
-fun map<'a,'b;n>(f : ('a) -> 'b, lst : list<'a; n>) : list<'b; n> = (
-    let mutable copy = lst;
-    for i : uint32 in 0 to n - 1 do
-        set copy.data[i] = f(lst.data[i])
+(*
+    Interface: List
+*)
+
+(*
+    Function: map
+
+    Applies f to every element of the list and returns the new list.
+
+    Type Signature:
+    | <'a,'b;n>(('a) -> 'b, list<'a; n>, 'b) -> list<'b; n>
+
+    Parameters:
+
+        f : ('a) -> 'b - The mapping function
+        lst : list<'t;aCap> - The list to map.
+        fillVal : 't - The value to fill in the rest of the internal array after the mapped list.
+
+   Returns:
+
+        The list obtained by applying f to every element of lst.
+*)
+fun map<'a,'b;n>(f : ('a) -> 'b, lst : list<'a; n>, fillVal : 'b) : list<'b; n> = (
+    let mutable out = list<'b;n>{data=array 'b[n] of fillVal end;
+                                 length=lst.length};
+    for i : uint32 in 0 to lst.length - 1 do
+        set out.data[i] = f(lst.data[i])
     end;
-    copy
+    out
 )
 
+(*
+    Function: foldl
+
+    Applies a function f to each element of the list, threading an accumulator argument through the computation.
+
+    Type Signature:
+    | <'state,'t;n>(('state, 't) -> 'state, 'state, list<'t; n>) -> 'state
+
+    Parameters:
+        f : ('state, 't) -> 'state - The function to update the state given the input elements.
+        initState : 'state - The initial state.
+        lst : list<'t; n> - The input list.
+
+    Returns:
+        The final state value.
+*)
 fun foldl<'state,'t;n>(f : ('state, 't) -> 'state, initState : 'state, lst : list<'t; n>) : 'state = (
     let mutable state = initState;
     for i : uint32 in 0 to lst.length - 1 do
@@ -17,6 +56,22 @@ fun foldl<'state,'t;n>(f : ('state, 't) -> 'state, initState : 'state, lst : lis
     state
 )
 
+(*
+    Function: foldr
+
+    Applies a function f to each element of the list in reverse order, threading an accumulator argument through the computation.
+
+    Type Signature:
+    | <'state,'t;n>(('state, 't) -> 'state, 'state, list<'t; n>) -> 'state
+
+    Parameters:
+        f : ('state, 't) -> 'state - The function to update the state given the input elements.
+        initState : 'state - The initial state.
+        lst : list<'t; n> - The input list.
+
+    Returns:
+        The final state value.
+*)
 fun foldr<'state,'t;n>(f : ('state, 't) -> 'state, initState : 'state, lst : list<'t; n>) : 'state = (
     let mutable state = initState;
     for i : uint32 in lst.length - 1 downto 0 do
@@ -25,10 +80,28 @@ fun foldr<'state,'t;n>(f : ('state, 't) -> 'state, initState : 'state, lst : lis
     state
 )
 
-fun append<'t;acap,bcap,ccap>(lstA : list<'t;acap>, lstB : list<'t;bcap>) : list<'t;ccap> = (
+(*
+    Function: append
+
+    Appends two lists.
+
+    Type Signature:
+    | <'t;aCap,bCap,retCap>(list<'t;aCap>, list<'t;bCap>, 't) -> list<'t;retCap>
+
+    Parameters:
+
+        lstA : list<'t;aCap> - The first list.
+        lstB : list<'t;bCap> - The second list.
+        fillVal : 't - The value to fill in the rest of the internal array after the appended lists.
+
+   Returns:
+
+        The two lists appended together.
+*)
+fun append<'t;aCap,bCap,retCap>(lstA : list<'t;aCap>, lstB : list<'t;bCap>, fillVal : 't) : list<'t;retCap> = (
     let mutable j : uint32 = 0;
-    let mutable out = list<'t;ccap>{data=array 't[ccap] of lstA.data[0] end;
-                                    length=lstA.length + lstB.length};
+    let mutable out = list<'t;retCap>{data=array 't[retCap] of fillVal end;
+                                      length=lstA.length + lstB.length};
     for i : uint32 in 0 to lstA.length - 1 do (
         set out.data[j] = lstA.data[i];
         set j = j + 1

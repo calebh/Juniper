@@ -1,6 +1,51 @@
 module Prelude
 export(tuple2, tuple3, tuple4, tuple5, tuple6, tuple7, tuple8, tuple9, tuple10, maybe, unit, Just, Nothing, list)
 
+(*
+    Interface: Prelude
+*)
+
+(*
+    Type: maybe
+
+    The maybe type encapsulates an optional value. A value of type maybe<'a> either contains a value of type 'a (represented as Just<'a>), or it is empty (represented as Nothing<'a>).
+
+    | maybe<'a>
+
+    Constructors:
+        - <Just> of 'a
+        - <Nothing>
+*)
+(*
+    Function: Just
+
+    Type Signature:
+    | <'a>('a) -> maybe<'a>
+*)
+(*
+    Function: Nothing
+
+    Type Signature:
+    | <'a>('a) -> maybe<'a>
+*)
+type maybe<'a> = Just of 'a
+               | Nothing
+
+type unit = {}
+
+(*
+    Struct: list
+
+    The list type represents an ordered series of elements of a given length.
+
+    | list<'a; n>
+
+    Members:
+        data : 'a[n] - The internal array used to store the elements.
+        length : uint32 - The length of the list
+*)
+type list<'a; n> = { data : 'a[n]; length : uint32}
+
 type tuple2<'a,'b> = {e1 : 'a; e2 : 'b}
 type tuple3<'a,'b,'c> = {e1 : 'a; e2 : 'b; e3 : 'c}
 type tuple4<'a,'b,'c,'d> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd}
@@ -10,10 +55,3 @@ type tuple7<'a,'b,'c,'d,'e,'f,'g> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e
 type tuple8<'a,'b,'c,'d,'e,'f,'g,'h> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h}
 type tuple9<'a,'b,'c,'d,'e,'f,'g,'h,'i> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h; e9 : 'i}
 type tuple10<'a,'b,'c,'d,'e,'f,'g,'h,'i,'j> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h; e9 : 'i; e10 : 'j}
-
-type maybe<'a> = Just of 'a
-               | Nothing
-
-type unit = {}
-
-type list<'a; n> = { data : 'a[n]; length : uint32}

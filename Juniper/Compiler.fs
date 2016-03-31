@@ -316,7 +316,7 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
             output "})())"
         | ArrayAccessExp {array=array; index=index} ->
             output "(" + compile array + output ")[" + compile index + "]"
-        | RecordExp {recordTy=recordTy; templateArgs=templateArgs; initFields=initFields} ->
+        //| RecordExp {recordTy=recordTy; templateArgs=templateArgs; initFields=initFields} ->
             
 
 and compileTemplate (template : Template) : string = 

@@ -22,6 +22,8 @@ let newline = ('\n' | '\r' '\n')
 rule token = parse
 | whitespace     { token lexbuf }
 | newline        { newline lexbuf; token lexbuf }
+| "//"          { comment lexbuf }
+| "(*"          { multilineComment lexbuf }
 | "=>"          { RFATARROW }
 | "alias"       { ALIAS }
 | "record"      { RECORD }
@@ -92,10 +94,20 @@ rule token = parse
 | eof           { EOF }
 | _ { failwith ("ParseError" + LexBuffer<_>.LexemeString lexbuf) }
 
-
 and read_string str ignorequote =
   parse
   | '"'           { if ignorequote  then (read_string (str+"\\\"") false lexbuf) else STRING (str) }
   | '\\'          { read_string str true lexbuf }
   | [^ '"' '\\']+ { read_string (str+(lexeme lexbuf)) false lexbuf }
   | eof           { raise (Exception ("String is not terminated")) }
+
+and comment =
+  parse
+  | newline       { newline lexbuf; token lexbuf }
+  | _             { comment lexbuf }
+
+and multilineComment =
+  parse
+  | newline       { newline lexbuf; multilineComment lexbuf }
+  | "*)"          { token lexbuf }
+  | _             { multilineComment lexbuf }

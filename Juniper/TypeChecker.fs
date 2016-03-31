@@ -605,7 +605,11 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                             | _ -> printfn "%sError in set expression: The left side is not mutable." (posString posl)
                                    failwith "Error"
                     | VarMutation {varName=varName} ->
-                        let (mutable_, typel) = Map.find (unwrap varName) tenv
+                        let (mutable_, typel) =
+                            match Map.tryFind (unwrap varName) tenv with
+                                | Some x -> x
+                                | None -> printfn "%sError: variable named %s could not be found." (getPos varName |> posString) (unwrap varName)
+                                          failwith "Error"
                         if mutable_ || ref then
                             typel
                         else

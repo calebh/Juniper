@@ -337,6 +337,13 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
             output "(" + compile exp  + output ")))"
         | DerefExp exp ->
             output "(*(" + compile exp + output "))"
+        | DoWhileLoopExp {condition=condition; body=body} ->
+            output "(([&]() -> " + indentId() + newline() +
+            output "do {" + indentId() + newline() +
+            compile body + unindentId() + newline() +
+            output "} while(" + compile condition + output ");" + newline() +
+            output "return {};" + unindentId() + newline() +
+            output "})())"
 
 and compileTemplate (template : Template) : string = 
     let tyVars = template.tyVars |> unwrap |> List.map (unwrap >> (+) "typename ")

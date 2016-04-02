@@ -3,33 +3,33 @@ open(Prelude)
 
 fun map<'a,'b>(f : ('a) -> 'b, maybeVal : maybe<'a>) : maybe<'b> =
     case maybeVal of
-    | Just<'a>(val) => Just<'b>(f(val))
-    | Nothing => Nothing
+    | just<'a>(val) => just<'b>(f(val))
+    | nothing => nothing
     end
 
 fun get<'a>(maybeVal : maybe<'a>) : 'a =
     case maybeVal of
-    | Just<'a>(val) => val
+    | just<'a>(val) => val
     end
 
 fun isSome<'a>(maybeVal : maybe<'a>) : bool =
     case maybeVal of
-    | Just<'a>(_) => true
+    | just<'a>(_) => true
     | _ => false
     end
 
 fun isNone<'a>(maybeVal : maybe<'a>) : bool =
     not isSome<'a>(maybeVal)
 
-fun count(maybeVal : maybe<'a>) : uint8 =
+fun count<'a>(maybeVal : maybe<'a>) : uint8 =
     case maybeVal of
-    | Just<'a>(_) => 1
+    | just<'a>(_) => 1
     | _ => 0
     end
 
 fun foldl<'state,'t>(f : ('state, 't) -> 'state, initState : 'state, maybeVal : maybe<'t>) : 'state =
     case maybeVal of
-    | Just<'t>(val) => f(initState, val)
+    | just<'t>(val) => f(initState, val)
     | _ => initState
     end
 
@@ -38,9 +38,9 @@ fun fodlr<'state,'t>(f : ('state, 't) -> 'state, initState : 'state, maybeVal : 
 
 fun iter<'a,'b>(f : ('a) -> unit, maybeVal : maybe<'a>) : unit =
     case maybeVal of
-    | Just<'a>(val) =>
+    | just<'a>(val) =>
         (f(val);
         ())
-    | Nothing =>
+    | nothing =>
         ()
     end

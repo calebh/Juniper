@@ -962,6 +962,9 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                 | FunTy {template=Some _} ->
                     printfn "%sType error: Expected type arguments to be applied before calling function. The type of the function being called is %s." (posString posf) (typeString typef)
                     failwith "Type error"
+                | _ ->
+                    printfn "%sType error: Attempting to call an expression of type %s, which is not a function." (posString posf) (typeString typef)
+                    failwith "Type error"
         | UnaryOpExp {op=(poso, _, op); exp=(pose, _, exp)} ->
             let (_, Some typee, cExp) = tc exp
             match op with
@@ -1330,7 +1333,10 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
         (Map.map (fun modName menv0 ->
             let allOpens = List.map unwrap (opensInModule (Map.find modName modNamesToAst))
             List.fold (fun menv1 nameToMerge ->
-                Map.merge (Map.find nameToMerge modNamesToExportedMenvs) menv1 
+                match Map.tryFind nameToMerge modNamesToExportedMenvs with
+                    | Some menv' -> Map.merge menv' menv1 
+                    | None -> printfn "Error: Module %s opens %s, which does not exist." modName nameToMerge
+                              failwith "Error"
             ) menv0 allOpens
         ) modNamesToMenvs0)
 
@@ -1391,12 +1397,12 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
                         let args = match typ with
                                        | None -> []
                                        | Some x -> [x]
-                        Map.add (unwrap modName, unwrap union_.name) (FunTy {template=union_.template;
-                                                                             source=Some {module_=modName; name=union_.name};
-                                                                             returnType=dummyWrap returnType';
-                                                                             args=args}) map1
-                    ) map0 (unwrap union_.valCons))
-                | _ -> map0
+                        Map.add (unwrap modName, unwrap conName) (FunTy {template=union_.template;
+                                                                         source=Some {module_=modName; name=union_.name};
+                                                                         returnType=dummyWrap returnType';
+                                                                         args=args}) map1
+                    ) map1 (unwrap union_.valCons))
+                | _ -> map1
           ) map0 decs)
     ) Map.empty modlist2)
 

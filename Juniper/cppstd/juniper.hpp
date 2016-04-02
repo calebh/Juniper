@@ -142,7 +142,7 @@ namespace juniper
         }
 
         contained* operator->() {
-            return ptr;
+            return ptr_;
         }
     private:
         void inc_ref() {

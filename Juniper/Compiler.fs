@@ -309,15 +309,34 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
             output (unwrap varName) + (match unwrap direction with
                                            | Upto -> output "++"
                                            | Downto -> output "--") + output ") {" + indentId() + newline() +
-            compile body + unindentId() + newline() +
+            compile body + output ";" + unindentId() + newline() +
             output "}" + newline() +
             output "return {};" + newline() +
             unindentId() +
             output "})())"
         | ArrayAccessExp {array=array; index=index} ->
             output "(" + compile array + output ")[" + compile index + "]"
-        //| RecordExp {recordTy=recordTy; templateArgs=templateArgs; initFields=initFields} ->
-            
+        | RecordExp {recordTy=recordTy; templateArgs=templateArgs; initFields=initFields} ->
+            let retName = Guid.string()
+            let actualTy =
+                match templateArgs with
+                    | None -> unwrap recordTy
+                    | Some args -> TyApply {tyConstructor=recordTy; args=args}
+            output "(([&]() -> " + compileType actualTy + output "{" + newline() + indentId() +
+            compileType actualTy + output " " + output retName + output ";" + newline() +
+            (unwrap initFields |> List.map (fun (fieldName, fieldExpr) ->
+                                                output retName + output "." + (unwrap fieldName |> output) + output " = " + compile fieldExpr + output ";" + newline()) |> String.concat "") +
+            output "return " + output retName + output ";" + unindentId() + newline() + output "})())"
+        | TupleExp exps ->
+            output "(Prelude::tuple" + output (sprintf "%d" (List.length exps)) + output "<" +
+            (exps |> List.map (fun (_, Some typ, _) -> compileType typ) |> String.concat ",") +
+            output ">" + output "{" + (exps |> List.map compile |> String.concat ", ") + output "}" + output ")"
+        | RefExp exp ->
+            let (_, Some typ, _) = exp
+            output "(juniper::shared_ptr<" + compileType typ + output ">(new " + compileType typ +
+            output "(" + compile exp  + output ")))"
+        | DerefExp exp ->
+            output "(*(" + compile exp + output "))"
 
 and compileTemplate (template : Template) : string = 
     let tyVars = template.tyVars |> unwrap |> List.map (unwrap >> (+) "typename ")
@@ -369,10 +388,17 @@ and compileDec (dec : Declaration) : string =
             output " " +
             output name +
             output "(" +
-            ((clause.arguments |> unwrap |> List.map (fun (ty, name) ->
-                                                         (ty |> unwrap |> compileType) +
-                                                         output " " +
-                                                         (name |> unwrap |> output))) |> String.concat ", ") +
+            ((clause.arguments |> unwrap |>
+                List.map (fun (ty, name) ->
+                    (*let useReference = match unwrap ty with
+                                           | BaseTy _ -> false
+                                           | _ -> true
+                    (if useReference then
+                        output "const "
+                    else
+                        output "") +*)
+                    (ty |> unwrap |> compileType) + //(if useReference then output "&" else output "") +
+                    output " " + (name |> unwrap |> output))) |> String.concat ", ") +
             output ") {" +
             newline() +
             indentId() +
@@ -406,7 +432,7 @@ and compileDec (dec : Declaration) : string =
             output " " +
             output varName +
             output " = " +
-            compile right
+            compile right + output ";"
         | UnionDec { name=(_, _, name); valCons=(_, _, valCons); template=maybeTemplate } ->
             (match maybeTemplate with
                 | Some (_, _, template) ->

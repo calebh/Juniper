@@ -1,5 +1,5 @@
 module Prelude
-export(tuple2, tuple3, tuple4, tuple5, tuple6, tuple7, tuple8, tuple9, tuple10, maybe, unit, Just, Nothing, list)
+export(tuple2, tuple3, tuple4, tuple5, tuple6, tuple7, tuple8, tuple9, tuple10, maybe, unit, just, nothing, list, sig, signal)
 
 (*
     Interface: Prelude
@@ -8,28 +8,28 @@ export(tuple2, tuple3, tuple4, tuple5, tuple6, tuple7, tuple8, tuple9, tuple10, 
 (*
     Type: maybe
 
-    The maybe type encapsulates an optional value. A value of type maybe<'a> either contains a value of type 'a (represented as Just<'a>), or it is empty (represented as Nothing<'a>).
+    The maybe type encapsulates an optional value. A value of type maybe<'a> either contains a value of type 'a (represented as just<'a>), or it is empty (represented as nothing<'a>).
 
     | maybe<'a>
 
     Constructors:
-        - <Just> of 'a
-        - <Nothing>
+        - <just> of 'a
+        - <nothing>
 *)
 (*
-    Function: Just
+    Function: just
 
     Type Signature:
     | <'a>('a) -> maybe<'a>
 *)
 (*
-    Function: Nothing
+    Function: nothing
 
     Type Signature:
     | <'a>('a) -> maybe<'a>
 *)
-type maybe<'a> = Just of 'a
-               | Nothing
+type maybe<'a> = just of 'a
+               | nothing
 
 type unit = {}
 
@@ -45,6 +45,8 @@ type unit = {}
         length : uint32 - The length of the list
 *)
 type list<'a; n> = { data : 'a[n]; length : uint32}
+
+type sig<'a> = signal of maybe<'a>
 
 type tuple2<'a,'b> = {e1 : 'a; e2 : 'b}
 type tuple3<'a,'b,'c> = {e1 : 'a; e2 : 'b; e3 : 'c}

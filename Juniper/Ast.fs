@@ -110,39 +110,39 @@ and CallRec =         { func : PosAdorn<Expr>; args : PosAdorn<PosAdorn<Expr> li
 and TemplateApplyExpRec = { func : PosAdorn<Expr>; templateArgs : PosAdorn<TemplateApply> }
 and RecordExprRec =   { recordTy : PosAdorn<TyExpr>; templateArgs : PosAdorn<TemplateApply> option; initFields : PosAdorn<(PosAdorn<string> * PosAdorn<Expr>) list> }
 and ArrayMakeExpRec = { typ : PosAdorn<TyExpr>; initializer : PosAdorn<Expr> }
-and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
-          | BinaryOpExp of BinaryOpRec
-          | IfElseExp of IfElseRec
-          | LetExp of LetRec
-          | InternalDeclareVar of InternalDeclareVarExpRec // Only used internally for declaring variables
+and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list> // *
+          | BinaryOpExp of BinaryOpRec // *
+          | IfElseExp of IfElseRec // *
+          | LetExp of LetRec // *
+          | InternalDeclareVar of InternalDeclareVarExpRec // * // Only used internally for declaring variables
                                                            // that will actually be outputted by the compiler
           | InternalValConAccess of InternalValConAccessRec // Only used internally for type checking pattern
                                                             // matching. Essentially acts like a type cast
-          | InlineCode of PosAdorn<string>
-          | AssignExp of AssignRec
-          | ForLoopExp of ForLoopRec
-          | WhileLoopExp of WhileLoopRec
+          | InlineCode of PosAdorn<string> // *
+          | AssignExp of AssignRec // *
+          | ForLoopExp of ForLoopRec // *
+          | WhileLoopExp of WhileLoopRec // *
           | DoWhileLoopExp of DoWhileLoopRec
-          | CaseExp of CaseRec
-          | UnaryOpExp of UnaryOpRec
-          | RecordAccessExp of RecordAccessRec
-          | ArrayAccessExp of ArrayAccessRec
-          | VarExp of VarExpRec
-          | UnitExp of PosAdorn<unit>
-          | TrueExp of PosAdorn<unit>
-          | FalseExp of PosAdorn<unit>
-          | LambdaExp of LambdaRec
-          | IntExp of PosAdorn<string>
-          | FloatExp of PosAdorn<string>
-          | CallExp of CallRec
-          | TemplateApplyExp of TemplateApplyExpRec
-          | ModQualifierExp of ModQualifierRec
-          | RecordExp of RecordExprRec
-          | ArrayLitExp of PosAdorn<PosAdorn<Expr> list>
-          | ArrayMakeExp of ArrayMakeExpRec
+          | CaseExp of CaseRec // *
+          | UnaryOpExp of UnaryOpRec // *
+          | RecordAccessExp of RecordAccessRec // *
+          | ArrayAccessExp of ArrayAccessRec // *
+          | VarExp of VarExpRec // *
+          | UnitExp of PosAdorn<unit> // *
+          | TrueExp of PosAdorn<unit> // *
+          | FalseExp of PosAdorn<unit> // *
+          | LambdaExp of LambdaRec // *
+          | IntExp of PosAdorn<string> // *
+          | FloatExp of PosAdorn<string> // *
+          | CallExp of CallRec // *
+          | TemplateApplyExp of TemplateApplyExpRec // *
+          | ModQualifierExp of ModQualifierRec // *
+          | RecordExp of RecordExprRec // *
+          | ArrayLitExp of PosAdorn<PosAdorn<Expr> list> // *
+          | ArrayMakeExp of ArrayMakeExpRec // *
           | RefExp of PosAdorn<Expr>
           | DerefExp of PosAdorn<Expr>
-          | TupleExp of PosAdorn<Expr> list
+          | TupleExp of PosAdorn<Expr> list // *
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
 and UnaryOps = LogicalNot | BitwiseNot
 

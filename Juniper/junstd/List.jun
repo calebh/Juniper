@@ -49,11 +49,11 @@ fun map<'a,'b;n>(f : ('a) -> 'b, lst : list<'a; n>, fillVal : 'b) : list<'b; n> 
         The final state value.
 *)
 fun foldl<'state,'t;n>(f : ('state, 't) -> 'state, initState : 'state, lst : list<'t; n>) : 'state = (
-    let mutable state = initState;
+    let mutable s = initState;
     for i : uint32 in 0 to lst.length - 1 do
-        set state = f(state, lst.data[i])
+        set s = f(s, lst.data[i])
     end;
-    state
+    s
 )
 
 (*
@@ -73,11 +73,11 @@ fun foldl<'state,'t;n>(f : ('state, 't) -> 'state, initState : 'state, lst : lis
         The final state value.
 *)
 fun foldr<'state,'t;n>(f : ('state, 't) -> 'state, initState : 'state, lst : list<'t; n>) : 'state = (
-    let mutable state = initState;
+    let mutable s = initState;
     for i : uint32 in lst.length - 1 downto 0 do
-        set state = f(state, lst.data[i])
+        set s = f(s, lst.data[i])
     end;
-    state
+    s
 )
 
 (*

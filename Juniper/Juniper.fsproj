@@ -27,8 +27,8 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DocumentationFile>bin\Debug\Juniper.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
-    <StartWorkingDirectory>C:\Users\caleb\Documents\juniper_programs\</StartWorkingDirectory>
-    <StartArguments>test.jun</StartArguments>
+    <StartWorkingDirectory>C:\Users\caleb\Documents\Visual Studio 2015\Projects\Juniper\Juniper\examples\</StartWorkingDirectory>
+    <StartArguments>Blink.jun</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -101,7 +101,8 @@
   </Target>
   <PropertyGroup>
     <PostBuildEvent>xcopy /e/i/y "$(ProjectDir)junstd" "$(ProjectDir)bin\$(ConfigurationName)\junstd"
-xcopy /e/i/y "$(ProjectDir)cppstd" "$(ProjectDir)bin\$(ConfigurationName)\cppstd"</PostBuildEvent>
+xcopy /e/i/y "$(ProjectDir)cppstd" "$(ProjectDir)bin\$(ConfigurationName)\cppstd"
+xcopy /e/i/y "$(ProjectDir)examples" "$(ProjectDir)bin\$(ConfigurationName)\examples"</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

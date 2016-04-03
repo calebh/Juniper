@@ -59,6 +59,7 @@ and BaseTypes = TyUint8
               | TyFloat
               | TyBool
               | TyUnit
+              | TyPointer
 and TyExpr = BaseTy of PosAdorn<BaseTypes>
            | TyModuleQualifier of ModQualifierRec
            | TyName of PosAdorn<string>
@@ -143,7 +144,10 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | RefExp of PosAdorn<Expr>
           | DerefExp of PosAdorn<Expr>
           | TupleExp of PosAdorn<Expr> list
-and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
+          | NullExp of PosAdorn<unit>
+and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd
+              | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
+              | BitshiftLeft | BitshiftRight
 and UnaryOps = LogicalNot | BitwiseNot
 
 and VarMutationRec =    { varName : PosAdorn<string> }

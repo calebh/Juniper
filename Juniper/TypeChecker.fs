@@ -261,6 +261,7 @@ let rec typeString (ty : TyExpr) : string =
                                     | TyBool -> "bool"
                                     | TyUnit -> "unit"
                                     | TyFloat -> "float"
+                                    | TyPointer -> "pointer"
         | TyModuleQualifier {module_=(_, _, module_); name=(_, _, name)} -> sprintf "%s:%s" module_ name
         | TyName (_, _, name) -> name
         | TyApply {tyConstructor=(_, _, tyConstructor); args=(_, _, {tyExprs=(_, _, tyExprs); capExprs=(_, _, capExprs)})} ->
@@ -894,7 +895,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                     else
                         printfn "%s%sType error: Expected the left and right hand side to have the same types, but the left hand side is of type %s while the right hand side is of type %s" (posString posl) (posString posr) (typeString typel) (typeString typer)
                         failwith "Type error"
-                | (Modulo | BitwiseAnd | BitwiseOr) ->
+                | (Modulo | BitwiseAnd | BitwiseOr | BitshiftLeft | BitshiftRight) ->
                     if isIntType typel then
                         ()
                     else
@@ -1137,6 +1138,10 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             wrapWithType
                 (BaseTy (dummyWrap TyBool))
                 (FalseExp (post, None, ()))
+        | NullExp (post, _, ()) ->
+            wrapWithType
+                (BaseTy (dummyWrap TyPointer))
+                (NullExp (post, None, ()))
 
 and typecheckDec denv dtenv tenv modNamesToTenvs dec =
     match dec with
@@ -1218,20 +1223,7 @@ and typecheckDec denv dtenv tenv modNamesToTenvs dec =
         | x -> x
 
 // Finally we can typecheck each module!
-let typecheckModule (Module decs0) denv dtenv menv tenv modNamesToTenvs : Module =
-    let typeCheckExpr' = typeCheckExpr denv dtenv tenv
-    // TRANSFORM: Begin by transforming all type names to the
-    // more accurate module qualifier (ie, the absolute path to the type)
-    let decs = (TreeTraversals.map1 (fun (tyExpr : TyExpr) ->
-        match tyExpr with
-            | TyName (pos, _, name) ->
-                if Map.containsKey name menv then
-                    TyModuleQualifier (toModuleQual (Map.find name menv))
-                else
-                    printfn "Type error in %s: the type %s does not exist." (posString pos) name
-                    failwith "Type error"
-            | x -> x
-    ) decs0)
+let typecheckModule (Module decs) denv dtenv menv tenv modNamesToTenvs : Module =
     Module (List.map (fun (pos, _, dec) ->
         (pos, None, typecheckDec denv dtenv tenv modNamesToTenvs dec)
     ) decs)
@@ -1241,6 +1233,10 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
     let modlist1 = (TreeTraversals.map1 (fun expr ->
         match expr with
             | SequenceExp (pos, ty, []) -> UnitExp (pos, ty, ())
+            | SequenceExp (pos, ty, [e]) ->
+                match expr with
+                    | LetExp _ -> expr
+                    | _ -> unwrap e
             | x -> x
     ) modlist0)
 

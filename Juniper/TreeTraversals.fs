@@ -1,5 +1,11 @@
 ﻿module TreeTraversals
 
+let mutable tupleReaders : List<System.Type * (obj -> obj[])> = []
+let mutable unionTagReaders : List<System.Type * (obj -> int)> = []
+let mutable unionReaders : List<(System.Type * int) * (obj -> obj[])> = []
+let mutable unionCaseInfos : List<System.Type * Microsoft.FSharp.Reflection.UnionCaseInfo[]> = []
+let mutable recordReaders : List<System.Type * (obj -> obj[])> = []
+
 (*
     Simultaneously maps and folds a list
 *)
@@ -18,15 +24,47 @@ let drill<'accum> (traverse : 'accum->obj->('accum*obj)) (accum0 : 'accum) (o:ob
     else
         let ot = o.GetType()
         if FSharpType.IsUnion(ot) then
-            let info,vals = FSharpValue.GetUnionFields(o, ot)
-            let (accum1, vals2) = mapfoldl traverse accum0 (Array.toList vals) 
+            let tag = match List.tryFind (fst >> ot.Equals) unionTagReaders with
+                          | Some (_, reader) ->
+                               reader o
+                          | None ->
+                               let newReader = FSharpValue.PreComputeUnionTagReader(ot)
+                               unionTagReaders <- (ot, newReader)::unionTagReaders
+                               newReader o
+            let info = match List.tryFind (fst >> ot.Equals) unionCaseInfos with
+                           | Some (_, caseInfos) ->
+                               Array.get caseInfos tag
+                           | None ->
+                               let newCaseInfos = FSharpType.GetUnionCases(ot)
+                               unionCaseInfos <- (ot, newCaseInfos)::unionCaseInfos
+                               Array.get newCaseInfos tag
+            let vals = match List.tryFind (fun ((tau, tag'), _) -> ot.Equals tau && tag = tag') unionReaders with
+                           | Some (_, reader) ->
+                               reader o
+                           | None ->
+                               let newReader = FSharpValue.PreComputeUnionReader info
+                               unionReaders <- ((ot, tag), newReader)::unionReaders
+                               newReader o
+            let (accum1, vals2) = mapfoldl traverse accum0 (Array.toList vals)
             (accum1, FSharpValue.MakeUnion(info, List.toArray vals2))
         elif FSharpType.IsTuple(ot) then
-            let fields = FSharpValue.GetTupleFields(o)
+            let fields = match List.tryFind (fst >> ot.Equals) tupleReaders with
+                             | Some (_, reader) ->
+                                 reader o
+                             | None ->
+                                 let newReader = FSharpValue.PreComputeTupleReader(ot)
+                                 tupleReaders <- (ot, newReader)::tupleReaders
+                                 newReader o
             let (accum1, fields2) = mapfoldl traverse accum0 (Array.toList fields)
             (accum1, FSharpValue.MakeTuple(List.toArray fields2, ot))
         elif FSharpType.IsRecord(ot) then
-            let fields = FSharpValue.GetRecordFields(o)
+            let fields = match List.tryFind (fst >> ot.Equals) recordReaders with
+                             | Some (_, reader) ->
+                                 reader o
+                             | None ->
+                                 let newReader = FSharpValue.PreComputeRecordReader(ot)
+                                 recordReaders <- (ot, newReader)::recordReaders
+                                 newReader o
             let (accum1, fields2) = mapfoldl traverse accum0 (Array.toList fields)
             (accum1, FSharpValue.MakeRecord(ot, List.toArray fields2))
         else

@@ -51,6 +51,7 @@ and compileType (ty : TyExpr) : string =
                 | TyFloat -> output "float"
                 | TyBool -> output "bool"
                 | TyUnit -> output "Prelude::unit"
+                | TyPointer -> output "juniper::shared_ptr<void*>"
         | TyModuleQualifier {module_ = (_, _, module_); name=(_, _, name)} ->
             output module_ +
             output "::" +
@@ -132,6 +133,8 @@ and compilePattern (pattern : PosAdorn<Pattern>) (path : PosAdorn<Expr>) =
 
 and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
     match expr with
+        | NullExp _ ->
+            output "juniper::shared_ptr<void*>(NULL)"
         | InlineCode (_, _, code) ->
             output "(([&]() -> " + compileType (BaseTy (dummyWrap TyUnit)) + " {" + newline() + indentId() +
             output code + newline() + output "return {};" + newline() + unindentId() +
@@ -271,6 +274,8 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
                             | Multiply -> "*"
                             | NotEqual -> "!="
                             | Subtract -> "-"
+                            | BitshiftLeft -> "<<"
+                            | BitshiftRight -> ">>"
             output "(" + compile left + output " " + output opStr + output " " + compile right + output ")"
         | RecordAccessExp { record=record; fieldName=(_, _, fieldName)} ->
             output "(" + compile record + output ")." + output fieldName

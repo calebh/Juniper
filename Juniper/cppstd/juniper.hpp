@@ -119,7 +119,12 @@ namespace juniper
         }
 
         ~shared_ptr() {
-            if (ref_count_ && 0 == dec_ref()) { delete ptr_; delete ref_count_; }
+            if (ref_count_ && 0 == dec_ref()) {
+                if (ptr_) {
+                    delete ptr_;
+                }
+                delete ref_count_;
+            }
         }
         contained * get() { return ptr_; }
         const contained * get() const { return ptr_; }

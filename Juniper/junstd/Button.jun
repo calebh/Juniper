@@ -1,0 +1,34 @@
+module Button
+open(Prelude, Io)
+
+type buttonState = { state : pinState; lastState : pinState; lastDebounceTime : uint32 }
+
+fun state() : buttonState = (
+    buttonState { state = Io:low(); lastState = Io:low(); lastDebounceTime = 0 }
+)
+
+fun debounce(incoming : sig<pinState>, buttonState : buttonState ref) : sig<pinState> =
+    debounceDelay(incoming, 50, buttonState)
+
+fun debounceDelay(incoming : sig<pinState>, delay : uint16, buttonState : buttonState ref) : sig<pinState> =
+    Signal:filter<pinState>(fn (currentState : pinState) : bool ->
+        (let buttonState {state=state; lastState=lastState; lastDebounceTime=lastDebounceTime} = !buttonState;
+        if currentState != lastState then
+            (set ref buttonState = buttonState { state = state;
+                                                 lastState = currentState;
+                                                 lastDebounceTime = Time:now() };
+            true)
+        else
+            if (currentState != state) and ((Time:now() - (!buttonState).lastDebounceTime) > delay) then
+                (set ref buttonState = buttonState { state = currentState;
+                                                     lastState = currentState;
+                                                     lastDebounceTime = lastDebounceTime};
+                false)
+            else
+                (set ref buttonState = buttonState { state = state;
+                                                     lastState = currentState;
+                                                     lastDebounceTime = lastDebounceTime };
+                true)
+            end
+        end)
+    , incoming)

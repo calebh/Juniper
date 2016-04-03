@@ -57,7 +57,8 @@
                      |  "array" <ty-expr> "of" <expr> "end"
                      |  "#" <inline-cpp> "#";
 <binary-op>         ::= "+" | "-" | "*" | "/" | "mod" | "and" | "or" | "&&&"
-                     |  "|||" | ">=" | "<=" | ">" | "<" | "==" | "!=";
+                     |  "|||" | ">=" | "<=" | ">" | "<" | "==" | "!=" | "<<<"
+                     |  ">>>";
 <left-assign>       ::= <id>
                      |  <module-qualifier>
                      |  <left-assign> "[" <expr> "]"

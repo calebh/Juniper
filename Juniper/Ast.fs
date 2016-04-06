@@ -2,29 +2,42 @@
 
 open Microsoft.FSharp.Text.Lexing
 
+// Allows for module type to be used for declaring modules.
 type Module = Module of PosAdorn<Declaration> list
 
 // Tuple of starting position and ending position
+// Note: The 'option' keyword indicates that field is optional (can have 'none' as assignment)
+
+// PosAdorn wraps a an AST object in a start and end line position for helpful debugging
+// messages. It also includes the type of the object, which starts as 'none'.
+// Virtually every object in the AST is a PosAdorn wrapping another object.
 and PosAdorn<'a> = (Position * Position) * TyExpr option * 'a
 
 // Top level declarations
+// Function object. Template is optional.
 and FunctionRec = { name     : PosAdorn<string>; 
                     template : PosAdorn<Template> option;
                     clause   : PosAdorn<FunctionClause> }
 
+// Record object. Template is optional.
 and RecordRec =   { name     : PosAdorn<string>;
                     fields   : PosAdorn<(TyExpr * string) list>;
                     template : PosAdorn<Template> option }
 
+// Value constructor. Type is optional.
 and ValueCon =    PosAdorn<string> * (PosAdorn<TyExpr> option)
+
+// Union algrebraic datatype. Template is optional.
 and UnionRec =    { name     : PosAdorn<string>;
                     valCons  : PosAdorn<ValueCon list>;
                     template : PosAdorn<Template> option }
 
+// Let statement for functional-style declarations.
 and LetDecRec = { varName : PosAdorn<string>;
                   typ     : PosAdorn<TyExpr>;
                   right   : PosAdorn<Expr>; }
 
+// Declaration defined as any of the above.
 and Declaration = FunctionDec   of FunctionRec
                 | RecordDec     of RecordRec
                 | UnionDec      of UnionRec
@@ -39,12 +52,15 @@ and Template = { tyVars : PosAdorn<PosAdorn<string> list>; capVars : PosAdorn<Po
 // Use these to apply a template (ex: when calling a function with a template)
 and TemplateApply = { tyExprs : PosAdorn<PosAdorn<TyExpr> list>; capExprs : PosAdorn<PosAdorn<CapacityExpr> list> }
 
+// Capacities are used for making lists and arrays of fixed maximum sizes.
 and CapacityArithOp = CAPPLUS | CAPMINUS | CAPMULTIPLY | CAPDIVIDE
 and CapacityOpRec = { left : PosAdorn<CapacityExpr>; op : PosAdorn<CapacityArithOp>; right : PosAdorn<CapacityExpr> }
 and CapacityExpr = CapacityNameExpr of PosAdorn<string>
                  | CapacityOp of CapacityOpRec
                  | CapacityConst of PosAdorn<string>
 
+// The language is statically typed, and so there must be support for Type Expressons and their applications
+// (applying a typed datatype, typed arrays, typed functions definitions, a list of base types).
 and TyApplyRec = { tyConstructor : PosAdorn<TyExpr>; args : PosAdorn<TemplateApply> }
 and ArrayTyRec = { valueType : PosAdorn<TyExpr>; capacity : PosAdorn<CapacityExpr> }
 and FunTyRec = { template : PosAdorn<Template> option; source : ModQualifierRec option; args : PosAdorn<TyExpr> list; returnType : PosAdorn<TyExpr> }
@@ -70,6 +86,7 @@ and TyExpr = BaseTy of PosAdorn<BaseTypes>
            | RefTy of PosAdorn<TyExpr>
            | TupleTy of PosAdorn<TyExpr> list
 
+// Pattern matching AST datatypes.
 and MatchVarRec = {varName : PosAdorn<string>; mutable_ : PosAdorn<bool>; typ : PosAdorn<TyExpr> option}
 and MatchValConRec = { name : PosAdorn<string>; template : PosAdorn<TemplateApply> option; innerPattern : PosAdorn<Pattern>; id : int option }
 and MatchValConModQualifierRec = { modQualifier : PosAdorn<ModQualifierRec>; template : PosAdorn<TemplateApply> option; innerPattern : PosAdorn<Pattern>; id : int option }
@@ -85,29 +102,39 @@ and Pattern = MatchVar of MatchVarRec
             | MatchTuple of PosAdorn<PosAdorn<Pattern> list>
             | MatchEmpty
 
+// Elements of a function clause.
 and FunctionClause = {returnTy : PosAdorn<TyExpr>; arguments : PosAdorn<(PosAdorn<TyExpr> * PosAdorn<string>) list>; body : PosAdorn<Expr>}
 
+// Module qualifier.
 and ModQualifierRec = { module_ : PosAdorn<string>; name : PosAdorn<string> }
 
 and Direction = Upto
               | Downto
 
+// Other AST objects and their definitions. Most of them are explained within their names.
+// Binary operation
 and BinaryOpRec =     { left : PosAdorn<Expr>; op : PosAdorn<BinaryOps>; right : PosAdorn<Expr> }
 and IfElseRec =       { condition : PosAdorn<Expr>; trueBranch : PosAdorn<Expr>; falseBranch : PosAdorn<Expr> }
 and LetRec =          { left : PosAdorn<Pattern>; right : PosAdorn<Expr> }
+// Variable assign
 and AssignRec =       { left : PosAdorn<LeftAssign>; right : PosAdorn<Expr>; ref : PosAdorn<bool> }
 and ForLoopRec =      { typ : PosAdorn<TyExpr>; varName : PosAdorn<string>; start : PosAdorn<Expr>; direction : PosAdorn<Direction>; end_ : PosAdorn<Expr>; body : PosAdorn<Expr> }
 and WhileLoopRec =    { condition : PosAdorn<Expr>; body : PosAdorn<Expr> }
 and DoWhileLoopRec =  { condition : PosAdorn<Expr>; body: PosAdorn<Expr> }
+// Pattern matching
 and CaseRec =         { on : PosAdorn<Expr>; clauses : PosAdorn<(PosAdorn<Pattern> * PosAdorn<Expr>) list> }
+// Unary operation
 and UnaryOpRec =      { op : PosAdorn<UnaryOps>; exp : PosAdorn<Expr> }
 and RecordAccessRec = { record : PosAdorn<Expr>; fieldName : PosAdorn<string> }
 and ArrayAccessRec =  { array : PosAdorn<Expr>; index : PosAdorn<Expr> }
 and VarExpRec =       { name : PosAdorn<string> }
+// Lambda function
 and LambdaRec =       { clause : PosAdorn<FunctionClause> }
 and InternalDeclareVarExpRec = { varName : PosAdorn<string>; typ : PosAdorn<TyExpr> option; right : PosAdorn<Expr> }
 and InternalValConAccessRec = { valCon : PosAdorn<Expr>; typ : PosAdorn<TyExpr> }
+// Function call/apply
 and CallRec =         { func : PosAdorn<Expr>; args : PosAdorn<PosAdorn<Expr> list> }
+// Applying the template of a function
 and TemplateApplyExpRec = { func : PosAdorn<Expr>; templateArgs : PosAdorn<TemplateApply> }
 and RecordExprRec =   { recordTy : PosAdorn<TyExpr>; templateArgs : PosAdorn<TemplateApply> option; initFields : PosAdorn<(PosAdorn<string> * PosAdorn<Expr>) list> }
 and ArrayMakeExpRec = { typ : PosAdorn<TyExpr>; initializer : PosAdorn<Expr> }
@@ -150,6 +177,7 @@ and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | Bitwis
               | BitshiftLeft | BitshiftRight
 and UnaryOps = LogicalNot | BitwiseNot
 
+// Mutations are changes in already declared variables, arrays, records, etc.
 and VarMutationRec =    { varName : PosAdorn<string> }
 and ArrayMutationRec =  { array : PosAdorn<LeftAssign>; index : PosAdorn<Expr> }
 and RecordMutationRec = { record : PosAdorn<LeftAssign>; fieldName : PosAdorn<string> }
@@ -159,17 +187,23 @@ and LeftAssign = VarMutation of VarMutationRec
                | ArrayMutation of ArrayMutationRec
                | RecordMutation of RecordMutationRec
 
+// Takes in a wrapped AST object, returns the object within the PosAdorn.
 let unwrap<'a> ((_, _, c) : PosAdorn<'a>) = c
+// Takes in a wrapped AST object, returns the starting position.
 let getPos<'a> ((a, _, _) : PosAdorn<'a>) = a
+// Takes in a wrapped AST object, returns the ending position.
 let getType<'a> ((_, b, _) : PosAdorn<'a>) = b
+// Dummy position used for initializing positions on PosAdorns
 let dummyPos : Position = {pos_fname=""
                            pos_lnum = -1
                            pos_bol = -1
                            pos_cnum = -1}
 let dummyWrap<'a> c : PosAdorn<'a> = ((dummyPos, dummyPos), None, c)
+// Cleans up the wrapping around an AST object, returns it to default dummy values.
 let clean<'a> ((_, _, c) : PosAdorn<'a>) : PosAdorn<'a> = dummyWrap c
 let cleanAll haystack = TreeTraversals.map1 (fun pos -> dummyPos) haystack
 
+// Add typing to a PosAdorn.
 let wrapWithType<'a> t c : PosAdorn<'a> = ((dummyPos, dummyPos), Some t, c)
 
 let templateToTemplateApply template =

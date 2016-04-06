@@ -60,3 +60,4 @@ Compiler.fs is the collection of procedures that take over the final steps of th
 
 ###Guid.fs
 
+GUID is an abbreviation for "globally unique ID". Guid.fs contains two functions (though only one is used outside of the module) called string() which generates a unique variable name for use in the compiler. These are used often as, in the compilation process, temporary and intermediate variables are often needed that are not used in the Juniper representation.

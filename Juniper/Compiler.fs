@@ -1,6 +1,7 @@
 ﻿module Compiler
 open Ast
 
+// The following are used for automatically adding new lines line indentation to transpiled C++
 let mutable indentationLevel = 0
 let mutable isNewLine = true
 let indent () = indentationLevel <- indentationLevel + 1
@@ -26,6 +27,10 @@ let newline () =
     isNewLine <- true
     "\n"
 
+// In Juniper, death is a templated function that calls exit(1)
+// They are templated so they can be wrapped in a type so they can have return values consistent in typing
+// with whatever statement or function they may be a part of (for example, a function that returns an int will
+// return death typed as an int, which will still exit the program).
 let rec getDeathExpr (ty : TyExpr) : PosAdorn<Expr> =
     let deathFun = dummyWrap (ModQualifierExp {module_=dummyWrap "juniper"; name=dummyWrap "death"})
     let appliedDeath = TemplateApplyExp { func = deathFun;
@@ -36,6 +41,7 @@ let rec getDeathExpr (ty : TyExpr) : PosAdorn<Expr> =
         (CallExp {func = appliedDeath;
                   args = dummyWrap []})
 
+// Converts type from Juniper representation to C++ representation.
 and compileType (ty : TyExpr) : string =
     match ty with
         | BaseTy (_, _, bty) ->
@@ -75,6 +81,7 @@ and compileType (ty : TyExpr) : string =
             (tys |> List.map (unwrap >> compileType) |> String.concat ",") +
             output ">"
 
+// Converts left side of a variable assignment to the C++ representation.
 and compileLeftAssign (left : LeftAssign) : string =
     match left with
         | VarMutation {varName=(_, _, varName)} ->
@@ -93,6 +100,7 @@ and compileLeftAssign (left : LeftAssign) : string =
         | ModQualifierMutation {modQualifier=(_, _, {module_=(_, _, module_); name=(_, _, name)})} ->
             output module_ + output "::" + output name
 
+// Converts a pattern match statement in Juniper to the appropriate representation in C++
 and compilePattern (pattern : PosAdorn<Pattern>) (path : PosAdorn<Expr>) =
     let mutable conditions = []
     let mutable assignments = []
@@ -130,11 +138,13 @@ and compilePattern (pattern : PosAdorn<Pattern>) (path : PosAdorn<Expr>) =
                                                  right = andString} |> dummyWrap) conditions truth
     (condition, assignments)
         
-
+// Technically "compile expression"--converts an expression in Juniper to the C++ representation,
+// but it encapsulates a ton of the conversions and is considered holistic for that reason.
 and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
     match expr with
         | NullExp _ ->
             output "juniper::shared_ptr<void*>(NULL)"
+        // Convert inline C++ code from Juniper directly to C++
         | InlineCode (_, _, code) ->
             output "(([&]() -> " + compileType (BaseTy (dummyWrap TyUnit)) + " {" + newline() + indentId() +
             output code + newline() + output "return {};" + newline() + unindentId() +
@@ -350,6 +360,7 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
             output "return {};" + unindentId() + newline() +
             output "})())"
 
+// Convert Juniper template to C++ template
 and compileTemplate (template : Template) : string = 
     let tyVars = template.tyVars |> unwrap |> List.map (unwrap >> (+) "typename ")
     let capVars = template.capVars |> unwrap |> List.map (unwrap >> (+) "int ")
@@ -357,6 +368,7 @@ and compileTemplate (template : Template) : string =
     (List.append tyVars capVars |> String.concat ", " |> output) +
     output ">"
 
+// Convert Juniper capacity values to C++ capacities (part of templates)
 and compileCap (cap : CapacityExpr) : string =
     match cap with
         | CapacityNameExpr (_, _, name) ->
@@ -372,6 +384,7 @@ and compileCap (cap : CapacityExpr) : string =
         | CapacityConst (_, _, constant) ->
             constant
 
+// Convert Juniper template apply to C++ template apply
 and compileTemplateApply (templateApp : TemplateApply) : string =
     output "<" +
     ((List.append
@@ -379,6 +392,8 @@ and compileTemplateApply (templateApp : TemplateApply) : string =
         (templateApp.capExprs |> unwrap |> List.map (unwrap >> compileCap))) |> String.concat ", ") +
     output ">"
 
+// Convert declarations in Juniper to C++ representations
+// Includes modules use, function declarations, record declaration, let declarations, and unions.
 and compileDec (dec : Declaration) : string =
     match dec with
         | (ExportDec _ | ModuleNameDec _) ->
@@ -495,6 +510,9 @@ and compileDec (dec : Declaration) : string =
                 output "};" + newline() +
                 unindentId() + output "}" + newline() + newline()) |> String.concat "")
 
+// Wrapper function for compiling the entire thing.
+// Takes in list of modules, which each have their contributions to the AST, and translates them
+// to the C++ representation.
 and compileProgram (modList : Module list) : string =
     output "#include <inttypes.h>" + newline() +
     output "#include \"juniper.hpp\"" + newline() +

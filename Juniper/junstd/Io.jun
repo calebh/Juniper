@@ -1,6 +1,9 @@
 module Io
 open(Prelude)
-export(digWrite, digRead, anaRead, anaWrite, pinStateToInt, intToPinState, pinState, mode, high, low, input, output, inputPullup, setPinMode, pinModeToInt, intToPinMode)
+export(digWrite, digRead, anaRead, anaWrite, pinStateToInt, intToPinState,
+pinState, mode, high, low, input, output, inputPullup, setPinMode, pinModeToInt,
+intToPinMode, toggle, digIn, anaIn, digOut, anaOut, risingEdge, fallingEdge,
+edge)
 
 (*
     Interface: Io
@@ -31,6 +34,12 @@ type pinState = high | low
 
 type mode = input | output | inputPullup
 
+fun toggle(p : pinState) : pinState =
+    case p of
+    | high() => low()
+    | low() => high()
+    end
+
 (*
     Function: write
 
@@ -49,7 +58,7 @@ fun write<;n>(str : list<uint8; n>) : unit =
     #Serial.write(&str.data);#
 
 (*
-    
+
 *)
 fun pinStateToInt(value : pinState) : uint8 =
     case value of
@@ -75,6 +84,12 @@ fun digRead(pin : uint16) : pinState = (
     intToPinState(intVal)
 )
 
+fun digIn(pin : uint16) : sig<pinState> =
+    signal<pinState>(just<pinState>(digRead(pin)))
+
+fun digOut(pin : uint16, sig : sig<pinState>) : unit =
+    Signal:sink<pinState>(fn (value : pinState) : unit -> digWrite(pin, value), sig)
+
 fun anaRead(pin : uint16) : uint16 = (
     let value : uint16 = 0;
     #value = analogRead(pin);#;
@@ -83,6 +98,37 @@ fun anaRead(pin : uint16) : uint16 = (
 
 fun anaWrite(pin : uint16, value : uint8) : unit =
     #analogWrite(pin, value);#
+
+fun anaIn(pin : uint16) : sig<uint16> =
+    signal<uint16>(just<uint16>(anaRead(pin)))
+
+fun anaOut(pin : uint16, sig : sig<uint16>) : unit =
+    Signal:sink<uint16>(fn (value : uint16) : unit -> anaWrite(pin, value), sig)
+
+fun risingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<pinState> =
+    Signal:filter<pinState>(fn (currState : pinState) : bool ->
+        case (currState, !prevState) of
+        | (high(), low()) => false
+        | _ => true
+        end
+    , sig)
+
+fun fallingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<pinState> =
+    Signal:filter<pinState>(fn (currState : pinState) : bool ->
+        case (currState, !prevState) of
+        | (low(), high()) => false
+        | _ => true
+        end
+    , sig)
+
+fun edge(sig : sig<pinState>, prevState : pinState ref) : sig<pinState> =
+    Signal:filter<pinState>(fn (currState : pinState) : bool ->
+        case (currState, !prevState) of
+        | (high(), low()) => false
+        | (low(), high()) => false
+        | _ => true
+        end
+    , sig)
 
 fun pinModeToInt(m : mode) : uint8 =
     case m of

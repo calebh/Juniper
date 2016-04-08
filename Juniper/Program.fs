@@ -7,7 +7,7 @@ open Microsoft.FSharp.Text.Lexing
 
 [<EntryPoint>]
 let main argv =
-    let stdLibrary = ["Prelude"; "Io"; "Signal"; "Maybe"; "List"; "Time"; "Math"; "Button"]
+    let stdLibrary = ["Prelude"; "Signal"; "Io"; "Maybe"; "List"; "Time"; "Math"; "Button"]
     let executingDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
     let stdFiles = stdLibrary |> List.map (fun name -> executingDir + "\\junstd\\" + name + ".jun")
     //let directory2 = System.AppDomain.CurrentDomain.BaseDirectory
@@ -25,9 +25,13 @@ let main argv =
                  failwith "Syntax error"
     let fnames = List.append stdFiles (List.map System.IO.Path.GetFullPath (List.ofArray argv))
     let asts = List.map parseFromFile fnames
-    let typedAsts = TypeChecker.typecheckProgram asts fnames
-    let compiledProgram = Compiler.compileProgram typedAsts
-    //let ast = parseFromFile @"C:\Users\caleb\Documents\juniper_programs\test.jun"
-    printfn "%s" compiledProgram
-    //System.Console.ReadKey() |> ignore
-    0 // return an integer exit code
+    try
+        let typedAsts = TypeChecker.typecheckProgram asts fnames
+        let compiledProgram = Compiler.compileProgram typedAsts
+        printfn "%s" compiledProgram
+        System.Console.ReadKey() |> ignore
+        0
+    with
+        Failure(msg) ->
+            System.Console.ReadKey() |> ignore
+            1

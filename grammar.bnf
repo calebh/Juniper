@@ -8,14 +8,14 @@
                      |  <let>;
 <open>              ::= "open" "(" [<id> {"," <id>}] ")";
 <export>            ::= "export" "(" [<id> {"," <id>}] ")";
-<template-dec>      ::= <id> {"," <id>} [";" <id> {"," <id>}];
+<template-dec>      ::= "<" "'" <id> {"," "'" <id>} [";" <id> {"," <id>}] ">";
 <template-apply>    ::= <ty-expr> {"," <ty-expr>} [";" <capacity-expr> {"," <capacity-expr>}];
-<record>            ::= "type" <id> ["<" <template-dec> ">"] "=" "{" [<id> ":" <ty-expr> {";" <id> ":" <ty-expr>}] "}";
-<type-alias>        ::= "type" <id> ["<" <template-dec> ">"] "=" <ty-expr>;
-<algebraic-type>    ::= "type" <id> ["<" <template-dec> ">"] "=" <value-constructor> {"|" <value-constructor>};
+<record>            ::= "type" <id> [<template-dec>] "=" "{" [<id> ":" <ty-expr> {";" <id> ":" <ty-expr>}] "}";
+<type-alias>        ::= "type" <id> [<template-dec>] "=" <ty-expr>;
+<algebraic-type>    ::= "type" <id> [<template-dec>] "=" <value-constructor> {"|" <value-constructor>};
 <value-constructor> ::= <id> "of" <ty-expr>;
 <let>               ::= "let" <id> ":" <ty-expr> "=" <expr>;
-<function>          ::= "fun" <id> ["<" <template-dec> ">"] "(" [<id> ":" <ty-expr> {"," <id> ":" <ty-expr>}] ")" ":" <ty-expr> "=" <expr>;
+<function>          ::= "fun" <id> [<template-dec>] "(" [<id> ":" <ty-expr> {"," <id> ":" <ty-expr>}] ")" ":" <ty-expr> "=" <expr>;
 <declaration-ref>   ::= <id> | <module-qualifier>;
 <ty-expr>           ::= <declaration-ref> ["<" <template-apply> ">"]
                      |  "(" [<ty-expr> {"," <ty-expr>}] ")" "->" <ty-expr>
@@ -64,10 +64,10 @@
                      |  <left-assign> "[" <expr> "]"
                      |  <left-assign> "." <id>;
 <case-clause>       ::= <pattern> "=>" <expr>;
-<pattern>           ::= ["mutable"] <id> [":" <ty-expr>] // CHANGED
+<pattern>           ::= ["mutable"] <id> [":" <ty-expr>]
                      |  <integer>
                      |  <float>
                      |  "_"
-                     |  <declaration-ref> ["<" <ty-expr> {"," <ty-expr>} ">"] "(" <pattern> ")" // CHANGED
+                     |  <declaration-ref> ["<" <ty-expr> {"," <ty-expr>} ">"] "(" <pattern> ")"
                      |  <ty-expr> "{" [<id> "=" <pattern> {"," <id> "=" <pattern>}] "}"
-                     |  "(" <pattern> "," <pattern> {"," <pattern>} ")"; // ADDED
+                     |  "(" <pattern> "," <pattern> {"," <pattern>} ")";

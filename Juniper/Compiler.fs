@@ -29,7 +29,7 @@ let newline () =
 let rec getDeathExpr (ty : TyExpr) : PosAdorn<Expr> =
     let deathFun = dummyWrap (ModQualifierExp {module_=dummyWrap "juniper"; name=dummyWrap "death"})
     let appliedDeath = TemplateApplyExp { func = deathFun;
-                                          templateArgs = dummyWrap {tyExprs = dummyWrap [dummyWrap ty]; 
+                                          templateArgs = dummyWrap {tyExprs = dummyWrap [dummyWrap ty];
                                                                     capExprs = dummyWrap []}} |> dummyWrap
     wrapWithType
         ty
@@ -51,6 +51,7 @@ and compileType (ty : TyExpr) : string =
                 | TyFloat -> output "float"
                 | TyBool -> output "bool"
                 | TyUnit -> output "Prelude::unit"
+                | TyDouble -> output "double"
                 | TyPointer -> output "juniper::shared_ptr<void*>"
         | TyModuleQualifier {module_ = (_, _, module_); name=(_, _, name)} ->
             output module_ +
@@ -120,7 +121,7 @@ and compilePattern (pattern : PosAdorn<Pattern>) (path : PosAdorn<Expr>) =
                                         compilePattern' fieldPattern path')
             | (_, _, MatchTuple (_, _, patterns)) ->
                 patterns |> List.iteri (fun i pat ->
-                                            let path' = RecordAccessExp {record=path; fieldName=dummyWrap ("e" + (sprintf "%d" i))} |> dummyWrap
+                                            let path' = RecordAccessExp {record=path; fieldName=dummyWrap ("e" + (sprintf "%d" (i + 1)))} |> dummyWrap
                                             compilePattern' pat path')
     compilePattern' pattern path
     let truth = dummyWrap (TrueExp (dummyWrap ()))
@@ -129,7 +130,7 @@ and compilePattern (pattern : PosAdorn<Pattern>) (path : PosAdorn<Expr>) =
                                                  left = dummyWrap cond;
                                                  right = andString} |> dummyWrap) conditions truth
     (condition, assignments)
-        
+
 
 and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
     match expr with
@@ -282,7 +283,7 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
         | LambdaExp {clause=(_, _, {returnTy=(_, _, returnTy); arguments=(_, _, args); body=body})} ->
             output "juniper::function<" + compileType returnTy + "(" + (args |> List.map (fst >> unwrap >> compileType) |> String.concat ",") + ")>(" +
             output "[=](" + (args |> List.map (fun (ty, name) -> compileType (unwrap ty) + output " " + output (unwrap name)) |> String.concat ", ") +
-            output ") -> " + compileType returnTy + output " { " + newline() +
+            output ") mutable -> " + compileType returnTy + output " { " + newline() +
             indentId() + output "return " + compile body + output ";" + unindentId() + newline() + output " })"
         | ModQualifierExp {module_=(_, _, module_); name=(_, _, name)} ->
             output module_ + "::" + name
@@ -350,7 +351,7 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
             output "return {};" + unindentId() + newline() +
             output "})())"
 
-and compileTemplate (template : Template) : string = 
+and compileTemplate (template : Template) : string =
     let tyVars = template.tyVars |> unwrap |> List.map (unwrap >> (+) "typename ")
     let capVars = template.capVars |> unwrap |> List.map (unwrap >> (+) "int ")
     output "template<" +
@@ -459,6 +460,17 @@ and compileDec (dec : Declaration) : string =
             indentId() +
             output "uint8_t tag;" +
             newline() +
+            output "bool operator==(" + output name + output "& rhs) {" + newline() + indentId() +
+            output "if (this->tag != rhs.tag) { return false; }" + newline() +
+            output "switch (this->tag) {" + indentId() + newline() +
+            (valCons |> List.mapi (fun i ((_, _, valConName), _) ->
+                                       output (sprintf "case %d:" i) + newline() +
+                                       indentId() + (sprintf "return this->%s == rhs.%s;" valConName valConName |> output) +
+                                       unindentId() + newline()) |> String.concat "") +
+            unindentId() + output "}" + newline() +
+            output "return false;" + newline() +
+            unindentId() + output "}" + newline() + newline() +
+            output "bool operator!=(" + output name + output "&rhs) { return !(rhs == *this); }" + newline() +
             output "union {" +
             newline() +
             indentId() +

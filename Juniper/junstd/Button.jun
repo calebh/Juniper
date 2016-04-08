@@ -1,14 +1,12 @@
 module Button
 open(Prelude, Io)
+export(buttonState, state, debounce, debounceDelay)
 
 type buttonState = { state : pinState; lastState : pinState; lastDebounceTime : uint32 }
 
-fun state() : buttonState = (
-    buttonState { state = Io:low(); lastState = Io:low(); lastDebounceTime = 0 }
+fun state() : buttonState ref = (
+    ref buttonState { state = Io:low(); lastState = Io:low(); lastDebounceTime = 0 }
 )
-
-fun debounce(incoming : sig<pinState>, buttonState : buttonState ref) : sig<pinState> =
-    debounceDelay(incoming, 50, buttonState)
 
 fun debounceDelay(incoming : sig<pinState>, delay : uint16, buttonState : buttonState ref) : sig<pinState> =
     Signal:filter<pinState>(fn (currentState : pinState) : bool ->
@@ -32,3 +30,6 @@ fun debounceDelay(incoming : sig<pinState>, delay : uint16, buttonState : button
             end
         end)
     , incoming)
+
+fun debounce(incoming : sig<pinState>, buttonState : buttonState ref) : sig<pinState> =
+    debounceDelay(incoming, 50, buttonState)

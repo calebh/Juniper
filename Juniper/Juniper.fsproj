@@ -28,7 +28,7 @@
     <DocumentationFile>bin\Debug\Juniper.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
     <StartWorkingDirectory>C:\Users\caleb\Documents\Visual Studio 2015\Projects\Juniper\Juniper\examples\</StartWorkingDirectory>
-    <StartArguments>Blink.jun</StartArguments>
+    <StartArguments>Potentiometer.jun</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -41,7 +41,7 @@
     <DocumentationFile>bin\Release\Juniper.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
     <StartWorkingDirectory>C:\Users\caleb\Documents\Visual Studio 2015\Projects\Juniper\Juniper\examples\</StartWorkingDirectory>
-    <StartArguments>Blink.jun</StartArguments>
+    <StartArguments>ButtonDebounce.jun</StartArguments>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

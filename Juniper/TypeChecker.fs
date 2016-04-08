@@ -19,6 +19,8 @@ let isAlreadyCheckedFunction m t =
 let arithResultTy numTypel numTyper = 
     match (numTypel, numTyper) with
         | (x, y) when x=y -> x
+        | (TyDouble, _) -> TyDouble
+        | (_, TyDouble) -> TyDouble
         | (TyFloat,TyUint8) -> TyFloat
         | (TyFloat,TyUint16) -> TyFloat
         | (TyFloat,TyUint32) -> TyFloat
@@ -195,7 +197,7 @@ let isNumericalType (ty : TyExpr) =
     match ty with
         | BaseTy (_, _, t1) ->
             match t1 with
-                | (TyUint8 | TyUint16 | TyUint32 | TyUint64 | TyInt8 | TyInt16 | TyInt32 | TyInt64 | TyFloat) -> true
+                | (TyUint8 | TyUint16 | TyUint32 | TyUint64 | TyInt8 | TyInt16 | TyInt32 | TyInt64 | TyFloat | TyDouble) -> true
                 | _ -> false
         | ForallTy _ -> true
         | _ -> false
@@ -261,6 +263,7 @@ let rec typeString (ty : TyExpr) : string =
                                     | TyBool -> "bool"
                                     | TyUnit -> "unit"
                                     | TyFloat -> "float"
+                                    | TyDouble -> "double"
                                     | TyPointer -> "pointer"
         | TyModuleQualifier {module_=(_, _, module_); name=(_, _, name)} -> sprintf "%s:%s" module_ name
         | TyName (_, _, name) -> name
@@ -371,9 +374,12 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                 printfn "%sType error: Type constraint given in pattern does not match the type of expression being matched on." (posString posTyConstraint)
                                 failwith "Type error"
                             | _ ->
-                                tenv' <- Map.add (unwrap varName) (unwrap mutable_, pathTy) tenv'
+                                let tau = match tyConstraint with
+                                              | Some (_, _, ty) -> ty
+                                              | None -> pathTy
+                                tenv' <- Map.add (unwrap varName) (unwrap mutable_, tau) tenv'
                                 wrapWithType
-                                    pathTy
+                                    tau
                                     (MatchVar {varName=varName; mutable_=mutable_; typ=tyConstraint})
                     | MatchIntVal (posn, _, num) ->
                         if isIntType pathTy then
@@ -394,9 +400,9 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                             failwith "Type error"
                     | MatchTuple (post, _, tuple) ->
                         let tuple' = (List.mapi (fun index (_, _, subPattern) ->
-                                            checkPattern' subPattern (RecordAccessExp {
-                                                                    record=dummyWrap path;
-                                                                    fieldName=dummyWrap (sprintf "e%d" index)})
+                                            checkPattern' subPattern (InternalTupleAccess {
+                                                                        tuple=dummyWrap path;
+                                                                        index=index})
                                         ) tuple)
                         dummyWrap (MatchTuple (post, None, tuple'))
                     | MatchRecCon {typ=(posRecTy, _, recTy); fields=(posFieldList, _, fieldList)} ->
@@ -1118,6 +1124,22 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             wrapWithType
                 (unwrap typ)
                 (InternalValConAccess { valCon=valCon; typ=typ })
+        | InternalTupleAccess { tuple=(post, _, tuple); index=index } ->
+            let (_, Some typer, cTuple) = tc tuple
+            let typ = match typer with
+                          | TupleTy tys ->
+                              match List.tryItem index tys with
+                                  | Some typ ->
+                                      typ
+                                  | None ->
+                                      printfn "%sError: Cannot access tuple index %d." (posString post) index
+                                      failwith "Error"
+                          | _ ->
+                              printfn "%sType error: Cannot access tuple field of non-tuple type %s." (posString post) (typeString typer)
+                              failwith "Type error"
+            wrapWithType
+                (unwrap typ)
+                (InternalTupleAccess {tuple=(post, Some typer, cTuple); index=index})
         | UnitExp (posu, _, ()) ->
             wrapWithType
                 (BaseTy (dummyWrap TyUnit))

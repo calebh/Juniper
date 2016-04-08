@@ -29,6 +29,9 @@ rule token = parse
 | "record"      { RECORD }
 | "type"        { TYPE }
 | "end"         { END }
+| "null"        { NULL }
+| ">>>"         { BSHIFTR }
+| "<<<"         { BSHIFTL }
 | "return"		{ RETURN }
 | "export"      { EXPORT }
 | "ref"         { REF }

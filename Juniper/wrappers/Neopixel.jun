@@ -1,61 +1,71 @@
 module Neopixel
 open(Prelude)
-export(neoPixelStrip, color, makeStrip, setPixelColor, setBrightness, makeColor, begin, show)
+export(neoPixelStrip, color, makeStrip, setPixelColor, setBrightness, makeColor, begin, show,
+RGB, RBG, GRB, GBR, BRG, BGR, WRGB, WRBG, WGRB, WGBR, WBRG, WBGR, RWGB, RWBG,
+RGWB, RGBW, RBWG, RBGW, GWRB, GWBR, GRWB, GRBW, GBWR, GBRW, BWRG, BWGR, BRWG,
+BRGW, BGWR, BGRW, KHZ800)
 
 type neoPixelStrip = { ptr : pointer }
 
 type color = { r : uint8; g : uint8; b : uint8; w : uint8 }
 
-fun makeStrip(numPixels : uint16_t, pinNumber : uint8, neoPixelType : uint16) : neoPixelStrip = (
+fun makeStrip(numPixels : uint16, pinNumber : uint8, neoPixelType : uint16) : neoPixelStrip = (
     let p = null;
     #*p = new Adafruit_NeoPixel(numPixels, pinNumber, neoPixelType);#;
     neoPixelStrip { ptr = p }
 )
 
-fun setPixelColor(n : uint16, c : color; strip : neoPixelStrip) : unit = (
-    let p = neoPixelStrip.ptr;
-    let r = color.r;
-    let g = color.g;
-    let b = color.b;
-    let w = color.w;
-    #((Adafruit_NeoPixel) strip.get())->setPixelColor(n, r, g, b, w);#
+fun setPixelColor(n : uint16, c : color, strip : neoPixelStrip) : unit = (
+    let p = strip.ptr;
+    let r = c.r;
+    let g = c.g;
+    let b = c.b;
+    let w = c.w;
+    #((Adafruit_NeoPixel*) p.get())->setPixelColor(n, r, g, b, w);#
 )
 
-fun makeColor(r : uint8; g : uint8; b : uint8) : color =
+fun makeColor(r : uint8, g : uint8, b : uint8) : color =
     color {r = r; g = g; b = b; w = 0}
 
-fun getPixelColor(n : uint16; strip : neoPixelStrip) : color = (
+fun getPixelColor(n : uint16, strip : neoPixelStrip) : color = (
     let numRep : uint32 = 0;
-    #numRep = ((Adafruit_NeoPixel) strip.get())->getPixelColor();#;
+    let p = strip.ptr;
+    #numRep = ((Adafruit_NeoPixel*) p.get())->getPixelColor(n);#;
     color { r = numRep >>> 16; g = numRep >>> 8; b = numRep; w = 0 }
 )
 
-fun setBrightness(level : uint8, strip : neoPixelStrip) =
-    #((Adafruit_NeoPixel) strip.get())->setBrightness(level);#
+fun setBrightness(level : uint8, strip : neoPixelStrip) : unit = (
+    let p = strip.ptr;
+    #((Adafruit_NeoPixel*) p.get())->setBrightness(level);#)
 
-fun getBrightness(strip : neoPixelStrip) = (
+fun getBrightness(strip : neoPixelStrip) : uint8 = (
     let ret : uint8 = 0;
-    #ret = ((Adafruit_NeoPixel) strip.get())->getBrightness();#;
+    let p = strip.ptr;
+    #ret = ((Adafruit_NeoPixel*) p.get())->getBrightness();#;
     ret
 )
 
-fun begin(strip : neoPixelStrip) =
-    #((Adafruit_NeoPixel) strip.get())->begin();#
+fun begin(strip : neoPixelStrip) : unit = (
+    let p = strip.ptr;
+    #((Adafruit_NeoPixel*) p.get())->begin();#)
 
-fun show(strip : neoPixelStrip) =
-    #((Adafruit_NeoPixel) strip.get())->show();#
+fun show(strip : neoPixelStrip) : unit = (
+    let p = strip.ptr;
+    #((Adafruit_NeoPixel*) p.get())->show();#)
 
-fun clear(strip : neoPixelStrip) =
-    #((Adafruit_NeoPixel) strip.get())->clear();#
+fun clear(strip : neoPixelStrip) : unit = (
+    let p = strip.ptr;
+    #((Adafruit_NeoPixel*) p.get())->clear();#)
 
-fun canShow(strip : neoPixelStrip) = (
+fun canShow(strip : neoPixelStrip) : bool = (
+    let p = strip.ptr;
     let ret = false;
-    #ret = ((Adafruit_NeoPixel) strip.get())->canShow();#;
+    #ret = ((Adafruit_NeoPixel*) p.get())->canShow();#;
     ret
 )
 
-let RGB  : uint16 = (let ret : uint16 = 0; #ret = NEO_RGB ;#; ret)
-let RBG  : uint16 = (let ret : uint16 = 0; #ret = NEO_RBG ;#; ret)
+let RGB  : uint16 = (let ret : uint16 = 0; #ret = NEO_RGB;#; ret)
+let RBG  : uint16 = (let ret : uint16 = 0; #ret = NEO_RBG;#; ret)
 let GRB  : uint16 = (let ret : uint16 = 0; #ret = NEO_GRB;#; ret)
 let GBR  : uint16 = (let ret : uint16 = 0; #ret = NEO_GBR;#; ret)
 let BRG  : uint16 = (let ret : uint16 = 0; #ret = NEO_BRG;#; ret)
@@ -67,14 +77,14 @@ let WGRB : uint16 = (let ret : uint16 = 0; #ret = NEO_WGRB;#; ret)
 let WGBR : uint16 = (let ret : uint16 = 0; #ret = NEO_WGBR;#; ret)
 let WBRG : uint16 = (let ret : uint16 = 0; #ret = NEO_WBRG;#; ret)
 let WBGR : uint16 = (let ret : uint16 = 0; #ret = NEO_WBGR;#; ret)
- 
+
 let RWGB : uint16 = (let ret : uint16 = 0; #ret = NEO_RWGB;#; ret)
 let RWBG : uint16 = (let ret : uint16 = 0; #ret = NEO_RWBG;#; ret)
 let RGWB : uint16 = (let ret : uint16 = 0; #ret = NEO_RGWB;#; ret)
 let RGBW : uint16 = (let ret : uint16 = 0; #ret = NEO_RGBW;#; ret)
 let RBWG : uint16 = (let ret : uint16 = 0; #ret = NEO_RBWG;#; ret)
 let RBGW : uint16 = (let ret : uint16 = 0; #ret = NEO_RBGW;#; ret)
- 
+
 let GWRB : uint16 = (let ret : uint16 = 0; #ret = NEO_GWRB;#; ret)
 let GWBR : uint16 = (let ret : uint16 = 0; #ret = NEO_GWBR;#; ret)
 let GRWB : uint16 = (let ret : uint16 = 0; #ret = NEO_GRWB;#; ret)
@@ -88,3 +98,5 @@ let BRWG : uint16 = (let ret : uint16 = 0; #ret = NEO_BRWG;#; ret)
 let BRGW : uint16 = (let ret : uint16 = 0; #ret = NEO_BRGW;#; ret)
 let BGWR : uint16 = (let ret : uint16 = 0; #ret = NEO_BGWR;#; ret)
 let BGRW : uint16 = (let ret : uint16 = 0; #ret = NEO_BGRW;#; ret)
+
+let KHZ800 : uint16 = (let ret : uint16 = 0; #ret = NEO_KHZ800;#; ret)

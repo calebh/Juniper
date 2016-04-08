@@ -27,6 +27,7 @@ let pos (parseState: IParseState) startIdx endIdx =
 %token THEN
 %token ELSE
 %token ELIF
+%token NULL
 %token WHILE
 %token DO
 %token LET
@@ -75,6 +76,8 @@ let pos (parseState: IParseState) startIdx endIdx =
 %token SET
 %token RFATARROW
 %token REF
+%token BSHIFTL
+%token BSHIFTR
 %token DEREF
 %token EOF
 
@@ -85,6 +88,7 @@ let pos (parseState: IParseState) startIdx endIdx =
 %left OR AND
 %left UNDERSCORE
 %left ID
+%left BSHIFTL BSHIFTR
 %left LTHAN LTHANEQ GTHAN GTHANEQ
 %left PLUS MINUS PIPE
 %left TIMES DIVIDE MOD AMPERSAND
@@ -235,6 +239,8 @@ recordInitList:
   |                                        { [] }
 
 expr:
+  | NULL {
+        NullExp (pos parseState 1 1, None, ())}
   | INLINECODE {
         let str = $1
         let code = str.[1..String.length str - 2]
@@ -349,6 +355,8 @@ expr:
   | expr LTHAN expr                         {BinaryOpExp {op = (pos parseState 2 2, None, Less); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
   | expr DOUBLEEQUAL expr                   {BinaryOpExp {op = (pos parseState 2 2, None, Equal); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
   | expr NOTEQUAL expr                      {BinaryOpExp {op = (pos parseState 2 2, None, NotEqual); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
+  | expr BSHIFTL expr                       {BinaryOpExp {op = (pos parseState 2 2, None, BitshiftLeft); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
+  | expr BSHIFTR expr                       {BinaryOpExp {op = (pos parseState 2 2, None, BitshiftRight); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
   | FN LPAREN funargList RPAREN COLON tyexpr MINUS GTHAN expr {
         LambdaExp {
             clause = (pos parseState 2 9, None, {
@@ -526,6 +534,8 @@ tyexpr:
              | "bool" -> BaseTy (pos parseState 1 1, None, TyBool)
              | "unit" -> BaseTy (pos parseState 1 1, None, TyUnit)
              | "float" -> BaseTy (pos parseState 1 1, None, TyFloat)
+             | "double" -> BaseTy (pos parseState 1 1, None, TyDouble)
+             | "pointer" -> BaseTy (pos parseState 1 1, None, TyPointer)
              | _ -> TyName (pos parseState 1 1, None, $1) }
 
 tupleTyList:

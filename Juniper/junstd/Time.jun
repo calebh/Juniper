@@ -18,7 +18,12 @@ fun state() : timerState ref =
 
 fun every(interval : uint32, state : timerState ref) : sig<uint32> = (
     let t = now();
-    let lastWindow = (t / interval) * interval;
+    let lastWindow =
+        if interval == 0 then
+            t
+        else
+            (t / interval) * interval
+        end;
     if (!state).lastPulse > lastWindow then
         signal<uint32>(nothing<uint32>())
     else
@@ -34,7 +39,12 @@ fun everyWithOffset(interval : uint32, offset : uint32, state : timerState ref) 
              else
                  t
              end;
-    let lastWindow = ((t2 - (offset mod interval)) / interval) * interval;
+    let lastWindow =
+        if interval == 0 then
+            t2
+        else
+            ((t2 - (offset mod interval)) / interval) * interval
+        end;
     if (!state).lastPulse > lastWindow then
         signal<uint32>(nothing<uint32>())
     else

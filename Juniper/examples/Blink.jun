@@ -6,24 +6,16 @@ let boardLed : int16 = 13
 let timerState : timerState ref = Time:state()
 let ledState : pinState ref = ref low()
 
-fun otherPinState(p : pinState) : pinState =
-    case p of
-    | high() => low()
-    | low() => high()
-    end
-
 fun blink() : unit = (
     let ledSig = Signal:foldP<uint32, pinState>(fn (currentTime : uint32, lastState : pinState) : pinState ->
-                                                    otherPinState(lastState),
+                                                    Io:toggle(lastState),
                                                 ledState, Time:every(100, timerState));
-    Signal:map<pinState, unit>(fn (led : pinState) : unit ->
-                                   Io:digWrite(boardLed, led), ledSig);
-    ()
+    Io:digOut(boardLed, ledSig)
 )
 
-fun setup() : unit = 
+fun setup() : unit =
     Io:setPinMode(boardLed, Io:output())
-    
+
 fun main() : unit = (
     setup();
     while true do (

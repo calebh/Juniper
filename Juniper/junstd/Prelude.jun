@@ -48,6 +48,12 @@ type list<'a; n> = { data : 'a[n]; length : uint32}
 
 type sig<'a> = signal of maybe<'a>
 
+fun compose<'a, 'b, 'c>(f : ('b) -> 'c, g : ('a) -> 'b) : ('a) -> 'c =
+    fn (x : 'a) : 'c -> f(g(x))
+
+fun equal<'a>(x : 'a, y : 'a) : bool =
+    x == y
+
 type tuple2<'a,'b> = {e1 : 'a; e2 : 'b}
 type tuple3<'a,'b,'c> = {e1 : 'a; e2 : 'b; e3 : 'c}
 type tuple4<'a,'b,'c,'d> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd}
@@ -57,3 +63,13 @@ type tuple7<'a,'b,'c,'d,'e,'f,'g> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e
 type tuple8<'a,'b,'c,'d,'e,'f,'g,'h> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h}
 type tuple9<'a,'b,'c,'d,'e,'f,'g,'h,'i> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h; e9 : 'i}
 type tuple10<'a,'b,'c,'d,'e,'f,'g,'h,'i,'j> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h; e9 : 'i; e10 : 'j}
+
+fun fst<'a,'b>(tup : ('a * 'b)) : 'a =
+    case tup of
+    | (x, _) => x
+    end
+
+fun snd<'a,'b>(tup : ('a * 'b)) : 'b =
+    case tup of
+    | (_, x) => x
+    end

@@ -8,7 +8,7 @@ type Module = Module of PosAdorn<Declaration> list
 and PosAdorn<'a> = (Position * Position) * TyExpr option * 'a
 
 // Top level declarations
-and FunctionRec = { name     : PosAdorn<string>; 
+and FunctionRec = { name     : PosAdorn<string>;
                     template : PosAdorn<Template> option;
                     clause   : PosAdorn<FunctionClause> }
 
@@ -57,6 +57,7 @@ and BaseTypes = TyUint8
               | TyInt32
               | TyInt64
               | TyFloat
+              | TyDouble
               | TyBool
               | TyUnit
               | TyPointer
@@ -107,11 +108,12 @@ and VarExpRec =       { name : PosAdorn<string> }
 and LambdaRec =       { clause : PosAdorn<FunctionClause> }
 and InternalDeclareVarExpRec = { varName : PosAdorn<string>; typ : PosAdorn<TyExpr> option; right : PosAdorn<Expr> }
 and InternalValConAccessRec = { valCon : PosAdorn<Expr>; typ : PosAdorn<TyExpr> }
+and InternalTupleAccessRec = { tuple : PosAdorn<Expr>; index : int }
 and CallRec =         { func : PosAdorn<Expr>; args : PosAdorn<PosAdorn<Expr> list> }
 and TemplateApplyExpRec = { func : PosAdorn<Expr>; templateArgs : PosAdorn<TemplateApply> }
 and RecordExprRec =   { recordTy : PosAdorn<TyExpr>; templateArgs : PosAdorn<TemplateApply> option; initFields : PosAdorn<(PosAdorn<string> * PosAdorn<Expr>) list> }
 and ArrayMakeExpRec = { typ : PosAdorn<TyExpr>; initializer : PosAdorn<Expr> }
-and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list> 
+and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | BinaryOpExp of BinaryOpRec
           | IfElseExp of IfElseRec
           | LetExp of LetRec
@@ -119,6 +121,7 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
                                                            // that will actually be outputted by the compiler
           | InternalValConAccess of InternalValConAccessRec // Only used internally for type checking pattern
                                                             // matching. Essentially acts like a type cast
+          | InternalTupleAccess of InternalTupleAccessRec
           | InlineCode of PosAdorn<string>
           | AssignExp of AssignRec
           | ForLoopExp of ForLoopRec

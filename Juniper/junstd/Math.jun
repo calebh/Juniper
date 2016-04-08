@@ -1,139 +1,139 @@
 module Math
 open(Prelude)
 
-let pi : float = 3.141592653589793238462643383279502884197169399375105820974
-let e : float = 2.718281828459045235360287471352662497757247093699959574966
+let pi : double = 3.141592653589793238462643383279502884197169399375105820974
+let e : double = 2.718281828459045235360287471352662497757247093699959574966
 
-fun degToRad(degrees : float) : float =
+fun degToRad(degrees : double) : double =
     degrees * 0.017453292519943295769236907684886
 
-fun radToDeg(radians : float) : float =
+fun radToDeg(radians : double) : double =
     radians * 57.295779513082320876798154814105
 
-fun acos_(x : float) : float = (
-    let ret = 0.0;
+fun acos_(x : double) : double = (
+    let ret : double = 0.0;
     #ret = acos(x);#;
     ret
 )
 
-fun asin_(x : float) : float = (
-    let ret = 0.0;
+fun asin_(x : double) : double = (
+    let ret : double = 0.0;
     #ret = asin(x);#;
     ret
 )
 
-fun atan_(x : float) : float = (
-    let ret = 0.0;
+fun atan_(x : double) : double = (
+    let ret : double = 0.0;
     #ret = atan(x);#;
     ret
 )
 
-fun atan2_(y: float, x : float) : float = (
-    let ret = 0.0;
-    #ret = atan(y, x);#;
+fun atan2_(y: double, x : double) : double = (
+    let ret : double = 0.0;
+    #ret = atan2(y, x);#;
     ret
 )
 
-fun cos_(x : float) : float = (
-    let ret = 0.0;
+fun cos_(x : double) : double = (
+    let ret : double = 0.0;
     #ret = cos(x);#;
     ret
 )
 
-fun cosh_(x : float) : float = (
-    let ret = 0.0;
+fun cosh_(x : double) : double = (
+    let ret : double = 0.0;
     #ret = cosh(x);#;
     ret
 )
 
-fun sin_(x : float) : float = (
-    let ret = 0.0;
+fun sin_(x : double) : double = (
+    let ret : double = 0.0;
     #ret = sin(x);#;
     ret
 )
 
-fun sinh_(x : float) : float = (
-    let ret = 0.0;
+fun sinh_(x : double) : double = (
+    let ret : double = 0.0;
     #ret = sinh(x);#;
     ret
 )
 
-fun tanh_(x : float) : float = (
-    let ret = 0.0;
+fun tanh_(x : double) : double = (
+    let ret : double = 0.0;
     #ret = tanh(x);#;
     ret
 )
 
-fun exp_(x : float) : float = (
-    let ret = 0.0;
+fun exp_(x : double) : double = (
+    let ret : double = 0.0;
     #ret = exp(x);#;
     ret
 )
 
-fun frexp_(x : float) : (float * uint16) = (
-    let ret = 0.0;
-    let exponent : uint16 = 0;
+fun frexp_(x : double) : (double * int16) = (
+    let ret : double = 0.0;
+    let exponent : int16 = 0;
     #ret = frexp(x, &exponent);#;
     (ret, exponent)
 )
 
-fun ldexp_(x : float, exponent : uint16) : float = (
-    let ret = 0.0;
+fun ldexp_(x : double, exponent : uint16) : double = (
+    let ret : double = 0.0;
     #ret = ldexp(x, exponent);#;
     ret
 )
 
-fun ln(x : float) : float = (
-    let ret = 0.0;
+fun ln(x : double) : double = (
+    let ret : double = 0.0;
     #ret = log(x);#;
     ret
 )
 
-fun log10_(x : float) : float = (
-    let ret = 0.0;
+fun log10_(x : double) : double = (
+    let ret : double = 0.0;
     #ret = log10(x);#;
     ret
 )
 
-fun modf_(x : float) : (float * float) = (
-    let ret = 0.0;
-    let integer = 0.0;
+fun modf_(x : double) : (double * double) = (
+    let ret : double = 0.0;
+    let integer : double = 0.0;
     #ret = modf(x, &integer);#;
     (ret, integer)
 )
 
-fun pow_(x : float, y : float) : float = (
-    let ret = 0.0;
+fun pow_(x : double, y : double) : double = (
+    let ret : double = 0.0;
     #ret = pow(x, y);#;
     ret
 )
 
-fun sqrt_(x : float) : float = (
-    let ret = 0.0;
+fun sqrt_(x : double) : double = (
+    let ret : double = 0.0;
     #ret = sqrt(x);#;
     ret
 )
 
-fun ceil_(x : float) : float = (
-    let ret = 0.0;
+fun ceil_(x : double) : double = (
+    let ret : double = 0.0;
     #ret = ceil(x);#;
     ret
 )
 
-fun abs(x : float) : float = (
-    let ret = 0.0;
+fun fabs_(x : double) : double = (
+    let ret : double = 0.0;
     #ret = fabs(x);#;
     ret
 )
 
-fun floor_(x : float) : float = (
-    let ret = 0.0;
+fun floor_(x : double) : double = (
+    let ret : double = 0.0;
     #ret = floor(x);#;
     ret
 )
 
-fun fmod_(x : float, y : float) : float = (
-    let ret = 0.0;
+fun fmod_(x : double, y : double) : double = (
+    let ret : double = 0.0;
     #ret = fmod(x, y);#;
     ret
 )

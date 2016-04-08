@@ -1,11 +1,17 @@
 module Signal
 open(Prelude)
-export(map, filter, merge, foldP)
+export(map, filter, merge, foldP, sink, toUnit)
 
 fun map<'a,'b>(f : ('a) -> 'b, s : sig<'a>) : sig<'b> =
     case s of
     | signal<'a>(just<'a>(val)) => signal<'b>(just<'b>(f(val)))
     | _                         => signal<'b>(nothing<'b>())
+    end
+
+fun sink<'a>(f : ('a) -> unit, s : sig<'a>) : unit =
+    case s of
+    | signal<'a>(just<'a>(val)) => f(val)
+    | _ => ()
     end
 
 fun filter<'a>(f : ('a) -> bool, s : sig<'a>) : sig<'a> =
@@ -25,6 +31,9 @@ fun merge<'a>(sigA : sig<'a>, sigB : sig<'a>) : sig<'a> =
     | signal<'a>(just<'a>(_)) => sigA
     | _                       => sigB
     end
+
+fun toUnit<'a>(sig : sig<'a>) : sig<unit> =
+    map<'a, unit>(fn (x : 'a) : unit -> (), sig)
 
 fun foldP<'a, 'state>(f : ('a,'state)->'state, state0 : 'state ref, incoming : sig<'a>) : sig<'state> =
     case incoming of

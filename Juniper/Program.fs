@@ -10,7 +10,6 @@ let main argv =
     let stdLibrary = ["Prelude"; "Signal"; "Io"; "Maybe"; "List"; "Time"; "Math"; "Button"]
     let executingDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
     let stdFiles = stdLibrary |> List.map (fun name -> executingDir + "\\junstd\\" + name + ".jun")
-    //let directory2 = System.AppDomain.CurrentDomain.BaseDirectory
     let parseFromFile (fileName:string) = 
         let fileStr = System.IO.File.ReadAllText fileName
         let lexbuf = LexBuffer<char>.FromString fileStr

@@ -11,7 +11,7 @@ type color = { r : uint8; g : uint8; b : uint8; w : uint8 }
 
 fun makeStrip(numPixels : uint16, pinNumber : uint8, neoPixelType : uint16) : neoPixelStrip = (
     let p = null;
-    #*p = new Adafruit_NeoPixel(numPixels, pinNumber, neoPixelType);#;
+    #p.set((void*) new Adafruit_NeoPixel(numPixels, pinNumber, neoPixelType));#;
     neoPixelStrip { ptr = p }
 )
 

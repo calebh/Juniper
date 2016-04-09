@@ -106,7 +106,7 @@ namespace juniper
         shared_ptr() : ptr_(NULL), ref_count_(NULL) { }
 
         shared_ptr(contained * p)
-            : ptr_(p), ref_count_(p ? new int : NULL)
+            : ptr_(p), ref_count_(new int)
         {
             *ref_count_ = 0;
             inc_ref();
@@ -126,8 +126,13 @@ namespace juniper
                 delete ref_count_;
             }
         }
-        contained * get() { return ptr_; }
-        const contained * get() const { return ptr_; }
+
+        void set(contained* p) {
+          ptr_ = p;
+        }
+
+        contained* get() { return ptr_; }
+        const contained* get() const { return ptr_; }
 
         void swap(shared_ptr& rhs) {
             juniper::swap(ptr_, rhs.ptr_);
@@ -142,9 +147,9 @@ namespace juniper
 
         // operator void*, use_count
 
-        contained& operator*() {
-            return *ptr_;
-        }
+        //contained& operator*() {
+        //    return *ptr_;
+        //}
 
         contained* operator->() {
             return ptr_;

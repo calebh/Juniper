@@ -58,7 +58,7 @@ and compileType (ty : TyExpr) : string =
                 | TyBool -> output "bool"
                 | TyUnit -> output "Prelude::unit"
                 | TyDouble -> output "double"
-                | TyPointer -> output "juniper::shared_ptr<void*>"
+                | TyPointer -> output "juniper::shared_ptr<void>"
         | TyModuleQualifier {module_ = (_, _, module_); name=(_, _, name)} ->
             output module_ +
             output "::" +
@@ -144,7 +144,7 @@ and compilePattern (pattern : PosAdorn<Pattern>) (path : PosAdorn<Expr>) =
 and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
     match expr with
         | NullExp _ ->
-            output "juniper::shared_ptr<void*>(NULL)"
+            output "juniper::shared_ptr<void>(NULL)"
         // Convert inline C++ code from Juniper directly to C++
         | InlineCode (_, _, code) ->
             output "(([&]() -> " + compileType (BaseTy (dummyWrap TyUnit)) + " {" + newline() + indentId() +
@@ -221,12 +221,12 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
             output "return " + compile (dummyWrap (VarExp {name=dummyWrap varName})) + output ";" +
             unindentId() + newline() + output "})())"
         | AssignExp {left=(_, _, left); right=right; ref=(_, _, ref)} ->
+            let (_, Some ty, _) = right
             output "(" +
             (if ref then
-                output "*"
+                output "*((" + compileType ty + "*) (" + compileLeftAssign left + output ".get()))"
             else
-                "") +
-            compileLeftAssign left +
+                compileLeftAssign left) +
             output " = " +
             compile right +
             output ")"
@@ -352,7 +352,7 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
             output "(juniper::shared_ptr<" + compileType typ + output ">(new " + compileType typ +
             output "(" + compile exp  + output ")))"
         | DerefExp exp ->
-            output "(*(" + compile exp + output "))"
+            output "(*((" + compile exp + output ").get()))"
         | DoWhileLoopExp {condition=condition; body=body} ->
             output "(([&]() -> " + indentId() + newline() +
             output "do {" + indentId() + newline() +
@@ -547,5 +547,6 @@ and compileProgram (modList : Module list) : string =
                  printfn "Unable to find program entry point. Please create a function called main."
                  failwith "Error"
              | Some {module_=(_, _, module_); name=(_, _, name)} ->
-                 output "int main() {" + newline() + indentId() + output module_ + output "::" + output name +
-                 output "();" + newline() + output "return 0;" + unindentId() + newline() + "}")
+                 output "int main() {" + newline() + indentId() + output "init();" + newline() +
+                 output module_ + output "::" + output name + output "();" + newline() +
+                 output "return 0;" + unindentId() + newline() + "}")

@@ -104,7 +104,8 @@
   <PropertyGroup>
     <PostBuildEvent>xcopy /e/i/y "$(ProjectDir)junstd" "$(ProjectDir)bin\$(ConfigurationName)\junstd"
 xcopy /e/i/y "$(ProjectDir)cppstd" "$(ProjectDir)bin\$(ConfigurationName)\cppstd"
-xcopy /e/i/y "$(ProjectDir)examples" "$(ProjectDir)bin\$(ConfigurationName)\examples"</PostBuildEvent>
+xcopy /e/i/y "$(ProjectDir)examples" "$(ProjectDir)bin\$(ConfigurationName)\examples"
+xcopy /e/i/y "$(ProjectDir)wrappers" "$(ProjectDir)bin\$(ConfigurationName)\wrappers"</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

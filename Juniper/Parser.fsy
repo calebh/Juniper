@@ -248,7 +248,11 @@ expr:
   | ARRAY tyexpr OF expr END {
         ArrayMakeExp {
             typ = (pos parseState 2 2, None, $2)
-            initializer = (pos parseState 4 4, None, $4)}}
+            initializer = Some (pos parseState 4 4, None, $4)}}
+  | ARRAY tyexpr END {
+        ArrayMakeExp {
+            typ = (pos parseState 2 2, None, $2)
+            initializer = None}}
   // Calling a function with no templates
   | expr LPAREN callExprList RPAREN {
         CallExp {

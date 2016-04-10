@@ -8,30 +8,6 @@ fun state() : buttonState ref = (
     ref buttonState { actualState = Io:low(); lastState = Io:low(); lastDebounceTime = 0 }
 )
 
-(*fun debounceDelay(incoming : sig<pinState>, delay : uint16, buttonState : buttonState ref) : sig<pinState> =
-    Signal:filter<pinState>(fn (currentState : pinState) : bool ->
-        (let buttonState {actualState=actualState;
-                          lastState=lastState;
-                          lastDebounceTime=lastDebounceTime} = !buttonState;
-        if currentState != lastState then
-            (set ref buttonState = buttonState { actualState = actualState;
-                                                 lastState = currentState;
-                                                 lastDebounceTime = Time:now() };
-            true)
-        elif (currentState != actualState) and ((Time:now() - (!buttonState).lastDebounceTime) > delay) then
-            (set ref buttonState = buttonState { actualState = currentState;
-                                                 lastState = currentState;
-                                                 lastDebounceTime = lastDebounceTime};
-            false)
-        else
-            (set ref buttonState = buttonState { actualState = actualState;
-                                                 lastState = currentState;
-                                                 lastDebounceTime = lastDebounceTime };
-            true)
-        end)
-    , incoming)*)
-
-
 fun debounceDelay(incoming : sig<pinState>, delay : uint16, buttonState : buttonState ref) : sig<pinState> =
     Signal:map<pinState, pinState>(fn (currentState : pinState) : pinState ->
         (let buttonState {actualState=actualState;

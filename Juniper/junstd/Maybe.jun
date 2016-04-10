@@ -1,46 +1,165 @@
 module Maybe
 open(Prelude)
+export(map, get, isJust, isNothing)
 
+(*
+    Interface: Maybe
+*)
+(*
+    Function: map
+
+    Transforms a maybe value by using the specified mapping function.
+
+    Type signature:
+    | <'a,'b>(('a) -> 'b, maybe<'a>) -> maybe<'b>
+
+    Parameters:
+        f : ('a) -> 'b - The mapping function
+        maybeVal : maybe<'a> - The maybe value
+
+    Returns:
+        The transformed maybe value.
+*)
 fun map<'a,'b>(f : ('a) -> 'b, maybeVal : maybe<'a>) : maybe<'b> =
     case maybeVal of
     | just<'a>(val) => just<'b>(f(val))
     | nothing => nothing
     end
 
+(*
+    Function: get
+
+    Returns the value associated with the maybe or crashes the program.
+
+    Type signature:
+    | <'a>(maybe<'a>) -> 'a
+
+    Parameters:
+        maybeVal : maybe<'a> - The maybe value
+
+    Returns:
+        The value inside of the maybe.
+*)
 fun get<'a>(maybeVal : maybe<'a>) : 'a =
     case maybeVal of
     | just<'a>(val) => val
     end
 
-fun isSome<'a>(maybeVal : maybe<'a>) : bool =
+(*
+    Function: isJust
+
+    Returns true if the maybe value is not nothing
+
+    Type signature:
+    | <'a>(maybe<'a>) -> bool
+
+    Parameters:
+        maybeVal : maybe<'a> - The maybe value
+
+    Returns:
+        True if the maybe value is not nothing, false otherwise
+*)
+fun isJust<'a>(maybeVal : maybe<'a>) : bool =
     case maybeVal of
     | just<'a>(_) => true
     | _ => false
     end
 
-fun isNone<'a>(maybeVal : maybe<'a>) : bool =
+(*
+    Function: isNothing
+
+    Returns true if the maybe value is nothing
+
+    Type signature:
+    | <'a>(maybe<'a>) -> bool
+
+    Parameters:
+        maybeVal : maybe<'a> - The maybe value
+
+    Returns:
+        True if the maybe evalue is nothing, false otherwise.
+*)
+fun isNothing<'a>(maybeVal : maybe<'a>) : bool =
     not isSome<'a>(maybeVal)
 
+(*
+    Function: count
+
+    Returns 0 if the maybe value is nothing, 1 otherwise
+
+    Type signature:
+    | <'a>(maybe<'a>) -> uint8
+
+    Parameters:
+        maybeVal : maybe<'a> - The maybe value
+
+    Returns:
+        The number of items stored in the count
+*)
 fun count<'a>(maybeVal : maybe<'a>) : uint8 =
     case maybeVal of
     | just<'a>(_) => 1
     | _ => 0
     end
 
-fun foldl<'state,'t>(f : ('state, 't) -> 'state, initState : 'state, maybeVal : maybe<'t>) : 'state =
+(*
+    Function: foldl
+
+    Evaluates the equivalent of List:foldl for a maybe
+
+    Type signature:
+    | <'t,'state>(('t, 'state) -> 'state, 'state, maybe<'t>) -> 'state
+
+    Parameters:
+        f : ('t, 'state) -> 'state - The folding function
+        initState : 'state - The initial state
+        maybeVal : maybe<'t> - The maybe value
+
+    Returns:
+        The final state returned by f
+*)
+fun foldl<'t,'state>(f : ('t, 'state) -> 'state, initState : 'state, maybeVal : maybe<'t>) : 'state =
     case maybeVal of
-    | just<'t>(val) => f(initState, val)
+    | just<'t>(val) => f(val, initState)
     | _ => initState
     end
 
-fun fodlr<'state,'t>(f : ('state, 't) -> 'state, initState : 'state, maybeVal : maybe<'t>) : 'state =
-    foldl<'state,'t>(f, initState, maybeVal)
+(*
+    Function: foldr
 
-fun iter<'a,'b>(f : ('a) -> unit, maybeVal : maybe<'a>) : unit =
+    Evaluates the equivalent of List:foldr for a maybe
+
+    Type signature:
+    | <'t,'state>(('t, 'state) -> 'state, 'state, maybe<'t>) -> 'state
+
+    Parameters:
+        f : ('t, 'state) -> 'state - The folding function
+        initState : 'state - The initial state
+        maybeVal : maybe<'t> - The maybe value
+
+    Returns:
+        The final state returned by f
+*)
+fun fodlr<'t,'state>(f : ('t, 'state) -> 'state, initState : 'state, maybeVal : maybe<'t>) : 'state =
+    foldl<'t,'state>(f, initState, maybeVal)
+
+(*
+    Function: iter
+
+    Executes a function for a maybe value
+
+    Type signature:
+    | <'a>(('a) -> unit, maybe<'a>) -> unit
+
+    Parameters:
+        f : ('a) -> unit - The function to apply to the value
+        maybeVal : maybe<'a> - The maybe value
+
+    Returns:
+        Unit
+*)
+fun iter<'a>(f : ('a) -> unit, maybeVal : maybe<'a>) : unit =
     case maybeVal of
-    | just<'a>(val) =>
-        (f(val);
-        ())
-    | nothing =>
-        ()
+    | just<'a>(val) => f(val)
+    | nothing => ()
     end

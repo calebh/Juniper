@@ -136,7 +136,7 @@ let applyTemplate dec (substitutions : TemplateApply) =
     let tySubstitutions = substitutions.tyExprs |> unwrap |> List.map unwrap
     let capSubstitutions = substitutions.capExprs |> unwrap |> List.map unwrap
     match dec with
-        | FunctionDec {name=name; template=Some (_, _, {tyVars=(_, _, tyVars); capVars=(_, _, capVars)}); clause=clause} ->
+        | FunctionDec {name=name; template=Some (posTemplate, _, {tyVars=(posTyVars, _, tyVars); capVars=(posCapVars, _, capVars)}); clause=clause} ->
             // TODO: Better error message here when the zip fails
 
             // Notice that we don't substitute the capacities in here
@@ -147,7 +147,7 @@ let applyTemplate dec (substitutions : TemplateApply) =
             let capMap = Map.ofList (List.zip (List.map unwrap capVars) capSubstitutions)
             FunctionDec {
                 name = name;
-                template = None;
+                template = Some (posTemplate, None, {tyVars=(posTyVars, None, []); capVars=(posCapVars, None, capVars)});
                 clause = TreeTraversals.map1 (fun tyExpr -> match tyExpr with
                                                                 // TODO: Bug fix for when Map.find fails
                                                                 | ForallTy (_, _, name) -> Map.find name tyMap
@@ -1111,15 +1111,25 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             wrapWithType
                 returnTy
                 (DerefExp (pose, Some typee, cExpr))
-        | ArrayMakeExp { typ=(post, _, typ); initializer=(posi, _, initializer) } ->
-            match typ with
-                | ArrayTy _ -> ()
-                | _ -> printfn "%sType error: Expected an array type in array initializer expression." (posString post)
-                       failwith "Type error"
-            let (_, Some typei, cInitializer) = tc initializer
-            wrapWithType
-                typ
-                (ArrayMakeExp { typ=(post, None, typ); initializer=(posi, Some typei, cInitializer) })
+        | ArrayMakeExp { typ=(post, _, typ); initializer=maybeInitializer } ->
+            let valueType = match typ with
+                                | ArrayTy {valueType=valueType} -> unwrap valueType
+                                | _ -> printfn "%sType error: Expected an array type in array initializer expression." (posString post)
+                                       failwith "Type error"
+            match maybeInitializer with
+                | Some (posi, _, initializer) ->
+                    let (_, Some typei, cInitializer) = tc initializer
+                    if eqTypes typei valueType then
+                        ()
+                    else
+                        printfn "%sType error: Expected array initializer to be of type %s." (posString posi) (typeString valueType)
+                    wrapWithType
+                        typ
+                        (ArrayMakeExp { typ=(post, None, typ); initializer=Some (posi, Some typei, cInitializer) })
+                | None ->
+                    wrapWithType
+                        typ
+                        (ArrayMakeExp {typ=(post, None, typ); initializer=None})
         | InternalValConAccess { valCon=valCon; typ=typ } ->
             wrapWithType
                 (unwrap typ)

@@ -302,10 +302,13 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
             output "(juniper::array<" + compileType valueType + output ", " + compileCap capacity + output "> { {" +
             (exprs |> List.map (fun expr -> compile expr) |> String.concat ", ") +
             output"} })"
-        | ArrayMakeExp {typ=(_, _, typ); initializer=initializer} ->
+        | ArrayMakeExp {typ=(_, _, typ); initializer=maybeInitializer} ->
             let (ArrayTy {valueType=(_, _, valueType); capacity=(_, _, capacity)}) = typ
-            output "(juniper::array<" + compileType valueType + output ", " + compileCap capacity + output ">().fill(" +
-            compile initializer + output "))"
+            output "(juniper::array<" + compileType valueType + output ", " + compileCap capacity + output ">()" +
+            (match maybeInitializer with
+                 | Some initializer -> output ".fill(" + compile initializer + output ")"
+                 | None -> output "") +
+            output ")"
         | UnaryOpExp {op=(_, _, op); exp=exp} ->
             (match op with
                  | LogicalNot -> output "!"

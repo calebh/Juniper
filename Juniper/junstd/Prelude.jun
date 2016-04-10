@@ -1,5 +1,7 @@
 module Prelude
-export(tuple2, tuple3, tuple4, tuple5, tuple6, tuple7, tuple8, tuple9, tuple10, maybe, unit, just, nothing, list, sig, signal)
+export(tuple2, tuple3, tuple4, tuple5, tuple6, tuple7, tuple8, tuple9,
+tuple10, maybe, unit, just, nothing, list, sig, signal, either, left,
+right, string, compose, curry, equal, fst, snd)
 
 (*
     Interface: Prelude
@@ -8,7 +10,9 @@ export(tuple2, tuple3, tuple4, tuple5, tuple6, tuple7, tuple8, tuple9, tuple10, 
 (*
     Type: maybe
 
-    The maybe type encapsulates an optional value. A value of type maybe<'a> either contains a value of type 'a (represented as just<'a>), or it is empty (represented as nothing<'a>).
+    The maybe type encapsulates an optional value. A value of type
+    maybe<'a> either contains a value of type 'a (represented as just<'a>),
+    or it is empty (represented as nothing<'a>).
 
     | maybe<'a>
 
@@ -25,18 +29,46 @@ export(tuple2, tuple3, tuple4, tuple5, tuple6, tuple7, tuple8, tuple9, tuple10, 
 (*
     Function: nothing
 
-    Type Signature:
+    Type signature:
     | <'a>('a) -> maybe<'a>
 *)
 type maybe<'a> = just of 'a
                | nothing
 
+(*
+    Type: either
+
+    The either type represents values with two possibilities. A value of type
+    A value of type either<'a,'b> is either left a or right b.
+
+    | either<'a,'b>
+
+    Constructors:
+        - <left> of 'a
+        - <right> of 'b
+*)
+(*
+    Function: left
+
+    Type signature:
+    | <'a,'b>('a) -> either<'a,'b>
+*)
+(*
+    Function: right
+
+    Type signature:
+    | <'a,'b>('b) -> either<'a, 'b>
+*)
+type either<'a,'b> = left of 'a
+                   | right of 'b
+
 type unit = {}
 
 (*
-    Struct: list
+    Type: list
 
-    The list type represents an ordered series of elements of a given length.
+    The list record type represents an ordered series of elements of a given
+    length.
 
     | list<'a; n>
 
@@ -44,13 +76,93 @@ type unit = {}
         data : 'a[n] - The internal array used to store the elements.
         length : uint32 - The length of the list
 *)
-type list<'a; n> = { data : 'a[n]; length : uint32}
+type list<'a; n> = { data : 'a[n]; length : uint32 }
 
+(*
+    Type: string
+
+    The string record type represents a string of characters
+
+    |string<;n>
+
+    Members:
+        characters : list<uint8;n> - The internal list used to store the
+        characters
+*)
+type string<;n> = { characters : list<uint8;n> }
+
+(*
+    Type: sig
+
+    The signal type encapsulates the concept of a signal. At any point in time,
+    a signal may having nothing travelling through it, or something travelling
+    through it.
+
+    | sig<'a>
+
+    Constructors:
+        - <signal> of maybe<'a>
+*)
+(*
+    Function: signal
+
+    Type signature:
+    | (maybe<'a>) -> sig<'a>
+*)
 type sig<'a> = signal of maybe<'a>
 
-fun compose<'a, 'b, 'c>(f : ('b) -> 'c, g : ('a) -> 'b) : ('a) -> 'c =
+(*
+    Function: compose
+
+    Composes two functions together.
+
+    Type signature:
+    | <'a,'b,'c>(('b) -> 'c, ('a) -> 'b) -> (('a) -> 'c)
+
+    Parameters:
+        f : ('b) -> 'c - The second function to compose
+        g : ('a) -> 'b - The first function to compose
+
+    Returns:
+        A composed function equivalent to f(g(x))
+*)
+fun compose<'a,'b,'c>(f : ('b) -> 'c, g : ('a) -> 'b) : ('a) -> 'c =
     fn (x : 'a) : 'c -> f(g(x))
 
+(*
+    Function: curry
+
+    Curries a given function
+
+    Type signature:
+    | <'a,'b,'c>(('a, 'b) -> 'c) -> (('a) -> (('b) -> 'c))
+
+    Parameters:
+        f : ('a, 'b) -> 'c - The function to curry.
+
+    Returns:
+        A curried function
+*)
+fun curry<'a,'b,'c>(f : ('a, 'b) -> 'c) : ('a) -> ('b) -> 'c =
+    fn (valueA : 'a) : ('b) -> 'c ->
+        fn (valueB : 'b) : 'c ->
+            f(valueA, valueB)
+
+(*
+    Function: equal
+
+    A function representation of the equality operator
+
+    Type signature:
+    | <'a>('a, 'a) -> bool
+
+    Parameters:
+        x : 'a - The first value to compare
+        y : 'b - The second value to compare
+
+    Returns:
+        True if the values are equivalent, false otherwise.
+*)
 fun equal<'a>(x : 'a, y : 'a) : bool =
     x == y
 
@@ -64,11 +176,39 @@ type tuple8<'a,'b,'c,'d,'e,'f,'g,'h> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 :
 type tuple9<'a,'b,'c,'d,'e,'f,'g,'h,'i> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h; e9 : 'i}
 type tuple10<'a,'b,'c,'d,'e,'f,'g,'h,'i,'j> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h; e9 : 'i; e10 : 'j}
 
+(*
+    Function: fst
+
+    Gives the first element of a two element tuple.
+
+    Type signature:
+    | <'a, 'b>(('a * 'b)) -> 'a
+
+    Parameters:
+        tup : ('a * 'b) - The tuple to extract the first element from
+
+    Returns:
+        The first element of the two element tuple.
+*)
 fun fst<'a,'b>(tup : ('a * 'b)) : 'a =
     case tup of
     | (x, _) => x
     end
 
+(*
+    Function: snd
+
+    Gives the second element of a two element tuple.
+
+    Type signature:
+    | <'a, 'b>(('a * 'b)) -> 'b
+
+    Parameters:
+        tup : ('a * 'b) - The tuple to extract the second element from
+
+    Returns:
+        The second element of the two element tuple.
+*)
 fun snd<'a,'b>(tup : ('a * 'b)) : 'b =
     case tup of
     | (_, x) => x

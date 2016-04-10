@@ -118,5 +118,5 @@ and comment =
 and multilineComment =
   parse
   | newline       { newline lexbuf; multilineComment lexbuf }
-  | "*)"          { token lexbuf } // multiline comment terminates at the end of this symbol
+  | "*)"          { token lexbuf } // multiline comment terminates at the end of this symbol.
   | _             { multilineComment lexbuf }

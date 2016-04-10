@@ -173,6 +173,8 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
             compile falseBranch +
             output ")" +
             unindentId()
+        // A sequence is a set of expressions separated by semicolons inside parentheses, where the last exp
+        // is returned
         | SequenceExp (_, _, sequence) ->
             let len = List.length sequence
             output "(([&]() -> " +
@@ -247,6 +249,7 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
             output "return {};" + newline() +
             unindentId() +
             output "})())"
+        // Case is used for pattern matching
         | CaseExp {on=(posOn, Some onTy, on); clauses=(_, _, clauses)} ->
             let ty = Option.get maybeTy
             let unitTy = BaseTy (dummyWrap TyUnit)
@@ -261,6 +264,7 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
                     ) clauses (getDeathExpr ty)
             let decOn = InternalDeclareVar {varName=dummyWrap onVarName; typ=dummyWrap onTy |> Some; right=(posOn, Some onTy, on)} |> wrapWithType unitTy
             compile (wrapWithType ty (SequenceExp (wrapWithType ty [decOn; equivalentExpr])))
+        // Internal declarations are used only by the compiler, not the user, for hidden variables
         | InternalDeclareVar {varName=(_, _, varName); typ=typ; right=right} ->
             (match typ with
                 | None -> output "auto"

@@ -9,6 +9,7 @@ let pos (parseState: IParseState) startIdx endIdx =
 
 %start start
 
+// Calling on the tokens that were defined in the lexer
 %token <string> INT
 %token <string> FLOAT
 %token <string> ID
@@ -83,6 +84,7 @@ let pos (parseState: IParseState) startIdx endIdx =
 
 %type < Module > start
 
+// left means to shift the next symbol onto the stack (to define priorities and avoid shift-reduce errors)
 %left SEMICOLON COMMA
 %left EQUAL DOUBLEEQUAL NOTEQUAL
 %left OR AND
@@ -101,6 +103,7 @@ let pos (parseState: IParseState) startIdx endIdx =
 
 %%
 
+// Entry point for the parser
 start:
   | declarationList { Module ($1) }
 
@@ -117,6 +120,7 @@ declaration:
   | letdec          { (pos parseState 1 1, None, $1) }
   | opendec         { (pos parseState 1 1, None, $1) }
 
+// Open a everything exported to a namespace from a module
 opendec:
   | OPEN LPAREN idList RPAREN { OpenDec (pos parseState 3 3, None, $3) }
 
@@ -127,12 +131,14 @@ letdec:
             typ = (pos parseState 4 4, None, $4);
             right = (pos parseState 6 6, None, $6) }}
 
+// Export statements for Modules (so that other programs can use functions and types declared in them)
 exports:
   | EXPORT LPAREN idList RPAREN { ExportDec (pos parseState 3 3, None, $3) }
 
 moduleNameDec:
   | MODULE ID             { ModuleNameDec (pos parseState 2 2, None, $2) }
 
+// Function declaration
 fundec:
   | FUN ID LPAREN funargList RPAREN COLON tyexpr EQUAL expr {
         FunctionDec {
@@ -152,39 +158,47 @@ fundec:
                 body = (pos parseState 12 12, None, $12);
                 returnTy = (pos parseState 10 10, None, $10)})}}
 
+// List of function arguments
 funargList:
   | ID COLON tyexpr COMMA funargList  {((pos parseState 3 3, None, $3), (pos parseState 1 1, None, $1)) :: $5}
   | ID COLON tyexpr                   {[((pos parseState 3 3, None, $3), (pos parseState 1 1, None, $1))]}
   |                                   {[]}
 
+// Type capacity variables within templates
 tycapvars:
   | tyVarList SEMICOLON idList  {{tyVars=(pos parseState 1 1, None, $1); capVars=(pos parseState 3 3, None, $3)} }
   | tyVarList                   { {tyVars=(pos parseState 1 1, None, $1); capVars=(pos parseState 1 1, None, [])} }
 
+// List of type variables
 tyVarList:
   | TICK ID COMMA tyVarList {(pos parseState 1 2, None, $2) :: $4}
   | TICK ID                 {[(pos parseState 1 2, None, $2)]}
   |                         {[]}
 
+// An ID is a sequence of characters serving as things such as variable identifiers, type capacities, and other lists
 idList:
   | ID COMMA idList         { (pos parseState 1 1, None, $1)::$3 }
   | ID                      { [(pos parseState 1 1, None, $1)] }
   |                         { [] }
 
+// Type capacity expressions within templates
 tycapExprs:
   | tyExprs SEMICOLON capExprs {{tyExprs=(pos parseState 1 1, None, $1); capExprs=(pos parseState 3 3, None, $3)}}
   | tyExprs                    {{tyExprs=(pos parseState 1 1, None, $1); capExprs=(pos parseState 1 1, None, [])}}
 
+// List of type expressions
 tyExprs:
   | tyexpr COMMA tyExprs {(pos parseState 1 1, None, $1)::$3}
   | tyexpr               {[(pos parseState 1 1, None, $1)]}
   |                      { [] }
 
+// List of capacity expressions
 capExprs:
   | capexpr COMMA capExprs  { (pos parseState 1 1, None, $1)::$3 }
   | capexpr                 { [(pos parseState 1 1, None, $1)] }
   |                         { [] }
 
+// List of record declarations.
 recorddec:
   | TYPE ID EQUAL LCURLYBRACE recordDecList RCURLYBRACE {
         RecordDec {
@@ -196,6 +210,7 @@ recorddec:
             name =     (pos parseState 2 2, None, $2);
             fields =   (pos parseState 8 8, None, $8);
             template = Some (pos parseState 4 4, None, $4)}}
+
 
 recordDecList:
   | ID COLON tyexpr SEMICOLON recordDecList  {($3, $1) :: $5}
@@ -214,6 +229,7 @@ uniondec:
             valCons =  (pos parseState 7 7, None, $7);
             template = Some (pos parseState 4 4, None, $4)}}
 
+// Value constructor list
 valueConList:
   | valueCon PIPE valueConList {$1 :: $3}
   | valueCon                   {[$1]}
@@ -223,16 +239,19 @@ valueCon:
   | ID OF tyexpr {((pos parseState 1 1, None, $1), Some (pos parseState 3 3, None, $3))}
   | ID           {((pos parseState 1 1, None, $1), None)}
 
+// Sequence (set of expressions separated by semicolons) expression list
 seqExprList:
   | expr SEMICOLON seqExprList {(pos parseState 1 1, None, $1)::$3}
   | expr                       {[(pos parseState 1 1, None, $1)]}
   |                            {[]}
 
+// List of expressions in an array
 arrayExprList:
   | expr COMMA arrayExprList {(pos parseState 1 1, None, $1)::$3}
   | expr                     {[(pos parseState 1 1, None, $1)]}
   |                          {[]}
 
+// Record initialization list
 recordInitList:
   | ID EQUAL expr SEMICOLON recordInitList { ((pos parseState 1 1, None, $1),(pos parseState 3 3, None, $3))::$5 }
   | ID EQUAL expr                          { [((pos parseState 1 1, None, $1),(pos parseState 3 3, None, $3))] }
@@ -310,6 +329,7 @@ expr:
             body = (pos parseState 10 10, None, $10)
         }
   }
+  // For loop, downward counter
   | FOR ID COLON tyexpr IN expr DOWNTO expr DO expr END {
         ForLoopExp {
             typ = (pos parseState 4 4, None, $4);
@@ -336,10 +356,12 @@ expr:
   | UNIT                              {UnitExp (pos parseState 1 1, None, ())}
   | TRUE                              {TrueExp (pos parseState 1 1, None, ())}
   | FALSE                             {FalseExp (pos parseState 1 1, None, ())}
+  // Record access
   | expr DOT ID {
         RecordAccessExp {
             record = (pos parseState 1 1, None, $1);
             fieldName = (pos parseState 3 3, None, $3)}}
+	// Expressions resulting from binary operations
   | expr PLUS expr                          {BinaryOpExp {op = (pos parseState 2 2, None, Add); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
   | expr MINUS expr                         {BinaryOpExp {op = (pos parseState 2 2, None, Subtract); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
   | expr TIMES expr                         {BinaryOpExp {op = (pos parseState 2 2, None, Multiply); left=(pos parseState 1 1, None, $1); right=(pos parseState 3 3, None, $3)}}
@@ -366,6 +388,7 @@ expr:
   | ID                                { VarExp { name = (pos parseState 1 1, None, $1) }}
   | INT                               { IntExp (pos parseState 1 1, None, $1) }
   | FLOAT                             { FloatExp (pos parseState 1 1, None, $1) }
+  // Pattern matching
   | CASE expr OF caseClauseList END   {
         CaseExp {
             on = (pos parseState 2 2, None, $2);
@@ -397,16 +420,19 @@ expr:
   | DEREF expr { DerefExp (pos parseState 2 2, None, $2) }
   | LPAREN tupleExprList RPAREN { TupleExp $2 }
 
+// List of tuples
 tupleExprList:
   | expr COMMA tupleExprList {(pos parseState 1 1, None, $1)::$3}
   | expr COMMA expr          {[(pos parseState 1 1, None, $1); (pos parseState 3 3, None, $3)]}
 
+// List of case clauses used for pattern matching case clauses
 caseClauseList:
   | PIPE pattern RFATARROW expr caseClauseList {
         ((pos parseState 2 2, None, $2), (pos parseState 4 4, None, $4))::$5 }
   | PIPE pattern RFATARROW expr {
         [((pos parseState 2 2, None, $2), (pos parseState 4 4, None, $4))] }
 
+// Pattern used within a case clause (to match against)
 pattern:
   | INT                                              { MatchIntVal (pos parseState 1 1, None, $1)}
   | FLOAT                                            { MatchFloatVal (pos parseState 1 1, None, $1)}
@@ -477,6 +503,7 @@ recPatternList:
   | ID EQUAL pattern                          { [((pos parseState 1 1, None, $1), (pos parseState 3 3, None, $3))]}
   |                                           {[]}
 
+// List of elifs and elses used after an if
 elifList:
   | ELSE expr END {$2}
   | ELIF expr THEN expr END {
@@ -490,11 +517,13 @@ elifList:
             trueBranch = (pos parseState 4 4, None, $4);
             falseBranch = (pos parseState 5 5, None, $5) }}
 
+// Call expression list - when you call a function, the list of arguments you pass it
 callExprList:
   | expr COMMA callExprList {(pos parseState 1 1, None, $1)::$3}
   | expr                    {[(pos parseState 1 1, None, $1)]}
   |                         {[]}  
 
+// Type expression
 tyexpr:
   | moduleQualifier LTHAN tycapExprs GTHAN {
         TyApply {
@@ -551,6 +580,7 @@ tyexprList:
   | tyexpr                  {[(pos parseState 1 1, None, $1)]}
   |                         {[]}
 
+// Expression used for 
 capexpr:
   | ID                              { CapacityNameExpr (pos parseState 1 1, None, $1)}
   | INT                             { CapacityConst (pos parseState 1 1, None, $1) }
@@ -580,6 +610,7 @@ moduleQualifier:
   | ID COLON ID {
         {module_=(pos parseState 1 1, None, $1); name=(pos parseState 3 3, None, $3)} }
 
+// Left side of an assign (to an array, record, or variable)
 leftAssign:
   | leftAssign LBRACK expr RBRACK { ArrayMutation { array = (pos parseState 1 1, None, $1); index = (pos parseState 3 3, None, $3) } }
   | leftAssign DOT ID             { RecordMutation { record = (pos parseState 1 1, None, $1); fieldName = (pos parseState 3 3, None, $3) } }

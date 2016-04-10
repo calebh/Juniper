@@ -6,19 +6,24 @@ open Microsoft.FSharp.Text.Lexing
 open Parser
 open System
 
+// Defines how a newline is defined as a function of the lexer buffer
 let newline (lexbuf: LexBuffer<_>) =
   lexbuf.EndPos <- lexbuf.EndPos.NextLine
   lexbuf.StartPos <- lexbuf.StartPos.NextLine
 
+// Returns a string of what was just parsed
 let lexeme lexbuf =
     LexBuffer<char>.LexemeString lexbuf
 
 }
 
+// Defines what syntax represents digits, whitespace and newlines
 let digit = ['0'-'9']
 let whitespace = [' ' '\t' ]
 let newline = ('\n' | '\r' '\n')
 
+// Defines different syntax (or previous definitions for syntax) as tokens
+// to be used with the parser
 rule token = parse
 | whitespace     { token lexbuf }
 | newline        { newline lexbuf; token lexbuf }
@@ -97,6 +102,7 @@ rule token = parse
 | eof           { EOF }
 | _ { failwith ("ParseError" + LexBuffer<_>.LexemeString lexbuf) }
 
+// Allows for strings within other bodies (such as quotes, comments, etc.) to be parsed
 and read_string str ignorequote =
   parse
   | '"'           { if ignorequote  then (read_string (str+"\\\"") false lexbuf) else STRING (str) }
@@ -106,11 +112,11 @@ and read_string str ignorequote =
 
 and comment =
   parse
-  | newline       { newline lexbuf; token lexbuf }
+  | newline       { newline lexbuf; token lexbuf } // single line comment terminates at the end of a line
   | _             { comment lexbuf }
 
 and multilineComment =
   parse
   | newline       { newline lexbuf; multilineComment lexbuf }
-  | "*)"          { token lexbuf }
+  | "*)"          { token lexbuf } // multiline comment terminates at the end of this symbol
   | _             { multilineComment lexbuf }

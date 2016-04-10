@@ -8,6 +8,10 @@ open System.IO
 open Extensions
 open Module
 
+// Keeps record of what templated functions have already been typechecked, so that
+// infinite recursion loops can be avoided. The two functions below this work with
+// this set, so that things can be added, and new things can be checked if they are
+// already checked.
 let mutable alreadyCheckedFunctions : Set<ModQualifierRec * TemplateApply> = Set.empty
 
 let addToAlreadyCheckedFunctions m t =
@@ -16,6 +20,7 @@ let addToAlreadyCheckedFunctions m t =
 let isAlreadyCheckedFunction m t =
     Set.contains (cleanAll m, cleanAll t) alreadyCheckedFunctions
 
+// Simple returning types of results of arithmetic operations
 let arithResultTy numTypel numTyper = 
     match (numTypel, numTyper) with
         | (x, y) when x=y -> x
@@ -95,6 +100,8 @@ let arithResultTy numTypel numTyper =
         | (TyInt64,TyInt32) -> TyInt64
         | _ -> failwith "Not a numerical type"
 
+// Get position of the error (starting line and column, end line and column) in the form of a string to be used
+// for error messages.
 let posString (p1 : Position, p2 : Position) : string = 
     let inRange line column =
         let notInRange = line < p1.Line ||
@@ -122,9 +129,11 @@ let posString (p1 : Position, p2 : Position) : string =
             ""
     sprintf "file %s, line %d column %d to line %d column %d%s" p1.FileName (p1.Line+1) p1.Column (p2.Line+1) p2.Column badCode
 
+// Put the module name and declaration name as strings into a module qualifier
 let qualifierWrap modName decName =
     {module_ = modName; name = decName}
 
+// Takes in a declaration and substitutions and apply the template with these substitutions
 let applyTemplate dec (substitutions : TemplateApply) =
     let replace tyMap capMap haystack =
         TreeTraversals.map2 (fun tyExpr -> match tyExpr with
@@ -172,6 +181,7 @@ let applyTemplate dec (substitutions : TemplateApply) =
             }
         | x -> x
    
+// Check if two capacity expressions are equivalent
 let rec eqCapacities (cap1 : CapacityExpr) (cap2 : CapacityExpr) : bool =
     match (cap1, cap2) with
         | (CapacityConst c1, CapacityConst c2) ->
@@ -184,6 +194,7 @@ let rec eqCapacities (cap1 : CapacityExpr) (cap2 : CapacityExpr) : bool =
                 eqCapacities (unwrap c1.right) (unwrap c2.right)
         | _ -> cap1 = cap2
 
+// Check if a type is one of the integer types
 let isIntType (ty : TyExpr) =
     match ty with
         | BaseTy (_, _, t1) ->
@@ -202,6 +213,7 @@ let isNumericalType (ty : TyExpr) =
         | ForallTy _ -> true
         | _ -> false
 
+// Takes in two types, check if they are equal
 let rec eqTypes (ty1 : TyExpr) (ty2 : TyExpr) : bool =
     match (ty1, ty2) with
         | (x, y) when isNumericalType x && isNumericalType y -> true
@@ -237,6 +249,8 @@ let rec eqTypes (ty1 : TyExpr) (ty2 : TyExpr) : bool =
                 List.forall2 eqTypes (List.map unwrap ty1) (List.map unwrap ty2)
         | _ -> (ty1 = ty2)
 
+
+// Turns a capacity expression into a string for debugging (printing error messages)
 let rec capacityString (cap : CapacityExpr) : string =
     match cap with
         | CapacityNameExpr (_, _, name) -> name
@@ -249,6 +263,7 @@ let rec capacityString (cap : CapacityExpr) : string =
             sprintf "%s %s %s" (capacityString left) opStr (capacityString right)
         | CapacityConst (_, _, name) -> name
 
+// Turns a type into string representation for debugging
 let rec typeString (ty : TyExpr) : string =
     match ty with
         | BaseTy (_, _, baseTy) -> match baseTy with
@@ -329,6 +344,7 @@ let rec applyTemplateToFunctionType (funType : TyExpr) (template : TemplateApply
 let toModuleQual (module_, name) =
     {module_=dummyWrap module_; name=dummyWrap name}
 
+// Unwrap the module and name within a module name pair
 let toStringPair {module_=module_; name=name} =
     (unwrap module_, unwrap name)
 
@@ -351,6 +367,8 @@ let isTypedDec dec = match dec with
     tenv => variable names to types and a bool which tells
         if the variable is mutable
 *)
+// Take in an expression, and typechecks it against the map environments. Return with the expression wrapped in a type.
+// Also recursively typechecks expressions within if necessary.
 let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                       (dtenv : Map<string * string, TyExpr>)
                       (tenv : Map<string, bool * TyExpr>)
@@ -1175,6 +1193,8 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                 (BaseTy (dummyWrap TyPointer))
                 (NullExp (post, None, ()))
 
+// Take in an declaration, and typechecks it against the map environments. Return with the declaration wrapped in a type.
+// Also recursively typechecks expressions within if necessary.
 and typecheckDec denv dtenv tenv modNamesToTenvs dec =
     match dec with
         | LetDec {varName=varName; typ=(postyp, _, typ); right=(posr, _, right)} ->
@@ -1260,6 +1280,7 @@ let typecheckModule (Module decs) denv dtenv menv tenv modNamesToTenvs : Module 
         (pos, None, typecheckDec denv dtenv tenv modNamesToTenvs dec)
     ) decs)
 
+// Takes in the module list, and typechecks it all.
 let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module list =
     // TRANSFORM: Transform empty sequences to a unit expression
     let modlist1 = (TreeTraversals.map1 (fun expr ->

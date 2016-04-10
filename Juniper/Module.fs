@@ -2,6 +2,7 @@
 
 open Ast
 
+// Takes in module's declarations and finds the name of the module
 let nameInModule (Module decs) =
     let names = List.filter (fun dec -> match dec with
                                             | (_, _, ModuleNameDec _) -> true
@@ -11,6 +12,7 @@ let nameInModule (Module decs) =
         | [] -> failwith "Module name not found"
         | _ -> failwith "Multiple module names found in module"
 
+// Takes in module's declarations and finds the types in the module
 let typesInModule (Module decs) = 
     let typeDecs = List.filter (fun dec -> match dec with
                                                | (_, _, RecordDec _) -> true
@@ -21,6 +23,7 @@ let typesInModule (Module decs) =
                              | (_, _, UnionDec {name=name}) -> name
                              | _ -> failwith "This should never happen") typeDecs
 
+// Takes in module's declarations and finds the opens (of outher modules) in the module
 let opensInModule (Module decs) =
     let opens = List.filter (fun dec -> match dec with
                                             | (_, _, OpenDec _) -> true
@@ -29,6 +32,7 @@ let opensInModule (Module decs) =
                                           | (_, _, OpenDec (_, _, names)) -> names
                                           | _ -> failwith "This should never happen") opens)
 
+// Takes in module's declarations and finds the exports in the module
 let exportsInModule (Module decs) =
     let exports = List.filter (fun dec -> match dec with
                                               | (_, _, ExportDec _) -> true
@@ -37,6 +41,7 @@ let exportsInModule (Module decs) =
                                           | (_, _, ExportDec (_, _, names)) -> names
                                           | _ -> failwith "This should never happen") exports)
 
+// Takes in module's declarations and finds the names of the declarations in the module
 let declarationsInModule (Module decs) =
     let namedDecs = List.filter (fun dec -> match dec with
                                                 | (_, _, FunctionDec _) -> true
@@ -52,6 +57,7 @@ let declarationsInModule (Module decs) =
                                           | (_, _, LetDec {varName=name}) -> [name]
                                           | _ -> failwith "This should never happen") namedDecs)
 
+// Takes in module's declarations and finds the value declaratin names in the module
 let valueDecsInModule (Module decs) =
     let namedDecs = List.filter (fun dec -> match dec with
                                                 | (_, _, FunctionDec _) -> true

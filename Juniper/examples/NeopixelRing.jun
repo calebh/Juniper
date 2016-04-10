@@ -1,0 +1,25 @@
+module NeopixelRing
+open(Prelude, Io, Time)
+
+let boardLed : int16 = 13
+
+let timerState : timerState ref = Time:state()
+let ledState : pinState ref = ref low()
+
+fun blink() : unit = (
+    let ledSig = Signal:foldP<uint32, pinState>(fn (currentTime : uint32, lastState : pinState) : pinState ->
+                                                    Io:toggle(lastState),
+                                                ledState, Time:every(100, timerState));
+    Io:digOut(boardLed, ledSig)
+)
+
+fun setup() : unit =
+    Io:setPinMode(boardLed, Io:output())
+
+fun main() : unit = (
+    setup();
+    while true do (
+        blink();
+        Time:sleep(50)
+    ) end
+)

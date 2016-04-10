@@ -5,19 +5,16 @@ let buttonPin : uint16 = 2
 let ledPin : uint16 = 13
 
 let buttonState : buttonState ref = Button:state()
-
+let edgeState : pinState ref = ref Io:low()
 let ledState : pinState ref = ref Io:high()
 
 fun button() : unit = (
     let buttonSig = Io:digIn(buttonPin);
-    let debouncedSig = Button:debounce(buttonSig, buttonState);
+    let debouncedSig = Io:edge(Button:debounce(buttonSig, buttonState), edgeState);
     let ledSig =
         Signal:foldP<pinState, pinState>(
             fn (currentButtonState : pinState, currentLedState : pinState) : pinState ->
-                case currentButtonState of
-                | high() => Io:toggle(currentLedState)
-                | low() => currentLedState
-                end,
+                Io:toggle(currentLedState),
             ledState, debouncedSig);
     Io:digOut(ledPin, ledSig)
 )

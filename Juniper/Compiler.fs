@@ -529,6 +529,7 @@ and compileProgram (modList : Module list) : string =
     output "#include <inttypes.h>" + newline() +
     output "#include \"juniper.hpp\"" + newline() +
     output "#include <stdbool.h>" + newline() +
+    output "#include <Arduino.h>" + newline() +
     output "#include <math.h>" + newline() + newline() +
     (modList |> List.map (fun (Module module_)->
         let moduleName = Module module_ |> Module.nameInModule |> unwrap

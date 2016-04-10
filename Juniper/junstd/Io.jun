@@ -106,29 +106,32 @@ fun anaOut(pin : uint16, sig : sig<uint16>) : unit =
     Signal:sink<uint16>(fn (value : uint16) : unit -> anaWrite(pin, value), sig)
 
 fun risingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<pinState> =
-    Signal:filter<pinState>(fn (currState : pinState) : bool ->
-        case (currState, !prevState) of
-        | (high(), low()) => false
-        | _ => true
-        end
-    , sig)
+    Signal:filter<pinState>(fn (currState : pinState) : bool -> (
+        let ret = case (currState, !prevState) of
+                  | (high(), low()) => false
+                  | _ => true
+                  end;
+        set ref prevState = currState;
+        ret) , sig)
 
 fun fallingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<pinState> =
-    Signal:filter<pinState>(fn (currState : pinState) : bool ->
-        case (currState, !prevState) of
-        | (low(), high()) => false
-        | _ => true
-        end
-    , sig)
+    Signal:filter<pinState>(fn (currState : pinState) : bool -> (
+        let ret = case (currState, !prevState) of
+                  | (low(), high()) => false
+                  | _ => true
+                  end;
+        set ref prevState = currState;
+        ret) , sig)
 
 fun edge(sig : sig<pinState>, prevState : pinState ref) : sig<pinState> =
-    Signal:filter<pinState>(fn (currState : pinState) : bool ->
-        case (currState, !prevState) of
-        | (high(), low()) => false
-        | (low(), high()) => false
-        | _ => true
-        end
-    , sig)
+    Signal:filter<pinState>(fn (currState : pinState) : bool -> (
+        let ret = case (currState, !prevState) of
+                  | (high(), low()) => false
+                  | (low(), high()) => false
+                  | _ => true
+                  end;
+        set ref prevState = currState;
+        ret) , sig)
 
 fun pinModeToInt(m : mode) : uint8 =
     case m of

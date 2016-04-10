@@ -32,8 +32,52 @@ edge)
 *)
 type pinState = high | low
 
+(*
+    Type: mode
+
+    | mode
+
+    Constructors:
+        - <input>
+        - <output>
+        - <inputPullup>
+*)
+(*
+    Function: input
+
+    Type signature:
+    | () -> mode
+*)
+(*
+    Function: output
+
+    Type signature:
+    | () -> mode
+*)
+(*
+    Function: inputPullup
+
+    Type Signature:
+    | () -> mode
+*)
 type mode = input | output | inputPullup
 
+(*
+    Function: toggle
+
+    Given a high value, returns a low value. Given a low value, returns a high
+    value.
+
+    Type signature:
+    | (pinState) -> pinState
+
+    Parameters:
+        p : pinState - The <pinState> which you would like to find the opposite
+        value of.
+
+    Returns:
+        The opposite <pinState>.
+*)
 fun toggle(p : pinState) : pinState =
     case p of
     | high() => low()
@@ -54,11 +98,22 @@ fun toggle(p : pinState) : pinState =
     Returns:
         Unit
 *)
-fun write<;n>(str : list<uint8; n>) : unit =
-    #Serial.write(&str.data);#
+fun write<;n>(str : string<;n>) : unit =
+    #Serial.write(&str.characters.data);#
 
 (*
+    Function: pinStateToInt
 
+    Converts a <pinState> to an integer representation.
+
+    Type signature:
+    | (pinState) -> uint8
+
+    Parameters:
+        value : pinState - The pinState to Converts
+
+    Returns:
+        0 for <low> and 1 for <high>
 *)
 fun pinStateToInt(value : pinState) : uint8 =
     case value of
@@ -66,6 +121,20 @@ fun pinStateToInt(value : pinState) : uint8 =
     | high() => 1
     end
 
+(*
+    Function: intToPinState
+
+    Converts an integer to a <pinState> representation.
+
+    Type signature:
+    | (uint8) -> pinState
+
+    Parameters:
+        value : uint8 - The integer value to convert
+
+    Returns:
+        <low> for 0 and <high> for anything else
+*)
 fun intToPinState(value : uint8) : pinState =
     if value == 0 then
         low()
@@ -73,56 +142,304 @@ fun intToPinState(value : uint8) : pinState =
         high()
     end
 
+(*
+    Function: digWrite
+
+    Writes a value directly to a pin.
+
+    Type signature:
+    | (uint16, pinState) -> unit
+
+    Parameters:
+        pin : uint16 - The pin to write to.
+        value : pinState - The state the pin should be in.
+
+    Returns:
+        Unit
+
+    See also:
+        <digOut>
+*)
 fun digWrite(pin : uint16, value : pinState) : unit = (
     let intVal = pinStateToInt(value);
     #digitalWrite(pin, intVal);#
 )
 
+(*
+    Function: digRead
+
+    Reads a value direction from a pin.
+
+    Type signature:
+    | (uint16) -> pinState
+
+    Parameters:
+        pin : uint16 - The pin to read from.
+
+    Returns:
+        The value of the pin.
+
+    See also:
+        <digIn>
+*)
 fun digRead(pin : uint16) : pinState = (
     let intVal : uint8 = 0;
     #intVal = digitalRead(pin);#;
     intToPinState(intVal)
 )
 
+(*
+    Function: digIn
+
+    Creates an input signal given some pin identifier.
+
+    Type signature:
+    | (uint16) -> sig<pinState>
+
+    Parameters:
+        pin : uint16 - The pin to read from
+
+    Returns:
+        A signal holding the state of the pin.
+
+    See also:
+        <digRead>
+*)
 fun digIn(pin : uint16) : sig<pinState> =
     signal<pinState>(just<pinState>(digRead(pin)))
 
+(*
+    Function: digOut
+
+    Takes in an input signal and writes the value contained in the signal to the
+    given pin.
+
+    Type signature:
+    | (uint16, sig<pinState>) -> unit
+
+    Parameters:
+        pin : uint16 - The pin to write to
+        sig : sig<pinState> - The signal to output to the pin
+
+    Returns:
+        Unit
+
+    See also:
+        <digWrite>
+*)
 fun digOut(pin : uint16, sig : sig<pinState>) : unit =
     Signal:sink<pinState>(fn (value : pinState) : unit -> digWrite(pin, value), sig)
 
+(*
+    Function: anaRead
+
+    Reads a value directly from an analog pin.
+
+    Type signature:
+    | (uint16) -> uint16
+
+    Parameters:
+        pin : uint16 - The pin to read from
+
+    Returns:
+        A value ranging from 0 to 1023.
+
+    See also:
+        <anaIn>
+        https://www.arduino.cc/en/Reference/AnalogRead
+*)
 fun anaRead(pin : uint16) : uint16 = (
     let value : uint16 = 0;
     #value = analogRead(pin);#;
     value
 )
 
+(*
+    Function: anaWrite
+
+    Writes an analog (PWM) value directly to an analog pin.
+
+    Type signature:
+    | (uint16, uint8) -> unit
+
+    Parameters:
+        pin : uint16 - The pin to write to
+        value: uint8 - The analog value to write to the pin. This number ranges
+        from 0 (always off) to 255 (always on)
+
+    See also:
+        <anaOut>
+        https://www.arduino.cc/en/Reference/AnalogWrite
+*)
 fun anaWrite(pin : uint16, value : uint8) : unit =
     #analogWrite(pin, value);#
 
+(*
+    Function: anaIn
+
+    Creates an analog input signal given some pin identifier.
+
+    Type signature:
+    | (uint16) -> sig<uint16>
+
+    Parameters:
+        pin : uint16 - The pin to read from
+
+    See also:
+        <anaRead>
+*)
 fun anaIn(pin : uint16) : sig<uint16> =
     signal<uint16>(just<uint16>(anaRead(pin)))
 
+(*
+    Function: anaOut
+
+    Takes in an analog input signal and writes the value contained in the signal
+    to the given analog pin.
+
+    Type signature:
+    | (uint16, sig<uint16>) -> unit
+
+    Parameters:
+        pin : uint16 - The pin to write to
+        sig : sig<uint16> - The analog signal to output to a pin
+
+    Returns:
+        Unit
+*)
 fun anaOut(pin : uint16, sig : sig<uint16>) : unit =
     Signal:sink<uint16>(fn (value : uint16) : unit -> anaWrite(pin, value), sig)
 
-fun risingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<pinState> =
-    Signal:filter<pinState>(fn (currState : pinState) : bool -> (
-        let ret = case (currState, !prevState) of
-                  | (high(), low()) => false
-                  | _ => true
-                  end;
-        set ref prevState = currState;
-        ret) , sig)
 
-fun fallingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<pinState> =
-    Signal:filter<pinState>(fn (currState : pinState) : bool -> (
-        let ret = case (currState, !prevState) of
-                  | (low(), high()) => false
-                  | _ => true
-                  end;
-        set ref prevState = currState;
-        ret) , sig)
+(*
+    Function: pinModeToInt
 
+    Converts a pinMode to an integer representation.
+
+    Type signature:
+    | (mode) -> uint8
+
+    Parameters:
+        m : mode - The mode to convert
+
+    Returns:
+        0 for <input>, 1 for <output> and 2 for <inputPullup>
+*)
+fun pinModeToInt(m : mode) : uint8 =
+    case m of
+    | input() => 0
+    | output() => 1
+    | inputPullup() => 2
+    end
+
+(*
+    Function: intToPinMode
+
+    Converts an integer representation to a pinMode
+
+    Type signature:
+    | (uint8) -> mode
+
+    Parameters:
+    | m : uint8 - The mode to convert
+
+    Returns:
+        <input> for 0, <output> for 1 and <inputPullup> for 2
+*)
+fun intToPinMode(m : uint8) : mode =
+    case m of
+    | 0 => input()
+    | 1 => output()
+    | 2 => inputPullup()
+    end
+
+(*
+    Function: setPinMode
+
+    Sets the <mode> of a specified pin
+
+    Type signature:
+    | (uint16, mode) -> unit
+
+    Returns:
+        Unit
+*)
+fun setPinMode(pin : uint16, m : mode) : unit = (
+    let m2 = pinModeToInt(m);
+    #pinMode(pin, m2);#
+)
+
+(*
+    Function: risingEdge
+
+    Takes in a signal and a previous state and outputs a new signal that fires
+    when the input signal transitions from <low> to <high>.
+
+    Type signature:
+    | (sig<pinState>, pinState ref) -> sig<unit>
+
+    Parameters:
+        sig : sig<pinState> - The digital input signal
+        prevState : pinState ref - Holds the previous state of the signal
+
+    Returns:
+        A signal of type unit. The signal fires unit on a rising edge, otherwise
+        it does not fire.
+*)
+fun risingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
+    Signal:toUnit<pinState>(
+        Signal:filter<pinState>(fn (currState : pinState) : bool -> (
+            let ret = case (currState, !prevState) of
+                      | (high(), low()) => false
+                      | _ => true
+                      end;
+            set ref prevState = currState;
+            ret), sig))
+
+(*
+    Function: fallingEdge
+
+    Takes in a signal and a previous state and outputs a new signal that fires
+    when the input signal transitions from <high> to <low>.
+
+    Type signature:
+    | (sig<pinState>, pinState ref) -> sig<unit>
+
+    Parameters:
+        sig : sig<pinState> - The digital input signal
+        prevState : pinState ref - Holds the previous state of the signal
+
+    Returns:
+        A signal of type unit. The signal fires unit on a falling edge,
+        otherwise it does not fire.
+*)
+fun fallingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
+    Signal:toUnit<pinState>(
+        Signal:filter<pinState>(fn (currState : pinState) : bool -> (
+            let ret = case (currState, !prevState) of
+                      | (low(), high()) => false
+                      | _ => true
+                      end;
+            set ref prevState = currState;
+            ret), sig))
+
+(*
+    Function: edge
+
+    Takes in a signal and a previous state and outputs a new signal that fires
+    when the input transitions from <high> to <low> or <low> to <high>
+
+    Type signature:
+    | (sig<pinState>, pinState ref) -> sig<pinState>
+
+    Parameters:
+        sig : sig<pinState> - The digital input signal
+        prevState : pinState ref - Holds the previous state of the signal
+
+    Returns:
+        A signal that outputs <high> on a rising edge and <low> on a falling
+        edge.
+*)
 fun edge(sig : sig<pinState>, prevState : pinState ref) : sig<pinState> =
     Signal:filter<pinState>(fn (currState : pinState) : bool -> (
         let ret = case (currState, !prevState) of
@@ -132,22 +449,3 @@ fun edge(sig : sig<pinState>, prevState : pinState ref) : sig<pinState> =
                   end;
         set ref prevState = currState;
         ret) , sig)
-
-fun pinModeToInt(m : mode) : uint8 =
-    case m of
-    | input() => 0
-    | output() => 1
-    | inputPullup() => 2
-    end
-
-fun intToPinMode(m : uint8) : mode =
-    case m of
-    | 0 => input()
-    | 1 => output()
-    | 2 => inputPullup()
-    end
-
-fun setPinMode(pin : uint32, m : mode) : unit = (
-    let m2 = pinModeToInt(m);
-    #pinMode(pin, m2);#
-)

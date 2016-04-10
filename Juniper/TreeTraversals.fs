@@ -9,13 +9,24 @@ let mutable recordReaders : List<System.Type * (obj -> obj[])> = []
 (*
     Simultaneously maps and folds a list
 *)
-let rec mapfoldl f accu0 list =
+(*let rec mapfoldl f accu0 list =
     match list with
         | (hd::tail) ->
             let (accu1, r) = f accu0 hd
             let (accu2, rs) = mapfoldl f accu1 tail
             (accu2, r::rs)
-        | [] -> (accu0, [])
+        | [] -> (accu0, [])*)
+
+// This imperative version of mapfoldl is used to avoid
+// stack overflows
+let rec mapfoldl f accum0 list =
+    let mutable resultList = []
+    let mutable accumulator = accum0
+    for elem in list do
+        let (accum1, r) = f accumulator elem
+        accumulator <- accum1
+        resultList <- r::resultList
+    (accumulator, List.rev resultList)
 
 open Microsoft.FSharp.Reflection
 let drill<'accum> (traverse : 'accum->obj->('accum*obj)) (accum0 : 'accum) (o:obj) =

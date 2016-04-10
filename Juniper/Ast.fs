@@ -139,7 +139,7 @@ and CallRec =         { func : PosAdorn<Expr>; args : PosAdorn<PosAdorn<Expr> li
 // Applying the template of a function
 and TemplateApplyExpRec = { func : PosAdorn<Expr>; templateArgs : PosAdorn<TemplateApply> }
 and RecordExprRec =   { recordTy : PosAdorn<TyExpr>; templateArgs : PosAdorn<TemplateApply> option; initFields : PosAdorn<(PosAdorn<string> * PosAdorn<Expr>) list> }
-and ArrayMakeExpRec = { typ : PosAdorn<TyExpr>; initializer : PosAdorn<Expr> }
+and ArrayMakeExpRec = { typ : PosAdorn<TyExpr>; initializer : PosAdorn<Expr> option }
 and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | BinaryOpExp of BinaryOpRec
           | IfElseExp of IfElseRec

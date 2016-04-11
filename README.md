@@ -30,3 +30,16 @@ The purpose of Juniper is to provide a functional reactive programming platform 
 #### Juniper Subfolder
 
 - Contains the code used for the compiler
+
+
+## Building the Juniper Compiler
+
+To get started using Juniper, you'll first need to build the compiler using the source in this repository.
+
+### For Windows machines
+
+1. If you do not have it already, download and install Microsoft Visual Studio, 2015 edition or later.
+2. Clone this repository to your local machine.
+3. Open /Juniper.sln in Visual Studio.
+4. When the solution opens, go to the Solution Explorer and find the "References" tab underneath the "Juniper" project. Right click on "References", and select "Manage NuGet Packages." Verify that FsLexYacc is installed as part of your solution.
+5. Build the Juniper project (either in Debug mode or Build mode).

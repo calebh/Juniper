@@ -32,14 +32,43 @@ The purpose of Juniper is to provide a functional reactive programming platform 
 - Contains the code used for the compiler
 
 
-## Building the Juniper Compiler
+## Building and Running the Juniper Compiler
 
 To get started using Juniper, you'll first need to build the compiler using the source in this repository.
 
-### For Windows machines
+### For Windows machines:
+
+#### For building:
 
 1. If you do not have it already, download and install Microsoft Visual Studio, 2015 edition or later.
 2. Clone this repository to your local machine.
 3. Open /Juniper.sln in Visual Studio.
 4. When the solution opens, go to the Solution Explorer and find the "References" tab underneath the "Juniper" project. Right click on "References", and select "Manage NuGet Packages." Verify that FsLexYacc is installed as part of your solution.
 5. Build the Juniper project (either in Debug mode or Build mode).
+6. The result should be a builted .exe file called "Juniper.exe".
+7. (Optional) Add Juniper.exe to PATH variables so that it can be run from any directory.
+
+#### For writing Juniper files:
+
+You can write Juniper files in any text editor, but the Atom text editor supports a plugin for Juniper text highlighting, which is very useful for code readability. Install Atom, and install the plugin "language-juniper" from inside the editor.
+
+#### For running the compiler:
+
+1. From the command line, run "Juniper.exe [.jun modules as arguments] > [output file]"
+2. This should build your .cpp file. When you compile and build it to your Arduino (with your preferred method, such as PlatformIO), make sure juniper.hpp is located in the same directory. You can find a copy of juniper.hpp in Juniper/Juniper/cppstd/.
+
+### For Linux Machines:
+
+1. Follow [these instructions](http://fsharp.org/use/linux/) for F# installation on Linux. Choose the option that works best for you.
+2. Open the Juniper.sln solution file. Check the references, and refresh them if necessary. Verify that FsLexYacc works. Update NuGet packages.
+3. If the target framework version is not supported, open Juniper.fsproj, and change the TargetFrameworkVersion tag to v4.5.
+3. Build the Juniper project.
+
+#### For writing Juniper files:
+
+You can write Juniper files in any text editor, but the Atom text editor supports a plugin for Juniper text highlighting, which is very useful for code readability. Install Atom, and install the package "language-juniper" from inside the editor.
+
+#### For running
+
+1. Run the shell script "juniper", found in Juniper/Juniper/. Arguments should be your .jun modules.
+2. This should build your .cpp file. When you compile and build it to your Arduino (with your preferred method, such as PlatformIO), make sure juniper.hpp is located in the same directory. You can find a copy of juniper.hpp in Juniper/Juniper/cppstd/.

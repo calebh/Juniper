@@ -147,11 +147,8 @@ fun nth<'t;n>(i : uint32, lst : list<'t;n>) : 't =
         The flattened list
 *)
 
-// TODO: Fix crash caused by m,n instead of p,q. This causes
-// the capacity variable name to clash with the n capacity
-// name in Prelude:list
-fun flatten<'t;p,q>(listOfLists : list<list<'t;p>;q>) : list<'t;p*q> = (
-    let mutable ret = array 't[p*q] end;
+fun flatten<'t;m,n>(listOfLists : list<list<'t;m>;n>) : list<'t;m*n> = (
+    let mutable ret = array 't[m*n] end;
     let mutable index : uint32 = 0;
     for i : uint32 in 0 to listOfLists.length - 1 do
         for j : uint32 in 0 to listOfLists.data[i].length - 1 do
@@ -159,7 +156,7 @@ fun flatten<'t;p,q>(listOfLists : list<list<'t;p>;q>) : list<'t;p*q> = (
             set index = index + 1)
         end
     end;
-    list<'t;p*q>{data=ret; length=index}
+    list<'t;m*n>{data=ret; length=index}
 )
 
 

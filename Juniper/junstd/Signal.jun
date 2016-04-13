@@ -149,14 +149,14 @@ fun mergeMany<'a;n>(sigs : list<sig<'a>;n>) : sig<'a> = (
 *)
 
 // TODO: Investigate bug where 'a, 'b is used instead of 'x,'y
-fun join<'x,'y>(sigA : sig<'x>, sigB : sig<'y>) : sig<either<'x,'y>> =
+fun join<'a,'b>(sigA : sig<'a>, sigB : sig<'b>) : sig<either<'a,'b>> =
     case (sigA, sigB) of
-    | (signal<'x>(just<'y>(value)), _) =>
-        signal<either<'x,'y>>(just<either<'x,'y>>(left<'x,'y>(value)))
-    | (_, signal<'x>(just<'y>(value))) =>
-        signal<either<'x,'y>>(just<either<'x,'y>>(right<'x,'y>(value)))
+    | (signal<'a>(just<'a>(value)), _) =>
+        signal<either<'a,'b>>(just<either<'a,'b>>(left<'a,'b>(value)))
+    | (_, signal<'b>(just<'b>(value))) =>
+        signal<either<'a,'b>>(just<either<'a,'b>>(right<'a,'b>(value)))
     | _ =>
-        signal<either<'x,'y>>(nothing<either<'x,'y>>())
+        signal<either<'a,'b>>(nothing<either<'a,'b>>())
     end
 
 (*

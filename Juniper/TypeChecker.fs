@@ -137,10 +137,20 @@ let qualifierWrap modName decName =
 let applyTemplate dec (substitutions : TemplateApply) =
     let replace tyMap capMap haystack =
         TreeTraversals.map2 (fun tyExpr -> match tyExpr with
-                                               | ForallTy (_, _, name) -> Map.find name tyMap
-                                               | x -> x)
+                                               | ForallTy (_, _, name) ->
+                                                    match Map.tryFind name tyMap with
+                                                        | Some substitution -> substitution
+                                                        // In this case, the ForallTy was a member
+                                                        // of the outer template. Consider the
+                                                        // substitution that occurs in List:flatten
+                                                        // for an example
+                                                        | None -> tyExpr
+                                               | _-> tyExpr)
                             (fun capExpr -> match capExpr with
-                                                | CapacityNameExpr (_, _, name) -> Map.find name capMap
+                                                | CapacityNameExpr (_, _, name) ->
+                                                    match Map.tryFind name capMap with
+                                                        | Some substitution -> substitution
+                                                        | None -> capExpr
                                                 | x -> x) haystack
     let tySubstitutions = substitutions.tyExprs |> unwrap |> List.map unwrap
     let capSubstitutions = substitutions.capExprs |> unwrap |> List.map unwrap
@@ -331,13 +341,17 @@ let rec applyTemplateToFunctionType (funType : TyExpr) (template : TemplateApply
             (fun (ty : TyExpr) ->
                 match ty with
                     | ForallTy (_, _, name) ->
-                        Map.find name tyMap |> unwrap
-                    | x -> x)
+                        match Map.tryFind name tyMap with
+                            | Some x -> x |> unwrap
+                            | None -> ty
+                    | _ -> ty)
             (fun (cap : CapacityExpr) ->
                 match cap with
                     | CapacityNameExpr (_, _, name) ->
-                        Map.find name capMap |> unwrap
-                    | x -> x)
+                        match Map.tryFind name capMap with
+                            | Some x -> x |> unwrap
+                            | None -> cap
+                    | _ -> cap)
             funType)
     FunTy {result with template=None}
 
@@ -479,6 +493,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                         ()
                                     else
                                         printfn "%sType error: Value constructor given in pattern does not match the type of the expression." (posString posn)
+                                        failwith "Type error"
                                     let unionDec = Map.find (unwrap srcModule, unwrap srcName) denv |> unwrap
                                     let index = match unionDec with
                                                     | UnionDec {valCons=valCons} ->

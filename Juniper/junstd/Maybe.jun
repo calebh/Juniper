@@ -80,7 +80,7 @@ fun isJust<'a>(maybeVal : maybe<'a>) : bool =
         True if the maybe evalue is nothing, false otherwise.
 *)
 fun isNothing<'a>(maybeVal : maybe<'a>) : bool =
-    not isSome<'a>(maybeVal)
+    not isJust<'a>(maybeVal)
 
 (*
     Function: count

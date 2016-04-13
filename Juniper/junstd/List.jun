@@ -30,7 +30,7 @@ fun map<'a,'b;n>(f : ('a) -> 'b, lst : list<'a; n>) : list<'b; n> = (
     for i : uint32 in 0 to lst.length - 1 do
         set ret[i] = f(lst.data[i])
     end;
-    list<'b>{data=ret; length=lst.length}
+    list<'b;n>{data=ret; length=lst.length}
 )
 
 (*
@@ -138,16 +138,17 @@ fun nth<'t;n>(i : uint32, lst : list<'t;n>) : 't =
     Flattens a list of lists into a single list.
 
     Type Signature:
-    | <'t;n;m>(list<list<'t;m>;n>) -> list<'t;n*m>
+    | <'t;p,q>(list<list<'t;m>;n>) -> list<'t;n*m>
 
     Parameters:
-        listOfLists : list<list<'t;m>;n> - The list of lists
+        listOfLists : list<list<'t;p>;q> - The list of lists
 
     Returns:
         The flattened list
 *)
-fun flatten<'t;n,m>(listOfLists : list<list<'t;m>;n>) : list<'t;n*m> = (
-    let mutable ret = array 't[n*m] end;
+
+fun flatten<'t;m,n>(listOfLists : list<list<'t;m>;n>) : list<'t;m*n> = (
+    let mutable ret = array 't[m*n] end;
     let mutable index : uint32 = 0;
     for i : uint32 in 0 to listOfLists.length - 1 do
         for j : uint32 in 0 to listOfLists.data[i].length - 1 do
@@ -155,8 +156,9 @@ fun flatten<'t;n,m>(listOfLists : list<list<'t;m>;n>) : list<'t;n*m> = (
             set index = index + 1)
         end
     end;
-    list<'t;n*m>{data=ret; length=index}
+    list<'t;m*n>{data=ret; length=index}
 )
+
 
 (*
     Function: resize
@@ -176,7 +178,7 @@ fun flatten<'t;n,m>(listOfLists : list<list<'t;m>;n>) : list<'t;n*m> = (
 fun resize<'t;n,m>(lst : list<'t;n>) : list<'t;m> = (
     let mutable ret = array 't[m] end;
     for i : uint32 in 0 to lst.length - 1 do
-        set ret[i] = list.data[i]
+        set ret[i] = lst.data[i]
     end;
     list<'t;m>{data=ret; length=lst.length}
 )

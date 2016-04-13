@@ -27,8 +27,9 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DocumentationFile>bin\Debug\Juniper.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
-    <StartWorkingDirectory>C:\Users\caleb\Documents\Visual Studio 2015\Projects\Juniper\Juniper\examples\</StartWorkingDirectory>
-    <StartArguments>Potentiometer.jun</StartArguments>
+    <StartWorkingDirectory>
+    </StartWorkingDirectory>
+    <StartArguments>examples/Blink.jun</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -40,8 +41,9 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DocumentationFile>bin\Release\Juniper.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
-    <StartWorkingDirectory>C:\Users\caleb\Documents\Visual Studio 2015\Projects\Juniper\Juniper\examples\</StartWorkingDirectory>
-    <StartArguments>ButtonDebounce.jun</StartArguments>
+    <StartWorkingDirectory>
+    </StartWorkingDirectory>
+    <StartArguments>examples/Blink.jun</StartArguments>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -82,6 +84,10 @@
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="FSharpx.Core">
+      <HintPath>..\packages\FSharpx.Core.1.8.32\lib\40\FSharpx.Core.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="FsLexYacc.Runtime">
       <HintPath>..\packages\FsLexYacc.Runtime.6.1.0\lib\net40\FsLexYacc.Runtime.dll</HintPath>
       <Private>True</Private>
@@ -105,7 +111,6 @@
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
   </Target>-->
-
   <Target Name="AfterBuild" Condition=" '$(OS)' == 'Unix'">
     <Copy SourceFiles="@(JunStd)" DestinationFolder="$(ProjectDir)bin/$(ConfigurationName)/junstd" />
     <Copy SourceFiles="@(CppStd)" DestinationFolder="$(ProjectDir)bin/$(ConfigurationName)/cppstd" />
@@ -116,25 +121,25 @@
   <Choose>
     <!-- Mono copy support -->
     <When Condition=" '$(OS)' == 'Unix'">
-        <ItemGroup>
-          <JunStd Include="$(ProjectDir)junstd/*" />
-          <CppStd Include="$(ProjectDir)cppstd/*" />
-          <Examples Include="$(ProjectDir)examples/*" />
-          <Wrappers Include="$(ProjectDir)wrappers/*" />
-          <LinuxLauncher Include="$(ProjectDir)juniper" />
-        </ItemGroup>
+      <ItemGroup>
+        <JunStd Include="$(ProjectDir)junstd/*" />
+        <CppStd Include="$(ProjectDir)cppstd/*" />
+        <Examples Include="$(ProjectDir)examples/*" />
+        <Wrappers Include="$(ProjectDir)wrappers/*" />
+        <LinuxLauncher Include="$(ProjectDir)juniper" />
+      </ItemGroup>
     </When>
     <!-- Visual Studio can't seem to copy entire directories with the copy command
          Resort to xcopy instead -->
     <When Condition=" '$(OS)' != 'Unix'">
-        <PropertyGroup>
-            <PostBuildEvent>xcopy /e/i/y "$(ProjectDir)junstd" "$(ProjectDir)bin\$(ConfigurationName)\junstd"
+      <PropertyGroup>
+        <PostBuildEvent>xcopy /e/i/y "$(ProjectDir)junstd" "$(ProjectDir)bin\$(ConfigurationName)\junstd"
 xcopy /e/i/y "$(ProjectDir)cppstd" "$(ProjectDir)bin\$(ConfigurationName)\cppstd"
 xcopy /e/i/y "$(ProjectDir)examples" "$(ProjectDir)bin\$(ConfigurationName)\examples"
 xcopy /e/i/y "$(ProjectDir)wrappers" "$(ProjectDir)bin\$(ConfigurationName)\wrappers"
 xcopy /y "$(ProjectDir)juniper" "$(ProjectDir)bin\$(ConfigurationName)"
             </PostBuildEvent>
-        </PropertyGroup>
+      </PropertyGroup>
     </When>
   </Choose>
 </Project>

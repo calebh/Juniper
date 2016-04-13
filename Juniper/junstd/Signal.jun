@@ -1,7 +1,6 @@
 module Signal
 open(Prelude)
-export(map, filter, merge, foldP, sink, toUnit, merge, mergeMany, join,
-dropRepeats)
+export(map, filter, merge, foldP, sink, merge, join, toUnit, dropRepeats)
 
 (*
     Interface: Signal
@@ -148,11 +147,16 @@ fun mergeMany<'a;n>(sigs : list<sig<'a>;n>) : sig<'a> = (
     Returns:
         A signal of the two joined streams.
 *)
+
+// TODO: Investigate bug where 'a, 'b is used instead of 'x,'y
 fun join<'a,'b>(sigA : sig<'a>, sigB : sig<'b>) : sig<either<'a,'b>> =
     case (sigA, sigB) of
-    | (signal<'a>(just<'a>(x)), _) => left<'a,'b>(x)
-    | (_, signal<'b>(just<'b>(x))) => right<'a,'b>(x)
-    | _ => signal<either<'a,'b>>(nothing<either<'a,'b>>())
+    | (signal<'a>(just<'a>(value)), _) =>
+        signal<either<'a,'b>>(just<either<'a,'b>>(left<'a,'b>(value)))
+    | (_, signal<'b>(just<'b>(value))) =>
+        signal<either<'a,'b>>(just<either<'a,'b>>(right<'a,'b>(value)))
+    | _ =>
+        signal<either<'a,'b>>(nothing<either<'a,'b>>())
     end
 
 (*

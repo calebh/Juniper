@@ -32,7 +32,7 @@ let main argv =
     try
         // Typecheck the ASTs
         let typedAsts = TypeChecker.typecheckProgram asts fnames
-        // Compile to C++ the typechecked (and typed) ASTs)
+        // Compile to C++ the typechecked (and typed) ASTs
         let compiledProgram = Compiler.compileProgram typedAsts
         printfn "%s" compiledProgram
         0

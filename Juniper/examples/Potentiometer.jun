@@ -4,7 +4,7 @@ open(Prelude, Time, Io)
 let potPin : uint16 = 2
 let ledPin : uint16 = 13
 
-fun setup() : unit = 
+fun setup() : unit =
     Io:setPinMode(ledPin, Io:output())
 
 let timeState : timerState ref = Time:state()
@@ -15,7 +15,7 @@ fun potentiometer() : unit = (
 	let timeSignal = Time:every(100, timeState);
 	let ledSignal =
 		Signal:foldP<uint32, pinState>(fn (currentTime : uint32, lastState : pinState) : pinState ->
-        	Io:otherPinState(lastState),
+        	Io:toggle(lastState),
             ledState, timeSignal);
 	Signal:sink<pinState>(fn (ledVal : pinState) : unit ->
 		Io:digWrite(ledPin, ledVal)

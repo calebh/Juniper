@@ -136,12 +136,52 @@ let qualifierWrap modName decName =
 // Takes in a declaration and substitutions and apply the template with these substitutions
 let applyTemplate dec (substitutions : TemplateApply) =
     let replace tyMap capMap haystack =
-        TreeTraversals.map2 (fun tyExpr -> match tyExpr with
-                                               | ForallTy (_, _, name) -> Map.find name tyMap
-                                               | x -> x)
-                            (fun capExpr -> match capExpr with
-                                                | CapacityNameExpr (_, _, name) -> Map.find name capMap
-                                                | x -> x) haystack
+        // We have to do this to avoid name clashes
+        // tyMap' maps auto generated names to the original name
+        let tyMap' = tyMap |> Map.mapAlt (fun originalType finalSubstitution -> (Guid.string(), originalType))
+        let tyMap'Inv = Map.invert tyMap'
+        let capMap' = capMap |> Map.mapAlt (fun originalCap finalSubstitution -> (Guid.string(), originalCap))
+        let capMap'Inv = Map.invert capMap'
+        // haystack' is now a declaration with unique identifiers as in its template
+        let haystack' = 
+            haystack |> TreeTraversals.map2
+                (fun tyExpr ->
+                    match tyExpr with
+                        | ForallTy (pos, _, name) ->
+                            match Map.tryFind name tyMap'Inv with
+                                | Some uniqueId ->
+                                    ForallTy (pos, None, uniqueId)
+                                | None -> tyExpr
+                        | _-> tyExpr)
+                (fun capExpr -> 
+                    match capExpr with
+                        | CapacityNameExpr (pos, _, name) ->
+                            match Map.tryFind name capMap'Inv with
+                                | Some uniqueId ->
+                                    CapacityNameExpr (pos, None, uniqueId)
+                                | None -> capExpr
+                        | _ -> capExpr)
+        haystack' |> TreeTraversals.map2
+            (fun tyExpr ->
+                match tyExpr with
+                    | ForallTy (_, _, uniqueId) ->
+                        match Map.tryFind uniqueId tyMap' with
+                            | Some originalName ->
+                                Map.find originalName tyMap
+                            // In this case, the ForallTy was a member
+                            // of the outer template. Consider the
+                            // substitution that occurs in List:flatten
+                            // for an example
+                            | None -> tyExpr
+                    | _-> tyExpr)
+            (fun capExpr ->
+                match capExpr with
+                    | CapacityNameExpr (_, _, uniqueId) ->
+                        match Map.tryFind uniqueId capMap' with
+                            | Some originalName ->
+                                Map.find originalName capMap
+                            | None -> capExpr
+                    | x -> x)
     let tySubstitutions = substitutions.tyExprs |> unwrap |> List.map unwrap
     let capSubstitutions = substitutions.capExprs |> unwrap |> List.map unwrap
     match dec with
@@ -153,14 +193,10 @@ let applyTemplate dec (substitutions : TemplateApply) =
             // functions is when typechecking templated functions after types have
             // been substituted. Bad coding practice? Possibly... but it works
             let tyMap = Map.ofList (List.zip (List.map unwrap tyVars) tySubstitutions)
-            let capMap = Map.ofList (List.zip (List.map unwrap capVars) capSubstitutions)
             FunctionDec {
                 name = name;
                 template = Some (posTemplate, None, {tyVars=(posTyVars, None, []); capVars=(posCapVars, None, capVars)});
-                clause = TreeTraversals.map1 (fun tyExpr -> match tyExpr with
-                                                                // TODO: Bug fix for when Map.find fails
-                                                                | ForallTy (_, _, name) -> Map.find name tyMap
-                                                                | x -> x) clause
+                clause = replace tyMap Map.empty clause
             }
         | RecordDec {name=name; template=Some (_, _, {tyVars=(_, _, tyVars); capVars=(_, _, capVars)}); fields=fields} ->
             // TODO: Better error message here when the zip fails
@@ -308,7 +344,6 @@ let rec typeString (ty : TyExpr) : string =
 // Prior to calling this function, it should be verified that funType actually
 // has a template
 let rec applyTemplateToFunctionType (funType : TyExpr) (template : TemplateApply) =
-    let foo = typeString funType
     let (FunTy {template=Some (_, _, funTemplate); args=_; returnType=_}) = funType
     let templateTyVarsLen = template.tyExprs |> unwrap |> List.length
     let funTemplateTyVarsLen = funTemplate.tyVars |> unwrap |> List.length
@@ -326,19 +361,45 @@ let rec applyTemplateToFunctionType (funType : TyExpr) (template : TemplateApply
         failwith "Type error"
     let tyMap = List.zip (funTemplate.tyVars |> unwrap |> List.map unwrap) (template.tyExprs |> unwrap) |> Map.ofList
     let capMap = List.zip (funTemplate.capVars |> unwrap |> List.map unwrap) (template.capExprs |> unwrap) |> Map.ofList
-    let (FunTy result) =
-        (TreeTraversals.map2
+    // We have to do this to avoid name clashes
+    let tyMap' = Map.mapAlt (fun originalType substitution -> (Guid.string(), originalType)) tyMap
+    let tyMap'Inv = Map.invert tyMap'
+    let capMap' = Map.mapAlt (fun originalCap substitution -> (Guid.string(), originalCap)) tyMap
+    let capMap'Inv = Map.invert capMap'
+    let funType' =
+        funType |> TreeTraversals.map2
             (fun (ty : TyExpr) ->
                 match ty with
-                    | ForallTy (_, _, name) ->
-                        Map.find name tyMap |> unwrap
-                    | x -> x)
+                    | ForallTy (pos, _, name) ->
+                        match Map.tryFind name tyMap'Inv with
+                            | Some uniqueId -> ForallTy (pos, None, uniqueId)
+                            | None -> ty
+                    | _ -> ty)
             (fun (cap : CapacityExpr) ->
                 match cap with
-                    | CapacityNameExpr (_, _, name) ->
-                        Map.find name capMap |> unwrap
-                    | x -> x)
-            funType)
+                    | CapacityNameExpr (pos, _, name) ->
+                        match Map.tryFind name capMap'Inv with
+                            | Some uniqueId -> CapacityNameExpr (pos, None, uniqueId)
+                            | None -> cap
+                    | _ -> cap) 
+    let (FunTy result) =
+        funType' |> TreeTraversals.map2
+            (fun (ty : TyExpr) ->
+                match ty with
+                    | ForallTy (_, _, uniqueName) ->
+                        match Map.tryFind uniqueName tyMap' with
+                            | Some originalName ->
+                                Map.find originalName tyMap |> unwrap
+                            | None -> ty
+                    | _ -> ty)
+            (fun (cap : CapacityExpr) ->
+                match cap with
+                    | CapacityNameExpr (_, _, uniqueName) ->
+                        match Map.tryFind uniqueName capMap' with
+                            | Some originalName ->
+                                Map.find originalName capMap |> unwrap
+                            | None -> cap
+                    | _ -> cap)
     FunTy {result with template=None}
 
 let toModuleQual (module_, name) =
@@ -479,6 +540,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                         ()
                                     else
                                         printfn "%sType error: Value constructor given in pattern does not match the type of the expression." (posString posn)
+                                        failwith "Type error"
                                     let unionDec = Map.find (unwrap srcModule, unwrap srcName) denv |> unwrap
                                     let index = match unionDec with
                                                     | UnionDec {valCons=valCons} ->

@@ -9,8 +9,8 @@ let adjColor2 : Neopixel:color = Neopixel:makeColor(0, 1, 2)
 fun getHeading(mag : vector<float;3>, acc : vector<float;3>) : float = (
     // See http://stackoverflow.com/questions/1185874/how-to-determine-absolute-orientation
     let b1 = Vector:normalize<float;3>(Vector:cross<float>(acc, Vector:cross<float>(mag, acc)));
-    let xx = Vector:get<float;3>(b1, x);
-    let yy = Vector:get<float;3>(b1, y);
+    let xx = Vector:get<float;3>(x, b1);
+    let yy = Vector:get<float;3>(y, b1);
     if 0.1 > ((xx * xx) + (yy * yy)) then
         0.0
     else

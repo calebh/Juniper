@@ -1,20 +1,102 @@
 module Vector
 open(Prelude, List, Math)
-export(vector, x, y, z, add, subtract, scale, dot, magnitude2, magnitude,
-angle, cross, make, get, multiply)
+export(vector, x, y, z, make, get, add, zero, subtract, scale, dot, multiply,
+normalize, magnitude2, magnitude, angle, cross, project, projectPlane)
 
+(*
+    Interface: Vector
+*)
+
+(*
+    Type: vector
+
+    Represents a mathematical vector
+
+    | vector<'a;n>
+
+    Members:
+        data : 'a[n] - The internal data storage of the vector
+*)
 type vector<'a;n> = { data : 'a[n] }
 
+(*
+    Variable: x
+
+    Equal to 0. Represents the index of the x dimension
+
+    Type:
+    | uint8
+*)
 let x : uint8 = 0
+(*
+    Variable: y
+
+    Equal to 1. Represents the index of the y dimension
+
+    Type:
+    | uint8
+*)
 let y : uint8 = 1
+(*
+    Variable: z
+
+    Equal to 2. Represents the index of the z dimension
+
+    Type:
+    | uint8
+*)
 let z : uint8 = 2
 
+(*
+    Function: make
+
+    Makes a vector from the given array
+
+    Type Signature:
+    | <'a;n>('a[n]) -> vector<'a;n>
+
+    Parameters:
+        d : 'a[n] - The initial array of data
+
+    Returns:
+        The vector
+*)
 fun make<'a;n>(d : 'a[n]) : vector<'a;n> =
     vector<'a;n> { data = d }
 
-fun get<'a;n>(v : vector<'a;n>, i : uint32) : 'a =
+(*
+    Function: get
+
+    Gets the ith component of the given vector.
+
+    Type Signautre:
+    | <'a;n>(uint32, vector<'a;n>) -> 'a
+
+    Parameters:
+        i : uint32 - The index of the component of the vector
+        v : vector<'a;n> - The vector to get the component of
+
+    Returns:
+        The value at the ith position in the vector.
+*)
+fun get<'a;n>(i : uint32, v : vector<'a;n>) : 'a =
     v.data[i]
 
+(*
+    Function: add
+
+    Adds two vectors and returns the results.
+
+    Type Signature:
+    <'a;n>(vector<'a;n>, vector<'a;n>) -> vector<'a;n>
+
+    Parameters:
+        v1 : vector<'a;n> - The first vector to add
+        v2 : vector<'a;n> - The second vector to add
+
+    Returns:
+        The sum of the two vectors
+*)
 fun add<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> = (
     let mutable result = v1;
     for i : uint32 in 0 to n - 1 do
@@ -23,9 +105,35 @@ fun add<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> = (
     result
 )
 
+(*
+    Function: zero
+
+    Returns the zero vector of n dimensions.
+
+    Type Signature:
+    <'a;n>() -> vector<'a;n>
+
+    Returns:
+        The zero vector of n dimensions.
+*)
 fun zero<'a;n>() : vector<'a;n> =
     vector<'a;n>{ data = array 'a[n] of 0 end }
 
+(*
+    Function: subtract
+
+    The vector subtraction operation.
+
+    Parameters:
+        v1 : vector<'a;n> - The first vector (minuend)
+        v2 : vector<'a;n> - The second vector (subtrahend)
+
+    Type Signature:
+    | <'a;n>(vector<'a;n>, vector<'a;n>) -> vector<'a;n>
+
+    Returns:
+        The vector difference v1-v2
+*)
 fun subtract<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> = (
     let mutable result = v1;
     for i : uint32 in 0 to n - 1 do
@@ -34,7 +142,22 @@ fun subtract<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> = (
     result
 )
 
-fun scale<'a;n>(v : vector<'a;n>, scalar : 'a) : vector<'a;n> = (
+(*
+    Function: scale
+
+    Scales the vector by the given scalar value.
+
+    Type Signature:
+    | <'a;n>('a, vector<'a;n>) -> vector<'a;n>
+
+    Parameters:
+        scalar : 'a - Scaling value
+        v : vector<'a;n> - The vector to scale
+
+    Returns:
+        The result of scalar*v
+*)
+fun scale<'a;n>(scalar : 'a, v : vector<'a;n>) : vector<'a;n> = (
     let mutable result = v;
     for i : uint32 in 0 to n - 1 do
         set result.data[i] = result.data[i] * scalar
@@ -42,14 +165,21 @@ fun scale<'a;n>(v : vector<'a;n>, scalar : 'a) : vector<'a;n> = (
     result
 )
 
-fun divide<'a;n>(v : vector<'a;n>, divisor : 'a) : vector<'a;n> = (
-    let mutable result = v;
-    for i : uint32 in 0 to n - 1 do
-        set result.data[i] = result.data[i] / divisor
-    end;
-    result
-)
+(*
+    Function: dot
 
+    Gives the dot product of two vectors
+
+    Type Signature:
+    | <'a;n>(vector<'a;n>, vector<'a;n>) -> 'a
+
+    Parameters:
+        v1 : vector<'a;n> - The first vector
+        v2 : vector<'a;n> - The second vector
+
+    Returns:
+        The result of v1 dot v2
+*)
 fun dot<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : 'a = (
     let mutable sum : 'a = 0;
     for i : uint32 in 0 to n - 1 do
@@ -58,6 +188,20 @@ fun dot<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : 'a = (
     sum
 )
 
+(*
+    Function: magnitude2
+
+    Gives the square magnitude of the vector
+
+    Type Signature:
+    | <'a;n>(vector<'a;n>) -> 'a
+
+    Parameters:
+        v : vector<'a;n> - The vector to find the magnitude^2 of
+
+    Returns:
+        The square magnitude of the vector
+*)
 fun magnitude2<'a;n>(v : vector<'a;n>) : 'a = (
     let mutable sum : 'a = 0;
     for i : uint32 in 0 to n - 1 do
@@ -66,9 +210,38 @@ fun magnitude2<'a;n>(v : vector<'a;n>) : 'a = (
     sum
 )
 
+(*
+    Function: magnitude
+
+    Gives the magnitude of the vector
+
+    Type Signature:
+    | <'a;n>(vector<'a;n>) -> double
+
+    Parameters:
+        v : vector<'a;n> - The vector to find the magnitude of
+
+    Returns:
+        The magnitude of the vector
+*)
 fun magnitude<'a;n>(v : vector<'a;n>) : double =
     sqrt_(magnitude2<'a;n>(v))
 
+(*
+    Function: multiply
+
+    Performs elementwise multiplication of two vectors.
+
+    Type Signature:
+    | <'a;n>(vector<'a;n>, vector<'a;n>) -> vector<'a;n>
+
+    Parameters:
+        u : vector<'a;n> - The first vector
+        v : vector<'a;n> - The second vector
+
+    Returns:
+        The vector formed by elementwise multiplication of the two vectors
+*)
 fun multiply<'a;n>(u : vector<'a;n>, v : vector<'a;n>) : vector<'a;n> = (
     let mutable result = u;
     for i : uint32 in 0 to n - 1 do
@@ -77,6 +250,20 @@ fun multiply<'a;n>(u : vector<'a;n>, v : vector<'a;n>) : vector<'a;n> = (
     result
 )
 
+(*
+    Function: normalize
+
+    Returns a normalized version of the given vector
+
+    Type Signature:
+    | <'a;n>(vector<'a;n>) -> vector<'a;n>
+
+    Parameters:
+        v : vector<'a;n> - The vector to normalize
+
+    Returns:
+        The normalized vector
+*)
 fun normalize<'a;n>(v : vector<'a;n>) : vector<'a;n> = (
     let mag = magnitude<'a;n>(v);
     if mag > 0 then (
@@ -90,19 +277,78 @@ fun normalize<'a;n>(v : vector<'a;n>) : vector<'a;n> = (
     end
 )
 
+(*
+    Function: angle
+
+    Gives the angle in radians between the two vectors.
+
+    Type Signature:
+    | <'a;n>(vector<'a;n>, vector<'a;n>) -> double
+
+    Parameters:
+        v1 : vector<'a;n> - The first vector
+        v2 : vector<'a;n> - The second vector
+
+    Returns:
+        The angle betweeen the two vectors.
+*)
 fun angle<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : double =
     acos_(dot<'a;n>(v1, v2)/sqrt_(magnitude2<'a;n>(v1)*magnitude2<'a;n>(v2)))
 
+(*
+    Function: cross
+
+    Gives the vector cross product of two vectors.
+
+    Type Signature:
+    | <'a>(vector<'a;3>, vector<'a;3>) -> vector<'a;3>
+
+    Parameters:
+        u : vector<'a;3> - The first vector
+        v : vector<'a;3> - The second vector
+
+    Returns:
+        The result of u cross v
+*)
 fun cross<'a>(u : vector<'a;3>, v : vector<'a;3>) : vector<'a;3> =
     vector<'a;3>{data=[(u.data[1]*v.data[2]) - (u.data[2]*v.data[1]),
                        (u.data[2]*v.data[0]) - (u.data[0]*v.data[2]),
                        (u.data[0]*v.data[1]) - (u.data[1]*v.data[0])]}
 
-// a onto b
+(*
+    Function: project
+
+    Projects vector a onto another vector b
+
+    Type Signature:
+    | <'z;n>(vector<'z;n>, vector<'z;n>) -> vector<'z;n>
+
+    Parameters:
+        a : vector<'z;n> - The vector to project
+        b : vector<'z;n> - The other vector
+
+    Returns:
+        The result of projecting vector a onto vector b
+*)
 fun project<'z;n>(a : vector<'z;n>, b : vector<'z;n>) : vector<'z;n> = (
     let bn = normalize<'z;n>(b);
-    scale<'z;n>(bn, dot<'z;n>(a, bn))
+    scale<'z;n>(dot<'z;n>(a, bn), bn)
 )
 
+(*
+    Function: projectPlane
+
+    Projects a vector onto a plane defined by a normal vector
+
+    Type Signature:
+    | <'z;n>(vector<'z;n>, vector<'z;n>) -> vector<'z;n>
+
+    Parameters:
+        a : vector<'z;n> - The vector to project
+        m : vector<'z;n> - The vector normal to the plane
+
+    Returns:
+        Vector a projected onto the plane defined by m
+*)
 fun projectPlane<'z;n>(a : vector<'z;n>, m : vector<'z;n>) : vector<'z;n> =
     subtract<'z;n>(a, project<'z;n>(a, m))

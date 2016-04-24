@@ -2,77 +2,300 @@ module Math
 open(Prelude)
 export(pi, e, degToRad, radToDeg, acos_, asin_, atan_, atan2_, cos_, cosh_,
 sin_, sinh_, tanh_, exp_, frexp_, ldexp_, log_, log10_, modf_, pow_, sqrt_,
-ceil_, fabs_, floor_, fmod_, round_, mapRange, clamp, min_, max_, sign)
+ceil_, fabs_, floor_, fmod_, round_, mapRange, clamp, min_, max_, sign, tan_)
 
+(*
+    Interface: Math
+*)
+
+(*
+    Variable: pi
+
+    The mathematical constant pi.
+
+    Type:
+    | double
+*)
 let pi : double = 3.141592653589793238462643383279502884197169399375105820974
+
+(*
+    Variable: e
+
+    The mathematical constant e, also known as Euler's number.
+
+    Type:
+    | double
+*)
 let e : double = 2.718281828459045235360287471352662497757247093699959574966
 
+(*
+    Function: degToRad
+
+    Converts a degree value to radians
+
+    Type:
+    | (double) -> double
+
+    Parameters:
+        degrees : double - The angle in degrees
+
+    Returns:
+        The angle in radians
+*)
 fun degToRad(degrees : double) : double =
     degrees * 0.017453292519943295769236907684886
 
+(*
+    Function: radToDeg
+
+    Converts a radian value to degrees
+
+    Type:
+    | (double) -> double
+
+    Parameters:
+        radians : double - The angle in radians
+
+    Returns:
+        The angle in degrees
+*)
 fun radToDeg(radians : double) : double =
     radians * 57.295779513082320876798154814105
 
+(*
+    Function: acos_
+
+    Takes the inverse cosine of the given number
+
+    Type Signature:
+    | (double) -> double
+
+    Parameters:
+        x : double - The value to take the acos of
+
+    Returns:
+        The inverse cosine value in radians
+*)
 fun acos_(x : double) : double = (
     let ret : double = 0.0;
     #ret = acos(x);#;
     ret
 )
 
+(*
+    Function: asin_
+
+    Takes the inverse sine of the given number
+
+    Type Signature:
+    | (double) -> double
+
+    Parameters:
+        x : double - The value to take the asin of
+
+    Returns:
+        The inverse sine value in radians.
+*)
 fun asin_(x : double) : double = (
     let ret : double = 0.0;
     #ret = asin(x);#;
     ret
 )
 
+(*
+    Function: atan_
+
+    Takes the inverse tangent of the given number
+
+    Type Signature:
+    | (double) -> double
+
+    Parameters:
+        x : double - The value to take the atan of
+
+    Returns:
+        The atan value, ranging in value from -pi/2 to pi/2.
+*)
 fun atan_(x : double) : double = (
     let ret : double = 0.0;
     #ret = atan(x);#;
     ret
 )
 
+(*
+    Function: atan2_
+
+    Returns the arc tangent in radians of y/x based on the signs of both values
+    to determine the correct quadrant.
+
+    Type Signature:
+    | (double, double) -> double
+
+    Parameters:
+        y : double - The y component
+        x : double - The x component
+
+    Returns:
+        The atan value, ranging in value from -pi to pi.
+*)
 fun atan2_(y: double, x : double) : double = (
     let ret : double = 0.0;
     #ret = atan2(y, x);#;
     ret
 )
 
+(*
+    Function: cos_
+
+    Returns the cosine of the given value.
+
+    Type Signature:
+    | (double) -> double
+
+    Parameters:
+        x : double - The value to take the cosine of in radians.
+
+    Returns:
+        The cosine value.
+*)
 fun cos_(x : double) : double = (
     let ret : double = 0.0;
     #ret = cos(x);#;
     ret
 )
 
+(*
+    Function: cosh_
+
+    Returns the hyperbolic cosine of the given value.
+
+    Type Signature:
+    | (double) -> double
+
+    Parameters:
+        x : double - The value to take the cosh of
+
+    Returns:
+        The hyperbolic cosine value.
+*)
 fun cosh_(x : double) : double = (
     let ret : double = 0.0;
     #ret = cosh(x);#;
     ret
 )
 
+(*
+    Function: sin_
+
+    Returns the sine of the given value.
+
+    Type Signature:
+    | (double) -> double
+
+    Parameters:
+        x : double - The value to take the sine of in radians
+
+    Returns:
+        The sine value.
+*)
 fun sin_(x : double) : double = (
     let ret : double = 0.0;
     #ret = sin(x);#;
     ret
 )
 
+(*
+    Function: sinh_
+
+    Returns the hyperbolic sine of the given value.
+
+    Type Signature:
+    | (double) -> double
+
+    Parameters:
+        x : double - The value to take the sinh of
+
+    Returns:
+        The hyperbolic sine value.
+*)
 fun sinh_(x : double) : double = (
     let ret : double = 0.0;
     #ret = sinh(x);#;
     ret
 )
 
+(*
+    Function: tan_
+
+    Returns the tangent of the given value.
+
+    Type Signature:
+    | (double) -> double
+
+    Parameters:
+        x : double - The value to take the tan of in radians
+
+    Returns:
+        The tangent value
+*)
+fun tan_(x : double) : double =
+    sin_(x) / cos_(x)
+
+(*
+    Function: tanh_
+
+    Returns the hyperbolic tangent of the given value.
+
+    Type Signature:
+    | (double) -> double
+
+    Parameters:
+        x : double - The value to take the tanh of
+
+    Returns:
+        The tanh value
+*)
 fun tanh_(x : double) : double = (
     let ret : double = 0.0;
     #ret = tanh(x);#;
     ret
 )
 
+(*
+    Function: exp_
+
+    Returns the value of e raised to the xth power.
+
+    Type Signature:
+    | (double) -> double
+
+    Parameters:
+        x : double - The power to raise e to
+
+    Returns:
+        e raised to the xth power
+*)
 fun exp_(x : double) : double = (
     let ret : double = 0.0;
     #ret = exp(x);#;
     ret
 )
 
+(*
+    Function: frexp_
+
+    The returned value is the mantissa and the exponent such
+    x = mantissa * 2 ^ exponent.
+
+    Type Signature:
+    | (double) -> (double * int16)
+
+    Parameters:
+        x : double - The number
+
+    Returns:
+        (mantissa, exponent) as a tuple
+*)
 fun frexp_(x : double) : (double * int16) = (
     let ret : double = 0.0;
     let exponent : int16 = 0;
@@ -80,24 +303,82 @@ fun frexp_(x : double) : (double * int16) = (
     (ret, exponent)
 )
 
-fun ldexp_(x : double, exponent : uint16) : double = (
+(*
+    Function: ldexp_
+
+    Returns x multiplied by 2 raised to the power of exponent.
+
+    Type Signature:
+    | (double, int16) -> double
+
+    Parameters:
+        x : double - The number to be multiplied by
+        exponent : int16 - The exponent
+
+    Returns:
+        The value x multiplied by 2^x
+*)
+fun ldexp_(x : double, exponent : int16) : double = (
     let ret : double = 0.0;
     #ret = ldexp(x, exponent);#;
     ret
 )
 
+(*
+    Function: log_
+
+    The natural (base e) logarithm function.
+
+    Type Signature:
+    | (double) -> double
+
+    Parameters:
+        x : double - The value to take the logarithm of
+
+    Returns:
+        Returns the base e log of x.
+*)
 fun log_(x : double) : double = (
     let ret : double = 0.0;
     #ret = log(x);#;
     ret
 )
 
+(*
+    Function: log10_
+
+    The base 10 logarithm function.
+
+    Type Signature:
+    | (double) -> double
+
+    Parameters:
+        x : double - The value to take the logarithm of
+
+    Returns:
+        Returns the base 10 log of x.
+*)
 fun log10_(x : double) : double = (
     let ret : double = 0.0;
     #ret = log10(x);#;
     ret
 )
 
+(*
+    Function: modf_
+
+    The returned value is the fraction component (part after the decimal) and
+    the integer component of the given number.
+
+    Type Signature:
+    | (double) -> (double * double)
+
+    Parameters:
+        x : double - The number
+
+    Returns:
+        (fractionComponent, integerComponent) as a tuple value.
+*)
 fun modf_(x : double) : (double * double) = (
     let ret : double = 0.0;
     let integer : double = 0.0;
@@ -105,45 +386,157 @@ fun modf_(x : double) : (double * double) = (
     (ret, integer)
 )
 
+(*
+    Function: pow_
+
+    Returns x raised to the y power.
+
+    Type Signature:
+    | (double, double) -> double
+
+    Parameters:
+        x : double - The base
+        y : double - The exponent
+
+    Returns:
+        x raised to the y power
+*)
 fun pow_(x : double, y : double) : double = (
     let ret : double = 0.0;
     #ret = pow(x, y);#;
     ret
 )
 
+(*
+    Function: sqrt_
+
+    Returns the square root of x.
+
+    Type Signature:
+    | (double) -> double
+
+    Returns:
+        The square root of x
+*)
 fun sqrt_(x : double) : double = (
     let ret : double = 0.0;
     #ret = sqrt(x);#;
     ret
 )
 
+(*
+    Function: ceil_
+
+    Returns the smallest integer value greater than or equal to x.
+
+    Type Signature:
+    | (double) -> double
+
+    Parameters:
+        x : double - the number to take the ceiling of
+
+    Returns:
+        The ceiling of x
+*)
 fun ceil_(x : double) : double = (
     let ret : double = 0.0;
     #ret = ceil(x);#;
     ret
 )
 
+(*
+    Function: fabs_
+
+    The absolute value function.
+
+    Type Signature:
+    | (double) -> double
+
+    Parameters:
+        x : double - The number to take the absolute value of
+
+    Returns:
+        The absoulute value of x
+*)
 fun fabs_(x : double) : double = (
     let ret : double = 0.0;
     #ret = fabs(x);#;
     ret
 )
 
+(*
+    Function: floor_
+
+    Returns the largest integer value less than or equal to x.
+
+    Type Signature:
+    | (double) -> double
+
+    Parameters:
+        x : double - The number to take the floor of
+
+    Returns:
+        The floor of x
+*)
 fun floor_(x : double) : double = (
     let ret : double = 0.0;
     #ret = floor(x);#;
     ret
 )
 
+(*
+    Function: fmod_
+
+    Returns the remainder of x divided by y.
+
+    Type Signature:
+    | (double, double) -> double
+
+    Parameters:
+        x : double - The dividend
+        y : double - The divisor
+
+    Returns:
+        The remainder of x divided by y.
+*)
 fun fmod_(x : double, y : double) : double = (
     let ret : double = 0.0;
     #ret = fmod(x, y);#;
     ret
 )
 
+(*
+    Function: round_
+
+    Rounds to the nearest integer value.
+
+    Type Signature:
+    | (double) -> double
+
+    Parameters:
+        x : double - The number to round
+
+    Returns:
+        The rounded integer value, computed using floor(x+0.5)
+*)
 fun round_(x : double) : double =
     floor_(x + 0.5)
 
+(*
+    Function: min_
+
+    Returns the smaller of the two numbers.
+
+    Type Signature:
+    | (double, double) -> double
+
+    Parameters:
+        x : double - The first number
+        y : double - The second number
+
+    Returns:
+        The smaller of x and y
+*)
 fun min_(x : double, y : double) : double =
     if x > y then
         y
@@ -151,6 +544,21 @@ fun min_(x : double, y : double) : double =
         x
     end
 
+(*
+    Function: max_
+
+    Returns the larger of the two numbers.
+
+    Type Signature:
+    | (double, double) -> double
+
+    Parameters:
+        x : double - The first number
+        y : double - The second number
+
+    Returns:
+        The larger of x and y
+*)
 fun max_(x : double, y : double) : double =
     if x > y then
         x
@@ -158,11 +566,46 @@ fun max_(x : double, y : double) : double =
         y
     end
 
+(*
+    Function: mapRange
+
+    Linearly maps a value x from range [a1,a2] to [b1,b2]
+
+    Type Signature:
+    | (double, double, double, double, double) -> double
+
+    Parameters:
+        x : double - The value in range [a1,a2]
+        a1 : double - The lower value of the range containing x
+        a2 : double - The higher value of the range containing x
+        b1 : double - The lower value of the target range
+        b2 : double - The higher value of the target range
+
+    Returns:
+        x mapped from range [a1,a2] to [b1,b2]
+*)
 fun mapRange(x : double, a1 : double, a2 : double, b1 : double, b2 : double) : double =
     b1 + (((x - a1) * (b2 - b1)) / (a2 - a1))
 
+(*
+    Function: clamp
+
+    Clamps a numerical value to fall in the interval [min,max]
+
+    Type Signature:
+    | <'a>('a, 'a, 'a) -> 'a
+
+    Parameters:
+        x : 'a - The value to clamp
+        min : 'a - The minimum value
+        max : 'a - The maximum value
+
+    Returns:
+        min if x is smaller than min, max if x is larger than max otherwise
+        returns x.
+*)
 fun clamp<'a>(x : 'a, min : 'a, max : 'a) : 'a =
-    if not (x >= min) then
+    if min > x then
         min
     elif x > max then
         max
@@ -170,8 +613,24 @@ fun clamp<'a>(x : 'a, min : 'a, max : 'a) : 'a =
         x
     end
 
+(*
+    Function: sign
+
+    Returns the sign of the given numerial value.
+
+    Type Signature:
+    | <'a>('a) -> int8
+
+    Parameters:
+        n : 'a - The number to find the sign of
+
+    Returns:
+        0 if n is zero, 1 if n is greater than zero, otherwise -1
+*)
 fun sign<'a>(n : 'a) : int8 =
-    if n >= 0 then
+    if n == 0 then
+        0
+    elif n > 0 then
         1
     else
         -1

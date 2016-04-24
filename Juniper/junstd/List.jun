@@ -1,7 +1,7 @@
 module List
 open(Prelude)
 export(map, foldl, foldr, append, nth, flatten, resize, all, any, pushFront, pushBack,
-averageBy, replicate, setNth)
+replicate, setNth)
 
 (* The goal of this module is to provide reusable functions that run as quickly
    as possible. This means that most of the functions in this module are written
@@ -244,6 +244,21 @@ fun any<'t;n>(pred : ('t) -> bool, lst : list<'t;n>) : bool = (
     satisfied
 )
 
+(*
+    Function: pushBack
+
+    Returns a copy of the given list with the element appended to the end.
+
+    Type Signature:
+    | <'t;n>('t, list<'t;n>) -> list<'t;n>
+
+    Parameters:
+        elem : 't - The element to add to the end of the list
+        lst : list<'t;n> - The list
+
+    Returns:
+        A copy of lst with elem appended to the end
+*)
 fun pushBack<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
     if lst.length == n then
         lst
@@ -255,6 +270,21 @@ fun pushBack<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
     ) end
 )
 
+(*
+    Function: pushFront
+
+    Returns a copy of the given list with the element appended to the front.
+
+    Type Signature:
+    | <'t;n>('t, list<'t;n>) -> list<'t;n>
+
+    Parameters:
+        elem : 't - The element to add to the front of the list
+        lst : list<'t;n> - The list
+
+    Returns:
+        A copy of lst with elem appended to the front
+*)
 fun pushFront<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
     let mutable ret = lst;
     for i : uint32 in n - 2 downto 0 do
@@ -269,6 +299,23 @@ fun pushFront<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
     end
 )
 
+(*
+    Function: setNth
+
+    Returns a copy of the given list where the element at the given index
+    is the given element.
+
+    Type Signature:
+    | <'t;n>(uint32, 't, list<'t;n>) -> list<'t;n>
+
+    Parameters:
+        index : uint32 - The index to set
+        elem : 't - The new element
+        lst : list<'t;n> - The list
+
+    Returns:
+        A new list where the elem is at index.
+*)
 fun setNth<'t;n>(index : uint32, elem : 't, lst : list<'t;n>) : list<'t;n> =
     if lst.length <= index then
         lst
@@ -278,14 +325,21 @@ fun setNth<'t;n>(index : uint32, elem : 't, lst : list<'t;n>) : list<'t;n> =
         ret)
     end
 
-fun averageBy<'t,'d;n>(adder : ('t, 't) -> 't, divider : ('t, 'd) -> 't, lst : list<'t;n>) : 't = (
-    let mutable ret = lst.data[0];
-    for i : uint32 in 1 to lst.length - 1 do
-        set ret = adder(ret, lst.data[i])
-    end;
-    divider(ret, lst.length)
-)
+(*
+    Function: replicate
 
+    Initializes a new list of a given length using the given element.
+
+    Type Signature:
+    | <'t;n>(uint32, 't) -> list<'t;n>
+
+    Parameters:
+        numOfElements : uint32 - The length of the new list
+        elem : 't - The element to replicate
+
+    Returns:
+        A new list with elem at every position in the list.
+*)
 fun replicate<'t;n>(numOfElements : uint32, elem : 't) : list<'t;n> = (
     list<'t;n> {
         data = array 't[n] of elem end;

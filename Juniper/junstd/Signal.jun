@@ -1,7 +1,7 @@
 module Signal
 open(Prelude)
 export(map, filter, merge, foldP, sink, merge, join, toUnit, dropRepeats,
-latch)
+latch, map2, record)
 
 (*
     Interface: Signal
@@ -231,6 +231,23 @@ fun dropRepeats<'a>(incoming : sig<'a>, prevValue : 'a ref) : sig<'a> =
                        false)
                    end, incoming)
 
+(*
+    Function: latch
+
+    Constantly emmits the value held in the latch. The value held in the latch
+    is updated if it receives a value on the incoming signal.
+
+    Type Signature:
+    | <'a>(sig<'a>, 'a ref) -> sig<'a>
+
+    Parameters:
+        incoming : sig<'a> - The incoming latch update signal
+        prevValue : 'a ref - Holds the previous values that the latch received
+
+    Returns:
+        A signal which constantly emmits the value last received on the incoming
+        signal.
+*)
 fun latch<'a>(incoming : sig<'a>, prevValue : 'a ref) : sig<'a> =
     case incoming of
     | signal<'a>(just<'a>(val)) =>
@@ -240,10 +257,28 @@ fun latch<'a>(incoming : sig<'a>, prevValue : 'a ref) : sig<'a> =
         signal<'a>(just<'a>(!prevValue))
     end
 
-fun map2<'a,'b, 'c>(f : ('a, 'b) -> 'c,
-                    incomingA : sig<'a>,
-                    incomingB : sig<'b>,
-                    state : ('a * 'b) ref) : sig<'c> = (
+(*
+    Function: map2
+
+    Applys a mapping function to two signals. The function is evaluated when
+    a value arrives on either signal.
+
+    Type Signature:
+    | <'a,'b,'c>(('a,'b)->'c, sig<'a>, sig<'b>, ('a*'b) ref) -> sig<'c>
+
+    Parameters:
+        f : ('a,'b) -> 'c - The mapping function
+        incomingA : sig<'a> - The first signal
+        incomingB : sig<'b> - The second signal
+        state : ('a * 'b) ref - Holds the last values received from the signals.
+
+    Returns:
+        The mapped signal
+*)
+fun map2<'a,'b,'c>(f : ('a, 'b) -> 'c,
+                   incomingA : sig<'a>,
+                   incomingB : sig<'b>,
+                   state : ('a * 'b) ref) : sig<'c> = (
     let valA = case incomingA of
                | signal<'a>(just<'a>(val)) => val
                | _ => fst<'a,'b>(!state)
@@ -254,10 +289,25 @@ fun map2<'a,'b, 'c>(f : ('a, 'b) -> 'c,
                end;
     set ref state = (valA, valB);
     case (incomingA, incomingB) of
-    | (signal<'a>(nothing<'a>()), signal<'a>(nothing<'b>())) => signal<'c>(nothing<'c>())
+    | (signal<'a>(nothing<'a>()), signal<'b>(nothing<'b>())) => signal<'c>(nothing<'c>())
     | _ => signal<'c>(just<'c>(f(valA, valB)))
     end
 )
 
+(*
+    Function: record
+
+    Records values in a list as they come in through the incoming signal.
+
+    Type Signature:
+    | <'a;n>(sig<'a>, list<'a;n> ref) -> sig<list<'a;n>>
+
+    Parameters:
+        incoming : sig<'a> - Incoming values to record
+        pastValues : list<'a;n> ref - Previous values recorded from the signal
+
+    Returns:
+        A signal holding the list of previous values
+*)
 fun record<'a;n>(incoming : sig<'a>, pastValues : list<'a;n> ref) : sig<list<'a;n>> =
     foldP<'a,list<'a;n>>(List:pushFront<'a;n>, pastValues, incoming)

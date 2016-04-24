@@ -45,13 +45,13 @@ type pinState = high | low
 (*
     Function: input
 
-    Type signature:
+    Type Signature:
     | () -> mode
 *)
 (*
     Function: output
 
-    Type signature:
+    Type Signature:
     | () -> mode
 *)
 (*
@@ -68,7 +68,7 @@ type mode = input | output | inputPullup
     Given a high value, returns a low value. Given a low value, returns a high
     value.
 
-    Type signature:
+    Type Signature:
     | (pinState) -> pinState
 
     Parameters:
@@ -89,7 +89,7 @@ fun toggle(p : pinState) : pinState =
 
     Writes a string to the serial output.
 
-    Type signature:
+    Type Signature:
     | <;n>(string<;n>) -> unit
 
     Parameters:
@@ -101,9 +101,41 @@ fun toggle(p : pinState) : pinState =
 fun printStr<;n>(str : string<;n>) : unit =
     #Serial.print(&str.characters.data);#
 
+(*
+    Function: printFloat
+
+    Writes a float to the serial output.
+
+    Type Signature:
+    | (float) -> unit
+
+    Parameters:
+        f : float - The number to write
+
+    Returns:
+        Unit
+*)
 fun printFloat(f : float) : unit =
     #Serial.print(f);#
 
+(*
+    Function: beginSerial
+
+    Sets up serial ouput
+
+    Type Signature:
+    | (uint32) -> unit
+
+    Parameters:
+        speed : uint32 - Sets the data rate in bits per second (baud) for serial
+            data transmission.
+
+    Returns:
+        Unit
+
+    See also:
+        https://www.arduino.cc/en/Serial/Begin
+*)
 fun beginSerial(speed : uint32) : unit =
     #Serial.begin(speed);#
 
@@ -112,7 +144,7 @@ fun beginSerial(speed : uint32) : unit =
 
     Converts a <pinState> to an integer representation.
 
-    Type signature:
+    Type Signature:
     | (pinState) -> uint8
 
     Parameters:
@@ -132,7 +164,7 @@ fun pinStateToInt(value : pinState) : uint8 =
 
     Converts an integer to a <pinState> representation.
 
-    Type signature:
+    Type Signature:
     | (uint8) -> pinState
 
     Parameters:
@@ -153,7 +185,7 @@ fun intToPinState(value : uint8) : pinState =
 
     Writes a value directly to a pin.
 
-    Type signature:
+    Type Signature:
     | (uint16, pinState) -> unit
 
     Parameters:
@@ -176,7 +208,7 @@ fun digWrite(pin : uint16, value : pinState) : unit = (
 
     Reads a value direction from a pin.
 
-    Type signature:
+    Type Signature:
     | (uint16) -> pinState
 
     Parameters:
@@ -199,7 +231,7 @@ fun digRead(pin : uint16) : pinState = (
 
     Creates an input signal given some pin identifier.
 
-    Type signature:
+    Type Signature:
     | (uint16) -> sig<pinState>
 
     Parameters:
@@ -220,7 +252,7 @@ fun digIn(pin : uint16) : sig<pinState> =
     Takes in an input signal and writes the value contained in the signal to the
     given pin.
 
-    Type signature:
+    Type Signature:
     | (uint16, sig<pinState>) -> unit
 
     Parameters:
@@ -241,7 +273,7 @@ fun digOut(pin : uint16, sig : sig<pinState>) : unit =
 
     Reads a value directly from an analog pin.
 
-    Type signature:
+    Type Signature:
     | (uint16) -> uint16
 
     Parameters:
@@ -265,7 +297,7 @@ fun anaRead(pin : uint16) : uint16 = (
 
     Writes an analog (PWM) value directly to an analog pin.
 
-    Type signature:
+    Type Signature:
     | (uint16, uint8) -> unit
 
     Parameters:
@@ -285,7 +317,7 @@ fun anaWrite(pin : uint16, value : uint8) : unit =
 
     Creates an analog input signal given some pin identifier.
 
-    Type signature:
+    Type Signature:
     | (uint16) -> sig<uint16>
 
     Parameters:
@@ -303,7 +335,7 @@ fun anaIn(pin : uint16) : sig<uint16> =
     Takes in an analog input signal and writes the value contained in the signal
     to the given analog pin.
 
-    Type signature:
+    Type Signature:
     | (uint16, sig<uint16>) -> unit
 
     Parameters:
@@ -322,7 +354,7 @@ fun anaOut(pin : uint16, sig : sig<uint16>) : unit =
 
     Converts a pinMode to an integer representation.
 
-    Type signature:
+    Type Signature:
     | (mode) -> uint8
 
     Parameters:
@@ -343,7 +375,7 @@ fun pinModeToInt(m : mode) : uint8 =
 
     Converts an integer representation to a pinMode
 
-    Type signature:
+    Type Signature:
     | (uint8) -> mode
 
     Parameters:
@@ -364,7 +396,7 @@ fun intToPinMode(m : uint8) : mode =
 
     Sets the <mode> of a specified pin
 
-    Type signature:
+    Type Signature:
     | (uint16, mode) -> unit
 
     Returns:
@@ -381,7 +413,7 @@ fun setPinMode(pin : uint16, m : mode) : unit = (
     Takes in a signal and a previous state and outputs a new signal that fires
     when the input signal transitions from <low> to <high>.
 
-    Type signature:
+    Type Signature:
     | (sig<pinState>, pinState ref) -> sig<unit>
 
     Parameters:
@@ -408,7 +440,7 @@ fun risingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
     Takes in a signal and a previous state and outputs a new signal that fires
     when the input signal transitions from <high> to <low>.
 
-    Type signature:
+    Type Signature:
     | (sig<pinState>, pinState ref) -> sig<unit>
 
     Parameters:
@@ -435,7 +467,7 @@ fun fallingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
     Takes in a signal and a previous state and outputs a new signal that fires
     when the input transitions from <high> to <low> or <low> to <high>
 
-    Type signature:
+    Type Signature:
     | (sig<pinState>, pinState ref) -> sig<pinState>
 
     Parameters:

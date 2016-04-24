@@ -3,7 +3,7 @@ open(Prelude)
 export(digWrite, digRead, anaRead, anaWrite, pinStateToInt, intToPinState,
 pinState, mode, high, low, input, output, inputPullup, setPinMode, pinModeToInt,
 intToPinMode, toggle, digIn, anaIn, digOut, anaOut, risingEdge, fallingEdge,
-edge)
+edge, beginSerial, printStr, printFloat)
 
 (*
     Interface: Io
@@ -85,21 +85,27 @@ fun toggle(p : pinState) : pinState =
     end
 
 (*
-    Function: write
+    Function: printStr
 
     Writes a string to the serial output.
 
     Type signature:
-    | <;n>(list<uint8; n>) -> unit
+    | <;n>(string<;n>) -> unit
 
     Parameters:
-        str : list<uint8; n> - The string to write
+        str : string<;n> - The string to write
 
     Returns:
         Unit
 *)
-fun write<;n>(str : string<;n>) : unit =
-    #Serial.write(&str.characters.data);#
+fun printStr<;n>(str : string<;n>) : unit =
+    #Serial.print(&str.characters.data);#
+
+fun printFloat(f : float) : unit =
+    #Serial.print(f);#
+
+fun beginSerial(speed : uint32) : unit =
+    #Serial.begin(speed);#
 
 (*
     Function: pinStateToInt

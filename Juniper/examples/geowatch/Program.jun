@@ -1,0 +1,63 @@
+module Program
+open(Prelude, Vector)
+
+type modes = compass
+           | subway
+           | home
+           | party
+
+fun transitionMode(current : modes) : modes =
+    case current of
+    | compass() => subway()
+    | subway() => home()
+    | home() => party()
+    | party() => compass()
+    end
+
+let ringPin : uint8 = 9
+let ringSize : uint16 = 16
+let ringType : uint16 = Neopixel:GRB + Neopixel:KHZ800
+let ringStrip : Neopixel:neoPixelStrip = Neopixel:make(ringSize, ringPin, ringType)
+
+let buttonPin : uint8 = 10
+let buttonState : Button:buttonState ref = Button:state()
+let edgeState : Io:pinState ref = ref Io:low()
+
+let modeState1 : modes ref = ref compass()
+let modeState2 : modes ref = ref compass()
+
+let accMag : AdafruitLSM303:accMag = AdafruitLSM303:make(30.0, -620.0, 740.0, 240.0, -390.0, 765.0)
+let accMagState : AdafruitLSM303:accMagState ref = AdafruitLSM303:state()
+
+fun setup() : unit = (
+    AdafruitLSM303:begin(accMag);
+    Neopixel:begin(ringStrip);
+    Io:setPinMode(buttonPin, Io:input());
+    Io:setPinMode(buttonPin, Io:inputPullup());
+    //Io:write<;2>(string<;2>{ characters=list<uint8;2> { data =[68,0]; length=2 }} )
+)
+
+fun main() : unit = (
+    setup();
+    while true do (
+        // Update the compass every 100 milliseconds
+        let accMagSig = AdafruitLSM303:getSignal(100, accMag, accMagState);
+        let buttonSig = Io:digIn(buttonPin);
+        let debouncedSig = Io:fallingEdge(Button:debounce(buttonSig, buttonState), edgeState);
+        let modeUpdateSig =
+            Signal:foldP<unit,modes>(
+                fn (u : unit, prevMode : modes) : modes ->
+                    transitionMode(prevMode),
+                modeState1, debouncedSig);
+        let modeSig = Signal:latch<modes>(modeUpdateSig, modeState2);
+        Signal:sink<modes>(
+            fn (mode : modes) : unit ->
+                case mode of
+                | compass() => Compass:execute(accMagSig, ringSize, ringStrip)
+                | subway() => Subway:execute(ringSize, ringStrip)
+                | home() => Home:execute()
+                | party() => Party:execute(ringSize, ringStrip)
+                end,
+            modeSig)
+    ) end
+)

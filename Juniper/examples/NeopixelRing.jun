@@ -1,25 +1,58 @@
 module NeopixelRing
-open(Prelude, Io, Time)
+open(Prelude)
 
-let boardLed : int16 = 13
+let ringPin : uint8 = 9
+let ringSize : uint16 = 16
+let ringType : uint16 = Neopixel:GRB + Neopixel:KHZ800
+let ringStrip : Neopixel:neoPixelStrip =
+    Neopixel:make(ringSize, ringPin, ringType)
 
-let timerState : timerState ref = Time:state()
-let ledState : pinState ref = ref low()
+let buttonPin : uint8 = 10
+let buttonState : Button:buttonState ref = Button:state()
+let edgeState : Io:pinState ref = ref Io:low()
 
-fun blink() : unit = (
-    let ledSig = Signal:foldP<uint32, pinState>(fn (currentTime : uint32, lastState : pinState) : pinState ->
-                                                    Io:toggle(lastState),
-                                                ledState, Time:every(100, timerState));
-    Io:digOut(boardLed, ledSig)
+type ringMode = red | green | blue
+let mode : ringMode ref = ref red()
+
+fun transitionMode(m : ringMode) : ringMode =
+    case m of
+    | red() => green()
+    | green() => blue()
+    | blue() => red()
+    end
+
+fun modeToColor(m : ringMode) : Neopixel:color =
+    case m of
+    | red() => Neopixel:makeColor(255, 0, 0)
+    | green() => Neopixel:makeColor(0, 255, 0)
+    | blue() => Neopixel:makeColor(0, 0, 255)
+    end
+
+fun setup() : unit = (
+    Neopixel:begin(ringStrip);
+    Io:setPinMode(buttonPin, Io:input());
+    Io:setPinMode(buttonPin, Io:inputPullup())
 )
-
-fun setup() : unit =
-    Io:setPinMode(boardLed, Io:output())
 
 fun main() : unit = (
     setup();
     while true do (
-        blink();
-        Time:sleep(50)
+        let buttonSig = Io:digIn(buttonPin);
+        let debouncedSig = Io:risingEdge(
+                                Button:debounce(buttonSig, buttonState),
+                                edgeState);
+        let changeModeSig =
+            Signal:foldP<unit, ringMode>(
+                fn (u : unit, currMode : ringMode) : ringMode ->
+                    transitionMode(currMode),
+                mode, debouncedSig);
+        Signal:sink<ringMode>(
+            fn (mode : ringMode) : unit -> (
+                let color = modeToColor(mode);
+                for i : uint16 in 0 to ringSize - 1 do
+                    Neopixel:setPixelColor(i, color, ringStrip)
+                end;
+                Neopixel:show(ringStrip)),
+            changeModeSig)
     ) end
 )

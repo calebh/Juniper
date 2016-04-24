@@ -31,7 +31,6 @@ rule token = parse
 | "(*"          { multilineComment lexbuf }
 | "=>"          { RFATARROW }
 | "alias"       { ALIAS }
-| "record"      { RECORD }
 | "type"        { TYPE }
 | "end"         { END }
 | "null"        { NULL }

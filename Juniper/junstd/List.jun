@@ -1,6 +1,7 @@
 module List
 open(Prelude)
-export(map, foldl, foldr, append, nth, flatten, resize, all, any)
+export(map, foldl, foldr, append, nth, flatten, resize, all, any, pushFront, pushBack,
+averageBy, replicate, setNth)
 
 (* The goal of this module is to provide reusable functions that run as quickly
    as possible. This means that most of the functions in this module are written
@@ -241,4 +242,53 @@ fun any<'t;n>(pred : ('t) -> bool, lst : list<'t;n>) : bool = (
         end
     end;
     satisfied
+)
+
+fun pushBack<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
+    if lst.length == n then
+        lst
+    else (
+        let mutable ret = lst;
+        set ret.data[lst.length] = elem;
+        set ret.length = lst.length + 1;
+        ret
+    ) end
+)
+
+fun pushFront<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
+    let mutable ret = lst;
+    for i : uint32 in n - 2 downto 0 do
+        set ret.data[i + 1] = ret.data[i]
+    end;
+    set ret.data[0] = elem;
+    if ret.length == n then
+        ret
+    else
+        (set ret.length = lst.length + 1;
+        ret)
+    end
+)
+
+fun setNth<'t;n>(index : uint32, elem : 't, lst : list<'t;n>) : list<'t;n> =
+    if lst.length <= index then
+        lst
+    else
+        (let mutable ret = lst;
+        set ret.data[index] = elem;
+        ret)
+    end
+
+fun averageBy<'t,'d;n>(adder : ('t, 't) -> 't, divider : ('t, 'd) -> 't, lst : list<'t;n>) : 't = (
+    let mutable ret = lst.data[0];
+    for i : uint32 in 1 to lst.length - 1 do
+        set ret = adder(ret, lst.data[i])
+    end;
+    divider(ret, lst.length)
+)
+
+fun replicate<'t;n>(numOfElements : uint32, elem : 't) : list<'t;n> = (
+    list<'t;n> {
+        data = array 't[n] of elem end;
+        length = numOfElements
+    }
 )

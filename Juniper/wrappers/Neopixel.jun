@@ -1,6 +1,6 @@
 module Neopixel
 open(Prelude)
-export(neoPixelStrip, color, makeStrip, setPixelColor, setBrightness, makeColor, begin, show,
+export(neoPixelStrip, color, make, setPixelColor, setBrightness, makeColor, begin, show,
 RGB, RBG, GRB, GBR, BRG, BGR, WRGB, WRBG, WGRB, WGBR, WBRG, WBGR, RWGB, RWBG,
 RGWB, RGBW, RBWG, RBGW, GWRB, GWBR, GRWB, GRBW, GBWR, GBRW, BWRG, BWGR, BRWG,
 BRGW, BGWR, BGRW, KHZ800)
@@ -9,7 +9,7 @@ type neoPixelStrip = { ptr : pointer }
 
 type color = { r : uint8; g : uint8; b : uint8; w : uint8 }
 
-fun makeStrip(numPixels : uint16, pinNumber : uint8, neoPixelType : uint16) : neoPixelStrip = (
+fun make(numPixels : uint16, pinNumber : uint8, neoPixelType : uint16) : neoPixelStrip = (
     let p = null;
     #p.set((void*) new Adafruit_NeoPixel(numPixels, pinNumber, neoPixelType));#;
     neoPixelStrip { ptr = p }

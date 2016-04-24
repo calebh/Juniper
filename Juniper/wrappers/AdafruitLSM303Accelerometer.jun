@@ -1,0 +1,43 @@
+module AdafruitLSM303Accelerometer
+open(Prelude, Vector, Time)
+export(accelerometer, accelerometerState, state, make, begin, read, getSignal)
+
+type accelerometer = { ptr : pointer }
+type accelerometerState = { timeState : timerState ref;
+                            latchState : vector<float;3> ref }
+
+fun state() : accelerometerState ref =
+    ref accelerometerState { timeState = Time:state();
+                            latchState = ref Vector:zero<float;3>() }
+
+fun make() : accelerometer = (
+    let p = null;
+    #p.set((void*) new Adafruit_LSM303_Accel_Unified(54321));#;
+    accelerometer { ptr = p }
+)
+
+fun begin(mag : accelerometer) : unit = (
+    let p = mag.ptr;
+    #((Adafruit_LSM303_Accel_Unified*) p.get())->begin();#
+)
+
+fun read(mag : accelerometer) : vector<float;3> = (
+    let p = mag.ptr;
+    let x : float = 0.0;
+    let y : float = 0.0;
+    let z : float = 0.0;
+    #sensors_event_t event; ((Adafruit_LSM303_Mag_Unified*) p.get())->getEvent(&event); x = event.acceleration.x; y = event.acceleration.y; z = event.acceleration.z;#;
+    Vector:make<float;3>([x, y, z])
+)
+
+fun getSignal(updateInterval : uint32,
+              acc            : accelerometer,
+              state          : accelerometerState ref) : sig<vector<float;3>> = (
+    let tickSig = Time:every(updateInterval, (!state).timeState);
+    let accelComUpdateSig =
+        Signal:map<uint32, vector<float;3>>(
+            fn (t : uint32) : vector<float;3> ->
+                read(acc),
+            tickSig);
+    Signal:latch<vector<float;3>>(accelComUpdateSig, (!state).latchState)
+)

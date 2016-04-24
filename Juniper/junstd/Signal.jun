@@ -1,6 +1,7 @@
 module Signal
 open(Prelude)
-export(map, filter, merge, foldP, sink, merge, join, toUnit, dropRepeats)
+export(map, filter, merge, foldP, sink, merge, join, toUnit, dropRepeats,
+latch)
 
 (*
     Interface: Signal
@@ -147,8 +148,6 @@ fun mergeMany<'a;n>(sigs : list<sig<'a>;n>) : sig<'a> = (
     Returns:
         A signal of the two joined streams.
 *)
-
-// TODO: Investigate bug where 'a, 'b is used instead of 'x,'y
 fun join<'a,'b>(sigA : sig<'a>, sigB : sig<'b>) : sig<either<'a,'b>> =
     case (sigA, sigB) of
     | (signal<'a>(just<'a>(value)), _) =>
@@ -231,3 +230,34 @@ fun dropRepeats<'a>(incoming : sig<'a>, prevValue : 'a ref) : sig<'a> =
                        (set ref prevValue = value;
                        false)
                    end, incoming)
+
+fun latch<'a>(incoming : sig<'a>, prevValue : 'a ref) : sig<'a> =
+    case incoming of
+    | signal<'a>(just<'a>(val)) =>
+        (set ref prevValue = val;
+        incoming)
+    | _ =>
+        signal<'a>(just<'a>(!prevValue))
+    end
+
+fun map2<'a,'b, 'c>(f : ('a, 'b) -> 'c,
+                    incomingA : sig<'a>,
+                    incomingB : sig<'b>,
+                    state : ('a * 'b) ref) : sig<'c> = (
+    let valA = case incomingA of
+               | signal<'a>(just<'a>(val)) => val
+               | _ => fst<'a,'b>(!state)
+               end;
+    let valB = case incomingB of
+               | signal<'b>(just<'b>(val)) => val
+               | _ => snd<'a,'b>(!state)
+               end;
+    set ref state = (valA, valB);
+    case (incomingA, incomingB) of
+    | (signal<'a>(nothing<'a>()), signal<'a>(nothing<'b>())) => signal<'c>(nothing<'c>())
+    | _ => signal<'c>(just<'c>(f(valA, valB)))
+    end
+)
+
+fun record<'a;n>(incoming : sig<'a>, pastValues : list<'a;n> ref) : sig<list<'a;n>> =
+    foldP<'a,list<'a;n>>(List:pushFront<'a;n>, pastValues, incoming)

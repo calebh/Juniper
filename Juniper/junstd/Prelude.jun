@@ -1,11 +1,13 @@
 module Prelude
 export(tuple2, tuple3, tuple4, tuple5, tuple6, tuple7, tuple8, tuple9,
 tuple10, maybe, unit, just, nothing, list, sig, signal, either, left,
-right, string, compose, curry, equal, fst, snd)
+right, string, compose, curry, curry3, equal, fst, snd)
 
 (*
     Interface: Prelude
 *)
+
+type unit = {}
 
 (*
     Type: maybe
@@ -61,8 +63,6 @@ type maybe<'a> = just of 'a
 *)
 type either<'a,'b> = left of 'a
                    | right of 'b
-
-type unit = {}
 
 (*
     Type: list
@@ -147,6 +147,12 @@ fun curry<'a,'b,'c>(f : ('a, 'b) -> 'c) : ('a) -> ('b) -> 'c =
     fn (valueA : 'a) : ('b) -> 'c ->
         fn (valueB : 'b) : 'c ->
             f(valueA, valueB)
+
+fun curry3<'a,'b,'c,'d>(f : ('a, 'b, 'c) -> 'd) : ('a) -> ('b) -> ('c) -> 'd =
+    fn (valueA : 'a) : ('b) -> ('c) -> 'd ->
+        fn (valueB : 'b) : ('c) -> 'd ->
+            fn (valueC : 'c) : 'd ->
+                f(valueA, valueB, valueC)
 
 (*
     Function: equal

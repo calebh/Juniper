@@ -258,9 +258,15 @@ let rec eqTypes (ty1 : TyExpr) (ty2 : TyExpr) : bool =
         | (TyModuleQualifier t1, TyModuleQualifier t2) ->
                 unwrap t1.module_ = unwrap t2.module_ && unwrap t1.name = unwrap t2.name
         | (TyApply t1, TyApply t2) ->
+                let lstTys1 = ((unwrap t1.args).tyExprs |> unwrap |> List.map unwrap)
+                let lstTys2 = ((unwrap t2.args).tyExprs |> unwrap |> List.map unwrap)
+                let lstCaps1 = ((unwrap t1.args).capExprs |> unwrap |> List.map unwrap)
+                let lstCaps2 = ((unwrap t2.args).capExprs |> unwrap |> List.map unwrap)
                 (eqTypes (unwrap t1.tyConstructor) (unwrap t2.tyConstructor)) &&
-                List.forall2 eqTypes ((unwrap t1.args).tyExprs |> unwrap |> List.map unwrap) ((unwrap t2.args).tyExprs |> unwrap |> List.map unwrap) &&
-                List.forall2 eqCapacities ((unwrap t1.args).capExprs |> unwrap |> List.map unwrap) ((unwrap t2.args).capExprs |> unwrap |> List.map unwrap)
+                List.length lstTys1 = List.length lstTys2 &&
+                List.length lstCaps1 = List.length lstCaps2 &&
+                List.forall2 eqTypes lstTys1 lstTys2  &&
+                List.forall2 eqCapacities lstCaps1 lstCaps2
         | (FunTy t1, FunTy t2) ->
                 // Check that the return types are the same
                 (eqTypes (unwrap t1.returnType) (unwrap t2.returnType)) &&
@@ -273,6 +279,7 @@ let rec eqTypes (ty1 : TyExpr) (ty2 : TyExpr) : bool =
                     | (None, None) -> true
                     | _ -> false) &&
                 // Check that all the arguments are the same
+                List.length (List.map unwrap t1.args) = List.length (List.map unwrap t2.args) &&
                 List.forall2 eqTypes (List.map unwrap t1.args) (List.map unwrap t2.args)
         | (ForallTy _, _) -> true
         | (_, ForallTy _) -> true
@@ -282,7 +289,10 @@ let rec eqTypes (ty1 : TyExpr) (ty2 : TyExpr) : bool =
         | (RefTy ty1, RefTy ty2) ->
                 eqTypes (unwrap ty1) (unwrap ty2)
         | (TupleTy ty1, TupleTy ty2) ->
-                List.forall2 eqTypes (List.map unwrap ty1) (List.map unwrap ty2)
+                let lst1 = List.map unwrap ty1
+                let lst2 = List.map unwrap ty2
+                (List.length lst1) = (List.length lst2) &&
+                    List.forall2 eqTypes lst1 lst2
         | _ -> (ty1 = ty2)
 
 
@@ -364,7 +374,7 @@ let rec applyTemplateToFunctionType (funType : TyExpr) (template : TemplateApply
     // We have to do this to avoid name clashes
     let tyMap' = Map.mapAlt (fun originalType substitution -> (Guid.string(), originalType)) tyMap
     let tyMap'Inv = Map.invert tyMap'
-    let capMap' = Map.mapAlt (fun originalCap substitution -> (Guid.string(), originalCap)) tyMap
+    let capMap' = Map.mapAlt (fun originalCap substitution -> (Guid.string(), originalCap)) capMap
     let capMap'Inv = Map.invert capMap'
     let funType' =
         funType |> TreeTraversals.map2
@@ -1040,7 +1050,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                         wrapWithType
                             (unwrap returnType)
                             (CallExp {
-                                func=(posf, Some typef, cFunc)
+                                func=(posf, Some typef, cFunc);
                                 args=(posa, None, tcArgs)
                             })
                     else
@@ -1049,6 +1059,13 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                 | FunTy {template=Some _} ->
                     printfn "%sType error: Expected type arguments to be applied before calling function. The type of the function being called is %s." (posString posf) (typeString typef)
                     failwith "Type error"
+                | ForallTy _ ->
+                    wrapWithType
+                        typef
+                        (CallExp {
+                            func=(posf, Some typef, cFunc);
+                            args=(posa, None, tcArgs)
+                        })
                 | _ ->
                     printfn "%sType error: Attempting to call an expression of type %s, which is not a function." (posString posf) (typeString typef)
                     failwith "Type error"
@@ -1286,17 +1303,20 @@ and typecheckDec denv dtenv tenv modNamesToTenvs dec =
                                  temp.capVars |> unwrap |> List.map unwrap |> Set.ofList
                              | None -> Set.empty
             
+            // TODO: Fix this code so that it works with template
+            // substitution
             // Check that all capacity variable references are valid
-            TreeTraversals.map1 (fun (cap : CapacityExpr) ->
+            (*TreeTraversals.map1 (fun (cap : CapacityExpr) ->
                 match cap with
                     | CapacityNameExpr (posn, _, name) ->
                         if Set.contains name capEnv then
                             cap
                         else
+                            printfn "%A" capEnv
                             printfn "%sError: capacity variable named %s does not exist." (posString posn) name
                             failwith "Error"
                     | _ -> cap
-            ) clause |> ignore
+            ) clause |> ignore *)
 
             let (_, Some bodyTy, cBody) = typeCheckExpr denv dtenv tenv'' modNamesToTenvs capEnv body
             // Check that the type of the body matches the given return type

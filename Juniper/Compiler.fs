@@ -237,7 +237,7 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
             (args |> List.map compile |> String.concat ", ") +
             output ")"
         | UnitExp _ ->
-            output "{}"
+            output "Prelude::unit()"
         | VarExp {name=name} ->
             output (unwrap name)
         | WhileLoopExp {condition=condition; body=body} ->
@@ -404,6 +404,8 @@ and compileTemplateApply (templateApp : TemplateApply) : string =
 // Includes modules use, function declarations, record declaration, let declarations, and unions.
 and compileDec (dec : Declaration) : string =
     match dec with
+        | InlineCodeDec (_, _, code) ->
+            output code
         | (ExportDec _ | ModuleNameDec _) ->
             ""
         | OpenDec (_, _, openDecs) ->
@@ -509,24 +511,32 @@ and compileDec (dec : Declaration) : string =
             newline() + newline() +
             // Output the function representation of the value constructor
             (valCons |> List.mapi (fun i ((_, _, valConName), maybeTy) ->
+                let retType =
+                    match maybeTemplate with
+                        | Some (_, _, template) ->
+                            TyApply {tyConstructor=dummyWrap (TyName (dummyWrap name));
+                                              args=templateToTemplateApply template |> dummyWrap}
+                        | None ->
+                            TyName (dummyWrap name)
                 (match maybeTemplate with
                     | Some (_, _, template) ->
                         compileTemplate template +
                         newline() +
-                        compileType (TyApply {tyConstructor=dummyWrap (TyName (dummyWrap name));
-                                              args=templateToTemplateApply template |> dummyWrap})
+                        compileType retType
                     | None ->
-                        compileType (TyName (dummyWrap name))) +
+                        compileType retType) +
                 output " " + output valConName + output "(" +
                 (match maybeTy with
                      | None -> ""
                      | Some (_, _, ty) -> compileType ty + output " data") +
                 output ") {" + newline() + indentId() +
-                output "return {" + (sprintf "%d" i) + output ", " +
+                output "return (([&]() -> " + compileType retType + output " { " +
+                compileType retType + output " ret; ret.tag = " + (sprintf "%d" i) + output "; " +
+                output "ret." + output valConName + output " = " +
                 (match maybeTy with
-                     | None -> "0"
-                     | Some _ -> "data") +
-                output "};" + newline() +
+                     | None -> output "0"
+                     | Some _ -> output "data") +
+                output "; return ret; })());" + newline() +
                 unindentId() + output "}" + newline() + newline()) |> String.concat "")
 
 // Wrapper function for compiling the entire thing.
@@ -537,6 +547,7 @@ and compileProgram (modList : Module list) : string =
     output "#include \"juniper.hpp\"" + newline() +
     output "#include <stdbool.h>" + newline() +
     output "#include <Arduino.h>" + newline() +
+    output "#include <Adafruit_NeoPixel.h>" + newline() +
     output "#include <math.h>" + newline() + newline() +
     (modList |> List.map (fun (Module module_)->
         let moduleName = Module module_ |> Module.nameInModule |> unwrap

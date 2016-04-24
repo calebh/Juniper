@@ -16,7 +16,6 @@ let pos (parseState: IParseState) startIdx endIdx =
 %token <string> STRING
 %token <string> INLINECODE
 %token ALIAS
-%token RECORD
 %token RETURN
 %token END
 %token OPEN
@@ -547,12 +546,10 @@ tyexpr:
         ArrayTy {
             valueType = (pos parseState 1 1, None, $1);
             capacity = (pos parseState 3 3, None, $3)}}
+  | ID COLON ID {
+        TyModuleQualifier {module_=(pos parseState 1 1, None, $1); name=(pos parseState 3 3, None, $3)} }
   | tyexpr REF {
         RefTy (pos parseState 1 1, None, $1) }
-  | moduleQualifier LBRACK capexpr RBRACK {
-        ArrayTy {
-            valueType = (pos parseState 1 1, None, TyModuleQualifier $1);
-            capacity = (pos parseState 3 3, None, $3)}}
   | LPAREN tupleTyList RPAREN {TupleTy $2 }
   | TICK ID { ForallTy (pos parseState 1 2, None, $2) }
   | ID { match $1 with

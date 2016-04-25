@@ -132,7 +132,7 @@ fun compose<'a,'b,'c>(f : ('b) -> 'c, g : ('a) -> 'b) : ('a) -> 'c =
 (*
     Function: curry
 
-    Curries a given function
+    Curries a function with an argument arity of 2.
 
     Type signature:
     | <'a,'b,'c>(('a, 'b) -> 'c) -> (('a) -> (('b) -> 'c))
@@ -148,6 +148,14 @@ fun curry<'a,'b,'c>(f : ('a, 'b) -> 'c) : ('a) -> ('b) -> 'c =
         fn (valueB : 'b) : 'c ->
             f(valueA, valueB)
 
+(*
+    Function: curry3
+
+    Curries a function with an argument arity of 3.
+
+    Type signature:
+    | <'a,'b,'c,'d>(('a, 'b, 'c) -> 'd) -> (('a) -> ('b) -> ('c) -> 'd)
+*)
 fun curry3<'a,'b,'c,'d>(f : ('a, 'b, 'c) -> 'd) : ('a) -> ('b) -> ('c) -> 'd =
     fn (valueA : 'a) : ('b) -> ('c) -> 'd ->
         fn (valueB : 'b) : ('c) -> 'd ->

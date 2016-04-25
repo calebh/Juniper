@@ -46,6 +46,7 @@ and Declaration = FunctionDec   of FunctionRec
                 | ModuleNameDec of PosAdorn<string>
                 | OpenDec       of PosAdorn<PosAdorn<string> list>
                 | InlineCodeDec of PosAdorn<string>
+                | IncludeDec    of PosAdorn<PosAdorn<string> list>
 
 // A template is associated with a function, record or union
 and Template = { tyVars : PosAdorn<PosAdorn<string> list>; capVars : PosAdorn<PosAdorn<string> list> }
@@ -176,6 +177,7 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | DerefExp of PosAdorn<Expr>
           | TupleExp of PosAdorn<Expr> list
           | NullExp of PosAdorn<unit>
+          | QuitExp of PosAdorn<TyExpr>
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd
               | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
               | BitshiftLeft | BitshiftRight

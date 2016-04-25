@@ -5,8 +5,6 @@
 
 namespace juniper
 {
-    // function written by Evgeny Panasyuk
-    // Source: http://stackoverflow.com/questions/14739902/is-there-a-standalone-implementation-of-stdfunction
     template<typename Result, typename ...Args>
     struct abstract_function
     {
@@ -98,8 +96,6 @@ namespace juniper
         b = c;
     }
 
-    // shared_ptr written by Todd Gardner
-    // source: http://stackoverflow.com/questions/1512520/decent-shared-ptr-implementation-that-does-not-require-a-massive-library
     template <typename contained>
     class shared_ptr {
     public:
@@ -145,8 +141,6 @@ namespace juniper
             return *this;
         }
 
-        // operator void*, use_count
-
         //contained& operator*() {
         //    return *ptr_;
         //}
@@ -188,7 +182,7 @@ namespace juniper
     };
 
     template<typename T>
-    T death() {
+    T quit() {
         exit(1);
     }
 }

@@ -16,6 +16,7 @@ let pos (parseState: IParseState) startIdx endIdx =
 %token <string> STRING
 %token <string> INLINECODE
 %token ALIAS
+%token INCLUDE
 %token RETURN
 %token END
 %token OPEN
@@ -24,6 +25,7 @@ let pos (parseState: IParseState) startIdx endIdx =
 %token FUN
 %token FN
 %token IF
+%token QUIT
 %token THEN
 %token ELSE
 %token ELIF
@@ -118,6 +120,14 @@ declaration:
   | uniondec        { (pos parseState 1 1, None, $1) }
   | letdec          { (pos parseState 1 1, None, $1) }
   | opendec         { (pos parseState 1 1, None, $1) }
+  | includedec      { (pos parseState 1 1, None, $1) }
+
+includedec:
+  | INCLUDE LPAREN includeList RPAREN { IncludeDec (pos parseState 3 3, None, $3) }
+
+includeList:
+  | STRING COMMA includeList { (pos parseState 1 1, None, $1)::$3 }
+  | STRING                   { [(pos parseState 1 1, None, $1)] }
 
 // Open a everything exported to a namespace from a module
 opendec:
@@ -422,6 +432,7 @@ expr:
   | REF expr { RefExp (pos parseState 2 2, None, $2) }
   | DEREF expr { DerefExp (pos parseState 2 2, None, $2) }
   | LPAREN tupleExprList RPAREN { TupleExp $2 }
+  | QUIT LTHAN tyexpr GTHAN LPAREN RPAREN { QuitExp (pos parseState 3 3, None, $3) }
 
 // List of tuples
 tupleExprList:

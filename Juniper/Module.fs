@@ -67,3 +67,11 @@ let valueDecsInModule (Module decs) =
                              | (_, _, FunctionDec {name=name}) -> name
                              | (_, _, LetDec {varName=name}) -> name
                              | _ -> failwith "This should never happen") namedDecs
+
+let includesInModule (Module decs) =
+    let exports = List.filter (fun dec -> match dec with
+                                              | (_, _, IncludeDec _) -> true
+                                              | _ -> false) decs
+    List.concat (List.map (fun dec -> match dec with
+                                          | (_, _, IncludeDec (_, _, names)) -> names
+                                          | _ -> failwith "This should never happen") exports)

@@ -588,6 +588,10 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
         (checkPattern' pattern path, tenv')
 
     match expr with
+        | QuitExp (posT, _, typ) ->
+            wrapWithType
+                typ
+                (QuitExp (posT, None, typ))
         | InlineCode (posc, _, code) ->
             wrapWithType
                 (BaseTy (dummyWrap TyUnit))

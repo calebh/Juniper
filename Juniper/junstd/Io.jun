@@ -4,6 +4,7 @@ export(digWrite, digRead, anaRead, anaWrite, pinStateToInt, intToPinState,
 pinState, mode, high, low, input, output, inputPullup, setPinMode, pinModeToInt,
 intToPinMode, toggle, digIn, anaIn, digOut, anaOut, risingEdge, fallingEdge,
 edge, beginSerial, printStr, printFloat)
+include("<Arduino.h>")
 
 (*
     Interface: Io

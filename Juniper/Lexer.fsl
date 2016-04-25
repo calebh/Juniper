@@ -40,6 +40,8 @@ rule token = parse
 | "export"      { EXPORT }
 | "ref"         { REF }
 | "open"        { OPEN }
+| "include"     { INCLUDE }
+| "quit"        { QUIT }
 | "module"		{ MODULE }
 | "set"         { SET }
 | "fun"         { FUN }

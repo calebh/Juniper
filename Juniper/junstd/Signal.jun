@@ -310,4 +310,4 @@ fun map2<'a,'b,'c>(f : ('a, 'b) -> 'c,
         A signal holding the list of previous values
 *)
 fun record<'a;n>(incoming : sig<'a>, pastValues : list<'a;n> ref) : sig<list<'a;n>> =
-    foldP<'a,list<'a;n>>(List:pushFront<'a;n>, pastValues, incoming)
+    foldP<'a,list<'a;n>>(List:pushOffFront<'a;n>, pastValues, incoming)

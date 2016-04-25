@@ -27,12 +27,12 @@ let newline () =
     isNewLine <- true
     "\n"
 
-// In Juniper, death is a templated function that calls exit(1)
+// In Juniper, quit is a templated function that calls exit(1)
 // They are templated so they can be wrapped in a type so they can have return values consistent in typing
 // with whatever statement or function they may be a part of (for example, a function that returns an int will
-// return death typed as an int, which will still exit the program).
-let rec getDeathExpr (ty : TyExpr) : PosAdorn<Expr> =
-    let deathFun = dummyWrap (ModQualifierExp {module_=dummyWrap "juniper"; name=dummyWrap "death"})
+// return quit typed as an int, which will still exit the program).
+let rec getQuitExpr (ty : TyExpr) : PosAdorn<Expr> =
+    let deathFun = dummyWrap (ModQualifierExp {module_=dummyWrap "juniper"; name=dummyWrap "quit"})
     let appliedDeath = TemplateApplyExp { func = deathFun;
                                           templateArgs = dummyWrap {tyExprs = dummyWrap [dummyWrap ty];
                                                                     capExprs = dummyWrap []}} |> dummyWrap
@@ -143,6 +143,8 @@ and compilePattern (pattern : PosAdorn<Pattern>) (path : PosAdorn<Expr>) =
 // but it encapsulates a ton of the conversions and is considered holistic for that reason.
 and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
     match expr with
+        | QuitExp (_, _, ty) ->
+            getQuitExpr ty |> compile
         | NullExp _ ->
             output "juniper::shared_ptr<void>(NULL)"
         // Convert inline C++ code from Juniper directly to C++
@@ -191,7 +193,7 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
                         let (condition, assignments) = compilePattern left (dummyWrap (VarExp {name=dummyWrap varName}))
                         compile (dummyWrap (InternalDeclareVar {varName=dummyWrap varName; typ=None; right=right})) + output ";" + newline() +
                         output "if (!(" + compile condition + output ")) {" + newline() + indentId() +
-                        compile (getDeathExpr (BaseTy (dummyWrap TyUnit))) + output ";" + newline() + unindentId() +
+                        compile (getQuitExpr (BaseTy (dummyWrap TyUnit))) + output ";" + newline() + unindentId() +
                         output "}" + newline() +
                         (assignments |> List.map (fun expr -> compile (dummyWrap expr) + output ";" + newline()) |> String.concat "") +
                         (if isLastElem then
@@ -218,7 +220,7 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
             output "(([&]() -> " + compileType (Option.get maybeTy) + output " {" + indentId() + newline() +
             compile (dummyWrap (InternalDeclareVar {varName=dummyWrap varName; typ=None; right=right})) + output ";" + newline() +
             output "if (!(" + compile condition + output ")) {" + newline() + indentId() +
-            compile (getDeathExpr unitTy) + output ";" + newline() + unindentId() +
+            compile (getQuitExpr unitTy) + output ";" + newline() + unindentId() +
             output "}" + newline() +
             output "return " + compile (dummyWrap (VarExp {name=dummyWrap varName})) + output ";" +
             unindentId() + newline() + output "})())"
@@ -261,7 +263,7 @@ and compile ((_, maybeTy, expr) : PosAdorn<Expr>) : string =
                         let assignments' = List.map (wrapWithType unitTy) assignments
                         let seq = SequenceExp (dummyWrap (List.append assignments' [executeIfMatched]))
                         IfElseExp {condition=condition; trueBranch=wrapWithType ty seq; falseBranch=ifElseTree} |> wrapWithType ty
-                    ) clauses (getDeathExpr ty)
+                    ) clauses (getQuitExpr ty)
             let decOn = InternalDeclareVar {varName=dummyWrap onVarName; typ=dummyWrap onTy |> Some; right=(posOn, Some onTy, on)} |> wrapWithType unitTy
             compile (wrapWithType ty (SequenceExp (wrapWithType ty [decOn; equivalentExpr])))
         // Internal declarations are used only by the compiler, not the user, for hidden variables
@@ -406,7 +408,7 @@ and compileDec (dec : Declaration) : string =
     match dec with
         | InlineCodeDec (_, _, code) ->
             output code
-        | (ExportDec _ | ModuleNameDec _) ->
+        | (ExportDec _ | ModuleNameDec _ | IncludeDec _) ->
             ""
         | OpenDec (_, _, openDecs) ->
             openDecs |> (List.map (fun (_, _, modName) ->
@@ -539,6 +541,8 @@ and compileDec (dec : Declaration) : string =
                 output "; return ret; })());" + newline() +
                 unindentId() + output "}" + newline() + newline()) |> String.concat "")
 
+
+
 // Wrapper function for compiling the entire thing.
 // Takes in list of modules, which each have their contributions to the AST, and translates them
 // to the C++ representation.
@@ -546,11 +550,11 @@ and compileProgram (modList : Module list) : string =
     output "#include <inttypes.h>" + newline() +
     output "#include \"juniper.hpp\"" + newline() +
     output "#include <stdbool.h>" + newline() +
-    output "#include <Arduino.h>" + newline() +
-    output "#include <Adafruit_NeoPixel.h>" + newline() +
-    output "#include <math.h>" + newline() + newline() +
     (modList |> List.map (fun (Module module_)->
         let moduleName = Module module_ |> Module.nameInModule |> unwrap
+        let includes = Module module_ |> Module.includesInModule
+        (includes |> List.map (fun (_, _, str) ->
+                                    output "#include " + output str + newline()) |> String.concat "") +
         output "namespace " + moduleName + output " {" + newline() +
         indentId() +
         (module_ |> List.map (fun (_, _, dec) ->

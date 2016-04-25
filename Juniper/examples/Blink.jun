@@ -7,9 +7,10 @@ let timerState : timerState ref = Time:state()
 let ledState : pinState ref = ref low()
 
 fun blink() : unit = (
+    let timerSig = Time:every(100, timerState);
     let ledSig = Signal:foldP<uint32, pinState>(fn (currentTime : uint32, lastState : pinState) : pinState ->
                                                     Io:toggle(lastState),
-                                                ledState, Time:every(100, timerState));
+                                                ledState, timerSig);
     Io:digOut(boardLed, ledSig)
 )
 
@@ -20,6 +21,5 @@ fun main() : unit = (
     setup();
     while true do (
         blink();
-        Time:sleep(50)
     ) end
 )

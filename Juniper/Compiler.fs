@@ -1,5 +1,6 @@
 ﻿module Compiler
 open Ast
+open Extensions
 
 // The following are used for automatically adding new lines line indentation to transpiled C++
 let mutable indentationLevel = 0
@@ -464,7 +465,14 @@ and compileDec (dec : Declaration) : string =
                                                 output " " +
                                                 output fieldName +
                                                 output ";" + newline())) |> (String.concat "")) +
-            unindentId() +
+            output "bool operator==(" + output name + output "& rhs) {" + newline() + indentId() +
+            output "return " +
+            (fields |> unwrap |> List.map (fun (_, fieldName) ->
+                                                output fieldName + output " == rhs." + output fieldName) |> List.cons2 (output "true") |> String.concat " && ") +
+            output ";" + newline() + unindentId() +
+            output "}" + newline() + newline() +
+            output "bool operator!=(" + output name + output "& rhs) {" + newline() + indentId() +
+            output "return !(rhs == *this);" + unindentId() + newline() + output "}" +  unindentId() + newline() +
             output "};"
         | LetDec {varName=(_, _, varName); typ=(_, _, typ); right=right} ->
             compileType typ +

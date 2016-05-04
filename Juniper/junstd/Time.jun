@@ -1,12 +1,12 @@
 module Time
 open(Prelude)
-export(sleep, now, timerState, state, every)
+export(wait, now, timerState, state, every)
 
 (*
     Interface: Time
 *)
 (*
-    Function: sleep
+    Function: wait
 
     Pauses the program for the amount of time (in milliseconds) given as the
     parameter.
@@ -17,7 +17,7 @@ export(sleep, now, timerState, state, every)
     Parameters:
         time : uint32 - The amount of time to sleep
 *)
-fun sleep(time : uint32) : unit =
+fun wait(time : uint32) : unit =
     #delay(time);#
 
 (*
@@ -89,7 +89,7 @@ fun every(interval : uint32, state : timerState ref) : sig<uint32> = (
         else
             (t / interval) * interval
         end;
-    if (!state).lastPulse > lastWindow then
+    if (!state).lastPulse >= lastWindow then
         signal<uint32>(nothing<uint32>())
     else
         (set ref state = timerState { lastPulse = t };

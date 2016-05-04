@@ -106,7 +106,7 @@ rule token = parse
 // Allows for strings within other bodies (such as quotes, comments, etc.) to be parsed
 and read_string str ignorequote =
   parse
-  | '"'           { if ignorequote  then (read_string (str+"\\\"") false lexbuf) else STRING (str) }
+  | '"'           { if ignorequote  then (read_string (str+"\"") false lexbuf) else STRING (str) }
   | '\\'          { read_string str true lexbuf }
   | [^ '"' '\\']+ { read_string (str+(lexeme lexbuf)) false lexbuf }
   | eof           { raise (Exception ("String is not terminated")) }

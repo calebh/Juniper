@@ -1,7 +1,0 @@
-module Subway
-open(Prelude)
-export(execute)
-
-fun execute(ringSize : uint16, ringStrip : Neopixel:neoPixelStrip) : unit = (
-
-)

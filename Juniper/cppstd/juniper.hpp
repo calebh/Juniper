@@ -148,6 +148,12 @@ namespace juniper
         contained* operator->() {
             return ptr_;
         }
+
+        bool operator==(shared_ptr& rhs) {
+            return ptr_ == rhs.ptr_;
+        }
+
+        bool operator!=(shared_ptr& rhs) { return !(rhs == *this); }
     private:
         void inc_ref() {
             if (ref_count_) {
@@ -177,6 +183,17 @@ namespace juniper
         T& operator[](int i) {
             return data[i];
         }
+
+        bool operator==(array<T, N>& rhs) {
+            for (auto i = 0; i < N; i++) {
+                if (data[i] != rhs[i]) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        bool operator!=(array<T, N>& rhs) { return !(rhs == *this); }
 
         T data[N];
     };

@@ -1,6 +1,7 @@
 module AdafruitLSM303
 open(Prelude, Time, Vector)
 export(accMag, accMagState, make, state, begin, read, getSignal)
+include("\"Adafruit_LSM303.h\"")
 
 type accMag = { ptr : pointer; offset : vector<float;3>; scale : vector<float;3> }
 type accMagState = { timeState  : timerState ref;
@@ -28,12 +29,12 @@ fun begin(am : accMag) : unit = (
 
 fun read(am : accMag) : (vector<float;3> * vector<float;3>) = (
     let p = am.ptr;
-    let accX : float = 0.0;
-    let accY : float = 0.0;
-    let accZ : float = 0.0;
-    let magX : float = 0.0;
-    let magY : float = 0.0;
-    let magZ : float = 0.0;
+    let mutable accX : float = 0.0;
+    let mutable accY : float = 0.0;
+    let mutable accZ : float = 0.0;
+    let mutable magX : float = 0.0;
+    let mutable magY : float = 0.0;
+    let mutable magZ : float = 0.0;
     #auto ptr = (Adafruit_LSM303*) p.get();
     ptr->read();
     accX = ptr->accelData.x;

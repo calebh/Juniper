@@ -213,23 +213,32 @@ fun foldP<'a, 'state>(f : ('a,'state)->'state, state0 : 'state ref, incoming : s
     Drop values that have been repeated on the given signal.
 
     Type signature:
-    | <'a>(sig<'a>, 'a ref) -> sig<'a>
+    | <'a>(sig<'a>, maybe<'a> ref) -> sig<'a>
 
     Parameters:
         incoming : sig<'a> - The incoming signal
-        prevValue : 'a ref - A reference holding the previous value
+        maybePrevValue : maybe<'a> ref - A reference holding the previous value
+            or none if there hasn't been a previous value yet
 
     Returns:
         A filtered signal where two values in a row will not be repeated.
 *)
-fun dropRepeats<'a>(incoming : sig<'a>, prevValue : 'a ref) : sig<'a> =
-    filter<'a>(fn (value : 'a) : bool ->
-                   if value == (!prevValue) then
-                       true
-                   else
-                       (set ref prevValue = value;
-                       false)
-                   end, incoming)
+fun dropRepeats<'a>(incoming : sig<'a>, maybePrevValue : maybe<'a> ref) : sig<'a> =
+    filter<'a>(
+        fn (value : 'a) : bool ->
+            (let filtered =
+                case !maybePrevValue of
+                | nothing<'a>() => false
+                | just<'a>(prevValue) => value == prevValue
+                end;
+            if not filtered then
+                (set ref maybePrevValue = just<'a>(value);
+                ())
+            else
+                ()
+            end;
+            filtered),
+        incoming)
 
 (*
     Function: latch

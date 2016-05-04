@@ -3,11 +3,11 @@ open(Prelude, Io, Time)
 
 let boardLed : int16 = 13
 
-let timerState : timerState ref = Time:state()
+let tState : timerState ref = Time:state()
 let ledState : pinState ref = ref low()
 
 fun blink() : unit = (
-    let timerSig = Time:every(1000, timerState);
+    let timerSig = Time:every(1000, tState);
     let ledSig =
         Signal:foldP<uint32, pinState>(
             fn (currentTime : uint32, lastState : pinState) : pinState ->

@@ -14,3 +14,5 @@ module Map =
 
 module List =
     let hasDuplicates lst : bool = not (Set.count (Set.ofList lst) = List.length lst)
+
+    let cons2 a b = a::b

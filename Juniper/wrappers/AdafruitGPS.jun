@@ -1,0 +1,110 @@
+module AdafruitGPS
+open(Prelude)
+include("<Adafruit_GPS.h>")
+
+type gps = { ptr : pointer }
+
+type fixData = {
+    latitude : float;
+    longitude : float;
+    speed : float;
+    angle : float;
+    altitude : float;
+    satellites : uint8
+}
+
+type gpsData = {
+    hour : uint8;
+    minute : uint8;
+    seconds : uint8;
+    year : uint8;
+    month : uint8;
+    day : uint8;
+    milliseconds : uint16;
+    hasFix : bool;
+    fixQuality : uint8;
+    maybeFixData : maybe<fixData>
+}
+
+fun make() : gps = (
+    let p = null;
+    #p.set((void*) new Adafruit_GPS(&Serial1));#;
+    gps { ptr = p }
+)
+
+fun begin(g : gps) : unit = (
+    let p = g.ptr;
+    #((Adafruit_GPS*) p.get())->begin(9600);#;
+    #((Adafruit_GPS*) p.get())->sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);#;
+    #((Adafruit_GPS*) p.get())->sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);#;
+    #((Adafruit_GPS*) p.get())->sendCommand(PGCMD_ANTENNA);#
+)
+
+fun read(g : gps) : gpsData = (
+    let p = g.ptr;
+    let mutable hour : uint8 = 0;
+    let mutable minute : uint8 = 0;
+    let mutable seconds : uint8 = 0;
+    let mutable year : uint8 = 0;
+    let mutable month : uint8 = 0;
+    let mutable day : uint8 = 0;
+    let mutable milliseconds : uint16 = 0;
+    let mutable hasFix : bool = false;
+    let mutable fixQuality : uint8 = 0;
+    let mutable latitude : float = 0.0;
+    let mutable longitude : float = 0.0;
+    let mutable speed : float = 0.0;
+    let mutable angle : float = 0.0;
+    let mutable altitude : float = 0.0;
+    let mutable satellites : uint8 = 0;
+    #
+    auto thisGPS = (Adafruit_GPS*) p.get();
+    thisGPS->read();
+    if (thisGPS->newNMEAreceived()) {
+        thisGPS->parse(thisGPS->lastNMEA());
+    }
+    hour = thisGPS->hour;
+    minute = thisGPS->minute;
+    seconds = thisGPS->seconds;
+    year = thisGPS->year;
+    month = thisGPS->month;
+    day = thisGPS->day;
+    milliseconds = thisGPS->milliseconds;
+    hasFix = thisGPS->fix;
+    fixQuality = thisGPS->fixquality;
+    latitude = thisGPS->latitude;
+    longitude = thisGPS->longitude;
+    speed = thisGPS->speed;
+    angle = thisGPS->angle;
+    altitude = thisGPS->altitude;
+    satellites = thisGPS->satellites;
+    #;
+    gpsData {
+        hour = hour;
+        minute = minute;
+        seconds = seconds;
+        year = year;
+        month = month;
+        day = day;
+        milliseconds = milliseconds;
+        hasFix = hasFix;
+        fixQuality = fixQuality;
+        maybeFixData = if hasFix then
+                           just<fixData>(
+                               fixData {
+                                   latitude = latitude;
+                                   longitude = longitude;
+                                   speed = speed;
+                                   angle = angle;
+                                   altitude = altitude;
+                                   satellites = satellites
+                               }
+                           )
+                       else
+                           nothing<fixData>()
+                       end
+    }
+)
+
+fun getSignal(g : gps) : sig<gpsData> =
+    signal<gpsData>(just<gpsData>(read(g)))

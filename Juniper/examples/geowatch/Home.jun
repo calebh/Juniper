@@ -1,6 +1,0 @@
-module Home
-open(Prelude)
-export(execute)
-
-fun execute() : unit =
-    ()

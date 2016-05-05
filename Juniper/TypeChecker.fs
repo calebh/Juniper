@@ -8,6 +8,9 @@ open System.IO
 open Extensions
 open Module
 
+exception TypeError of string
+exception SemanticError of string
+
 // Keeps record of what templated functions have already been typechecked, so that
 // infinite recursion loops can be avoided. The two functions below this work with
 // this set, so that things can be added, and new things can be checked if they are
@@ -102,7 +105,13 @@ let arithResultTy numTypel numTyper =
 
 // Get position of the error (starting line and column, end line and column) in the form of a string to be used
 // for error messages.
-let posString (p1 : Position, p2 : Position) : string = 
+let posString (p1 : Position, p2' : Position) : string =
+    let p2 =
+        if p1 = p2' then
+            // The error should span at least one character
+            {p2' with pos_cnum = p2'.pos_cnum+1}
+        else
+            p2'
     let inRange line column =
         let notInRange = line < p1.Line ||
                          line > p2.Line ||
@@ -360,15 +369,13 @@ let rec applyTemplateToFunctionType (funType : TyExpr) (template : TemplateApply
     if templateTyVarsLen = funTemplateTyVarsLen then
         ()
     else
-        printfn "%sType error: Function template's type arity is %d, but %d types were passed to the template." (template.tyExprs |> getPos |> posString) funTemplateTyVarsLen templateTyVarsLen
-        failwith "Type error"
+        raise <| TypeError (sprintf "%sType error: Function template's type arity is %d, but %d types were passed to the template." (template.tyExprs |> getPos |> posString) funTemplateTyVarsLen templateTyVarsLen)
     let templateCapVarsLen = template.capExprs |> unwrap |> List.length
     let funTemplateCapVarsLen = funTemplate.capVars |> unwrap |> List.length
     if funTemplateCapVarsLen = templateCapVarsLen then
         ()
     else
-        printfn "%sType error: Function template's capacity arity is %d, but %d capacities were passed to the template." (template.capExprs |> getPos |> posString) funTemplateCapVarsLen templateCapVarsLen
-        failwith "Type error"
+        raise <| TypeError (sprintf "%sType error: Function template's capacity arity is %d, but %d capacities were passed to the template." (template.capExprs |> getPos |> posString) funTemplateCapVarsLen templateCapVarsLen)
     let tyMap = List.zip (funTemplate.tyVars |> unwrap |> List.map unwrap) (template.tyExprs |> unwrap) |> Map.ofList
     let capMap = List.zip (funTemplate.capVars |> unwrap |> List.map unwrap) (template.capExprs |> unwrap) |> Map.ofList
     // We have to do this to avoid name clashes
@@ -460,8 +467,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                     | MatchVar {varName=varName; mutable_=mutable_; typ=tyConstraint} ->
                         match tyConstraint with
                             | Some (posTyConstraint, _, ty) when not (eqTypes pathTy ty) ->
-                                printfn "%sType error: Type constraint given in pattern does not match the type of expression being matched on." (posString posTyConstraint)
-                                failwith "Type error"
+                                raise <| TypeError (sprintf "%sType error: Type constraint given in pattern does not match the type of expression being matched on." (posString posTyConstraint))
                             | _ ->
                                 let tau = match tyConstraint with
                                               | Some (_, _, ty) -> ty
@@ -476,8 +482,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                 pathTy
                                 (MatchIntVal (posn, None, num))
                         else
-                            printfn "%sType error: Integer type constraint given in pattern does not match the type of the expression being matched upon." (posString posn)
-                            failwith "Type error"
+                            raise <| TypeError (sprintf "%sType error: Integer type constraint given in pattern does not match the type of the expression being matched upon." (posString posn))
                     | MatchFloatVal (posn, _, num) ->
                         let floatTy = BaseTy (dummyWrap TyFloat)
                         if eqTypes floatTy pathTy then
@@ -485,8 +490,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                 pathTy
                                 (MatchIntVal (posn, None, num))
                         else
-                            printfn "%sType error: Float type constraint given in pattern does not match the type of the expression being matched upon." (posString posn)
-                            failwith "Type error"
+                            raise <| TypeError (sprintf "%sType error: Float type constraint given in pattern does not match the type of the expression being matched upon." (posString posn))
                     | MatchTuple (post, _, tuple) ->
                         let tuple' = (List.mapi (fun index (_, _, subPattern) ->
                                             checkPattern' subPattern (InternalTupleAccess {
@@ -504,8 +508,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                             ) fieldList)
                             MatchRecCon {typ=(posRecTy, None, recTy); fields=(posFieldList, None, fieldList')} |> dummyWrap
                         else
-                            printfn "%sType error: Record type given in pattern does not match the type of the expression being matched upon." (posString posRecTy)
-                            failwith "Type error"
+                            raise <| TypeError (sprintf "%sType error: Record type given in pattern does not match the type of the expression being matched upon." (posString posRecTy))
                     | (MatchValConModQualifier {modQualifier=(_, _, {name=(posn, _, name)}); template=maybeTemplate; innerPattern=(posValConPattern, _, valConPattern)}
                         | MatchValCon {name=(posn, _, name); template=maybeTemplate; innerPattern=(posValConPattern, _, valConPattern)} ) ->
                         // Value constructors are implemented as functions so
@@ -521,14 +524,12 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                     match Map.tryFind (module_, name) dtenv with
                                         | Some ty -> ty
                                         | None ->
-                                            printfn "%s%sError: Could not find value constructor declaration named %s in module named %s." (posString posModQual) (posString posn) module_ name
-                                            failwith "Error"
+                                            raise <| SemanticError (sprintf "%s%sSemantic error: Could not find value constructor declaration named %s in module named %s." (posString posModQual) (posString posn) module_ name)
                                 | MatchValCon _ ->
                                     match Map.tryFind name tenv with
                                         | Some (_, ty) -> ty
                                         | None ->
-                                            printfn "%sError: Could not find value constructor named %s." (posString posn) name
-                                            failwith "Error"
+                                            raise <| SemanticError (sprintf "%sSemantic error: Could not find value constructor named %s." (posString posn) name)
                         let (valConPattern', index) =
                             match ty with
                                 | FunTy {args=args; template=maybeFunTemplate; returnType=(_, _, funReturnType); source=Some {module_=srcModule; name=srcName}} ->
@@ -541,29 +542,24 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                             | (None, None) ->
                                                 funReturnType
                                             | (Some (posTemplate, _, _), None) ->
-                                                printfn "%sType error: Value constructor does not have a template." (posString posTemplate)
-                                                failwith "Type error"
+                                                raise <| TypeError (sprintf "%sType error: Value constructor does not have a template." (posString posTemplate))
                                             | (None, Some (posFunTemplate, _, _)) ->
-                                                printfn "%sType error: Value constructor requires a template." (posString posn)
-                                                failwith "Type error"
+                                                raise <| TypeError (sprintf "%sType error: Value constructor requires a template." (posString posn))
                                     if eqTypes funReturnType' pathTy then
                                         ()
                                     else
-                                        printfn "%sType error: Value constructor given in pattern does not match the type of the expression." (posString posn)
-                                        failwith "Type error"
+                                        raise <| TypeError (sprintf "%sType error: Value constructor given in pattern does not match the type of the expression." (posString posn))
                                     let unionDec = Map.find (unwrap srcModule, unwrap srcName) denv |> unwrap
                                     let index = match unionDec with
                                                     | UnionDec {valCons=valCons} ->
                                                         valCons |> unwrap |> List.tryFindIndex (fun (valConName, _) -> (unwrap valConName) = name)
                                                     | _ ->
-                                                        printfn "%sType Error: Declaration named %s is not a value constructor." (posString posn) name
-                                                        failwith "Type error"
+                                                        raise <| TypeError (sprintf "%sType Error: Declaration named %s is not a value constructor." (posString posn) name)
                                     let index' =
                                         match index with
                                             | Some i -> i
                                             | None ->
-                                                printfn "%sType Error: Declaration named %s is not a value constructor." (posString posn) name
-                                                failwith "Type error"
+                                                raise <| TypeError (sprintf "%sType Error: Declaration named %s is not a value constructor." (posString posn) name)
                                     ((match List.tryHead args with
                                         | None ->
                                             dummyWrap MatchEmpty
@@ -571,8 +567,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                             let path' = InternalValConAccess {valCon=(posn, None, path); typ=h}
                                             checkPattern' valConPattern path'), index')
                                 | _ ->
-                                    printfn "%sType Error: Declaration named %s is not a value constructor." (posString posn) name
-                                    failwith "Type error"
+                                    raise <| TypeError (sprintf "%sType Error: Declaration named %s is not a value constructor." (posString posn) name)
                         match pattern with
                             | MatchValConModQualifier a ->
                                 wrapWithType
@@ -612,11 +607,9 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                     trueBranch = (post, Some typet, cTrueBranch);
                                     falseBranch = (posf, Some typef, cFalseBranch)})
                 else
-                    printfn "Type error in %s and %s: true branch of if statement has type %s and false branch has type %s. These types were expected to match." (posString post) (posString posf) (typeString typet) (typeString typef)
-                    failwith "Type error"
+                    raise <| TypeError (sprintf "Type error in %s and %s: true branch of if statement has type %s and false branch has type %s. These types were expected to match." (posString post) (posString posf) (typeString typet) (typeString typef))
             else
-                printfn "Type error in %s: condition of if statement expected to have type %s but had type %s instead" (posString posc) (typeString tbool) (typeString typec)
-                failwith "Type error"
+                raise <| TypeError (sprintf "Type error in %s: condition of if statement expected to have type %s but had type %s instead" (posString posc) (typeString tbool) (typeString typec))
         | SequenceExp (poss, _, exps) ->
             // This pattern match cannot fail since
             // sequences of length 0 are transformed to unit
@@ -664,8 +657,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
         | VarExp {name=(posn, _, name)} ->
             let typ = match Map.tryFind name tenv with
                       | None ->
-                            printfn "%sError: variable named %s could not be found." (posString posn) name
-                            failwith "Error"
+                            raise <| SemanticError (sprintf "%sSemantic error: variable named %s could not be found." (posString posn) name)
                       | Some (_, typ') -> typ'
             wrapWithType
                 (typ)
@@ -681,8 +673,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             if eqTypes typeb (unwrap clause.returnTy) then
                 ()
             else
-                printfn "Type error in lambda expression: The return type %s in %s does not match the body type %s in %s." (unwrap clause.returnTy |> typeString) (posString posr) (typeString typeb) (posString posb)
-                failwith "Type error"
+                raise <| TypeError (sprintf "Type error in lambda expression: The return type %s in %s does not match the body type %s in %s." (unwrap clause.returnTy |> typeString) (posString posr) (typeString typeb) (posString posb))
             let argsTypes = unwrap clause.arguments |> List.unzip |> fst
             let lambdaType = FunTy {template=None;
                                     args=argsTypes;
@@ -703,19 +694,16 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                         let typel = Map.find (module_, name) dtenv
                         match typel with
                             | RefTy _ -> typel
-                            | _ -> printfn "%sError in set expression: The left side is not mutable." (posString posl)
-                                   failwith "Error"
+                            | _ -> raise <| SemanticError (sprintf "%sSemantic error in set expression: The left side is not mutable." (posString posl))
                     | VarMutation {varName=varName} ->
                         let (mutable_, typel) =
                             match Map.tryFind (unwrap varName) tenv with
                                 | Some x -> x
-                                | None -> printfn "%sError: variable named %s could not be found." (getPos varName |> posString) (unwrap varName)
-                                          failwith "Error"
+                                | None -> raise <| SemanticError (sprintf "%sError: variable named %s could not be found." (getPos varName |> posString) (unwrap varName))
                         if mutable_ || ref then
                             typel
                         else
-                            printfn "%sError in set expression: The left hand side is not mutable." (posString posl)
-                            failwith "Error"
+                            raise <| TypeError (sprintf "%sSemantic error in set expression: The left hand side is not mutable." (posString posl))
                     | ArrayMutation {array=(posa, _, array); index=(posi, _, index)} ->
                         let (_, Some typei, cIndex) = tc index
                         if isIntType typei then
@@ -724,19 +712,16 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                 | ArrayTy {valueType=valueType} -> unwrap valueType
                                 | ForallTy ty -> tyArray
                                 | _ ->
-                                    printfn "%sType error in array set expression: expected an array type for array access but was given %s instead." (posString posa) (typeString tyArray)
-                                    failwith "Type error"
+                                    raise <| TypeError (sprintf "%sType error in array set expression: expected an array type for array access but was given %s instead." (posString posa) (typeString tyArray))
                         else
-                            printfn "%sType error in array set expression: The index of the array has type %s, but was expected to have an integer type." (posString posi) (typeString typei)
-                            failwith "Type error"
+                            raise <| TypeError (sprintf "%sType error in array set expression: The index of the array has type %s, but was expected to have an integer type." (posString posi) (typeString typei))
                     | RecordMutation {record=(posr, _, record); fieldName=(posf, _, fieldName)} ->
                         let tyRecord = checkLeft record
                         match tyRecord with
                             | (TyModuleQualifier qual | TyApply {tyConstructor=(_, _, TyModuleQualifier qual)}) ->
                                 let actualDef = match Map.tryFind (toStringPair qual) denv with
                                                     | Some def -> unwrap def
-                                                    | None -> printfn "%sType error: Cannot find declaration named %s in module %s." (posString posr) (unwrap qual.name) (unwrap qual.module_)
-                                                              failwith "Type error"
+                                                    | None -> raise <| TypeError (sprintf "%sType error: Cannot find declaration named %s in module %s." (posString posr) (unwrap qual.name) (unwrap qual.module_))
                                 let actualDef' = match tyRecord with
                                                      | TyModuleQualifier _ -> actualDef
                                                      | TyApply {args=args} -> applyTemplate actualDef (unwrap args)
@@ -748,15 +733,12 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                                                             (unwrap fields))
                                         match maybeFoundField with
                                             | None ->
-                                                printfn "%sType error: could not find field named %s in record with type %s." (posString posf) fieldName (typeString tyRecord)
-                                                failwith "Type error"
+                                                raise <| TypeError (sprintf "%sType error: could not find field named %s in record with type %s." (posString posf) fieldName (typeString tyRecord))
                                             | Some (ty, _) -> ty
                                     | _ ->
-                                        printfn "%sType error: Can only access a record with the field lookup operation." (posString posr)
-                                        failwith "Type error."
+                                        raise <| TypeError (sprintf "%sType error: Can only access a record with the field lookup operation." (posString posr))
                             | ForallTy _ -> tyRecord
-                            | _ -> printfn "%sType error: Attempted to access a field of a nonrecord with type %s." (posString posr) (typeString tyRecord)
-                                   failwith "Type error"
+                            | _ -> raise <| TypeError (sprintf "%sType error: Attempted to access a field of a nonrecord with type %s." (posString posr) (typeString tyRecord))
             let typel = checkLeft left
             if ref then
                 match typel with
@@ -764,19 +746,16 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                         if eqTypes refTy typer then
                             ()
                         else
-                            printfn "%sType error: The ref on the left hand side holds a value of type %s, which does not match the right hand side type of %s." (posString posl) (typeString refTy) (typeString typer)
-                            failwith "Type error"
+                            raise <| TypeError (sprintf "%sType error: The ref on the left hand side holds a value of type %s, which does not match the right hand side type of %s." (posString posl) (typeString refTy) (typeString typer))
                     | ForallTy _ ->
                         ()
                     | _ ->
-                        printfn "%sType error: The left hand side of the set expression has type %s, which is not a ref type." (posString posl) (typeString typel)
-                        failwith "Type error"
+                        raise <| TypeError (sprintf "%sType error: The left hand side of the set expression has type %s, which is not a ref type." (posString posl) (typeString typel))
             else
                 if eqTypes typer typel then
                     ()
                 else
-                    printfn "%s%sType error: The left hand side of the set expression has type %s, but the right hand side has type %s. The left and the right hand sides were expected to have the same type." (posString posl) (posString posr) (typeString typel) (typeString typer)
-                    failwith "Type error"
+                    raise <| TypeError (sprintf "%s%sType error: The left hand side of the set expression has type %s, but the right hand side has type %s. The left and the right hand sides were expected to have the same type." (posString posl) (posString posr) (typeString typel) (typeString typer))
             wrapWithType
                 typer
                 (AssignExp {left=(posl, None, left); right=(posr, Some typer, cRight); ref=(posref, None, ref)})
@@ -802,8 +781,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                                           | None -> (r0, recordTy)
                                                           | Some template ->
                                                               let tyVarArity = (unwrap template).tyVars |> unwrap |> List.length
-                                                              printfn "%sType error: Record expression expects %d type arguments." (posString posrt) tyVarArity
-                                                              failwith "Type error"
+                                                              raise <| TypeError (sprintf "%sType error: Record expression expects %d type arguments." (posString posrt) tyVarArity)
                                             | Some templateArgs ->
                                                 let (RecordDec r1) = applyTemplate (RecordDec r0) (unwrap templateArgs)
                                                 let newTy = TyApply {tyConstructor=(posrt, None, recordTy); args=templateArgs}
@@ -815,8 +793,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                     let initFieldNames = List.map fst initFields |> List.map unwrap
                                     let defFieldNames = unwrap r.fields |> List.map snd
                                     if List.hasDuplicates initFieldNames then
-                                        printfn "%sType error: Duplicate field names in record expression." (posString posif)
-                                        failwith "Type error"
+                                        raise <| TypeError (sprintf "%sType error: Duplicate field names in record expression." (posString posif))
                                     else
                                         ()
                                     let nameDiff = Set.difference (Set.ofList defFieldNames) (Set.ofList initFieldNames)
@@ -824,20 +801,17 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                         ()
                                     else
                                         let missingFields = String.concat "," nameDiff
-                                        printfn "%sType error: Missing fields named %s from record expression." (posString posif) missingFields
-                                        failwith "Type error"
+                                        raise <| TypeError (sprintf "%sType error: Missing fields named %s from record expression." (posString posif) missingFields)
                                     let cInitFields = (List.map (fun ((posfn, _, fieldName), (pose, _, expr)) ->
                                         let (_, Some typee, cExpr) = tc expr
                                         match Map.tryFind fieldName defFieldsMap with
                                             | None ->
-                                                printfn "%sType error: Could not find field named %s in record of type %s." (posString posfn) fieldName (typeString recordTy)
-                                                failwith "Type error"
+                                                raise <| TypeError (sprintf "%sType error: Could not find field named %s in record of type %s." (posString posfn) fieldName (typeString recordTy))
                                             | Some fieldType ->
                                                 if eqTypes typee fieldType then
                                                     ((posfn, None, fieldName), (pose, Some typee, cExpr))
                                                 else
-                                                    printfn "%sType error: Field named %s should have type %s but the expression given has type %s." (posString pose) fieldName (typeString fieldType) (typeString typee)
-                                                    failwith "Type error"
+                                                    raise <| TypeError (sprintf "%sType error: Field named %s should have type %s but the expression given has type %s." (posString pose) fieldName (typeString fieldType) (typeString typee))
                                         ) initFields)
                                     wrapWithType
                                         resultType
@@ -846,27 +820,22 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                             templateArgs = maybeTemplateArgs;
                                             initFields = (posif, None, cInitFields)
                                         })
-                                | _ -> printfn "%sType error: Could not find record type named %s in module named %s." (posString posrt) (unwrap qual.name) (unwrap qual.module_)
-                                       failwith "Type error"
-                        | None -> printfn "%sType error: Could not find record type named %s in module named %s." (posString posrt) (unwrap qual.name) (unwrap qual.module_)
-                                  failwith "Type error"
-                | _ -> printfn "%sType error: Attempting to access a record field of non-record type %s" (posString posrt) (typeString recordTy)
-                       failwith "Type error"
+                                | _ -> raise <| TypeError (sprintf "%sType error: Could not find record type named %s in module named %s." (posString posrt) (unwrap qual.name) (unwrap qual.module_))
+                        | None -> raise <| TypeError (sprintf "%sType error: Could not find record type named %s in module named %s." (posString posrt) (unwrap qual.name) (unwrap qual.module_))
+                | _ -> raise <| TypeError (sprintf "%sType error: Attempting to access a record field of non-record type %s" (posString posrt) (typeString recordTy))
         | ForLoopExp {typ=typ; varName=varName; start=(poss, _, start); direction=direction; end_=(pose, _, end_); body=(posb, _, body)} ->
             // First check that the starting exp is a numeral type
             let (_, Some types, cStart) = tc start
             if isIntType types then
                 ()
             else
-                printfn "%sType error: Starting expression has type of %s, which is not an integer type." (posString poss) (typeString types)
-                failwith "Type error"
+                raise <| TypeError (sprintf "%sType error: Starting expression has type of %s, which is not an integer type." (posString poss) (typeString types))
             // Now check that the starting exp is a numeral type
             let (_, Some typee, cEnd) = tc end_
             if isIntType typee then
                 ()
             else
-                printfn "%sType error: Ending expression has type of %s, which is not an integer type." (posString pose) (typeString typee)
-                failwith "Type error"
+                raise <| TypeError (sprintf "%sType error: Ending expression has type of %s, which is not an integer type." (posString pose) (typeString typee))
             let tenv' = Map.add (unwrap varName) (false, unwrap typ) tenv
             let tc' = typeCheckExpr denv dtenv tenv' modNamesToTenvs capEnv
             let (_, Some typeb, cBody) = tc' body
@@ -886,8 +855,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             if eqTypes typec (BaseTy (dummyWrap TyBool)) then
                 ()
             else
-                printfn "%sType error: Condition of do while loop expected to be of type bool but was of type %s." (posString posc) (typeString typec)
-                failwith "Type error"
+                raise <| TypeError (sprintf "%sType error: Condition of do while loop expected to be of type bool but was of type %s." (posString posc) (typeString typec))
             wrapWithType
                 (BaseTy (dummyWrap TyUnit))
                 (DoWhileLoopExp {
@@ -900,8 +868,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             if eqTypes typec (BaseTy (dummyWrap TyBool)) then
                 ()
             else
-                printfn "%sType error: Condition of do while loop expected to be of type bool but was of type %s." (posString posc) (typeString typec)
-                failwith "Type error"
+                raise <| TypeError (sprintf "%sType error: Condition of do while loop expected to be of type bool but was of type %s." (posString posc) (typeString typec))
             wrapWithType
                 (BaseTy (dummyWrap TyUnit))
                 (WhileLoopExp {
@@ -914,8 +881,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             if isIntType typei then
                 ()
             else
-                printfn "%sType error: Array access index expression expected to have integer type, but was of type %s instead." (posString posi) (typeString typea)
-                failwith "Type error"
+                raise <| TypeError (sprintf "%sType error: Array access index expression expected to have integer type, but was of type %s instead." (posString posi) (typeString typea))
             match typea with
                 | ArrayTy {valueType=valueType} ->
                     wrapWithType
@@ -924,8 +890,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                             array=(posa, Some typea, cArray);
                             index=(posi, Some typei, index)
                         })
-                | _ -> printfn "%sType error: Array access operation can only be applied to arrays, but was attempted to be applied to expression of type %s." (posString posa) (typeString typea)
-                       failwith "Type error"
+                | _ -> raise <| TypeError (sprintf "%sType error: Array access operation can only be applied to arrays, but was attempted to be applied to expression of type %s." (posString posa) (typeString typea))
         | BinaryOpExp {left=(posl, _, left); op=(poso, _, op); right=(posr, _, right)} ->
             let (_, Some typel, cLeft) = tc left
             let (_, Some typer, cRight) = tc right
@@ -934,13 +899,11 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                     if isNumericalType typel then
                         ()
                     else
-                        printfn "%sType error: The expression has a type of %s which is not a numerical type." (posString posl) (typeString typel)
-                        failwith "Type error"
+                        raise <| TypeError (sprintf "%sType error: The expression has a type of %s which is not a numerical type." (posString posl) (typeString typel))
                     if isNumericalType typer then
                         ()
                     else
-                        printfn "%sType error: The expression has a type of %s which is not a numerical type." (posString posr) (typeString typer)
-                        failwith "Type error"
+                        raise <| TypeError (sprintf "%sType error: The expression has a type of %s which is not a numerical type." (posString posr) (typeString typer))
                     let numTypeResult = match (typel, typer) with
                                             | (BaseTy (_, _, t1), BaseTy (_, _, t2)) -> BaseTy (dummyWrap (arithResultTy t1 t2))
                                             | (ForallTy _, _) -> typel
@@ -957,11 +920,11 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                     if isNumericalType typel then
                         ()
                     else
-                        printfn "%sType error: The expression has a type of %s which is not a numerical type." (posString posl) (typeString typel)
+                        raise <| TypeError (sprintf "%sType error: The expression has a type of %s which is not a numerical type." (posString posl) (typeString typel))
                     if isNumericalType typer then
                         ()
                     else
-                        printfn "%sType error: The expression has a type of %s which is not a numerical type." (posString posr) (typeString typer)
+                        raise <| TypeError (sprintf "%sType error: The expression has a type of %s which is not a numerical type." (posString posr) (typeString typer))
                     wrapWithType
                         (BaseTy (dummyWrap TyBool))
                         (BinaryOpExp{
@@ -972,10 +935,8 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                 | (LogicalOr | LogicalAnd) ->
                     match (typel, typer) with
                         | (BaseTy (_, _, TyBool), BaseTy (_, _, TyBool)) -> ()
-                        | (BaseTy (_, _, TyBool), _) -> printfn "%sType error: Expected the expression to have type bool, but had type %s instead." (posString posr) (typeString typer)
-                                                        failwith "Type error"
-                        | _ -> printfn "%sType error: Expected the expression to have type bool, but had type %s instead." (posString posl) (typeString typel)
-                               failwith "Type error"
+                        | (BaseTy (_, _, TyBool), _) -> raise <| TypeError (sprintf "%sType error: Expected the expression to have type bool, but had type %s instead." (posString posr) (typeString typer))
+                        | _ -> raise <| TypeError (sprintf "%sType error: Expected the expression to have type bool, but had type %s instead." (posString posl) (typeString typel))
                     wrapWithType
                         (BaseTy (dummyWrap TyBool))
                         (BinaryOpExp{
@@ -993,19 +954,16 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                 op=(poso, None, op)
                             })   
                     else
-                        printfn "%s%sType error: Expected the left and right hand side to have the same types, but the left hand side is of type %s while the right hand side is of type %s" (posString posl) (posString posr) (typeString typel) (typeString typer)
-                        failwith "Type error"
+                        raise <| TypeError (sprintf "%s%sType error: Expected the left and right hand side to have the same types, but the left hand side is of type %s while the right hand side is of type %s" (posString posl) (posString posr) (typeString typel) (typeString typer))
                 | (Modulo | BitwiseAnd | BitwiseOr | BitshiftLeft | BitshiftRight) ->
                     if isIntType typel then
                         ()
                     else
-                        printfn "%sType error: Expected an expression of integer type but the type of the expression is %s instead." (posString posl) (typeString typel)
-                        failwith "Type error"
+                        raise <| TypeError (sprintf "%sType error: Expected an expression of integer type but the type of the expression is %s instead." (posString posl) (typeString typel))
                     if isIntType typer then
                         ()
                     else
-                        printfn "%sType error: Expected an expression of integer type but the type of the expression is %s instead." (posString posr) (typeString typer)
-                        failwith "Type error"
+                        raise <| TypeError (sprintf "%sType error: Expected an expression of integer type but the type of the expression is %s instead." (posString posr) (typeString typer))
                     let numTypel = match typel with
                                        | BaseTy (_, _, t1) -> t1
                                        | _ -> failwith "This should never happen"
@@ -1021,8 +979,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                             op=(poso, None, op)
                         })
         | ArrayLitExp (pose, _, []) ->
-            printfn "%sSemantic error: Array literals of length zero are not allowed." (posString pose)
-            failwith "Semantic error"
+            raise <| SemanticError (sprintf "%sSemantic error: Array literals of length zero are not allowed." (posString pose))
         | ArrayLitExp (pose, _, exps) ->
             let (_, _, head)::_ = exps
             let (_, Some typeh, _) = tc head
@@ -1031,8 +988,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                 if eqTypes typeexp typeh then
                     (posexp, Some typeexp, cExp)
                 else
-                    printfn "%sType error: Expression in array literal expected to have type %s but has type %s instead." (posString posexp) (typeString typeh) (typeString typeexp)
-                    failwith "Type error"
+                    raise <| TypeError (sprintf "%sType error: Expression in array literal expected to have type %s but has type %s instead." (posString posexp) (typeString typeh) (typeString typeexp))
             ) exps)
             let capacity = sprintf "%d" (List.length exps) |> dummyWrap |> CapacityConst
             (wrapWithType
@@ -1048,8 +1004,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                             if eqTypes typea fArg then
                                 ()
                             else
-                                printfn "%sType error: Function argument expected to be of type %s but was of type %s." (posString posArg) (typeString fArg) (typeString typea)
-                                failwith "Type error"
+                                raise <| TypeError (sprintf "%sType error: Function argument expected to be of type %s but was of type %s." (posString posArg) (typeString fArg) (typeString typea))
                         ) (List.zip3 args tcArgs funArgs)
                         wrapWithType
                             (unwrap returnType)
@@ -1058,11 +1013,9 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                 args=(posa, None, tcArgs)
                             })
                     else
-                        printfn "%sType error: incorrect number of arguments applied to function of type %s." (posString posa) (typeString typef)
-                        failwith "Type error"
+                        raise <| TypeError (sprintf "%sType error: incorrect number of arguments applied to function of type %s." (posString posa) (typeString typef))
                 | FunTy {template=Some _} ->
-                    printfn "%sType error: Expected type arguments to be applied before calling function. The type of the function being called is %s." (posString posf) (typeString typef)
-                    failwith "Type error"
+                    raise <| TypeError (sprintf "%sType error: Expected type arguments to be applied before calling function. The type of the function being called is %s." (posString posf) (typeString typef))
                 | ForallTy _ ->
                     wrapWithType
                         typef
@@ -1071,8 +1024,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                             args=(posa, None, tcArgs)
                         })
                 | _ ->
-                    printfn "%sType error: Attempting to call an expression of type %s, which is not a function." (posString posf) (typeString typef)
-                    failwith "Type error"
+                    raise <| TypeError (sprintf "%sType error: Attempting to call an expression of type %s, which is not a function." (posString posf) (typeString typef))
         | UnaryOpExp {op=(poso, _, op); exp=(pose, _, exp)} ->
             let (_, Some typee, cExp) = tc exp
             match op with
@@ -1085,8 +1037,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                 exp=(pose, Some typee, cExp)
                             })
                     else
-                        printfn "%sType error: Expression has type %s when type bool was expected for logical not expression." (posString pose) (typeString typee)
-                        failwith "Type error"
+                        raise <| TypeError (sprintf "%sType error: Expression has type %s when type bool was expected for logical not expression." (posString pose) (typeString typee))
                 | BitwiseNot ->
                     if isIntType typee then
                         wrapWithType
@@ -1096,8 +1047,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                 exp=(pose, Some typee, cExp)
                             })
                     else
-                        printfn "%sType error: Expression has type %s when integer type was expected for bitwise not operation." (posString pose) (typeString typee)
-                        failwith "Type error"
+                        raise <| TypeError (sprintf "%sType error: Expression has type %s when integer type was expected for bitwise not operation." (posString pose) (typeString typee))
         | RecordAccessExp {record=(posr, _, record); fieldName=(posf, _, fieldName)} ->
             let (_, Some typer, cRecord) = tc record
             match typer with
@@ -1126,19 +1076,15 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                             fieldName = (posf, None, fieldName)
                                         })
                                 | None ->
-                                    printfn "%sType error: Field named %s not found in record of type %s." (posString posf) fieldName (typeString typer)
-                                    failwith "Type error"
+                                    raise <| TypeError (sprintf "%sType error: Field named %s not found in record of type %s." (posString posf) fieldName (typeString typer))
                         | _ ->
-                            printfn "%sType error: Trying to access field of a nonrecord type." (posString posr)
-                            failwith "Type error"
+                            raise <| TypeError (sprintf "%sType error: Trying to access field of a nonrecord type." (posString posr))
                 | _ ->
-                    printfn "%sType error: Trying to access field of a nonrecord type %s." (posString posr) (typeString typer)
-                    failwith "Type error"
+                    raise <| TypeError (sprintf "%sType error: Trying to access field of a nonrecord type %s." (posString posr) (typeString typer))
         | ModQualifierExp {module_=(posm, _, module_); name=(posn, _, name)} ->
             let ty = match Map.tryFind (module_, name) dtenv with
                          | Some ty -> ty
-                         | None -> printfn "%s%sError: Could not find declaration named %s in module named %s." (posString posm) (posString posn) name module_
-                                   failwith "Error"
+                         | None -> raise <| SemanticError (sprintf "%s%sError: Could not find declaration named %s in module named %s." (posString posm) (posString posn) name module_)
             wrapWithType
                 ty
                 (ModQualifierExp {module_=(posm, None, module_); name=(posn, None, name)})
@@ -1146,13 +1092,11 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             let (_, Some typef, cFunc) = tc func
             match typef with
                 | FunTy {template=None} ->
-                    printfn "%sType error: Function does not require application of a template." (posString posf)
-                    failwith "Type error"
+                    raise <| TypeError (sprintf "%sType error: Function does not require application of a template." (posString posf))
                 | FunTy {template=Some _} ->
                     match func with
                         | (VarExp _ | ModQualifierExp _) -> ()
-                        | _ -> printfn "%sSemantic error: Template can only be applied directly to a function." (posString posf)
-                               failwith "Semantic error"
+                        | _ -> raise <| SemanticError (sprintf "%sSemantic error: Template can only be applied directly to a function." (posString posf))
                     match typef with
                         | FunTy {source=Some {module_=(_, _, module_); name=(_, _, name)}} ->
                             let funDec = Map.find (module_, name) denv |> unwrap
@@ -1167,8 +1111,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                         (applyTemplateToFunctionType typef templateArgs)
                         (TemplateApplyExp {func=(posf, Some  typef, cFunc); templateArgs=(posTempArgs, None, templateArgs)})
                 | _ ->
-                    printfn "%sType error: Attempting to apply a template to an expression of type %s. Templates can only be applied to functions." (posString posf) (typeString typef)
-                    failwith "Type error"
+                    raise <| TypeError (sprintf "%sType error: Attempting to apply a template to an expression of type %s. Templates can only be applied to functions." (posString posf) (typeString typef))
         | RefExp (pose, _, expr) ->
             let (_, Some typee, cExpr) = tc expr
             wrapWithType
@@ -1196,8 +1139,7 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                         if eqTypes typeExprIfMatched resultTy then
                                             ()
                                         else
-                                            printfn "%sType error: Expected all bodies of case expression to have type %s, but this body had type %s instead." (posString posExprIfMatched) (typeString resultTy) (typeString typeExprIfMatched)
-                                            failwith "Type error")
+                                            raise <| TypeError (sprintf "%sType error: Expected all bodies of case expression to have type %s, but this body had type %s instead." (posString posExprIfMatched) (typeString resultTy) (typeString typeExprIfMatched)))
             wrapWithType
                 resultTy
                 (CaseExp {
@@ -1207,23 +1149,21 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
             let (_, Some typee, cExpr) = tc expr
             let returnTy = match typee with
                                | RefTy (_, _, ty) -> ty
-                               | _ -> printfn "%sType error: Attempting to dereference a non-reference expression of type %s" (posString pose) (typeString typee)
-                                      failwith "Type error"
+                               | _ -> raise <| TypeError (sprintf "%sType error: Attempting to dereference a non-reference expression of type %s" (posString pose) (typeString typee))
             wrapWithType
                 returnTy
                 (DerefExp (pose, Some typee, cExpr))
         | ArrayMakeExp { typ=(post, _, typ); initializer=maybeInitializer } ->
             let valueType = match typ with
                                 | ArrayTy {valueType=valueType} -> unwrap valueType
-                                | _ -> printfn "%sType error: Expected an array type in array initializer expression." (posString post)
-                                       failwith "Type error"
+                                | _ -> raise <| TypeError (sprintf "%sType error: Expected an array type in array initializer expression." (posString post))
             match maybeInitializer with
                 | Some (posi, _, initializer) ->
                     let (_, Some typei, cInitializer) = tc initializer
                     if eqTypes typei valueType then
                         ()
                     else
-                        printfn "%sType error: Expected array initializer to be of type %s." (posString posi) (typeString valueType)
+                        raise <| TypeError (sprintf "%sType error: Expected array initializer to be of type %s." (posString posi) (typeString valueType))
                     wrapWithType
                         typ
                         (ArrayMakeExp { typ=(post, None, typ); initializer=Some (posi, Some typei, cInitializer) })
@@ -1243,11 +1183,9 @@ let rec typeCheckExpr (denv : Map<string * string, PosAdorn<Declaration>>)
                                   | Some typ ->
                                       typ
                                   | None ->
-                                      printfn "%sError: Cannot access tuple index %d." (posString post) index
-                                      failwith "Error"
+                                      raise <| SemanticError (sprintf "%sError: Cannot access tuple index %d." (posString post) index)
                           | _ ->
-                              printfn "%sType error: Cannot access tuple field of non-tuple type %s." (posString post) (typeString typer)
-                              failwith "Type error"
+                              raise <| TypeError (sprintf "%sType error: Cannot access tuple field of non-tuple type %s." (posString post) (typeString typer))
             wrapWithType
                 (unwrap typ)
                 (InternalTupleAccess {tuple=(post, Some typer, cTuple); index=index})
@@ -1287,8 +1225,7 @@ and typecheckDec denv dtenv tenv modNamesToTenvs dec =
                         typ=(postyp, None, typ);
                         right=(posr, Some typeRhs, cRight)}
             else
-                printfn "%s%sType error: The let declaration's left hand side type of %s did not match the right hand side type of %s" (posString postyp) (posString posr) (typeString typ) (typeString typeRhs)
-                failwith "Type error"
+                raise <| TypeError (sprintf "%s%sType error: The let declaration's left hand side type of %s did not match the right hand side type of %s" (posString postyp) (posString posr) (typeString typ) (typeString typeRhs))
         | FunctionDec {name=name; template=template; clause=(posc, _, clause)} ->
             let (posargs, _, arguments) = clause.arguments
             let (posbody, _, body) = clause.body
@@ -1335,12 +1272,10 @@ and typecheckDec denv dtenv tenv modNamesToTenvs dec =
                     })
                 }
             else
-                printfn "%s%sType error: The body of the function returns a value of type %s, but the function was declared to return type %s." (posString posret) (posString posbody) (typeString bodyTy) (typeString return_)
-                failwith "Type error"
+                raise <| TypeError (sprintf "%s%sType error: The body of the function returns a value of type %s, but the function was declared to return type %s." (posString posret) (posString posbody) (typeString bodyTy) (typeString return_))
         | RecordDec {name=name; fields=(posf, _, fields); template=maybeTemplate} ->
             if fields |> List.map snd |> List.hasDuplicates then
-                printfn "%sSemantic error: The record declaration contains duplicate field names." (posString posf)
-                failwith "Semantic error"
+                raise <| SemanticError (sprintf "%sSemantic error: The record declaration contains duplicate field names." (posString posf))
             else
                 // Check that the record's template variables are valid
                 match maybeTemplate with
@@ -1353,8 +1288,7 @@ and typecheckDec denv dtenv tenv modNamesToTenvs dec =
                                     if Set.contains name allowedTyVars then
                                         ()
                                     else
-                                        printfn "%sType error: Unknown type %s" (posString posname) (typeString ty)
-                                        failwith "Type error"
+                                        raise <| TypeError (sprintf "%sType error: Unknown type %s" (posString posname) (typeString ty))
                                 | _ -> ()
                         fields |> List.map fst |> List.iter validateTyVar
                 RecordDec {name=name; fields=(posf, None, fields); template=maybeTemplate}
@@ -1384,8 +1318,7 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
         let names = (List.map (fun (module_, fname) -> try
                                                             unwrap (nameInModule module_)
                                                         with
-                                                          | _ -> printfn "Semantic error in %s: The module does not contain exactly one module declaration." fname;
-                                                                 failwith "Semantic error")
+                                                          | _ -> raise <| SemanticError (sprintf "Semantic error in %s: The module does not contain exactly one module declaration." fname))
                         (List.zip modlist1 fnames))
         Map.ofList (List.zip names modlist1)
 
@@ -1399,8 +1332,7 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
         else
             let modName = unwrap (nameInModule module_)
             let diff = String.concat "','" (Set.difference exports decs)
-            printfn "Semantic error in %s: The module '%s' exports '%s' but these declarations could not be found in the module." fname modName diff
-            failwith "Semantic error"
+            raise <| SemanticError (sprintf "Semantic error in %s: The module '%s' exports '%s' but these declarations could not be found in the module." fname modName diff)
     ) (List.zip modlist1 fnames)
 
     // SEMANTIC CHECK: Type names in template declarations are unique
@@ -1409,11 +1341,9 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
             let tyVars' = List.map unwrap tyVars
             let capVars' = List.map unwrap capVars
             if List.hasDuplicates tyVars' then
-                printfn "Semantic error in %s: Template contains duplicate definitions of a type parameter" (posString tpos)
-                failwith "Semantic error"
+                raise <| TypeError (sprintf "Semantic error in %s: Template contains duplicate definitions of a type parameter" (posString tpos))
             elif List.hasDuplicates capVars' then
-                printfn "Semantic error in %s: Template contains duplicate definitions of a capacity parameter" (posString cpos)
-                failwith "Semantic error"
+                raise <| TypeError (sprintf "Semantic error in %s: Template contains duplicate definitions of a capacity parameter" (posString cpos))
             else
                 ()
         (List.iter (fun (_, _, dec) ->
@@ -1431,8 +1361,7 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
             if isNamedDec (unwrap dec) then
                 let (posn, _, name) = nameOfDec (unwrap dec)
                 if Set.contains name names then
-                    printfn "%sSemantic error: Module already contains duplicate declarations named %s." (posString posn) name
-                    failwith "Semantic error"
+                    raise <| TypeError (sprintf "%sSemantic error: Module already contains duplicate declarations named %s." (posString posn) name)
                 else
                     (Set.add name names) : Set<string>
             else
@@ -1470,8 +1399,7 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
             List.fold (fun menv1 nameToMerge ->
                 match Map.tryFind nameToMerge modNamesToExportedMenvs with
                     | Some menv' -> Map.merge menv' menv1 
-                    | None -> printfn "Error: Module %s opens %s, which does not exist." modName nameToMerge
-                              failwith "Error"
+                    | None -> raise <| SemanticError (sprintf "Semantic error: Module %s opens %s, which does not exist." modName nameToMerge)
             ) menv0 allOpens
         ) modNamesToMenvs0)
 
@@ -1488,8 +1416,7 @@ let typecheckProgram (modlist0 : Module list) (fnames : string list) : Module li
                             if Map.containsKey name menv then
                                 TyModuleQualifier (toModuleQual (Map.find name menv))
                             else
-                                printfn "Type error in %s: the type %s does not exist." (posString pos) name
-                                failwith "Type error"
+                                raise <| TypeError (sprintf "Type error in %s: the type %s does not exist." (posString pos) name)
                         | x -> x
                 ) module_))
             modlist1

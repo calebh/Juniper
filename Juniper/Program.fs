@@ -4,6 +4,7 @@
 module Progam
 open Microsoft.FSharp.Text.Lexing
 
+exception SyntaxError of string
 
 [<EntryPoint>]
 let main argv =
@@ -27,13 +28,12 @@ let main argv =
         try
             Parser.start Lexer.token lexbuf
         with
-          | _ -> printfn "Syntax error in %s on line %d, column %d" fileName (lexbuf.StartPos.Line + 1) (lexbuf.StartPos.Column + 1);
-                 failwith "Syntax error"
+          | _ -> raise <| SyntaxError (sprintf "Syntax error in %s" (TypeChecker.posString (lexbuf.StartPos, lexbuf.StartPos)))
     // All of the file names includes all the specified ones, plus the std Juniper library
     let fnames = List.append stdFiles (List.ofArray argv)
-    // Run parseFromFile (the lexer and parser)
-    let asts = List.map parseFromFile fnames
     try
+        // Run parseFromFile (the lexer and parser)
+        let asts = List.map parseFromFile fnames
         // Typecheck the ASTs
         let typedAsts = TypeChecker.typecheckProgram asts fnames
         // Compile to C++ the typechecked (and typed) ASTs
@@ -41,5 +41,6 @@ let main argv =
         printfn "%s" compiledProgram
         0
     with
-        Failure(msg) ->
+        | (TypeChecker.TypeError err | TypeChecker.SemanticError err | SyntaxError err) ->
+            printfn "%s" err
             1

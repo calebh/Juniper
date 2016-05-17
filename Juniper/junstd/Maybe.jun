@@ -23,7 +23,7 @@ export(map, get, isJust, isNothing)
 fun map<'a,'b>(f : ('a) -> 'b, maybeVal : maybe<'a>) : maybe<'b> =
     case maybeVal of
     | just<'a>(val) => just<'b>(f(val))
-    | nothing => nothing
+    | _ => nothing<'b>()
     end
 
 (*

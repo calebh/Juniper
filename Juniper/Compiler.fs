@@ -555,9 +555,12 @@ and compileDec (dec : Declaration) : string =
 // Takes in list of modules, which each have their contributions to the AST, and translates them
 // to the C++ representation.
 and compileProgram (modList : Module list) : string =
+    let executingDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
+    let junCppStdPath = executingDir + "/cppstd/juniper.hpp"
+    let junCppStd = System.IO.File.ReadAllText junCppStdPath
     output "#include <inttypes.h>" + newline() +
-    output "#include \"juniper.hpp\"" + newline() +
-    output "#include <stdbool.h>" + newline() +
+    output "#include <stdbool.h>" + newline() + newline() +
+    junCppStd + newline() + newline() +
     (modList |> List.map (fun (Module module_)->
         let moduleName = Module module_ |> Module.nameInModule |> unwrap
         let includes = Module module_ |> Module.includesInModule

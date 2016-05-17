@@ -12,8 +12,8 @@ fun button() : unit = (
     let buttonSig = Io:digIn(buttonPin);
     let debouncedSig = Io:fallingEdge(Button:debounce(buttonSig, bState), edgeState);
     let ledSig =
-        Signal:foldP<pinState, pinState>(
-            fn (currentButtonState : pinState, currentLedState : pinState) : pinState ->
+        Signal:foldP<unit, pinState>(
+            fn (event : unit, currentLedState : pinState) : pinState ->
                 Io:toggle(currentLedState),
             ledState, debouncedSig);
     Io:digOut(ledPin, ledSig)

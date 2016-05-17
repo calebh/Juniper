@@ -1,6 +1,6 @@
 module List
 open(Prelude)
-export(map, foldl, foldr, append, nth, flatten, resize, all, any, pushOffFront,
+export(map, foldl, foldr, append, nth, flattenSafe, resize, all, any, pushOffFront,
 pushBack, replicate, setNth, remove, dropLast, foreach, last, max, min, member,
 zip, unzip)
 
@@ -139,21 +139,21 @@ fun nth<'t;n>(i : uint32, lst : list<'t;n>) : 't =
     end
 
 (*
-    Function: flatten
+    Function: flattenSafe
 
     Flattens a list of lists into a single list.
 
     Type Signature:
-    | <'t;p,q>(list<list<'t;m>;n>) -> list<'t;n*m>
+    | <'t;m,n>(list<list<'t;m>;n>) -> list<'t;m*n>
 
     Parameters:
-        listOfLists : list<list<'t;p>;q> - The list of lists
+        listOfLists : list<list<'t;m>;n> - The list of lists
 
     Returns:
         The flattened list
 *)
 
-fun flatten<'t;m,n>(listOfLists : list<list<'t;m>;n>) : list<'t;m*n> = (
+fun flattenSafe<'t;m,n>(listOfLists : list<list<'t;m>;n>) : list<'t;m*n> = (
     let mutable ret = array 't[m*n] end;
     let mutable index : uint32 = 0;
     for i : uint32 in 0 to listOfLists.length - 1 do
@@ -593,6 +593,12 @@ fun zip<'a,'b;n>(lstA : list<'a;n>, lstB : list<'b;n>) : list<('a*'b);n> =
 
     Type Signature:
     | <'a,'b;n>(list<('a*'b);n>) -> (list<'a;n>*list<'b;n>)
+
+    Parameters:
+        lst : list<('a*'b);n> - The list to unzip
+
+    Returns:
+        The two unzipped lists.
 *)
 fun unzip<'a,'b;n>(lst : list<('a*'b);n>) : (list<'a;n>*list<'b;n>) = (
     let mutable retA = list<'a;n> {

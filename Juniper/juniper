@@ -1,2 +1,2 @@
 #!/bin/sh
-mono Juniper.exe $@
+mono /usr/share/juniper/Juniper.exe $@

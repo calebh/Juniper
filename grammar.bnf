@@ -11,7 +11,8 @@
 <template-apply>    ::= <ty-expr> {"," <ty-expr>} [";" <capacity-expr> {"," <capacity-expr>}];
 <record>            ::= "type" <id> [<template-dec>] "=" "{" [<id> ":" <ty-expr> {";" <id> ":" <ty-expr>}] "}";
 <algebraic-type>    ::= "type" <id> [<template-dec>] "=" <value-constructor> {"|" <value-constructor>};
-<value-constructor> ::= <id> "of" <ty-expr>;
+<value-constructor> ::= <id> "of" <ty-expr>
+                     |  <id>;
 <let>               ::= "let" <id> ":" <ty-expr> "=" <expr>;
 <function>          ::= "fun" <id> [<template-dec>] "(" [<id> ":" <ty-expr> {"," <id> ":" <ty-expr>}] ")" ":" <ty-expr> "=" <expr>;
 <declaration-ref>   ::= <id> | <module-qualifier>;
@@ -34,9 +35,10 @@
                      |  <declaration-ref> "<" <template-apply> ">"
                      |  <expr> "[" <expr> "]"
                      |  <expr> <binary-op> <expr>
-                     |  "if" <expr> "then" <expr> [{"elif" <expr> "then" <expr>}] ["else" <expr>] "end"
+                     |  "if" <expr> "then" <expr> [{"elif" <expr> "then" <expr>}] "else" <expr> "end"
                      |  "let" <pattern> "=" <expr>
                      |  "set" <left-assign> "=" <expr>
+                     |  "set" "ref" <left-assign> "=" <expr>
                      |  "for" <id> ":" <ty-expr> "in" <expr> "to" <expr> "do" <expr> "end"
                      |  "for" <id> ":" <ty-expr> "in" <expr> "downto" <expr> "do" <expr> "end"
                      |  "do" <expr> "while" <expr> "end"

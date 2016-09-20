@@ -26,11 +26,11 @@ let typesInModule (Module decs) =
 // Takes in module's declarations and finds the opens (of outher modules) in the module
 let opensInModule (Module decs) =
     let opens = List.filter (fun dec -> match dec with
-                                            | (_, _, OpenDec _) -> true
-                                            | _ -> false) decs
+                                        | (_, _, OpenDec _) -> true
+                                        | _ -> false) decs
     List.concat (List.map (fun dec -> match dec with
-                                          | (_, _, OpenDec (_, _, names)) -> names
-                                          | _ -> failwith "This should never happen") opens)
+                                      | (_, _, OpenDec (_, _, names)) -> names
+                                      | _ -> failwith "This should never happen") opens)
 
 // Takes in module's declarations and finds the exports in the module
 let exportsInModule (Module decs) =

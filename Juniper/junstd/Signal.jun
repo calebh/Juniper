@@ -289,11 +289,11 @@ fun map2<'a,'b,'c>(f : ('a, 'b) -> 'c,
                    incomingB : sig<'b>,
                    state : ('a * 'b) ref) : sig<'c> = (
     let valA = case incomingA of
-               | signal<'a>(just<'a>(val)) => val
+               | signal<'a>(just<'a>(val1 : 'a)) => val1
                | _ => fst<'a,'b>(!state)
                end;
     let valB = case incomingB of
-               | signal<'b>(just<'b>(val)) => val
+               | signal<'b>(just<'b>(val2 : 'b)) => val2
                | _ => snd<'a,'b>(!state)
                end;
     set ref state = (valA, valB);

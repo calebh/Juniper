@@ -295,7 +295,7 @@ fun pushBack<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
 *)
 fun pushOffFront<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
     let mutable ret = lst;
-    for i : uint32 in n - 2 downto 0 do
+    for i : int32 in n - 2 downto 0 do
         set ret.data[i + 1] = ret.data[i]
     end;
     set ret.data[0] = elem;

@@ -37,8 +37,7 @@ let helpText =
      "    -o, --output: The file in which the compiled C++ is written";
      "    -h, --help: View this help message"] |> String.concat "\n"
 
-[<EntryPoint>]
-let main argv =
+let mainOld argv =
     let argMap = parseArgs argv
     let maybeSourceFiles = getArg ["-s"; "--source"] argMap
     let maybeOutputFile = getArg ["-o"; "--output"] argMap

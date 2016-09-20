@@ -1,7 +1,5 @@
 module Signal
 open(Prelude)
-export(map, filter, merge, foldP, sink, merge, join, toUnit, dropRepeats,
-latch, map2, record)
 
 (*
     Interface: Signal
@@ -175,7 +173,7 @@ fun join<'a,'b>(sigA : sig<'a>, sigB : sig<'b>) : sig<either<'a,'b>> =
         A signal of units.
 *)
 fun toUnit<'a>(s : sig<'a>) : sig<unit> =
-    map<'a, unit>(fn (x : 'a) : unit -> (), s)
+    map<'a, unit>(fn (x : 'a) : unit -> () end, s)
 
 (*
     Function: foldP
@@ -237,7 +235,8 @@ fun dropRepeats<'a>(incoming : sig<'a>, maybePrevValue : maybe<'a> ref) : sig<'a
             else
                 ()
             end;
-            filtered),
+            filtered)
+        end,
         incoming)
 
 (*

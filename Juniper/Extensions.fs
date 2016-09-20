@@ -5,7 +5,19 @@
 // of a duplicate key
 module Map =
     let merge map1 map2 = Map.fold (fun acc key value -> Map.add key value acc) map1 map2
-    
+
+    // Map find, defaulting to the identity function if the key could
+    // not be found in the map
+    let findId k m =
+        match Map.tryFind k m with
+        | Some x -> x
+        | None -> k
+
+    let findDefault k deflt m =
+        match Map.tryFind k m with
+        | Some x -> x
+        | None -> deflt
+
     let mapAlt f m = Map.fold (fun acc key value ->
                                 let (key', value') = f key value
                                 Map.add key' value' acc) Map.empty m

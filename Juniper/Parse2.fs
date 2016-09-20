@@ -126,7 +126,7 @@ List.iter
     (fun f -> f (fun op term -> UnaryOpExp {op=op; exp=term}) opp)
     [prefix "-"  11 Negate;
     prefix "~~~" 11 BitwiseNot;
-    prefix "not" 11 LogicalNot]
+    prefix "not " 11 LogicalNot]
 
 List.iter
     (fun f -> f (fun l op r -> CapacityOp {left=l; op=op; right=r}) capOpp)
@@ -211,7 +211,7 @@ let templateDec =
         // Parse type variables
         (skipChar '<' >>. ws >>. (separatedList (skipChar '\'' >>. pos id) ',' |> pos))
         // Parse capacity variables
-        (ws >>. opt (skipChar ';' >>. (separatedList (pos id) ',') |> pos) .>> ws .>> skipChar '>')
+        (ws >>. opt (skipChar ';' >>. ws >>. (separatedList (pos id) ',') |> pos) .>> ws .>> skipChar '>')
         (fun tyVars capVars ->
             {tyVars = tyVars; capVars = capVars})
 
@@ -237,6 +237,8 @@ let leftRecursiveTyp =
 
 // tyExpr
 do
+    let varTy =
+        skipChar '\'' >>. id |> pos |>> VarTy
     let name =
         pos id |>>
         (fun (p, n) ->
@@ -258,11 +260,11 @@ do
     let mQual = moduleQualifier |>> ModuleQualifierTy
     let fn =
         pipe2
-            (skipChar '(' >>. separatedList tyExpr ',' .>> skipChar ')' .>> ws .>> pstring "->")
+            (skipChar '(' >>. separatedList (ws >>. tyExpr .>> ws) ',' .>> skipChar ')' .>> ws .>> skipString "->" .>> ws)
             tyExpr
             (fun argTys retTy -> FunTy {template = None; args = argTys; returnType = retTy})
     let parens = skipChar '(' >>. ws >>. tyExpr .>> ws .>> skipChar ')' |>> ParensTy
-    let t = choice (List.map attempt [mQual; name; fn; parens]) |> pos .>> ws
+    let t = choice (List.map attempt [mQual; varTy; name; fn; parens]) |> pos .>> ws
     typOpp.TermParser <-
         leftRecurse
             t
@@ -378,10 +380,10 @@ do
     let ptrue = skipString "true" |> pos |>> TrueExp
     let pfalse = skipString "false" |> pos |>> FalseExp
     let pnull = skipString "null" |> pos |>> NullExp
-    let pint = pos pint64 |>> IntExp
+    let pint = pos pint64 |>> IntExp .>> notFollowedByString "."
     let pfloat = pos pfloat |>> FloatExp
     let seq = betweenChar '(' (separatedList (attempt expr) ';' |> pos) ')' |>> SequenceExp
-    let quit = skipString "quit" >>. ws >>. opt tyExpr .>> ws .>> skipChar '(' .>> ws .>> skipChar ')' |>> QuitExp
+    let quit = skipString "quit" >>. ws >>. opt (skipChar '<' >>. ws >>. tyExpr .>> ws .>> skipChar '>') .>> ws .>> skipChar '(' .>> ws .>> skipChar ')' |>> QuitExp
     let applyTemplateToFunc =
         pipe2
             (pos ((attempt moduleQualifier |>> Choice2Of2) <|> (id |>> Choice1Of2)) .>> ws)
@@ -389,8 +391,8 @@ do
             (fun funExpr temp -> TemplateApplyExp {func = funExpr; templateArgs = temp})
     let pIf =
         pipe3
-            (pstring "if" >>. ws >>. expr .>> ws)
-            (pstring "then" >>. ws >>. expr .>> ws)
+            (skipString "if" >>. ws >>. expr .>> ws)
+            (skipString "then" >>. ws >>. expr .>> ws)
             elifList
             (fun condition trueBranch falseBranch ->
                 IfElseExp {
@@ -406,7 +408,7 @@ do
                 LetExp {left=pat; right=expr})
     let assign =
         pipe3
-            (pstring "set" >>. ws >>. (pstring "ref" |> opt |>> Option.isSome |> pos) .>> ws)
+            (skipString "set" >>. ws >>. (skipString "ref" |> opt |>> Option.isSome |> pos) .>> ws)
             (leftAssign .>> ws .>> skipChar '=' .>> ws)
             expr
             (fun ref_ left right -> AssignExp {left=left; right=right; ref=ref_})
@@ -443,7 +445,7 @@ do
         pipe3
             (pos ((attempt moduleQualifier |>> Choice2Of2) <|> (id |>> Choice1Of2)) .>> ws)
             (templateApply |> opt .>> ws)
-            (betweenChar '{' fieldList '}' |> pos)
+            (betweenChar '{' (ws >>. fieldList .>> ws) '}' |> pos)
             (fun recordTy template fields ->
                 RecordExp {recordTy=recordTy; templateArgs=template; initFields=fields})
     let arrayLiteral = betweenChar '[' (separatedList expr ',') ']' |> pos |>> ArrayLitExp
@@ -453,17 +455,18 @@ do
     let varReference = attempt id |> pos |>> VarExp
     let arrayMake =
         pipe2
-            (pstring "array" >>. ws >>. tyExpr)
-            ((pstring "of" >>. expr |> opt) .>> pstring "end")
+            (skipString "array" >>. ws >>. tyExpr .>> ws)
+            ((skipString "of" >>. ws >>. expr |> opt) .>> ws .>> skipString "end")
             (fun arrTy initializer -> ArrayMakeExp {typ=arrTy; initializer=initializer})
     let inlineCpp =
         let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '#')
         let escapedChar = pstring "\\" >>. (anyOf "\\#" |>> string)
         between (pstring "#") (pstring "#") (stringsSepBy normalCharSnippet escapedChar) |> pos |>> InlineCode
+    let tuple = betweenChar '(' (separatedList1 expr ',') ')' |>> TupleExp
     let e = choice (List.map attempt [punit; parens; ptrue; pfalse; pnull; pint; pfloat;
-                    fn; quit; applyTemplateToFunc; seq;
+                    fn; quit; tuple; recordExpr; applyTemplateToFunc; seq;
                     modQual; forLoop; doWhileLoop; whileLoop;
-                    pLet; pIf; recordExpr; assign; case;
+                    pLet; pIf; assign; case;
                     arrayLiteral; pref; deref;
                     arrayMake; inlineCpp; varReference]) .>> ws |> pos
     opp.TermParser <-
@@ -538,4 +541,4 @@ let includeDec = skipString "include" >>. ws >>. skipChar '(' >>. ws >>. separat
 
 let program =
     let declarationTypes = [functionDec; moduleName; attempt recordDec; unionDec; letDec; openDec; includeDec]
-    ws >>. many (choice declarationTypes .>> ws) .>> eof
+    ws >>. many (choice declarationTypes |> pos .>> ws) .>> eof

@@ -1,8 +1,5 @@
 module Math
 open(Prelude)
-export(pi, e, degToRad, radToDeg, acos_, asin_, atan_, atan2_, cos_, cosh_,
-sin_, sinh_, tanh_, exp_, frexp_, ldexp_, log_, log10_, modf_, pow_, sqrt_,
-ceil_, fabs_, floor_, fmod_, round_, mapRange, clamp, min_, max_, sign, tan_)
 
 (*
     Interface: Math

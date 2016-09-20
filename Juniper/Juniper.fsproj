@@ -29,8 +29,7 @@
     <Prefer32Bit>true</Prefer32Bit>
     <StartWorkingDirectory>
     </StartWorkingDirectory>
-    <StartArguments>
-    </StartArguments>
+    <StartArguments>-s examples/Blink.jun -o Blink.cpp</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -76,15 +75,8 @@
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
-    <Compile Include="Ast.fs" />
-    <Compile Include="Module.fs" />
-    <Compile Include="Parser.fsi" />
-    <Compile Include="Parser.fs" />
-    <Compile Include="Lexer.fs" />
     <Compile Include="TypedAst.fs" />
     <Compile Include="Compiler.fs" />
-    <Compile Include="TypeChecker.fs" />
-    <Compile Include="Program.fs" />
     <Compile Include="Ast2.fs" />
     <Compile Include="Parse2.fs" />
     <Compile Include="Constraint.fs" />

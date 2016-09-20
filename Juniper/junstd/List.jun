@@ -1,8 +1,5 @@
 module List
 open(Prelude)
-export(map, foldl, foldr, append, nth, flattenSafe, resize, all, any, pushOffFront,
-pushBack, replicate, setNth, remove, dropLast, foreach, last, max, min, member,
-zip, unzip)
 
 (* The goal of this module is to provide reusable functions that run as quickly
    as possible. This means that most of the functions in this module are written
@@ -348,12 +345,8 @@ fun setNth<'t;n>(index : uint32, elem : 't, lst : list<'t;n>) : list<'t;n> =
     Returns:
         A new list with elem at every position in the list.
 *)
-fun replicate<'t;n>(numOfElements : uint32, elem : 't) : list<'t;n> = (
-    list<'t;n> {
-        data = array 't[n] of elem end;
-        length = numOfElements
-    }
-)
+fun replicate<'t;n>(numOfElements : uint32, elem : 't) : list<'t;n> =
+    list<'t;n>{data = array 't[n] of elem end; length = numOfElements}
 
 (*
     Function: remove

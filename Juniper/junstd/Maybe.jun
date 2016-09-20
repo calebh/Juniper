@@ -1,6 +1,5 @@
 module Maybe
 open(Prelude)
-export(map, get, isJust, isNothing)
 
 (*
     Interface: Maybe

@@ -1,7 +1,5 @@
 module Vector
 open(Prelude, List, Math)
-export(vector, x, y, z, make, get, add, zero, subtract, scale, dot, multiply,
-normalize, magnitude2, magnitude, angle, cross, project, projectPlane)
 
 (*
     Interface: Vector

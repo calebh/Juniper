@@ -1,6 +1,5 @@
 module Button
 open(Prelude, Io)
-export(buttonState, state, debounce, debounceDelay)
 
 (*
     Interface: Button
@@ -80,7 +79,7 @@ fun debounceDelay(incoming : sig<pinState>, delay : uint16, buttonState : button
                                                  lastDebounceTime = lastDebounceTime };
             actualState)
         end)
-    , incoming)
+    end, incoming)
 
 (*
     Function: debounce

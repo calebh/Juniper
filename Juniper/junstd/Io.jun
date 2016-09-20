@@ -1,9 +1,5 @@
 module Io
 open(Prelude)
-export(digWrite, digRead, anaRead, anaWrite, pinStateToInt, intToPinState,
-pinState, mode, high, low, input, output, inputPullup, setPinMode, pinModeToInt,
-intToPinMode, toggle, digIn, anaIn, digOut, anaOut, risingEdge, fallingEdge,
-edge, beginSerial, printStr, printFloat)
 include("<Arduino.h>")
 
 (*
@@ -267,7 +263,7 @@ fun digIn(pin : uint16) : sig<pinState> =
         <digWrite>
 *)
 fun digOut(pin : uint16, sig : sig<pinState>) : unit =
-    Signal:sink<pinState>(fn (value : pinState) : unit -> digWrite(pin, value), sig)
+    Signal:sink<pinState>(fn (value : pinState) : unit -> digWrite(pin, value) end, sig)
 
 (*
     Function: anaRead
@@ -347,7 +343,7 @@ fun anaIn(pin : uint16) : sig<uint16> =
         Unit
 *)
 fun anaOut(pin : uint16, sig : sig<uint16>) : unit =
-    Signal:sink<uint16>(fn (value : uint16) : unit -> anaWrite(pin, value), sig)
+    Signal:sink<uint16>(fn (value : uint16) : unit -> anaWrite(pin, value) end, sig)
 
 
 (*
@@ -433,7 +429,7 @@ fun risingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
                       | _ => true
                       end;
             set ref prevState = currState;
-            ret), sig))
+            ret) end, sig))
 
 (*
     Function: fallingEdge
@@ -460,7 +456,7 @@ fun fallingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
                       | _ => true
                       end;
             set ref prevState = currState;
-            ret), sig))
+            ret) end, sig))
 
 (*
     Function: edge
@@ -487,4 +483,4 @@ fun edge(sig : sig<pinState>, prevState : pinState ref) : sig<pinState> =
                   | _ => true
                   end;
         set ref prevState = currState;
-        ret) , sig)
+        ret) end, sig)

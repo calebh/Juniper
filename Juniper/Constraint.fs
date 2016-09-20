@@ -24,31 +24,18 @@ let rec conjoinConstraints cc =
 
 let emptyEnv = Map.empty
 let idSubst = Map.empty
-let compose = Map.merge
 
 let bind = Map.add
 
-let rec varsubst theta name =
-    match Map.tryFind name theta with
-    | None -> TyVar name
-    | Some (TyVar x) -> varsubst theta x
-    | Some x -> x
-
-let rec varsubstCap kappa a =
-    match Map.tryFind a kappa with
-    | None -> CapacityVar a
-    | Some (CapacityVar x) -> varsubstCap kappa x
-    | Some x -> x
-
-(*let varsubst theta a =
-    match follow a theta with
+let varsubst theta a =
+    match Map.tryFind a theta with
     | None -> TyVar a
-    | Some x -> x*)
+    | Some x -> x
 
-(*let varsubstCap kappa a =
+let varsubstCap kappa a =
     match Map.tryFind a kappa with
     | None -> CapacityVar a
-    | Some x -> x*)
+    | Some x -> x
 
 let rec capsubst kappa =
     function
@@ -74,7 +61,23 @@ let consubst theta kappa =
         | Trivial -> Trivial
     subst
 
-let eqType = (=)
+let isNumericalType t =
+    match t with
+    | TyCon (BaseTy b) ->
+        match b with
+        | (TyUint8 | TyUint16 | TyUint32 | TyUint64 | TyInt8 | TyInt16 | TyInt32 | TyInt64 | TyFloat | TyDouble) ->
+            true
+        | _ ->
+            false
+    | _ ->
+        false
+
+let eqType a b =
+    if isNumericalType a && isNumericalType b then
+        true
+    else
+        a = b
+
 let eqCap = (=)
 
 let n = ref 1
@@ -88,6 +91,54 @@ let freshcapvar _ =
     let ret = CapacityVar (sprintf "c%i" !n2)
     n := !n + 1
     ret
+
+// f(g(x)) = f o g
+// x --> g --> f -->
+let composeTheta f g =
+    let xs = Set.union (Map.keys f) (Map.keys g)
+    xs |> Set.fold (fun accumMap x ->
+        accumMap |>
+        Map.add
+            x
+            (match Map.tryFind x g with
+            | Some (TyVar x') ->
+                match Map.tryFind x' f with
+                | Some f_of_g_of_x ->
+                    f_of_g_of_x
+                | None ->
+                    TyVar x'
+            | Some g_of_x ->
+                g_of_x
+            | None ->
+                match Map.tryFind x f with
+                | Some f_of_x ->
+                    f_of_x
+                | None ->
+                    TyVar x)
+    ) Map.empty
+
+let composeKappa f g =
+    let xs = Set.union (Map.keys f) (Map.keys g)
+    xs |> Set.fold (fun accumMap x ->
+        accumMap |>
+        Map.add
+            x
+            (match Map.tryFind x g with
+            | Some (CapacityVar x') ->
+                match Map.tryFind x' f with
+                | Some f_of_g_of_x ->
+                    f_of_g_of_x
+                | None ->
+                    CapacityVar x'
+            | Some g_of_x ->
+                g_of_x
+            | None ->
+                match Map.tryFind x f with
+                | Some f_of_x ->
+                    f_of_x
+                | None ->
+                    CapacityVar x)
+    ) Map.empty
 
 let rec freeCapVars =
     function
@@ -193,7 +244,7 @@ let rec solve con : Map<string, TyExpr> * Map<string, CapacityExpr> =
     | And (left, right) ->
         let (theta1, kappa1) = solve left
         let (theta2, kappa2) = solve (consubst theta1 kappa1 right)
-        (compose theta1 theta2, compose kappa1 kappa2)
+        (composeTheta theta2 theta1, composeKappa kappa2 kappa1)
     | Equal (tau, tau', err) ->
         let failMsg = lazy (sprintf "Type error: The types %s and %s are not equal.\n\n%s" (typeString tau) (typeString tau') (err.Force()))
         match (tau, tau') with
@@ -202,7 +253,7 @@ let rec solve con : Map<string, TyExpr> * Map<string, CapacityExpr> =
             | Some answer -> (answer, idSubst)
             | None -> raise <| TypeError (failMsg.Force())
         | (TyCon mu, TyCon mu') ->
-            if mu = mu' then
+            if eqType tau tau' then
                 (idSubst, idSubst)
             else
                 raise <| TypeError (failMsg.Force())

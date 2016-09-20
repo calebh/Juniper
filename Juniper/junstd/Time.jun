@@ -1,6 +1,5 @@
 module Time
 open(Prelude)
-export(wait, now, timerState, state, every)
 
 (*
     Interface: Time

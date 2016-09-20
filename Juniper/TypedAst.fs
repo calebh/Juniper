@@ -33,7 +33,7 @@ and UnionRec =    { name     : string;
 
 // Let statement for functional-style declarations.
 and LetDecRec = { varName : string;
-                  typ     : TyExpr option;
+                  typ     : TyExpr;
                   right   : TyAdorn<Expr>; }
 
 // Declaration defined as any of the above.
@@ -198,25 +198,23 @@ let unwrap<'a> ((_, _, c) : TyAdorn<'a>) = c
 let getType<'a> ((_, b, _) : TyAdorn<'a>) = b
 let getPos<'a> ((a, _, _) : TyAdorn<'a>) = a
 
-let dummyWrap<'a> c : TyAdorn<'a> = (TyCon <| BaseTy TyUnit, c)
-let wrapWithType<'a> t c : TyAdorn<'a> = (t, c)
+let dummyPos : Position = new Position("", -1L, -1L, -1L)
 
-// Dummy position used for initializing positions on PosAdorns
-(*let dummyPos : Position = {pos_fname=""
-                           pos_lnum = -1
-                           pos_bol = -1
-                           pos_cnum = -1}
+let dummyWrap<'a> c : TyAdorn<'a> = ((dummyPos, dummyPos), TyCon <| BaseTy TyUnit, c)
+
 // Cleans up the wrapping around an AST object, returns it to default dummy values.
-let clean<'a> ((_, _, c) : PosAdorn<'a>) : PosAdorn<'a> = dummyWrap c
-let cleanAll haystack = TreeTraversals.map1 (fun pos -> dummyPos) haystack
+//let clean<'a> ((_, _, c) : PosAdorn<'a>) : PosAdorn<'a> = dummyWrap c
+//let cleanAll haystack = TreeTraversals.map1 (fun pos -> dummyPos) haystack
 
 // Add typing to a PosAdorn.
-let wrapWithType<'a> t c : PosAdorn<'a> = ((dummyPos, dummyPos), Some t, c)
+let wrapWithType<'a> t c : TyAdorn<'a> = ((dummyPos, dummyPos), t, c)
 
+(*
 let templateToTemplateApply template =
     let tyExprs = template.tyVars |> unwrap |> List.map (ForallTy >> dummyWrap) |> dummyWrap
     let capExprs = template.capVars |> unwrap |> List.map (CapacityNameExpr >> dummyWrap) |> dummyWrap
-    {tyExprs=tyExprs; capExprs=capExprs}*)
+    {tyExprs=tyExprs; capExprs=capExprs}
+*)
 
 // Turns a capacity expression into a string for debugging (printing error messages)
 let rec capacityString cap =

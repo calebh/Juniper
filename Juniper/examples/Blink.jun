@@ -11,7 +11,8 @@ fun blink() : unit = (
     let ledSig =
         Signal:foldP<uint32, pinState>(
             fn (currentTime : uint32, lastState : pinState) : pinState ->
-                Io:toggle(lastState),
+                Io:toggle(lastState)
+            end,
             ledState, timerSig);
     Io:digOut(boardLed, ledSig)
 )

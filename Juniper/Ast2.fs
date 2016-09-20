@@ -216,6 +216,7 @@ let templateToTemplateApply template =
     let capExprs = template.capVars |> unwrap |> List.map (CapacityNameExpr >> dummyWrap) |> dummyWrap
     {tyExprs=tyExprs; capExprs=capExprs}*)
 
+(*
 let rec mapCapacityExpr (h : CapacityExpr -> CapacityExpr) ((posc, cap) : PosAdorn<CapacityExpr>) : PosAdorn<CapacityExpr> =
     let c = mapCapacityExpr h
     let cap' =
@@ -364,17 +365,20 @@ let mapDec f g h k (posd, dec) =
     | _ -> dec
         
 
-let foldExpr f g h accum0 expr =
+let foldExpr f g h k accum0 expr =
     let state = ref accum0
     mapExpr
         (fun x ->
-            state := f x
+            state := f !state x
             x)
         (fun x ->
-            state := g x
+            state := g !state x
             x)
         (fun x ->
-            state := h x
+            state := h !state x
+            x)
+        (fun x ->
+            state := k !state x
             x)
         expr |> ignore
     !state
@@ -405,3 +409,5 @@ let mapFoldExpr f g h k accum0 expr =
 let mapFoldId =
     fun accum0 value ->
         (accum0, value)
+
+*)

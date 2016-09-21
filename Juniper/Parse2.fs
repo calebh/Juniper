@@ -32,6 +32,7 @@ type LeftRecursiveExp = CallArgs of PosAdorn<PosAdorn<Expr> list>
                       | ArrayIndex of PosAdorn<Expr>
                       | TypeConstraintType of PosAdorn<TyExpr>
                       | FieldAccessName of PosAdorn<string>
+                      | UnsafeTypeCastType of PosAdorn<TyExpr>
 
 type LeftRecursiveTyp = ArrayTyCap of PosAdorn<CapacityExpr>
                       | RefTyRef of PosAdorn<unit>
@@ -355,7 +356,8 @@ let leftRecursiveExp =
     let arrayIndex = betweenChar '[' expr ']' |>> ArrayIndex
     let typeConstraint = skipChar ':' >>. ws >>. tyExpr |>> TypeConstraintType
     let fieldAccessName = skipChar '.' >>. ws >>. attempt id |> pos |>> FieldAccessName
-    List.map attempt [callArgs; arrayIndex; typeConstraint; fieldAccessName] |> choice |> pos .>> ws |> many
+    let unsafeTypeCast = skipString "::::" >>. ws >>. tyExpr |>> UnsafeTypeCastType
+    List.map attempt [callArgs; arrayIndex; unsafeTypeCast; typeConstraint; fieldAccessName] |> choice |> pos .>> ws |> many
 
 // elifList
 do
@@ -381,7 +383,16 @@ do
     let pfalse = skipString "false" |> pos |>> FalseExp
     let pnull = skipString "null" |> pos |>> NullExp
     let pint = pos pint64 |>> IntExp .>> notFollowedByString "."
-    let pfloat = pos pfloat |>> FloatExp
+    let pdouble = pos pfloat |>> DoubleExp
+    let pfloat = pos (pfloat .>> skipChar 'f') |>> FloatExp
+    let pint8 = pos (pint64 .>> skipString "i8") |>> Int8Exp
+    let pint16 = pos (pint64 .>> skipString "i16") |>> Int16Exp
+    let pint32 = pos (pint64 .>> skipString "i32") |>> Int32Exp
+    let pint64' = pos (pint64 .>> skipString "i64") |>> Int64Exp
+    let puint8 = pos (pint64 .>> skipString "ui8") |>> UInt8Exp
+    let puint16 = pos (pint64 .>> skipString "ui16") |>> UInt16Exp
+    let puint32 = pos (pint64 .>> skipString "ui32") |>> UInt32Exp
+    let puint64 = pos (pint64 .>> skipString "ui64") |>> UInt64Exp
     let seq = betweenChar '(' (separatedList (attempt expr) ';' |> pos) ')' |>> SequenceExp
     let quit = skipString "quit" >>. ws >>. opt (skipChar '<' >>. ws >>. tyExpr .>> ws .>> skipChar '>') .>> ws .>> skipChar '(' .>> ws .>> skipChar ')' |>> QuitExp
     let applyTemplateToFunc =
@@ -463,7 +474,9 @@ do
         let escapedChar = pstring "\\" >>. (anyOf "\\#" |>> string)
         between (pstring "#") (pstring "#") (stringsSepBy normalCharSnippet escapedChar) |> pos |>> InlineCode
     let tuple = betweenChar '(' (separatedList1 expr ',') ')' |>> TupleExp
-    let e = choice (List.map attempt [punit; parens; ptrue; pfalse; pnull; pint; pfloat;
+    let e = choice (List.map attempt [punit; parens; ptrue; pfalse; pnull;
+                    pint8; pint16; pint32; pint64'; puint8; puint16; puint32; puint64;
+                    pint; pfloat; pdouble;
                     fn; quit; tuple; recordExpr; applyTemplateToFunc; seq;
                     modQual; forLoop; doWhileLoop; whileLoop;
                     pLet; pIf; assign; case;
@@ -478,7 +491,8 @@ do
                 | CallArgs args -> CallExp {func=term; args=args}
                 | ArrayIndex index -> ArrayAccessExp {array=term; index=index}
                 | TypeConstraintType typ -> TypeConstraint {exp=term; typ=typ}
-                | FieldAccessName fieldName -> RecordAccessExp {record=term; fieldName=fieldName}) |> attempt
+                | FieldAccessName fieldName -> RecordAccessExp {record=term; fieldName=fieldName}
+                | UnsafeTypeCastType typ -> UnsafeTypeCast {exp=term; typ=typ}) |> attempt
 
 // templateApply
 do

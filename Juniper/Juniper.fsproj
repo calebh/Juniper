@@ -76,10 +76,10 @@
     <None Include="App.config" />
     <Content Include="packages.config" />
     <Compile Include="TypedAst.fs" />
-    <Compile Include="Compiler.fs" />
-    <Compile Include="Ast2.fs" />
-    <Compile Include="Parse2.fs" />
     <Compile Include="Constraint.fs" />
+    <Compile Include="Ast2.fs" />
+    <Compile Include="Compiler.fs" />
+    <Compile Include="Parse2.fs" />
     <Compile Include="TypeChecker2.fs" />
     <Compile Include="Program2.fs" />
   </ItemGroup>

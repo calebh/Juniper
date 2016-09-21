@@ -136,8 +136,7 @@ and UnaryOpRec =      { op : UnaryOps; exp : TyAdorn<Expr> }
 and RecordAccessRec = { record : TyAdorn<Expr>; fieldName : string }
 and ArrayAccessRec =  { array : TyAdorn<Expr>; index : TyAdorn<Expr> }
 and InternalDeclareVarExpRec = { varName : string; typ : TyExpr; right : TyAdorn<Expr> }
-and InternalValConAccessRec = { valCon : TyAdorn<Expr>; typ : TyExpr }
-and InternalTupleAccessRec = { tuple : TyAdorn<Expr>; index : int }
+and UnsafeTypeCastRec = { exp : TyAdorn<Expr>; typ : TyExpr }
 // Function call/apply
 and CallRec =         { func : TyAdorn<Expr>; args : TyAdorn<Expr> list }
 // Applying the template of a function
@@ -150,9 +149,6 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | LetExp of LetRec
           | InternalDeclareVar of InternalDeclareVarExpRec // Only used internally for declaring variables
                                                            // that will actually be outputted by the compiler
-          | InternalValConAccess of InternalValConAccessRec // Only used internally for type checking pattern
-                                                            // matching. Essentially acts like a type cast
-          | InternalTupleAccess of InternalTupleAccessRec
           | InlineCode of string
           | AssignExp of AssignRec
           | ForLoopExp of ForLoopRec
@@ -168,7 +164,16 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | FalseExp
           | LambdaExp of FunctionClause
           | IntExp of int64
+          | Int8Exp of int64
+          | UInt8Exp of int64
+          | Int16Exp of int64
+          | UInt16Exp of int64
+          | Int32Exp of int64
+          | UInt32Exp of int64
+          | Int64Exp of int64
+          | UInt64Exp of int64
           | FloatExp of float
+          | DoubleExp of float
           | CallExp of CallRec
           | TemplateApplyExp of TemplateApplyExpRec
           | ModQualifierExp of ModQualifierRec

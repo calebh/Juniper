@@ -179,10 +179,11 @@ fun scale<'a;n>(scalar : 'a, v : vector<'a;n>) : vector<'a;n> = (
         The result of v1 dot v2
 *)
 fun dot<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : 'a = (
-    let mutable sum : 'a = 0;
-    for i : uint32 in 0 to n - 1 do
-        set sum = sum + (v1.data[i] * v2.data[i])
-    end;
+    let mutable sum : 'a = (0 :::: 'a);
+    for i : uint32 in 0 to n - 1 do (
+        set sum = sum + (v1.data[i] * v2.data[i]);
+        ()
+    ) end;
     sum
 )
 
@@ -201,10 +202,11 @@ fun dot<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : 'a = (
         The square magnitude of the vector
 *)
 fun magnitude2<'a;n>(v : vector<'a;n>) : 'a = (
-    let mutable sum : 'a = 0;
-    for i : uint32 in 0 to n - 1 do
-        set sum = sum + (v.data[i] * v.data[i])
-    end;
+    let mutable sum : 'a = (0 :::: 'a);
+    for i : uint32 in 0 to n - 1 do (
+        set sum = sum + (v.data[i] * v.data[i]);
+        ()
+    ) end;
     sum
 )
 
@@ -223,7 +225,7 @@ fun magnitude2<'a;n>(v : vector<'a;n>) : 'a = (
         The magnitude of the vector
 *)
 fun magnitude<'a;n>(v : vector<'a;n>) : double =
-    sqrt_(magnitude2<'a;n>(v))
+    sqrt_(magnitude2<'a;n>(v) :::: double)
 
 (*
     Function: multiply
@@ -242,9 +244,10 @@ fun magnitude<'a;n>(v : vector<'a;n>) : double =
 *)
 fun multiply<'a;n>(u : vector<'a;n>, v : vector<'a;n>) : vector<'a;n> = (
     let mutable result = u;
-    for i : uint32 in 0 to n - 1 do
-        set result.data[i] = result.data[i] * v.data[i]
-    end;
+    for i : uint32 in 0 to n - 1 do (
+        set result.data[i] = result.data[i] * v.data[i];
+        ()
+    ) end;
     result
 )
 
@@ -266,9 +269,10 @@ fun normalize<'a;n>(v : vector<'a;n>) : vector<'a;n> = (
     let mag = magnitude<'a;n>(v);
     if mag > 0 then (
         let mutable result = v;
-        for i : uint32 in 0 to n - 1 do
-            set result.data[i] = result.data[i] / mag
-        end;
+        for i : uint32 in 0 to n - 1 do (
+            set result.data[i] = result.data[i] / mag;
+            ()
+        ) end;
         result
     ) else
         v
@@ -291,7 +295,7 @@ fun normalize<'a;n>(v : vector<'a;n>) : vector<'a;n> = (
         The angle betweeen the two vectors.
 *)
 fun angle<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : double =
-    acos_(dot<'a;n>(v1, v2)/sqrt_(magnitude2<'a;n>(v1)*magnitude2<'a;n>(v2)))
+    acos_((dot<'a;n>(v1, v2) / (sqrt_((magnitude2<'a;n>(v1) * magnitude2<'a;n>(v2)) :::: double) :::: 'a)) :::: double)
 
 (*
     Function: cross

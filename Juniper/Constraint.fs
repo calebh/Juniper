@@ -89,7 +89,7 @@ let freshtyvar _ =
 let n2 = ref 1
 let freshcapvar _ =
     let ret = CapacityVar (sprintf "c%i" !n2)
-    n := !n + 1
+    n2 := !n2 + 1
     ret
 
 // f(g(x)) = f o g

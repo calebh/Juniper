@@ -142,15 +142,11 @@ and TemplateApplyExpRec = { func : PosAdorn<Choice<string, ModQualifierRec>>; te
 and RecordExprRec =   { recordTy : PosAdorn<Choice<string, ModQualifierRec>>; templateArgs : PosAdorn<TemplateApply> option; initFields : PosAdorn<(PosAdorn<string> * PosAdorn<Expr>) list> }
 and ArrayMakeExpRec = { typ : PosAdorn<TyExpr>; initializer : PosAdorn<Expr> option }
 and TypeConstraintRec = { exp : PosAdorn<Expr>; typ : PosAdorn<TyExpr> }
+and UnsafeTypeCastRec = { exp : PosAdorn<Expr>; typ : PosAdorn<TyExpr> }
 and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | BinaryOpExp of BinaryOpRec
           | IfElseExp of IfElseRec
           | LetExp of LetRec
-          //| InternalDeclareVar of InternalDeclareVarExpRec // Only used internally for declaring variables
-                                                           // that will actually be outputted by the compiler
-          //| InternalValConAccess of InternalValConAccessRec // Only used internally for type checking pattern
-                                                            // matching. Essentially acts like a type cast
-          //| InternalTupleAccess of InternalTupleAccessRec
           | InlineCode of PosAdorn<string>
           | AssignExp of AssignRec
           | ForLoopExp of ForLoopRec
@@ -161,12 +157,22 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | RecordAccessExp of RecordAccessRec
           | ArrayAccessExp of ArrayAccessRec
           | VarExp of PosAdorn<string>
+          | UnsafeTypeCast of UnsafeTypeCastRec
           | UnitExp of PosAdorn<unit>
           | TrueExp of PosAdorn<unit>
           | FalseExp of PosAdorn<unit>
           | LambdaExp of PosAdorn<FunctionClause>
           | IntExp of PosAdorn<int64>
+          | Int8Exp of PosAdorn<int64>
+          | UInt8Exp of PosAdorn<int64>
+          | Int16Exp of PosAdorn<int64>
+          | UInt16Exp of PosAdorn<int64>
+          | Int32Exp of PosAdorn<int64>
+          | UInt32Exp of PosAdorn<int64>
+          | Int64Exp of PosAdorn<int64>
+          | UInt64Exp of PosAdorn<int64>
           | FloatExp of PosAdorn<float>
+          | DoubleExp of PosAdorn<float>
           | CallExp of CallRec
           | TemplateApplyExp of TemplateApplyExpRec
           | ModQualifierExp of PosAdorn<ModQualifierRec>

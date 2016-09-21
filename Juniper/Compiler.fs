@@ -183,6 +183,24 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
         output (sprintf "%i" num)
     | FloatExp num ->
         output (sprintf "%f" num)
+    | DoubleExp num ->
+        output (sprintf "%f" num)
+    | Int8Exp num ->
+        output (sprintf "((int8_t) %i)" num)
+    | UInt8Exp num ->
+        output (sprintf "((uint8_t) %i)" num)
+    | Int16Exp num ->
+        output (sprintf "((int16_t) %i)" num)
+    | UInt16Exp num ->
+        output (sprintf "((uint16_t) %i)" num)
+    | Int32Exp num ->
+        output (sprintf "((int32_t) %i)" num)
+    | UInt32Exp num ->
+        output (sprintf "((uint32_t) %i)" num)
+    | Int64Exp num ->
+        output (sprintf "((int64_t) %i)" num)
+    | UInt64Exp num ->
+        output (sprintf "((uint64_t) %i)" num)
     | IfElseExp {condition=condition; trueBranch=trueBranch; falseBranch=falseBranch} ->
         output "(" +
         compile condition +
@@ -289,9 +307,9 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
         compile (wrapWithType ty (SequenceExp [decOn; equivalentExpr]))
     // Internal declarations are used only by the compiler, not the user, for hidden variables
     | InternalDeclareVar {varName=varName; typ=typ; right=right} ->
-        compileType typ + output " " + output varName + output " = " + compile right
+        output (compileType typ) + output " " + output varName + output " = " + output (compile right)
     | TemplateApplyExp {func=func; templateArgs=templateArgs} ->
-        compileDecRef func + compileTemplateApply theta kappa templateArgs
+        output (compileDecRef func) + output (compileTemplateApply theta kappa templateArgs)
     | BinaryOpExp {left=left; op=op; right=right} ->
         let opStr = match op with
                     | Add -> "+"
@@ -385,15 +403,29 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
     | DoWhileLoopExp {condition=condition; body=body} ->
         output "(([&]() -> " + indentId() + newline() +
         output "do {" + indentId() + newline() +
-        compile body + unindentId() + newline() +
+        compile body + output ";" + unindentId() + newline() +
         output "} while(" + compile condition + output ");" + newline() +
         output "return {};" + unindentId() + newline() +
         output "})())"
 
 // Convert Juniper template to C++ template
-and compileTemplate (template : Template) : string = 
-    let tyVars = template.tyVars |> List.map ((+) "typename ")
-    let capVars = template.capVars |> List.map ((+) "int ")
+and compileTemplate theta kappa (template : Template) : string =
+    let tyVars =
+        template.tyVars |>
+        List.map (fun n ->
+            let (TyVar n') = Constraint.tycapsubst theta kappa (TyVar n)
+            if n = n' then
+                ()
+            else
+                ()
+            "typename " + n')
+    let capVars =
+        template.capVars |>
+        List.map (fun n ->
+            let (CapacityVar n') = Constraint.capsubst kappa (CapacityVar n)
+            "int " + n')
+    //let tyVars = template.tyVars |> List.map ((+) "typename ")
+    //let capVars = template.capVars |> List.map ((+) "int ")
     output "template<" +
     (List.append tyVars capVars |> String.concat ", " |> output) +
     output ">"
@@ -433,11 +465,11 @@ and compileFunctionSignature theta kappa (FunctionDec {name=name; template=maybe
     let compileType = compileType theta kappa
     (match maybeTemplate with
         | Some template ->
-            compileTemplate template +
+            compileTemplate theta kappa template +
             newline()
         | None ->
             output "") +
-    (clause.returnTy |> compileType) +
+    (clause.returnTy |> compileType |> output) +
     output " " +
     output name +
     output "(" +
@@ -488,7 +520,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
     | RecordDec {name=name; fields=fields; template=maybeTemplate} ->
         (match maybeTemplate with
         | Some template ->
-            compileTemplate template +
+            compileTemplate theta kappa template +
             newline()
         | None ->
             output "") +
@@ -498,7 +530,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
         newline() +
         indentId() +
         ((fields |> List.map (fun (fieldName, fieldTy) ->
-                                 compileType fieldTy +
+                                 output (compileType fieldTy) +
                                  output " " +
                                  output fieldName +
                                  output ";" + newline())) |> (String.concat "")) +
@@ -520,7 +552,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
     | UnionDec { name=name; valCons=valCons; template=maybeTemplate } ->
         (match maybeTemplate with
             | Some template ->
-                compileTemplate template +
+                compileTemplate theta kappa template +
                 newline()
             | None ->
                 output "") +
@@ -548,8 +580,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
         (valCons |> List.map (fun (valConName, maybeTy) ->
             (match maybeTy with
                 | None -> output "uint8_t"
-                | Some ty -> compileType ty) +
-            output " " + valConName + output ";" + newline()) |> String.concat "") +
+                | Some ty -> output (compileType ty)) + output " " + valConName + output ";" + newline()) |> String.concat "") +
         unindentId() +
         output "};" +
         newline() +
@@ -567,7 +598,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
                     m
             (match maybeTemplate with
             | Some template ->
-                compileTemplate template +
+                compileTemplate theta kappa template +
                 newline() +
                 compileType retType
             | None ->
@@ -587,13 +618,13 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
             unindentId() + output "}" + newline() + newline()) |> String.concat "")
 
 // Program: includes, types, values
-//                             v incudes           v mod name  v type dec           v mod    v fun/let dec v scc    v theta              v kappa
-and compileProgram (program : Declaration list * ((string * Declaration) list) * (((string * Declaration) list) * Map<string, TyExpr> * Map<string, CapacityExpr>) list) : string =
+//                              module names   opens                         v incudes           v mod name  v type dec           v mod    v fun/let dec v scc    v theta              v kappa
+and compileProgram (program : string list * ((string * Declaration) list) * Declaration list * ((string * Declaration) list) * (((string * Declaration) list) * Map<string, TyExpr> * Map<string, CapacityExpr>) list) : string =
     let mutable entryPoint = None
     let executingDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
     let junCppStdPath = executingDir + "/cppstd/juniper.hpp"
     let junCppStd = System.IO.File.ReadAllText junCppStdPath
-    let (includes, typeDecs, valueSccs) = program
+    let (moduleNames, opens, includes, typeDecs, valueSccs) = program
     (valueSccs |> List.iter (fun scc ->
         match scc with
         | (decs, _, _) ->
@@ -611,6 +642,10 @@ and compileProgram (program : Declaration list * ((string * Declaration) list) *
     output "#include <stdbool.h>" + newline() + newline() +
     junCppStd + newline() +
     (includes |> List.map (compileDec "" Map.empty Map.empty) |> String.concat "") + newline() +
+    // Introduce all the namespaces
+    (moduleNames |> List.map (fun name -> output "namespace " + output name + output " {}" + newline()) |> String.concat "") +
+    // Now insert all the usings
+    (opens |> List.map (compileNamespace Map.empty Map.empty) |> String.concat "") +
     (typeDecs |> List.map (compileNamespace Map.empty Map.empty) |> String.concat "") +
     // Compile forward declarations of all functions to enable recursion
     (valueSccs |> List.map (fun (decs, theta, kappa) ->

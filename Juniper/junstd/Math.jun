@@ -294,9 +294,10 @@ fun exp_(x : double) : double = (
         (mantissa, exponent) as a tuple
 *)
 fun frexp_(x : double) : (double * int16) = (
-    let ret : double = 0.0;
-    let exponent : int16 = 0;
-    #ret = frexp(x, &exponent);#;
+    let ret = 0.0;
+    let exponent = 0i16;
+    #int exponent2 = (int) exponent;
+    ret = frexp(x, &exponent2);#;
     (ret, exponent)
 )
 
@@ -625,9 +626,9 @@ fun clamp<'a>(x : 'a, min : 'a, max : 'a) : 'a =
         0 if n is zero, 1 if n is greater than zero, otherwise -1
 *)
 fun sign<'a>(n : 'a) : int8 =
-    if n == 0 then
+    if n == (0 :::: 'a) then
         0
-    elif n > 0 then
+    elif n > (0 :::: 'a) then
         1
     else
         -1

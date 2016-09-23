@@ -256,8 +256,17 @@ let rec typeConString con appliedTo capExprs =
         | TyPointer -> "pointer"
     | ArrayTy ->
         let [arrTy] = appliedTo
-        let [size] = capExprs
-        sprintf "%s[%s]" (typeString arrTy) (capacityString size)
+        if List.length capExprs = 0 then
+            printfn "Hello"
+        else
+            ()
+        let size =
+            match capExprs with
+            | [size] ->
+                capacityString size
+            | _ ->
+                "???"
+        sprintf "%s[%s]" (typeString arrTy) size
     | FunTy ->
         let retTy::argsTys = appliedTo
         sprintf "(%s) -> %s" (typeStrings argsTys ", ") (typeString retTy)

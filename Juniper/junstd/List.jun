@@ -131,10 +131,11 @@ fun append<'t;aCap,bCap,retCap>(lstA : list<'t;aCap>, lstB : list<'t;bCap>) : li
         The element at position i in the list
 *)
 fun nth<'t;n>(i : uint32, lst : list<'t;n>) : 't =
-    if i >= lst.length then
+    if i < lst.length then (
+        let list<'t;n>{data=data} = lst;
+        data[i]
+    ) else
         quit<'t>()
-    else
-        lst.data[i]
     end
 
 (*
@@ -452,8 +453,10 @@ fun foreach<'t;n>(f : ('t) -> unit, lst : list<'t;n>) : unit =
     Returns:
         The last element of the list
 *)
-fun last<'t;n>(lst : list<'t;n>) : 't =
-    lst.data[lst.length - 1]
+fun last<'t;n>(lst : list<'t;n>) : 't = (
+    let list<'t;n>{data=data; length=length} = lst;
+    data[length - 1]
+)
 
 (*
     Function: max_
@@ -605,12 +608,9 @@ fun unzip<'a,'b;n>(lst : list<'a*'b; n>) : list<'a;n>*list<'b;n> = (
         data = array 'b[n] end;
         length = lst.length
     };
-    for i : uint32 in 0 to lst.length - 1 do (
-        let tup : 'a*'b = ((lst.data[i] : 'a*'b) :::: 'a*'b);
-        let (elemA, elemB) = tup;
-        set retA.data[i] = (elemA : 'a) :::: 'a;
-        set retB.data[i] = (elemB : 'b) :::: 'b;
-        ())
+    for i : uint32 in 0 to lst.length - 1 do
+        #retA.data[i] = lst.data[i].e1;
+         retB.data[i] = lst.data[i].e2;#
     end;
     (retA, retB)
 )

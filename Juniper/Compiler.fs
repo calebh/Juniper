@@ -307,7 +307,8 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
         compile (wrapWithType ty (SequenceExp [decOn; equivalentExpr]))
     // Internal declarations are used only by the compiler, not the user, for hidden variables
     | InternalDeclareVar {varName=varName; typ=typ; right=right} ->
-        output (compileType typ) + output " " + output varName + output " = " + output (compile right)
+        //output (compileType typ) + output " " + output varName + output " = " + output (compile right)
+        output "auto " + output varName + output " = " + output (compile right)
     | TemplateApplyExp {func=func; templateArgs=templateArgs} ->
         output (compileDecRef func) + output (compileTemplateApply theta kappa templateArgs)
     | BinaryOpExp {left=left; op=op; right=right} ->

@@ -13,7 +13,12 @@ type Constraint = Equal of TyExpr * TyExpr * ErrorMessage
                 | And of Constraint * Constraint
                 | Trivial
 
+type ConstraintCap = EqualCap of CapacityExpr * CapacityExpr * ErrorMessage
+                   | AndCap of ConstraintCap * ConstraintCap
+                   | TrivialCap
+
 let (=~=) t1 (t2, err) = Equal (t1, t2, err)
+
 let (&&&) c1 c2 = And (c1, c2)
 
 let rec conjoinConstraints cc =
@@ -59,6 +64,15 @@ let consubst theta kappa =
             Equal (tycapsubst theta kappa tau1, tycapsubst theta kappa tau2, err)
         | (And (c1, c2)) -> And (subst c1, subst c2)
         | Trivial -> Trivial
+    subst
+
+let consubstCap kappa =
+    let rec subst =
+        function
+        | (EqualCap (cap1, cap2, err)) ->
+            EqualCap (capsubst kappa cap1, capsubst kappa cap2, err)
+        | (AndCap (c1, c2)) -> AndCap (subst c1, subst c2)
+        | TrivialCap -> TrivialCap
     subst
 
 let isNumericalType t =
@@ -238,29 +252,64 @@ let solveCapvarEq a cap =
     else
         a |-%-> cap |> Some
 
-let rec solve con : Map<string, TyExpr> * Map<string, CapacityExpr> =
+let rec solveCap con : Map<string, CapacityExpr> =
     match con with
-    | Trivial -> (idSubst, idSubst)
-    | And (left, right) ->
-        let (theta1, kappa1) = solve left
-        let (theta2, kappa2) = solve (consubst theta1 kappa1 right)
-        (composeTheta theta2 theta1, composeKappa kappa2 kappa1)
-    | Equal (tau, tau', err) ->
-        let failMsg = lazy (sprintf "Type error: The types %s and %s are not equal.\n\n%s" (typeString tau) (typeString tau') (err.Force()))
-        match (tau, tau') with
-        | ((TyVar a, tau) | (tau, TyVar a)) ->
-            match solveTyvarEq a tau with
-            | Some answer -> (answer, idSubst)
+    | TrivialCap -> idSubst
+    | AndCap (left, right) ->
+        let kappa1 = solveCap left
+        let kappa2 = solveCap (consubstCap kappa1 right)
+        composeKappa kappa2 kappa1
+    | EqualCap (cap, cap', err) ->
+        let failMsg = lazy (sprintf "Capacity type error: The capacities %s and %s are not equal.\n\n%s" (capacityString cap) (capacityString cap') (err.Force()))
+        match (cap, cap') with
+        | ((CapacityVar a, cap) | (cap, CapacityVar a)) ->
+            match solveCapvarEq a cap with
+            | Some answer -> answer
             | None -> raise <| TypeError (failMsg.Force())
-        | (TyCon mu, TyCon mu') ->
-            if eqType tau tau' then
-                (idSubst, idSubst)
+        | (CapacityConst a, CapacityConst b) ->
+            if a = b then
+                idSubst
             else
                 raise <| TypeError (failMsg.Force())
-        | (ConApp (t, ts, cs), ConApp(t', ts', cs')) ->
-            if List.length ts = List.length ts' && List.length cs = List.length cs' then
-                let eqAnd c t t' = And ((Equal (t, t', err)), c)
-                solve (List.fold2 eqAnd Trivial (t::ts) (t'::ts'))
-            else
-                raise <| TypeError (failMsg.Force())
-        | _ -> raise <| TypeError (failMsg.Force())
+        | (CapacityOp {left=left; op=op; right=right}, CapacityOp {left=left'; op=op'; right=right'}) when op = op' ->
+            solveCap (AndCap (EqualCap (left, left', err), EqualCap (right, right', err)))
+        | (CapacityUnaryOp {term=term; op=op}, CapacityUnaryOp {term=term'; op=op'}) when op = op' ->
+            solveCap (EqualCap (term, term', err))
+        | _ ->
+            raise <| TypeError (failMsg.Force())
+            
+
+let solve con : Map<string, TyExpr> * Map<string, CapacityExpr> =
+    let (thetaSolution, capacityConstraints) =
+        let rec solveTheta con =
+            match con with
+            | Trivial -> (idSubst, TrivialCap)
+            | And (left, right) ->
+                let (theta1, capCon1) = solveTheta left
+                let (theta2, capCon2) = solveTheta (consubst theta1 Map.empty right)
+                (composeTheta theta2 theta1, AndCap (capCon1, capCon2))
+            | Equal (tau, tau', err) ->
+                let failMsg = lazy (sprintf "Type error: The types %s and %s are not equal.\n\n%s" (typeString tau) (typeString tau') (err.Force()))
+                match (tau, tau') with
+                | ((TyVar a, tau) | (tau, TyVar a)) ->
+                    match solveTyvarEq a tau with
+                    | Some answer -> (answer, TrivialCap)
+                    | None -> raise <| TypeError (failMsg.Force())
+                | (TyCon mu, TyCon mu') ->
+                    if eqType tau tau' then
+                        (idSubst, TrivialCap)
+                    else
+                        raise <| TypeError (failMsg.Force())
+                | (ConApp (t, ts, cs), ConApp(t', ts', cs')) ->
+                    if List.length ts = List.length ts' && List.length cs = List.length cs' then
+                        let eqAnd c t t' = And (Equal (t, t', err), c)
+                        let eqAndCap accum c c' = AndCap (EqualCap (c, c', err), accum)
+                        let (theta, capCon1) = solveTheta (List.fold2 eqAnd Trivial (t::ts) (t'::ts'))
+                        let capCon2 = List.fold2 eqAndCap TrivialCap cs cs'
+                        (theta, AndCap (capCon1, capCon2))
+                    else
+                        raise <| TypeError (failMsg.Force())
+                | _ -> raise <| TypeError (failMsg.Force())
+        solveTheta con
+    let kappaSolution = solveCap capacityConstraints
+    (thetaSolution, kappaSolution)

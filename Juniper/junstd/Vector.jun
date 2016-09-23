@@ -77,8 +77,10 @@ fun make<'a;n>(d : 'a[n]) : vector<'a;n> =
     Returns:
         The value at the ith position in the vector.
 *)
-fun get<'a;n>(i : uint32, v : vector<'a;n>) : 'a =
-    v.data[i]
+fun get<'a;n>(i : uint32, v : vector<'a;n>) : 'a = (
+    let vector<'a;n>{data=data} = v;
+    data[i]
+)
 
 (*
     Function: add
@@ -97,9 +99,10 @@ fun get<'a;n>(i : uint32, v : vector<'a;n>) : 'a =
 *)
 fun add<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> = (
     let mutable result = v1;
-    for i : uint32 in 0 to n - 1 do
+    for i : uint32 in 0 to n - 1 do (
         set result.data[i] = result.data[i] + v2.data[i]
-    end;
+        ()
+    ) end;
     result
 )
 
@@ -134,9 +137,10 @@ fun zero<'a;n>() : vector<'a;n> =
 *)
 fun subtract<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> = (
     let mutable result = v1;
-    for i : uint32 in 0 to n - 1 do
-        set result.data[i] = result.data[i] - v2.data[i]
-    end;
+    for i : uint32 in 0 to n - 1 do (
+        set result.data[i] = result.data[i] - v2.data[i];
+        ()
+    ) end;
     result
 )
 
@@ -157,9 +161,10 @@ fun subtract<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> = (
 *)
 fun scale<'a;n>(scalar : 'a, v : vector<'a;n>) : vector<'a;n> = (
     let mutable result = v;
-    for i : uint32 in 0 to n - 1 do
-        set result.data[i] = result.data[i] * scalar
-    end;
+    for i : uint32 in 0 to n - 1 do (
+        set result.data[i] = result.data[i] * scalar;
+        ()
+    ) end;
     result
 )
 

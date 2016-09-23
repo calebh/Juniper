@@ -118,7 +118,7 @@ fun mergeMany<'a;n>(sigs : list<sig<'a>;n>) : sig<'a> = (
     for i : uint32 in 0 to n - 1 do
         case ret of
         | nothing<'a>() =>
-            (let signal<'a>(heldValue) = List:nth<'a;n>(i, sigs);
+            (let signal<'a>(heldValue) = List:nth<sig<'a>;n>(i, sigs);
             set ret = heldValue;
             ())
         | _ =>

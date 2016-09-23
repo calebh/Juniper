@@ -311,8 +311,8 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                (gamma : Map<string, bool * T.TyScheme>) =
     let getTypes = List.map T.getType
 
-    let convertType = convertType menv tyVarMapping capVarMapping
-    let convertCapacity = convertCapacity capVarMapping
+    let convertType' = convertType menv tyVarMapping capVarMapping
+    let convertCapacity' = convertCapacity capVarMapping
 
     // Taus is what the overall pattern's type should equal
     let rec checkPattern (posp, p) tau =
@@ -355,7 +355,7 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                     gamma' <- Map.add varName (mutable_, T.Forall ([], [], tau)) gamma'
                     let c' = match typ with
                              | Some (post, typ) ->
-                                 tau =~= (convertType typ, errStr [post] "Type constraint in pattern could not be satisfied")
+                                 tau =~= (convertType' typ, errStr [post] "Type constraint in pattern could not be satisfied")
                              | None ->
                                 Trivial
                     ((posp, tau, T.MatchVar { varName=varName; mutable_=mutable_; typ=tau}), c')
@@ -382,8 +382,8 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                             let (taus', caps') =
                                 match template with
                                 | Some (postemp, {tyExprs=(post, tyExprs); capExprs=(posc, capExprs)}) ->
-                                    (List.map (A.unwrap >> convertType) tyExprs,
-                                     List.map (A.unwrap >> convertCapacity) capExprs)
+                                    (List.map (A.unwrap >> convertType') tyExprs,
+                                     List.map (A.unwrap >> convertCapacity') capExprs)
                                 | None ->
                                     (List.map Constraint.freshtyvar taus,
                                      List.map Constraint.freshcapvar caps)
@@ -439,7 +439,7 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                     let inst =
                         match template with
                         | Some (post, {tyExprs=(posm, tyExprs); capExprs=(posn, capExprs)}) ->
-                            instantiate valueConstructor (List.map (A.unwrap >> convertType) tyExprs) (List.map (A.unwrap >> convertCapacity) capExprs)
+                            instantiate valueConstructor (List.map (A.unwrap >> convertType') tyExprs) (List.map (A.unwrap >> convertCapacity') capExprs)
                         | None ->
                             freshInstance valueConstructor
                     match inst with
@@ -526,7 +526,8 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
             let [array'; index'] = exprs'
             let [tauA; tauI] = getTypes exprs'
             let tauElement = freshtyvar ()
-            let tauArray = T.ConApp (T.TyCon T.ArrayTy, [tauElement], [])
+            let arraySize = freshcapvar ()
+            let tauArray = T.ConApp (T.TyCon T.ArrayTy, [tauElement], [arraySize])
             let c' = c &&& (tauA =~= (tauArray, errStr [posa] "An array access expression must access a value of an array type")) &&&
                            (tauI =~= (int32type, errStr [posi] "Expected index of array access expression to have integer type"))
             adorn posE tauElement (T.ArrayAccessExp {array=array'; index=index'}) c'
@@ -537,7 +538,7 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
             let tauArray = T.ConApp (T.TyCon T.ArrayTy, [tauElement], [T.CapacityConst <| int64 (List.length exprs)])
             adorn posE tauArray (T.ArrayLitExp exprs') c'
         | A.ArrayMakeExp {typ=(post, typ); initializer=maybeInitializer} ->
-            let typ' = convertType typ
+            let typ' = convertType' typ
             match typ' with
             | T.ConApp (T.TyCon T.ArrayTy, [tauElement], [cap]) ->
                 let (maybeInitializer', c) =
@@ -648,12 +649,11 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
             let (args', c2) = typesof args dtenv menv localVars gamma
             let returnTau = freshtyvar ()
             let placeholders = List.map freshtyvar args
-            // TODO: Deal with capacity expressions
-            let c3 = T.getType func' =~= (T.ConApp (T.TyCon T.FunTy, returnTau::placeholders, []), errStr [posf; posa] "The function being called does not have a function type or the number of parameters passed to the function is incorrect.")
+            let c3 = T.ConApp (T.TyCon T.FunTy, returnTau::placeholders, []) =~= (T.getType func', errStr [posf; posa] "The function being called does not have a function type or the number of parameters passed to the function is incorrect.")
             let c4 =
                 List.map
                     (fun ((posa, _), arg', placeholder) ->
-                        T.getType arg' =~= (placeholder, errStr [posa] "The type of the argument is incorrect."))
+                        placeholder =~= (T.getType arg', errStr [posa] "The type of the argument is incorrect."))
                     (List.zip3 args args' placeholders)
             let c' = c1 &&& c2 &&& c3 &&& (List.fold (&&&) Trivial c4)
             adorn posE returnTau (T.CallExp {func=func'; args=args'}) c'
@@ -706,7 +706,7 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
             let tauIterator =
                 match maybeTyp with
                 | Some (_, tau) ->
-                    convertType tau
+                    convertType' tau
                 | None ->
                     int32type
             let (start', c1) = ty start
@@ -726,7 +726,7 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                         let argConstraint =
                             match maybeArgTau with
                             | Some (post, tauConstraint) ->
-                                convertType tauConstraint =~= (tau, errStr [post] "Invalid argument type constraint")
+                                convertType' tauConstraint =~= (tau, errStr [post] "Invalid argument type constraint")
                             | None ->
                                 Trivial
                         let gammaEntry = (argName, (false, T.Forall ([], [], tau)))
@@ -739,7 +739,7 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
             let c3 = 
                 match maybeReturnTy with
                 | Some (posr, returnTau) ->
-                    convertType returnTau =~= (T.getType body', errStr [posr] "Invalid return type constraint")
+                    convertType' returnTau =~= (T.getType body', errStr [posr] "Invalid return type constraint")
                 | None ->
                     Trivial
             let lambdaTau = T.ConApp ((T.TyCon T.FunTy), (T.getType body')::(List.map snd arguments'), [])
@@ -772,7 +772,7 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
             let tau =
                 match maybeTau with
                 | Some (post, tau) ->
-                    convertType tau
+                    convertType' tau
                 | None ->
                     freshtyvar ()
             adorn posE tau (T.QuitExp tau) Trivial
@@ -815,8 +815,8 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                         match maybeTemplateArgs with
                         // Explicit template instantiation
                         | Some (post, {tyExprs=(postyexprs, tyExprs); capExprs=(posc, capExprs)}) ->
-                            (tyExprs |> List.map (A.unwrap >> convertType),
-                             capExprs |> List.map (A.unwrap >> convertCapacity))
+                            (tyExprs |> List.map (A.unwrap >> convertType'),
+                             capExprs |> List.map (A.unwrap >> convertCapacity'))
                         | None ->
                             (List.map freshtyvar tyvars,
                              List.map freshcapvar capvars)
@@ -904,11 +904,14 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                         raise <| TypeError ((errStr [posf] (sprintf "Found declaration named '%s' in module '%s', but it was not a function declaration." name module_)).Force())
                     | None ->
                         raise <| TypeError ((errStr [posf] (sprintf "Unable to find declaration named '%s' in module '%s'" name module_)).Force())
-            let templateArgs' = List.map (A.unwrap >> convertType) tyExprs
-            let templateArgsCaps' = List.map (A.unwrap >> convertCapacity) capExprs
+            //let templateArgs' = List.map (A.unwrap >> convertType menv Map.empty Map.empty) tyExprs
+            //let templateArgsCaps' = List.map (A.unwrap >> convertCapacity Map.empty) capExprs
+            let templateArgs' = List.map (A.unwrap >> convertType') tyExprs
+            let templateArgsCaps' = List.map (A.unwrap >> convertCapacity') capExprs
             // TODO: Deal with capacities (again)
             let tau = instantiate scheme templateArgs' templateArgsCaps'
-            adorn posE tau (T.TemplateApplyExp {func=func'; templateArgs={tyExprs=templateArgs'; capExprs=[]}}) Trivial
+            //let tau = freshInstance scheme
+            adorn posE tau (T.TemplateApplyExp {func=func'; templateArgs={tyExprs=templateArgs'; capExprs=templateArgsCaps'}}) Trivial
         | A.TupleExp exprs ->
             let (exprs', c') = typesof exprs dtenv menv localVars gamma
             let subTaus = List.map T.getType exprs'
@@ -916,11 +919,11 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
             adorn posE tau (T.TupleExp exprs') c'
         | A.TypeConstraint {exp=(pose, _) as exp; typ=(post, typ)} ->
             let (exp', c1) = ty exp
-            let c' = c1 &&& (convertType typ =~= (T.getType exp', errStr [pose; post] "Type constraint could not be satisfied"))
+            let c' = c1 &&& (convertType' typ =~= (T.getType exp', errStr [pose; post] "Type constraint could not be satisfied"))
             adorn posE (T.getType exp') (T.unwrap exp') c'
         | A.UnsafeTypeCast {exp=(pose, _) as exp; typ=(post, typ)} ->
             let (exp', c) = ty exp
-            let typ' = convertType typ
+            let typ' = convertType' typ
             adorn pose typ' (T.unwrap exp') c
         | A.UnaryOpExp {op=(poso, op); exp=(pose, _) as exp} ->
             let (exp', c1) = ty exp
@@ -1435,11 +1438,14 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
                                 let localVars = Set.union localArguments localCapacities
                                 // Add the arguments to the type environment (gamma)
                                 let (argTys, tempGamma') =
+                                    //let tyVarMapping' = Map.map (fun key _ -> freshtyvar ()) tyVarMapping
+                                    //let capVarMapping' = Map.map (fun key _ -> freshcapvar ()) capVarMapping
                                     arguments |>
                                     List.mapFold
                                         (fun accumTempGamma' ((posn, name), maybeTy) ->
                                             let argTy = match maybeTy with
                                                         | Some (_, ty) -> convertType menv tyVarMapping capVarMapping ty
+                                                        //| Some (_, ty) -> convertType menv tyVarMapping' capVarMapping' ty
                                                         // TODO: Determine if we need to save this tyvar
                                                         | None -> freshtyvar ()
                                             let argTyScheme = T.Forall ([], [], argTy)
@@ -1449,16 +1455,21 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
                                 let tempGamma'' = localCapacities |> (Set.fold (fun accum capVarName ->
                                     Map.add capVarName (false, T.Forall ([], [], int32type)) accum
                                 ) tempGamma')
-                                let (post, retTy) = match maybeReturnTy with
-                                            | Some (post, ty) -> ([post], convertType menv tyVarMapping capVarMapping ty)
-                                            | None -> ([], freshtyvar ())
+                                //let (post, retTy) =
+                                //    match maybeReturnTy with
+                                //    | Some (post, ty) -> ([post], convertType menv tyVarMapping capVarMapping ty)
+                                //    | None -> ([], freshtyvar ())
                                 // Finally typecheck the body
                                 let (body', c1) = typeof body dtenv menv localVars ienv tyVarMapping capVarMapping tempGamma''
-                                let c2 = alpha =~= (T.ConApp (T.TyCon T.FunTy, retTy::argTys, []), errStr [posf] "The inferred type of the function violated a constraint based on the function declaration")
-                                let c3 = retTy =~= (T.getType body', errStr (posf::post) "The type of the body did not have the correct return type")
-                                let c = c1 &&& c2
+                                let c2 = alpha =~= (T.ConApp (T.TyCon T.FunTy, (T.getType body')::argTys, []), errStr [posf] "The inferred type of the function violated a constraint based on the function declaration")
+                                let c3 =
+                                    match maybeReturnTy with
+                                    | None -> Trivial
+                                    | Some (post, ty) ->
+                                        (T.getType body') =~= (convertType menv tyVarMapping capVarMapping ty, errStr [posf; post] "The type of the body did not match the type of the return constraint")
+                                let c = c1 &&& c2 &&& c3
                                 let argNames = arguments |> List.map (fst >> A.unwrap)
-                                ((modqual, maybeTemplate', argNames, argTys, retTy, body'), c)) |> List.unzip
+                                ((modqual, maybeTemplate', argNames, argTys, T.getType body', body'), c)) |> List.unzip
                     let c = List.fold (&&&) Trivial cs
                     // Solve the entire SCC at once
                     let (theta, kappa) = solve c

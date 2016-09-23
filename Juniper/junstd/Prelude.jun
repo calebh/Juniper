@@ -229,3 +229,71 @@ fun snd<'a,'b>(tup : ('a * 'b)) : 'b =
     case tup of
     | (_, x) => x
     end
+
+(*
+    Function: add
+
+    Adds the two arguments together.
+
+    Type signature:
+    | <'a>('a, 'a) -> 'a
+
+    Parameters:
+        numA : 'a - The first number
+        numB : 'a - The second number
+
+    Returns:
+        The sum of the two numbers
+*)
+fun add<'a>(numA : 'a, numB : 'a) : 'a = numA + numB
+
+(*
+    Function: mul
+
+     Subtracts the two arguments
+
+    Type signature:
+    | <'a>('a, 'a) -> 'a
+
+    Parameters:
+        numA : 'a - The first number
+        numB : 'a - The second number
+
+    Returns:
+        The difference of the two numbers
+*)
+fun sub<'a>(numA : 'a, numB : 'a) : 'a = numA - numB
+
+(*
+    Function: mul
+
+    Multiplies the two arguments together.
+
+    Type signature:
+    | <'a>('a, 'a) -> 'a
+
+    Parameters:
+        numA : 'a - The first number
+        numB : 'a - The second number
+
+    Returns:
+        The product of the two numbers
+*)
+fun mul<'a>(numA : 'a, numB : 'a) : 'a = numA * numB
+
+(*
+    Function: div
+
+    Divides one number by the other.
+
+    Type signature:
+    | <'a>('a, 'a) -> 'a
+
+    Parameters:
+        numA : 'a - The numerator
+        numB : 'a - The denominator
+
+    Returns:
+        The difference of the two numbers
+*)
+fun div<'a>(numA : 'a, numB : 'a) : 'a = numA / numB

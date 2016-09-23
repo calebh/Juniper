@@ -198,7 +198,9 @@ let instantiate (Forall (formals, caps, tau)) actuals capActuals =
     tycapsubst (Map.ofList (List.zip formals actuals)) (Map.ofList (List.zip caps capActuals)) tau
 
 let freshInstance (Forall (bound, caps, tau)) =
-    instantiate (Forall (bound, caps, tau)) (List.map freshtyvar bound) (List.map freshcapvar caps)
+    let freshTys = List.map freshtyvar bound
+    let freshCaps = List.map freshcapvar caps
+    (instantiate (Forall (bound, caps, tau)) freshTys freshCaps, freshTys, freshCaps)
 
 let instantiateRecord (bound, caps, fields) actuals capActuals =
     let substitutions = List.zip bound actuals |> Map.ofList

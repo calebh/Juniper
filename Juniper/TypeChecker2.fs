@@ -441,7 +441,8 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                         | Some (post, {tyExprs=(posm, tyExprs); capExprs=(posn, capExprs)}) ->
                             instantiate valueConstructor (List.map (A.unwrap >> convertType') tyExprs) (List.map (A.unwrap >> convertCapacity') capExprs)
                         | None ->
-                            freshInstance valueConstructor
+                            let (instance, _, _) = freshInstance valueConstructor
+                            instance
                     match inst with
                     | T.ConApp (T.TyCon T.FunTy, returnTau::argTaus, _) ->
                         match (argTaus, maybeInnerPattern) with
@@ -518,7 +519,8 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
         | A.VarExp (posn, varName) ->
             match Map.tryFind varName gamma with
             | Some (_, tyscheme) ->
-                adorn posE (freshInstance tyscheme) (T.VarExp varName) Trivial
+                let (instance, t, c) = freshInstance tyscheme
+                adorn posE instance (T.VarExp (varName, t, c)) Trivial
             | None ->
                 raise <| TypeError ((errStr [posn] (sprintf "Variable named %s could not be found" varName)).Force())
         | A.ArrayAccessExp { array=(posa, _) as array; index=(posi, _) as index } ->
@@ -585,7 +587,7 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                         match Map.tryFind name gamma with
                         | Some (isMutable, tyscheme) ->
                             if ref || isMutable then
-                                let tau = freshInstance tyscheme
+                                let (tau, _, _) = freshInstance tyscheme
                                 adorn posl tau (T.VarMutation name) Trivial
                             else
                                 raise <| TypeError ((errStr [posn] (sprintf "The variable named %s is not mutable." name)).Force())
@@ -755,19 +757,19 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
             let c' = c1 &&& c2
             adorn posE (T.getType right') (T.LetExp {left=left'; right=right'}) c'
         | A.ModQualifierExp (posmq, {module_=(pos, module_); name=(posn, name)}) ->
-            let tau =
+            let (instance, t, c) =
                 match Map.tryFind (module_, name) dtenv with
                 | Some (T.FunDecTy tyscheme) ->
                     freshInstance tyscheme
                 | Some (T.LetDecTy tau) ->
-                    tau
+                    (tau, [], [])
                 | Some (T.RecordDecTy _) ->
                     raise <| TypeError ((errStr [posmq] (sprintf "Found declaration named %s in module %s, but it was a record declaration and not a value declaration." name module_)).Force())
                 | Some (T.UnionDecTy _) ->
                     raise <| TypeError ((errStr [posmq] (sprintf "Found declaration named %s in module %s, but it was an algebraic datatype declaration and not a value declaration." name module_)).Force())
                 | None ->
                     raise <| TypeError ((errStr [posmq] (sprintf "Unable to find declaration named %s in module %s." name module_)).Force())
-            adorn posE tau (T.ModQualifierExp {module_=module_; name=name}) Trivial
+            adorn posE instance (T.ModQualifierExp ({module_=module_; name=name}, t, c)) Trivial
         | A.QuitExp maybeTau ->
             let tau =
                 match maybeTau with
@@ -1497,7 +1499,7 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
                                                 capvar'
                                             | x ->
                                                 raise <| TypeError ((errStr [posc] (sprintf "The capacity parameter was inferred to be equivalent to the non-capacity variable '%s'" (T.capacityString x))).Force()))   
-                                        (tyVars', capVars, Some ({tyVars=tyVars'; capVars=capVars} : T.Template), Some originalCapVars)
+                                        (tyVars', capVars', Some ({tyVars=tyVars'; capVars=capVars'} : T.Template), Some originalCapVars)
                                 let funScheme = T.Forall (t, c, T.ConApp (T.TyCon T.FunTy, retTy'::argTys', []))
                                 let body'' =
                                     match maybeOriginalCapVars with
@@ -1507,7 +1509,7 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
                                         let (pos, tau, innerBody) = body'
                                         let saveCapVars =
                                             List.zip originalCapVars c |> List.map (fun ((posc, originalCapVar), newCapVar) ->
-                                                (posc, int32type, T.InternalDeclareVar {varName=originalCapVar; typ=int32type; right=(posc, int32type, T.VarExp newCapVar)}))
+                                                (posc, int32type, T.InternalDeclareVar {varName=originalCapVar; typ=int32type; right=(posc, int32type, T.VarExp (newCapVar, [], []))}))
                                         let innerBody' = T.SequenceExp (saveCapVars @ [body'])
                                         (pos, tau, innerBody')
                                 let funDec' = T.FunctionDec {name=name; template=maybeTemplate''; clause={returnTy=retTy'; arguments=arguments'; body=body''}}

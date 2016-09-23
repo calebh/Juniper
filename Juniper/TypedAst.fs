@@ -158,7 +158,7 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | UnaryOpExp of UnaryOpRec
           | RecordAccessExp of RecordAccessRec
           | ArrayAccessExp of ArrayAccessRec
-          | VarExp of string
+          | VarExp of string * TyExpr list * CapacityExpr list
           | UnitExp
           | TrueExp
           | FalseExp
@@ -176,7 +176,7 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | DoubleExp of float
           | CallExp of CallRec
           | TemplateApplyExp of TemplateApplyExpRec
-          | ModQualifierExp of ModQualifierRec
+          | ModQualifierExp of ModQualifierRec * TyExpr list * CapacityExpr list
           | RecordExp of RecordExprRec
           | ArrayLitExp of TyAdorn<Expr> list
           | ArrayMakeExp of ArrayMakeExpRec

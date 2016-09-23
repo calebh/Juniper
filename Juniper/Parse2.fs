@@ -389,10 +389,10 @@ do
     let pint16 = pos (pint64 .>> skipString "i16") |>> Int16Exp
     let pint32 = pos (pint64 .>> skipString "i32") |>> Int32Exp
     let pint64' = pos (pint64 .>> skipString "i64") |>> Int64Exp
-    let puint8 = pos (pint64 .>> skipString "ui8") |>> UInt8Exp
-    let puint16 = pos (pint64 .>> skipString "ui16") |>> UInt16Exp
-    let puint32 = pos (pint64 .>> skipString "ui32") |>> UInt32Exp
-    let puint64 = pos (pint64 .>> skipString "ui64") |>> UInt64Exp
+    let puint8 = pos (pint64 .>> skipString "u8") |>> UInt8Exp
+    let puint16 = pos (pint64 .>> skipString "u16") |>> UInt16Exp
+    let puint32 = pos (pint64 .>> skipString "u32") |>> UInt32Exp
+    let puint64 = pos (pint64 .>> skipString "u64") |>> UInt64Exp
     let seq = betweenChar '(' (separatedList (attempt expr) ';' |> pos) ')' |>> SequenceExp
     let quit = skipString "quit" >>. ws >>. opt (skipChar '<' >>. ws >>. tyExpr .>> ws .>> skipChar '>') .>> ws .>> skipChar '(' .>> ws .>> skipChar ')' |>> QuitExp
     let applyTemplateToFunc =

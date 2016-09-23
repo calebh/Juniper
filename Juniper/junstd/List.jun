@@ -614,3 +614,37 @@ fun unzip<'a,'b;n>(lst : list<'a*'b; n>) : list<'a;n>*list<'b;n> = (
     end;
     (retA, retB)
 )
+
+(*
+    Function: sum
+
+    Computes the sum of a list of numbers
+
+    Type Signature:
+    | <'a;n>(list<'a;n>) -> 'a
+
+    Parameters:
+        lst : list<'a;n> - The list to sum
+
+    Returns:
+        The sum of the list
+*)
+fun sum<'a; n>(lst : list<'a;n>) : 'a =
+    List:foldl<'a, 'a; n>(add<'a>, 0 :::: 'a, lst)
+
+(*
+    Function: average
+
+    Computes the average (mean) of a list of numbers
+
+    Type Signature:
+    | <'a;n>(list<'a;n>) -> 'a
+
+    Parameters:
+        lst : list<'a;n> - The list to average
+
+    Returns:
+        The numerical mean of the list
+*)
+fun average<'a; n>(lst : list<'a;n>) : 'a =
+    sum<'a; n>(lst) / lst.length

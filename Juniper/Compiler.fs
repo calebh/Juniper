@@ -231,14 +231,14 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
                 // Hit a let expression embedded in a sequence
                 | LetExp {left=left; right=right} ->
                     let varName = Guid.string()
-                    let (condition, assignments) = compilePattern left (dummyWrap (VarExp varName))
+                    let (condition, assignments) = compilePattern left (dummyWrap (VarExp (varName, [], [])))
                     compile (dummyWrap (InternalDeclareVar {varName=varName; typ=getType right; right=right})) + output ";" + newline() +
                     output "if (!(" + compile condition + output ")) {" + newline() + indentId() +
                     compile (getQuitExpr (TyCon <| (BaseTy TyUnit))) + output ";" + newline() + unindentId() +
                     output "}" + newline() +
                     (assignments |> List.map (fun expr -> compile (dummyWrap expr) + output ";" + newline()) |> String.concat "") +
                     (if isLastElem then
-                        output "return " + compile (dummyWrap (VarExp varName)) + output ";"
+                        output "return " + compile (dummyWrap (VarExp (varName, [], []))) + output ";"
                     else
                         output "")
                 | _ ->
@@ -257,13 +257,13 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
     | LetExp {left=left; right=right} ->
         let unitTy = TyCon <| BaseTy TyUnit
         let varName = Guid.string()
-        let (condition, assignments) = compilePattern left (dummyWrap (VarExp varName))
+        let (condition, assignments) = compilePattern left (dummyWrap (VarExp (varName, [], [])))
         output "(([&]() -> " + compileType ty + output " {" + indentId() + newline() +
         compile (dummyWrap (InternalDeclareVar {varName=varName; typ=ty; right=right})) + output ";" + newline() +
         output "if (!(" + compile condition + output ")) {" + newline() + indentId() +
         compile (getQuitExpr unitTy) + output ";" + newline() + unindentId() +
         output "}" + newline() +
-        output "return " + compile (dummyWrap (VarExp varName)) + output ";" +
+        output "return " + compile (dummyWrap (VarExp (varName, [], []))) + output ";" +
         unindentId() + newline() + output "})())"
     | AssignExp {left=(_, _, left); right=right; ref=ref} ->
         let (_, ty, _) = right
@@ -281,8 +281,13 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
         output ")"
     | UnitExp _ ->
         output "Prelude::unit()"
-    | VarExp name ->
+    | VarExp (name, [], []) ->
         output name
+    | VarExp (name, t, c) ->
+        let name' = output name
+        let t' = List.map (Constraint.tycapsubst theta kappa >> compileType) t
+        let c' = List.map (Constraint.capsubst kappa >> compileCap) c
+        output name + output "<" + (t' @ c' |> String.concat ", ") + output ">"
     | WhileLoopExp {condition=condition; body=body} ->
         output "(([&]() -> " +
         compileType unitty +
@@ -298,7 +303,7 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
         let equivalentExpr =
             List.foldBack
                 (fun (pattern, executeIfMatched) ifElseTree ->
-                    let (condition, assignments) = compilePattern pattern (VarExp onVarName |> wrapWithType onTy)
+                    let (condition, assignments) = compilePattern pattern (VarExp (onVarName, [], []) |> wrapWithType onTy)
                     let assignments' = List.map (wrapWithType unitty) assignments
                     let seq = SequenceExp (List.append assignments' [executeIfMatched])
                     IfElseExp {condition=condition; trueBranch=wrapWithType ty seq; falseBranch=ifElseTree} |> wrapWithType ty
@@ -339,8 +344,13 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
         output "[=](" + (args |> List.map (fun (name, ty) -> compileType ty + output " " + output name) |> String.concat ", ") +
         output ") mutable -> " + compileType returnTy + output " { " + newline() +
         indentId() + output "return " + compile body + output ";" + unindentId() + newline() + output " })"
-    | ModQualifierExp {module_=module_; name=name} ->
-        output module_ + "::" + name
+    | ModQualifierExp ({module_=module_; name=name}, [], []) ->
+        output module_ + "::" + output name
+    | ModQualifierExp ({module_=module_; name=name}, t, c) ->
+        let name' = output module_ + "::" + output name
+        let t' = List.map (Constraint.tycapsubst theta kappa >> compileType) t
+        let c' = List.map (Constraint.capsubst kappa >> compileCap) c
+        output name' + output "<" + (t' @ c' |> String.concat ", ") + output ">"
     | ArrayLitExp exprs ->
         let (ConApp (TyCon ArrayTy, [valueType], [capacity])) = ty
         output "(juniper::array<" + compileType valueType + output ", " + compileCap capacity + output "> { {" +

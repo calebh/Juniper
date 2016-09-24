@@ -62,7 +62,7 @@ let main argv =
                                     fileName
                                  else
                                     executingDir + "/" + fileName) |> System.IO.Path.GetFullPath
-                match runParserOnStream Parse2.program () fileName' (new System.IO.FileStream(fileName', System.IO.FileMode.Open)) (new System.Text.UTF8Encoding()) with
+                match runParserOnStream Parse2.program () fileName' (new System.IO.FileStream(fileName', System.IO.FileMode.Open, System.IO.FileAccess.Read)) (new System.Text.UTF8Encoding()) with
                 //match runParserOnFile Parse2.program () fileName' (new System.Text.UTF8Encoding()) with
                 | Success(result, _, _) ->
                     Ast2.Module result

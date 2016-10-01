@@ -44,7 +44,8 @@ fun main() : unit = (
         let changeModeSig =
             Signal:foldP<unit, ringMode>(
                 fn (u : unit, currMode : ringMode) : ringMode ->
-                    transitionMode(currMode),
+                    transitionMode(currMode)
+                end,
                 mode, debouncedSig);
         Signal:sink<ringMode>(
             fn (mode : ringMode) : unit -> (
@@ -52,7 +53,8 @@ fun main() : unit = (
                 for i : uint16 in 0 to ringSize - 1 do
                     Neopixel:setPixelColor(i, color, ringStrip)
                 end;
-                Neopixel:show(ringStrip)),
+                Neopixel:show(ringStrip))
+            end,
             changeModeSig)
     ) end
 )

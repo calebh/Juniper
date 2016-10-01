@@ -14,7 +14,8 @@ fun button() : unit = (
     let ledSig =
         Signal:foldP<unit, pinState>(
             fn (event : unit, currentLedState : pinState) : pinState ->
-                Io:toggle(currentLedState),
+                Io:toggle(currentLedState)
+            end,
             ledState, debouncedSig);
     Io:digOut(ledPin, ledSig)
 )

@@ -17,7 +17,9 @@ type ConstraintCap = EqualCap of CapacityExpr * CapacityExpr * ErrorMessage
                    | AndCap of ConstraintCap * ConstraintCap
                    | TrivialCap
 
-let (=~=) t1 (t2, err) = Equal (t1, t2, err)
+let (=~=) t1 (t2, err) =
+    //printfn "%s =~= %s" (typeString t1) (typeString t2)
+    Equal (t1, t2, err)
 
 let (&&&) c1 c2 = And (c1, c2)
 

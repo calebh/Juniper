@@ -74,6 +74,7 @@ and BaseTypes = TyUint8
               | TyBool
               | TyUnit
               | TyPointer
+              | TyString
 and TyCons = BaseTy of BaseTypes
            | ModuleQualifierTy of ModQualifierRec
            | ArrayTy
@@ -174,6 +175,7 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | UInt64Exp of int64
           | FloatExp of float
           | DoubleExp of float
+          | StringExp of string
           | CallExp of CallRec
           | TemplateApplyExp of TemplateApplyExpRec
           | ModQualifierExp of ModQualifierRec * TyExpr list * CapacityExpr list
@@ -198,7 +200,7 @@ and LeftAssign = VarMutation of string
                | ArrayMutation of ArrayMutationRec
                | RecordMutation of RecordMutationRec
 
-// Takes in a wrapped AST object, returns the object within the PosAdorn.
+// Takes in a wrapped AST object, returns the object within the TyAdorn.
 let unwrap<'a> ((_, _, c) : TyAdorn<'a>) = c
 let getType<'a> ((_, b, _) : TyAdorn<'a>) = b
 let getPos<'a> ((a, _, _) : TyAdorn<'a>) = a
@@ -207,19 +209,8 @@ let dummyPos : Position = new Position("", -1L, -1L, -1L)
 
 let dummyWrap<'a> c : TyAdorn<'a> = ((dummyPos, dummyPos), TyCon <| BaseTy TyUnit, c)
 
-// Cleans up the wrapping around an AST object, returns it to default dummy values.
-//let clean<'a> ((_, _, c) : PosAdorn<'a>) : PosAdorn<'a> = dummyWrap c
-//let cleanAll haystack = TreeTraversals.map1 (fun pos -> dummyPos) haystack
-
-// Add typing to a PosAdorn.
+// Add typing to a TyAdorn.
 let wrapWithType<'a> t c : TyAdorn<'a> = ((dummyPos, dummyPos), t, c)
-
-(*
-let templateToTemplateApply template =
-    let tyExprs = template.tyVars |> unwrap |> List.map (ForallTy >> dummyWrap) |> dummyWrap
-    let capExprs = template.capVars |> unwrap |> List.map (CapacityNameExpr >> dummyWrap) |> dummyWrap
-    {tyExprs=tyExprs; capExprs=capExprs}
-*)
 
 // Turns a capacity expression into a string for debugging (printing error messages)
 let rec capacityString cap =
@@ -254,6 +245,7 @@ let rec typeConString con appliedTo capExprs =
         | TyFloat -> "float"
         | TyDouble -> "double"
         | TyPointer -> "pointer"
+        | TyString -> "string"
     | ArrayTy ->
         let [arrTy] = appliedTo
         if List.length capExprs = 0 then
@@ -296,3 +288,19 @@ and typeString (ty : TyExpr) : string =
         sprintf "'%s" name
     | _ ->
         failwith "Compiler error in typeString"
+
+let baseTy b = TyCon <| BaseTy b
+let unittype = baseTy TyUnit
+let booltype = baseTy TyBool
+let int8type = baseTy TyInt8
+let uint8type = baseTy TyUint8
+let int16type = baseTy TyInt16
+let uint16type = baseTy TyUint16
+let int32type = baseTy TyInt32
+let uint32type = baseTy TyUint32
+let int64type = baseTy TyInt64
+let uint64type = baseTy TyUint64
+let floattype = baseTy TyFloat
+let doubletype = baseTy TyDouble
+let pointertype = baseTy TyPointer
+let stringtype = baseTy TyString

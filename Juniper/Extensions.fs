@@ -1,5 +1,7 @@
 ﻿module Extensions
 
+let flip f a b = f b a
+
 // Merges two maps together
 // map2 overrides the entries in map1 in the case
 // of a duplicate key
@@ -72,3 +74,14 @@ module Seq =
                   yield x
               else
                 d.[x] <- false }
+
+module String =
+    /// Converts a string into a list of characters.
+    let explode (s:string) =
+        [for c in s -> c]
+
+    /// Converts a list of characters into a string.
+    let implode (xs:char list) =
+        let sb = System.Text.StringBuilder(xs.Length)
+        xs |> List.iter (sb.Append >> ignore)
+        sb.ToString()

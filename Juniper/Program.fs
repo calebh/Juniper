@@ -1,7 +1,7 @@
-﻿module Program2
+﻿module Program
 open FParsec
 open TypedAst
-open Parse2
+open Parse
 open Constraint
 
 exception SyntaxError of string
@@ -29,12 +29,12 @@ let parseArgs (args : string []) =
 let getArg possibleFlags argMap =
     Map.tryPick (fun flagName values -> if List.contains flagName possibleFlags then Some values else None) argMap
 
-let isWindows =
-    System.Environment.OSVersion.Platform = System.PlatformID.Win32NT
+let isWindows = System.Environment.OSVersion.Platform = System.PlatformID.Win32NT
 
 let helpText =
     let runTimeName = if isWindows then "Juniper.exe" else "juniper"
-    ["usage: " + runTimeName + " -s s1.jun s2.jun ... sn.jun -o main.cpp";
+    ["Juniper 2.1.0";
+     "usage: " + runTimeName + " -s s1.jun s2.jun ... sn.jun -o main.cpp";
      "  options:";
      "    -s, --source: The .jun Juniper source files to compile";
      "    -o, --output: The file in which the compiled C++ is written";
@@ -52,7 +52,7 @@ let main argv =
             0
         | (Some sourceFiles, Some (outputFile::_), _) ->
             // List of includes of custom Juniper std library modules
-            let stdLibrary = ["Prelude"; "List"; "Signal"; "Io"; "Maybe"; "Time"; "Math"; "Button"; "Vector"]
+            let stdLibrary = ["Prelude"; "List"; "Signal"; "Io"; "Maybe"; "Time"; "Math"; "Button"; "Vector"; "CharList"; "String"]
             let executingDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
             // Make the include modules names by prepending the executing directory and /junstd/, and appending the .jun file extension
             let stdFiles = stdLibrary |> List.map (fun name -> "junstd/" + name + ".jun")
@@ -62,10 +62,10 @@ let main argv =
                                     fileName
                                  else
                                     executingDir + "/" + fileName) |> System.IO.Path.GetFullPath
-                match runParserOnStream Parse2.program () fileName' (new System.IO.FileStream(fileName', System.IO.FileMode.Open, System.IO.FileAccess.Read)) (new System.Text.UTF8Encoding()) with
+                match runParserOnStream Parse.program () fileName' (new System.IO.FileStream(fileName', System.IO.FileMode.Open, System.IO.FileAccess.Read)) (new System.Text.UTF8Encoding()) with
                 //match runParserOnFile Parse2.program () fileName' (new System.Text.UTF8Encoding()) with
                 | Success(result, _, _) ->
-                    Ast2.Module result
+                    Ast.Module result
                 | Failure(errorMsg, _, _) ->
                     raise <| SyntaxError errorMsg
 
@@ -75,13 +75,13 @@ let main argv =
                 // Run parseFromFile (the parser combinators)
                 let asts = List.map parseFromFile fnames
                 // Typecheck the ASTs
-                let typeCheckedOutput = TypeChecker2.typecheckProgram asts fnames
+                let typeCheckedOutput = TypeChecker.typecheckProgram asts fnames
                 // Compile to C++ the typechecked (and typed) ASTs
                 let compiledProgram = Compiler.compileProgram typeCheckedOutput
                 System.IO.File.WriteAllText (outputFile, compiledProgram)
                 0
             with
-                | (TypeChecker2.TypeError err | TypeChecker2.SemanticError err | SyntaxError err | Constraint.TypeError err) ->
+                | (Error.TypeError err | Error.SemanticError err | SyntaxError err | Constraint.TypeError err) ->
                     printfn "%s" err
                     1
                 | :? System.IO.FileNotFoundException as ex ->

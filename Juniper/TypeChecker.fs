@@ -1,306 +1,15 @@
-﻿module TypeChecker2
-module A = Ast2
+﻿module TypeChecker
+module A = Ast
 module T = TypedAst
 open Constraint
-open FParsec
-open System.IO
 open Extensions
 open QuickGraph.Algorithms
+open ConvertAst
+open Error
+open AstAnalysis
+open Module
 
-exception TypeError of string
-exception SemanticError of string
-
-let baseTy b = T.TyCon <| T.BaseTy b
-let unittype = baseTy T.TyUnit
-let booltype = baseTy T.TyBool
-let int8type = baseTy T.TyInt8
-let uint8type = baseTy T.TyUint8
-let int16type = baseTy T.TyInt16
-let uint16type = baseTy T.TyUint16
-let int32type = baseTy T.TyInt32
-let uint32type = baseTy T.TyUint32
-let int64type = baseTy T.TyInt64
-let uint64type = baseTy T.TyUint64
-let floattype = baseTy T.TyFloat
-let doubletype = baseTy T.TyDouble
-let pointertype = baseTy T.TyPointer
-
-let flip f a b = f b a
-
-// Get position of the error (starting line and column, end line and column) in the form of a string to be used
-// for error messages.
-let posString (p1 : Position, p2' : Position) : string =
-    let p2 =
-        if p1 = p2' then
-            // The error should span at least one character
-            new Position(p2'.StreamName, p2'.Index, p2'.Line, p2'.Column + 1L)
-        else
-            p2'
-    let p1l = p1.Line - 1L
-    let p2l = p2.Line - 1L
-    let p1c = p1.Column - 1L
-    let p2c = p2.Column - 1L
-    let inRange line column =
-        let notInRange = line < p1l ||
-                         line > p2l ||
-                         (line = p1l && column < p1c) ||
-                         (line = p2l && column >= p2c)
-        not notInRange
-    let badCode =
-        if File.Exists p1.StreamName then
-            let lines = File.ReadAllLines p1.StreamName
-            let relevantLines = lines.[int(p1l) .. int(p2l)]
-            let arrows = Array.create relevantLines.Length (Array.create 0 ' ')
-            for line in p1l .. p2l do
-                let line' = line - p1l
-                let lineLength = relevantLines.[int(line')].Length
-                let arrowLine = Array.create lineLength ' '
-                Array.set arrows (int(line')) arrowLine
-                for column in 0 .. lineLength - 1 do
-                    if inRange line (int64(column)) then
-                        Array.set arrowLine column '^'
-            let flattenedArrows = List.ofArray arrows |> List.map System.String.Concat
-            let final = List.zip (List.ofArray relevantLines) flattenedArrows |> List.map (fun (a,b) -> a+"\n"+b+"\n") |> System.String.Concat
-            sprintf "\n\n%s\n" final
-        else
-            ""
-    sprintf "file %s, line %d column %d to line %d column %d%s" p1.StreamName (p1l + 1L) p1c (p2l + 1L) p2c badCode
-
-let errStr pos err = lazy(sprintf "%s\n\n%s" (List.map posString pos |> String.concat "\n\n") err)
-
-let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
-    let rec getVars pattern =
-        match pattern with
-        | (A.MatchFalse _ | A.MatchFloatVal _ | A.MatchIntVal _ | A.MatchTrue _ |
-            A.MatchUnderscore _ | A.MatchUnit _) ->
-            Set.empty
-        | A.MatchRecCon {fields=(_, fields)} ->
-            Set.unionMany (List.map (snd >> A.unwrap >> getVars) fields)
-        | A.MatchTuple (_, elements) ->
-            Set.unionMany (List.map (A.unwrap >> getVars) elements)
-        | A.MatchValCon {name=(_, name); innerPattern=innerPattern} ->
-            innerPattern |> Option.map (A.unwrap >> getVars) |> Option.toList |> Set.unionMany
-        | A.MatchVar {varName=(_, varName)} ->
-            Set.singleton varName
-
-    let rec dl localVars l =
-        let dl' = dl localVars
-        match l with
-        | A.ArrayMutation {array=(_, array); index=(_, index)} ->
-            Set.union (dl' array) (d localVars index)
-        | A.ModQualifierMutation (_, {module_=(_, module_); name=(_, name)}) ->
-            let modqual = (module_, name)
-            if Set.contains modqual valueDecs then
-                Set.singleton modqual
-            else
-                Set.empty
-        | A.RecordMutation {record=(_, record)} ->
-            dl' record
-        | A.VarMutation (_, name) ->
-            match Map.tryFind name menv with
-            | Some modqual when Set.contains modqual valueDecs ->
-                Set.singleton modqual
-            | _ -> Set.empty
-
-    and d localVars e =
-        let d' = d localVars
-        match e with
-        | A.ArrayAccessExp {array=(_, array); index=(_, index)} ->
-            Set.union (d' array) (d' index)
-        | A.ArrayLitExp (_, exprs) ->
-            Set.unionMany (List.map (A.unwrap >> d') exprs)
-        | A.ArrayMakeExp {initializer=Some (_, initializer)} ->
-            d' initializer
-        | A.ArrayMakeExp _ ->
-            Set.empty
-        | A.AssignExp {left=(_, left); right=(_, right)} ->
-            Set.union (dl localVars left) (d' right)
-        | A.BinaryOpExp {left=(_, left); right=(_, right)} ->
-            Set.union (d' left) (d' right)
-        | A.CallExp {func=(_, func); args=(_, args)} ->
-            Set.unionMany ((d' func)::(List.map (A.unwrap >> d') args))
-        | A.CaseExp {on=(_, on); clauses=(_, clauses)} ->
-            let s1 = d' on
-            let s2 =
-                clauses |>
-                List.map
-                    (fun ((_, pat), (_, expr)) ->
-                        let localVars' = Set.union (getVars pat) localVars
-                        d localVars' expr)
-            Set.unionMany (s1::s2)
-        | A.DerefExp (_, expr) ->
-            d' expr
-        | A.DoWhileLoopExp {condition=(_, condition); body=(_, body)} ->
-            Set.union (d' condition) (d' body)
-        | A.FalseExp _ ->
-            Set.empty
-        | A.FloatExp _ ->
-            Set.empty
-        | A.DoubleExp _ ->
-            Set.empty
-        | A.ForLoopExp {varName=(_, varName); start=(_, start); end_=(_, end_); body=(_, body)} ->
-            let s1 = d' start
-            let s2 = d' end_
-            let s3 = d (Set.add varName localVars) body
-            Set.unionMany [s1; s2; s3]
-        | A.IfElseExp {condition=(_, condition); trueBranch=(_, trueBranch); falseBranch=(_, falseBranch)} ->
-            [condition; trueBranch; falseBranch] |> List.map d' |> Set.unionMany
-        | A.InlineCode _ ->
-            Set.empty
-        | (A.IntExp _ | A.Int8Exp _ | A.UInt8Exp _ | A.Int16Exp _ | A.UInt16Exp _ |
-            A.UInt32Exp _ | A.Int32Exp _ | A.UInt64Exp _ | A.Int64Exp _) ->
-            Set.empty
-        | A.LambdaExp (_, {arguments=(_, arguments); body=(_, body)}) ->
-            let argNames = arguments |> List.map (fst >> A.unwrap) |> Set.ofList
-            d (Set.union argNames localVars) body
-        | A.LetExp {right=(_, right)} ->
-            d' right
-        | A.ModQualifierExp (_, {module_=(_, module_); name=(_, name)}) ->
-            let modqual = (module_, name)
-            if Set.contains modqual valueDecs then
-                Set.singleton modqual
-            else
-                Set.empty
-        | A.NullExp _ ->
-            Set.empty
-        | A.QuitExp _ ->
-            Set.empty
-        | A.RecordAccessExp {record=(_, record)} ->
-            d' record
-        | A.RecordExp {initFields=(_, initFields)} ->
-            initFields |> List.map (snd >> A.unwrap >> d') |> Set.unionMany
-        | A.RefExp (_, expr) ->
-            d' expr
-        | A.SequenceExp (pose, exprs) ->
-            let (pos, exp)::rest = exprs
-            let localVars' =
-                Set.union
-                    localVars
-                    (match exp with
-                    | A.LetExp {left=(_, left)} ->
-                        getVars left
-                    | _ ->
-                        Set.empty)
-            let s1 = d' exp
-            let s2 =
-                if List.isEmpty rest then
-                    Set.empty
-                else
-                    d localVars' (A.SequenceExp (pose, rest))
-            Set.union s1 s2
-        | A.TemplateApplyExp {func=(posf, func)} ->
-            match func with
-            | Choice1Of2 name ->
-                if Set.contains name localVars then
-                    Set.empty
-                else
-                    match Map.tryFind name menv with
-                    | Some modqual when Set.contains modqual valueDecs ->
-                        Set.singleton modqual
-                    | _ ->
-                        Set.empty
-            | Choice2Of2 {module_=(_, module_); name=(_, name)} ->
-                let modqual = (module_, name)
-                if Set.contains modqual valueDecs then
-                    Set.singleton modqual
-                else
-                    Set.empty
-        | A.TrueExp _ ->
-            Set.empty
-        | A.TupleExp exprs ->
-            exprs |> List.map (A.unwrap >> d') |> Set.unionMany
-        | A.TypeConstraint {exp=(_, exp)} ->
-            d' exp
-        | A.UnaryOpExp {exp=(_, exp)} ->
-            d' exp
-        | A.UnitExp _ ->
-            Set.empty
-        | A.UnsafeTypeCast {exp=(_, exp)} ->
-            d' exp
-        | A.VarExp (posv, varName) ->
-            if Set.contains varName localVars then
-                Set.empty
-            else
-                match Map.tryFind varName menv with
-                | Some modqual when Set.contains modqual valueDecs ->
-                    Set.singleton modqual
-                | _ ->
-                    Set.empty
-        | A.WhileLoopExp {condition=(_, condition); body=(_, body)} ->
-            Set.union (d' condition) (d' body)
-    d localVars e
-
-let convertTemplate ({tyVars=(_, tyVars); capVars=maybeCapVars} : A.Template) =
-    let t = List.map A.unwrap tyVars
-    let c = Option.map A.unwrap maybeCapVars |> Option.toList |> List.concat |> List.map A.unwrap
-    ({tyVars=t; capVars=c} : T.Template)
-
-// The mapping parameter is used to convert explicitly given type variable parameter
-// into a non-conflicting form
-let rec convertType menv tyVarMapping capVarMapping (tau : A.TyExpr) : T.TyExpr =
-    let ct = convertType menv tyVarMapping capVarMapping
-    let convertCapacity = convertCapacity capVarMapping
-    match tau with
-    | A.ApplyTy {tyConstructor=(_, tyConstructor); args=(_, {tyExprs=(_, tyExprs); capExprs=(_, capExprs)})} ->
-        T.ConApp (ct tyConstructor, List.map (A.unwrap >> ct) tyExprs, List.map (A.unwrap >> convertCapacity) capExprs)
-    | A.ArrayTy {valueType=(_, valueType); capacity=(_, capacity)} ->
-        T.ConApp (T.TyCon T.ArrayTy, [ct valueType], [convertCapacity capacity])
-    | A.BaseTy (_, tau) ->
-        T.TyCon <| T.BaseTy (match tau with
-                                | A.TyUint8 -> T.TyUint8
-                                | A.TyUint16 -> T.TyUint16
-                                | A.TyUint32 -> T.TyUint32
-                                | A.TyUint64 -> T.TyUint64
-                                | A.TyInt8 -> T.TyInt8
-                                | A.TyInt16 -> T.TyInt16
-                                | A.TyInt32 -> T.TyInt32
-                                | A.TyInt64 -> T.TyInt64
-                                | A.TyBool -> T.TyBool
-                                | A.TyDouble -> T.TyDouble
-                                | A.TyFloat -> T.TyFloat
-                                | A.TyPointer -> T.TyPointer
-                                | A.TyUnit -> T.TyUnit)
-    | A.FunTy {template=maybeTemplate; args=args; returnType=(_, returnType)} ->
-        let returnType' = ct returnType
-        let args' = List.map A.unwrap args
-        T.ConApp (T.TyCon T.FunTy, returnType'::(List.map (A.unwrap >> ct) args), [])
-    | A.ModuleQualifierTy {module_=(_, module_); name=(_, name)} ->
-        T.TyCon <| T.ModuleQualifierTy {module_=module_; name=name}
-    | A.NameTy (_, name) ->
-        let (module_, name) = Map.find name menv
-        T.TyCon <| T.ModuleQualifierTy {module_=module_; name=name}
-    | A.ParensTy (_, tau) ->
-        ct tau
-    | A.RefTy (_, tau) ->
-        T.ConApp (T.TyCon T.RefTy, [ct tau], [])
-    | A.TupleTy taus ->
-        T.ConApp (T.TyCon T.TupleTy, List.map (A.unwrap >> ct) taus, [])
-    | A.VarTy (_, name) ->
-        Map.findDefault name (T.TyVar name) tyVarMapping
-
-and convertCapacity capVarMapping (cap : A.CapacityExpr) : T.CapacityExpr =
-    let convertCapacity = convertCapacity capVarMapping
-    match cap with
-    | A.CapacityConst (_, value) ->
-        T.CapacityConst value
-    | A.CapacityNameExpr (_, name) ->
-        Map.findDefault name (T.CapacityVar name) capVarMapping
-    | A.CapacityOp {left=(_, left); op=(_, op); right=(_, right)} ->
-        let left' = convertCapacity left
-        let right' = convertCapacity right
-        let op' = match op with
-                    | A.CapAdd -> T.CapAdd
-                    | A.CapDivide -> T.CapDivide
-                    | A.CapMultiply -> T.CapMultiply
-                    | A.CapSubtract -> T.CapSubtract
-        T.CapacityOp {left=left'; op=op'; right=right'}
-    | A.CapacityUnaryOp {op=(_, op); term=(_, term)} ->
-        let op' = match op with
-                    | A.CapNegate -> T.CapNegate
-        let term' = convertCapacity term
-        T.CapacityUnaryOp {op=op'; term=term'}
-
-let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
+let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                (dtenv : Map<string * string, T.DeclarationTy>)
                (menv : Map<string, string*string>)
                (localVars : Set<string>)
@@ -327,24 +36,24 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                     let (ps', c') = checkPatterns ps
                     (p'::ps', c &&& c')
             match p with
-            | A.MatchTuple (_, pats) ->
+            | Ast.MatchTuple (_, pats) ->
                 let innerTaus = List.map freshtyvar pats
-                let c = tau =~= (T.ConApp (T.TyCon T.TupleTy, innerTaus, []), errStr [posp] "Tuple pattern does not match the expression.")
+                let c = T.ConApp (T.TyCon T.TupleTy, innerTaus, []) =~= (tau, errStr [posp] "Tuple pattern does not match the expression.")
                 let (pats', c') = checkPatterns (List.zip pats innerTaus)
                 ((posp, tau, T.MatchTuple pats'), c &&& c')
-            | A.MatchFalse _ ->
-                ((posp, tau, T.MatchFalse), booltype =~= (tau, errStr [posp] "False pattern does not match the type of the expression."))
-            | A.MatchTrue _ ->
-                ((posp, tau, T.MatchTrue), booltype =~= (tau, errStr [posp] "True pattern does not match the type of the expression."))
-            | A.MatchFloatVal (_, value) ->
-                ((posp, tau, T.MatchFloatVal value), floattype =~= (tau, errStr [posp] "Float pattern does not match the type of the expression."))
-            | A.MatchIntVal (_, value) ->
-                ((posp, tau, T.MatchIntVal value), int32type =~= (tau, errStr [posp] "Integer pattern does not match the type of the expression."))
-            | A.MatchUnderscore _ ->
+            | Ast.MatchFalse _ ->
+                ((posp, tau, T.MatchFalse), T.booltype =~= (tau, errStr [posp] "False pattern does not match the type of the expression."))
+            | Ast.MatchTrue _ ->
+                ((posp, tau, T.MatchTrue), T.booltype =~= (tau, errStr [posp] "True pattern does not match the type of the expression."))
+            | Ast.MatchFloatVal (_, value) ->
+                ((posp, tau, T.MatchFloatVal value), T.floattype =~= (tau, errStr [posp] "Float pattern does not match the type of the expression."))
+            | Ast.MatchIntVal (_, value) ->
+                ((posp, tau, T.MatchIntVal value), T.int32type =~= (tau, errStr [posp] "Integer pattern does not match the type of the expression."))
+            | Ast.MatchUnderscore _ ->
                 ((posp, tau, T.MatchUnderscore), Trivial)
-            | A.MatchUnit (posu, _) ->
-                ((posp, tau, T.MatchUnit), unittype =~= (tau, errStr [posu] "Unit pattern does not match the type of the expression."))
-            | A.MatchVar { varName=(posv, varName); mutable_=(posm, mutable_); typ=typ } ->
+            | Ast.MatchUnit (posu, _) ->
+                ((posp, tau, T.MatchUnit), T.unittype =~= (tau, errStr [posu] "Unit pattern does not match the type of the expression."))
+            | Ast.MatchVar { varName=(posv, varName); mutable_=(posm, mutable_); typ=typ } ->
                 if Set.contains varName localVars then
                     raise <| TypeError ((errStr [posv] (sprintf "This pattern already contains a variable named %s." varName)).Force())
                 else
@@ -355,11 +64,11 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                     gamma' <- Map.add varName (mutable_, T.Forall ([], [], tau)) gamma'
                     let c' = match typ with
                              | Some (post, typ) ->
-                                 tau =~= (convertType' typ, errStr [post] "Type constraint in pattern could not be satisfied")
+                                 convertType' typ =~= (tau, errStr [post] "Type constraint in pattern could not be satisfied")
                              | None ->
-                                Trivial
+                                 Trivial
                     ((posp, tau, T.MatchVar { varName=varName; mutable_=mutable_; typ=tau}), c')
-            | A.MatchRecCon {name=(posn, decRef); template=template; fields=(posf, fields)} ->
+            | Ast.MatchRecCon {name=(posn, decRef); template=template; fields=(posf, fields)} ->
                 let modQual =
                     match decRef with
                     | Choice1Of2 name ->
@@ -369,7 +78,7 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                         | None ->
                             raise <| TypeError ((errStr [posn] (sprintf "Unable to find record declaration named %s." name)).Force())
                     | Choice2Of2 {module_ = mod_; name=name} ->
-                        {T.ModQualifierRec.module_ = A.unwrap mod_; T.ModQualifierRec.name=A.unwrap name}
+                        {T.ModQualifierRec.module_ = Ast.unwrap mod_; T.ModQualifierRec.name=Ast.unwrap name}
                 let {T.ModQualifierRec.module_=module_; T.ModQualifierRec.name=name} = modQual
                 // Lookup a record in dtenv
                 match Map.tryFind (module_, name) dtenv with
@@ -377,13 +86,13 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                     match dec with
                     | T.RecordDecTy (taus, caps, fieldTaus) ->
                         let fieldNamesInDec = Map.keys fieldTaus
-                        let fieldNamesInPattern = fields |> List.map (fst >> A.unwrap) |> Set.ofList
+                        let fieldNamesInPattern = fields |> List.map (fst >> Ast.unwrap) |> Set.ofList
                         if Set.isSubset fieldNamesInPattern fieldNamesInDec then
                             let (taus', caps') =
                                 match template with
                                 | Some (postemp, {tyExprs=(post, tyExprs); capExprs=(posc, capExprs)}) ->
-                                    (List.map (A.unwrap >> convertType') tyExprs,
-                                     List.map (A.unwrap >> convertCapacity') capExprs)
+                                    (List.map (Ast.unwrap >> convertType') tyExprs,
+                                     List.map (Ast.unwrap >> convertCapacity') capExprs)
                                 | None ->
                                     (List.map Constraint.freshtyvar taus,
                                      List.map Constraint.freshcapvar caps)
@@ -409,7 +118,7 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                                     T.ConApp (b, taus', caps')
                             let c = comparisonTau =~= (tau, errStr [posp] "Record pattern did not match expression.")
                             let (pats', c') = checkPatterns pats
-                            ((posp, tau, T.MatchRecCon {typ=modQual; fields=List.zip (List.map (fst >> A.unwrap) fields) pats'}), c')
+                            ((posp, tau, T.MatchRecCon {typ=modQual; fields=List.zip (List.map (fst >> Ast.unwrap) fields) pats'}), c')
                         else
                             let diff = Set.difference fieldNamesInPattern fieldNamesInDec
                             let diffStr = String.concat ", " diff
@@ -417,7 +126,7 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                     | _ -> raise <| TypeError ((errStr [posn] (sprintf "Found a declaration named %s in module %s, but it was not a record declaration." name module_)).Force())
                 | None ->
                     raise <| TypeError ((errStr [posn] (sprintf "Unable to find record declaration named %s in module %s" name module_)).Force())
-            | A.MatchValCon {name=(posn, decref); template=template; innerPattern=maybeInnerPattern} ->
+            | Ast.MatchValCon {name=(posn, decref); template=template; innerPattern=maybeInnerPattern} ->
                 let modQual =
                     match decref with
                     | Choice1Of2 name ->
@@ -430,7 +139,7 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                             | None ->
                                 raise <| TypeError ((errStr [posn] (sprintf "Unable to find value constructor named %s." name)).Force())
                     | Choice2Of2 {module_ = mod_; name=name} ->
-                        {T.ModQualifierRec.module_=A.unwrap mod_; T.ModQualifierRec.name=A.unwrap name}
+                        {T.ModQualifierRec.module_=Ast.unwrap mod_; T.ModQualifierRec.name=Ast.unwrap name}
                 let {T.ModQualifierRec.module_=module_; T.ModQualifierRec.name=name} = modQual
                 // Lookup a value constructor in dtenv
                 match Map.tryFind (module_, name) dtenv with
@@ -439,7 +148,7 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                     let inst =
                         match template with
                         | Some (post, {tyExprs=(posm, tyExprs); capExprs=(posn, capExprs)}) ->
-                            instantiate valueConstructor (List.map (A.unwrap >> convertType') tyExprs) (List.map (A.unwrap >> convertCapacity') capExprs)
+                            instantiate valueConstructor (List.map (Ast.unwrap >> convertType') tyExprs) (List.map (Ast.unwrap >> convertCapacity') capExprs)
                         | None ->
                             let (instance, _, _) = freshInstance valueConstructor
                             instance
@@ -472,58 +181,58 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
             let (tau, c) = typeof e dtenv menv localVars ienv tyVarMapping capVarMapping gamma
             let (taus, c') = typesof es dtenv menv localVars gamma
             (tau::taus, c &&& c')
-    and ty ((posE, expr) : A.PosAdorn<A.Expr>) : (T.TyAdorn<T.Expr> * Constraint) =
+    and ty ((posE, expr) : Ast.PosAdorn<Ast.Expr>) : (T.TyAdorn<T.Expr> * Constraint) =
         let adorn pos tau expr con =
             ((pos, tau, expr), con)
         match expr with
-        | A.UnitExp (pos, ()) ->
-            adorn posE unittype T.UnitExp Trivial
-        | A.InlineCode (pos, code) ->
-            adorn posE unittype (T.InlineCode code) Trivial
-        | A.TrueExp (pos, ()) ->
-            adorn posE booltype T.TrueExp Trivial
-        | A.FalseExp (pos, ()) ->
-            adorn posE booltype T.FalseExp Trivial
-        | A.IntExp (pos, num) ->
-            adorn posE int32type (T.IntExp num) Trivial
-        | A.Int8Exp (pos, num) ->
-            adorn posE int8type (T.Int8Exp num) Trivial
-        | A.Int16Exp (pos, num) ->
-            adorn posE int16type (T.Int16Exp num) Trivial
-        | A.Int32Exp (pos, num) ->
-            adorn posE int32type (T.Int32Exp num) Trivial
-        | A.Int64Exp (pos, num) ->
-            adorn posE int64type (T.Int64Exp num) Trivial
-        | A.UInt8Exp (pos, num) ->
-            adorn posE uint8type (T.UInt8Exp num) Trivial
-        | A.UInt16Exp (pos, num) ->
-            adorn posE uint16type (T.UInt16Exp num) Trivial
-        | A.UInt32Exp (pos, num) ->
-            adorn posE uint32type (T.UInt32Exp num) Trivial
-        | A.UInt64Exp (pos, num) ->
-            adorn posE uint64type (T.UInt64Exp num) Trivial
-        | A.FloatExp (pos, num) ->
-            adorn posE floattype (T.FloatExp num) Trivial
-        | A.DoubleExp (pos, num) ->
-            adorn posE doubletype (T.DoubleExp num) Trivial
-        | A.NullExp (pos, ()) ->
-            adorn posE pointertype T.NullExp Trivial
-        | A.IfElseExp {condition=(posc, _) as condition; trueBranch=(post, _) as trueBranch; falseBranch=(posf, _) as falseBranch} ->
+        | Ast.UnitExp (pos, ()) ->
+            adorn posE T.unittype T.UnitExp Trivial
+        | Ast.InlineCode (pos, code) ->
+            adorn posE T.unittype (T.InlineCode code) Trivial
+        | Ast.TrueExp (pos, ()) ->
+            adorn posE T.booltype T.TrueExp Trivial
+        | Ast.FalseExp (pos, ()) ->
+            adorn posE T.booltype T.FalseExp Trivial
+        | Ast.IntExp (pos, num) ->
+            adorn posE T.int32type (T.IntExp num) Trivial
+        | Ast.Int8Exp (pos, num) ->
+            adorn posE T.int8type (T.Int8Exp num) Trivial
+        | Ast.Int16Exp (pos, num) ->
+            adorn posE T.int16type (T.Int16Exp num) Trivial
+        | Ast.Int32Exp (pos, num) ->
+            adorn posE T.int32type (T.Int32Exp num) Trivial
+        | Ast.Int64Exp (pos, num) ->
+            adorn posE T.int64type (T.Int64Exp num) Trivial
+        | Ast.UInt8Exp (pos, num) ->
+            adorn posE T.uint8type (T.UInt8Exp num) Trivial
+        | Ast.UInt16Exp (pos, num) ->
+            adorn posE T.uint16type (T.UInt16Exp num) Trivial
+        | Ast.UInt32Exp (pos, num) ->
+            adorn posE T.uint32type (T.UInt32Exp num) Trivial
+        | Ast.UInt64Exp (pos, num) ->
+            adorn posE T.uint64type (T.UInt64Exp num) Trivial
+        | Ast.FloatExp (pos, num) ->
+            adorn posE T.floattype (T.FloatExp num) Trivial
+        | Ast.DoubleExp (pos, num) ->
+            adorn posE T.doubletype (T.DoubleExp num) Trivial
+        | Ast.NullExp (pos, ()) ->
+            adorn posE T.pointertype T.NullExp Trivial
+        | Ast.IfElseExp {condition=(posc, _) as condition; trueBranch=(post, _) as trueBranch; falseBranch=(posf, _) as falseBranch} ->
             let (exprs', c) = typesof [condition; trueBranch; falseBranch] dtenv menv localVars gamma
             let [condition'; trueBranch'; falseBranch'] = exprs'
             let [tauC; tauT; tauF] = getTypes exprs'
             let c' = c &&&
-                        (tauC =~= (booltype, errStr [posc] "Condition of if statement expected to be type bool")) &&&
+                        (tauC =~= (T.booltype, errStr [posc] "Condition of if statement expected to be type bool")) &&&
                         (tauT =~= (tauF, errStr [post; posf] "Branches of if statement expected to be of the same type"))
             adorn posE tauT (T.IfElseExp {condition=condition'; trueBranch=trueBranch'; falseBranch=falseBranch'}) c'
-        | A.VarExp (posn, varName) ->
+        | Ast.VarExp (posn, varName) ->
             match Map.tryFind varName gamma with
             | Some (_, tyscheme) ->
                 let (instance, t, c) = freshInstance tyscheme
                 adorn posE instance (T.VarExp (varName, t, c)) Trivial
             | None ->
                 raise <| TypeError ((errStr [posn] (sprintf "Variable named %s could not be found" varName)).Force())
-        | A.ArrayAccessExp { array=(posa, _) as array; index=(posi, _) as index } ->
+        | Ast.ArrayAccessExp { array=(posa, _) as array; index=(posi, _) as index } ->
             let (exprs', c) = typesof [array; index] dtenv menv localVars gamma
             let [array'; index'] = exprs'
             let [tauA; tauI] = getTypes exprs'
@@ -531,15 +240,15 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
             let arraySize = freshcapvar ()
             let tauArray = T.ConApp (T.TyCon T.ArrayTy, [tauElement], [arraySize])
             let c' = c &&& (tauA =~= (tauArray, errStr [posa] "An array access expression must access a value of an array type")) &&&
-                           (tauI =~= (int32type, errStr [posi] "Expected index of array access expression to have integer type"))
+                           (tauI =~= (T.int32type, errStr [posi] "Expected index of array access expression to have integer type"))
             adorn posE tauElement (T.ArrayAccessExp {array=array'; index=index'}) c'
-        | A.ArrayLitExp (posa, exprs) ->
+        | Ast.ArrayLitExp (posa, exprs) ->
             let (exprs', c) = typesof exprs dtenv menv localVars gamma
             let tauElement = freshtyvar ()
             let c' = List.fold (&&&) c (List.map (flip (T.getType >> (=~=)) (tauElement, errStr [posa] "Expected all elements of array to be of the same type")) exprs')
             let tauArray = T.ConApp (T.TyCon T.ArrayTy, [tauElement], [T.CapacityConst <| int64 (List.length exprs)])
             adorn posE tauArray (T.ArrayLitExp exprs') c'
-        | A.ArrayMakeExp {typ=(post, typ); initializer=maybeInitializer} ->
+        | Ast.ArrayMakeExp {typ=(post, typ); initializer=maybeInitializer} ->
             let typ' = convertType' typ
             match typ' with
             | T.ConApp (T.TyCon T.ArrayTy, [tauElement], [cap]) ->
@@ -554,11 +263,11 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                 adorn posE typ' (T.ArrayMakeExp {typ=typ'; initializer=maybeInitializer'}) c
             | _ ->
                 raise <| TypeError ((errStr [post] "Type declaration should be an array type").Force())
-        | A.AssignExp {left=(posl, left); right=(posr, _) as right; ref=(posref, ref)} ->
+        | Ast.AssignExp {left=(posl, left); right=(posr, _) as right; ref=(posref, ref)} ->
             let rec checkLeft left =
                 let ((_, taul, left'), c) =
                     match left with
-                    | A.ModQualifierMutation (posmq, {module_=(posm, module_); name=(posn, name)}) ->                    
+                    | Ast.ModQualifierMutation (posmq, {module_=(posm, module_); name=(posn, name)}) ->                    
                         match Map.tryFind (module_, name) dtenv with
                         | Some (T.LetDecTy tau) ->
                             if ref then
@@ -570,20 +279,20 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                             raise <| TypeError ((errStr [posn] (sprintf "Found a declaration named %s in module %s, but it was not a let declaration." name module_)).Force())
                         | None ->
                             raise <| TypeError ((errStr [posmq] (sprintf "Unable to find a let declaration named %s in module %s." name module_)).Force())
-                    | A.ArrayMutation {array=(posa, array); index=(posi, _) as index} ->
+                    | Ast.ArrayMutation {array=(posa, array); index=(posi, _) as index} ->
                         let elementTau = freshtyvar ()
                         let capVar = freshcapvar ()
                         let (array', c1) = checkLeft array
                         let (index', c2) = ty index
-                        let c' = c1 &&& c2 &&& (int32type =~= (T.getType index', errStr [] "")) &&&
+                        let c' = c1 &&& c2 &&& (T.int32type =~= (T.getType index', errStr [] "")) &&&
                                                (T.ConApp (T.TyCon T.ArrayTy, [elementTau], [capVar]) =~= (T.getType array', errStr [posa] "Expected an array type to perform an array mutation upon"))
                         adorn posl elementTau (T.ArrayMutation {array=T.unwrap array'; index=index'}) c'
-                    | A.RecordMutation {record=(posr, record); fieldName=(posf, fieldName)} ->
+                    | Ast.RecordMutation {record=(posr, record); fieldName=(posf, fieldName)} ->
                         // TODO: Figure out what to do with field names here
                         let fieldTau = freshtyvar ()
                         let (record', c) = checkLeft record
                         adorn posl fieldTau (T.RecordMutation {record=T.unwrap record'; fieldName=fieldName}) c
-                    | A.VarMutation (posn, name) ->
+                    | Ast.VarMutation (posn, name) ->
                         match Map.tryFind name gamma with
                         | Some (isMutable, tyscheme) ->
                             if ref || isMutable then
@@ -605,48 +314,54 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
             let (left', c2) = checkLeft left
             let c' = c1 &&& c2 &&& (T.getType left' =~= (T.getType right', (errStr [posl; posr] "The type of the left hand side should match the type of the right hand side in a set expression.")))
             adorn posE (T.getType right') (T.AssignExp {left=left'; right=right'; ref=ref}) c'
-        | A.BinaryOpExp {left=(posl, _) as left; op=(poso, op); right=(posr, _) as right} ->
+        | Ast.BinaryOpExp {left=(posl, _) as left; op=(poso, A.Pipe); right=(posr, _) as right} ->
+            match A.unwrap right with
+            | A.CallExp {func=func; args=(posa, args)} ->
+                ty (posr, A.CallExp {func=func; args=(posa, args @ [left])})
+            | _ ->
+                raise <| TypeError ((errStr [posr] "The right hand side of the pipe operator must be a function call expression").Force())
+        | Ast.BinaryOpExp {left=(posl, _) as left; op=(poso, op); right=(posr, _) as right} ->
             let op' =
                 match op with
-                | A.Add -> T.Add
-                | A.BitshiftLeft -> T.BitshiftLeft
-                | A.BitshiftRight -> T.BitshiftRight
-                | A.BitwiseAnd -> T.BitwiseAnd
-                | A.BitwiseOr -> T.BitwiseOr
-                | A.BitwiseXor -> T.BitwiseXor
-                | A.Divide -> T.Divide
-                | A.Equal -> T.Equal
-                | A.Greater -> T.Greater
-                | A.GreaterOrEqual -> T.GreaterOrEqual
-                | A.Less -> T.Less
-                | A.LessOrEqual -> T.LessOrEqual
-                | A.LogicalAnd -> T.LogicalAnd
-                | A.LogicalOr -> T.LogicalOr
-                | A.Modulo -> T.Modulo
-                | A.Multiply -> T.Multiply
-                | A.NotEqual -> T.NotEqual
-                | A.Subtract -> T.Subtract
+                | Ast.Add -> T.Add
+                | Ast.BitshiftLeft -> T.BitshiftLeft
+                | Ast.BitshiftRight -> T.BitshiftRight
+                | Ast.BitwiseAnd -> T.BitwiseAnd
+                | Ast.BitwiseOr -> T.BitwiseOr
+                | Ast.BitwiseXor -> T.BitwiseXor
+                | Ast.Divide -> T.Divide
+                | Ast.Equal -> T.Equal
+                | Ast.Greater -> T.Greater
+                | Ast.GreaterOrEqual -> T.GreaterOrEqual
+                | Ast.Less -> T.Less
+                | Ast.LessOrEqual -> T.LessOrEqual
+                | Ast.LogicalAnd -> T.LogicalAnd
+                | Ast.LogicalOr -> T.LogicalOr
+                | Ast.Modulo -> T.Modulo
+                | Ast.Multiply -> T.Multiply
+                | Ast.NotEqual -> T.NotEqual
+                | Ast.Subtract -> T.Subtract
             let (left', c1) = ty left
             let (right', c2) = ty right
             let c' = c1 &&& c2
             let b' = T.BinaryOpExp {left=left'; op=op'; right=right'}
             match op with
-            | (A.LogicalAnd | A.LogicalOr) ->
-                let c'' = c' &&& (booltype =~= (T.getType left', errStr [posl] "Left hand side of binary expression should be of type boolean")) &&&
-                                 (booltype =~= (T.getType right', errStr [posr] "Right hand side of binary expression should be of type boolean"))
-                adorn posE booltype b' c''
-            | (A.Equal | A.NotEqual) ->
+            | (Ast.LogicalAnd | Ast.LogicalOr) ->
+                let c'' = c' &&& (T.booltype =~= (T.getType left', errStr [posl] "Left hand side of binary expression should be of type boolean")) &&&
+                                 (T.booltype =~= (T.getType right', errStr [posr] "Right hand side of binary expression should be of type boolean"))
+                adorn posE T.booltype b' c''
+            | (Ast.Equal | Ast.NotEqual) ->
                 let c'' = c' &&& Trivial // (T.getType left' =~= (T.getType right', errStr [posl; posr] "Left hand side and right hand side of binary expression should be the same type"))
-                adorn posE booltype b' c''
-            | (A.Greater | A.GreaterOrEqual | A.Less | A.LessOrEqual) ->
+                adorn posE T.booltype b' c''
+            | (Ast.Greater | Ast.GreaterOrEqual | Ast.Less | Ast.LessOrEqual) ->
                 // TODO: Check numbers somehow
                 let c'' = c' &&& ((T.getType left') =~= (T.getType right', errStr [posl; posr] "Left and right hand must be of the same type for this operation"))
-                adorn posE booltype b' c''
-            | (A.Add | A.BitshiftLeft | A.BitshiftRight | A.BitwiseAnd | A.BitwiseOr | A.BitwiseXor | A.Divide | A.Modulo | A.Multiply | A.Subtract) ->
+                adorn posE T.booltype b' c''
+            | (Ast.Add | Ast.BitshiftLeft | Ast.BitshiftRight | Ast.BitwiseAnd | Ast.BitwiseOr | Ast.BitwiseXor | Ast.Divide | Ast.Modulo | Ast.Multiply | Ast.Subtract) ->
                 // TODO: Check numbers somehow
                 let c'' = c' &&& ((T.getType left') =~= (T.getType right', errStr [posl; posr] "Left and right hand must be of the same type for this operation"))
                 adorn posE (T.getType left') b' c''
-        | A.CallExp {func=(posf, _) as func; args=(posa, args)} ->
+        | Ast.CallExp {func=(posf, _) as func; args=(posa, args)} ->
             let (func', c1) = ty func
             let (args', c2) = typesof args dtenv menv localVars gamma
             let returnTau = freshtyvar ()
@@ -659,7 +374,7 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                     (List.zip3 args args' placeholders)
             let c' = c1 &&& c2 &&& c3 &&& (List.fold (&&&) Trivial c4)
             adorn posE returnTau (T.CallExp {func=func'; args=args'}) c'
-        | A.CaseExp {on=(poso, _) as on; clauses=(posc, clauses)} ->
+        | Ast.CaseExp {on=(poso, _) as on; clauses=(posc, clauses)} ->
             let (on', c1) = ty on
             let (clauses', c2) =
                 List.map
@@ -671,7 +386,7 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                         ((pattern', expr'), c'))
                     clauses |>
                 List.unzip
-            match (List.map (snd >> A.getPos) clauses, List.map (snd >> T.getType) clauses') with
+            match (List.map (snd >> Ast.getPos) clauses, List.map (snd >> T.getType) clauses') with
             | (firstClausePos::otherClausesPos, firstClauseTau::otherClausesTaus) ->
                 let c3 =
                     List.zip otherClausesPos otherClausesTaus |>
@@ -683,43 +398,43 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                 adorn posE firstClauseTau (T.CaseExp {on=on'; clauses=clauses'}) c'
             | _ ->
                 raise <| TypeError ((errStr [posc] "No clauses were found in the case statement").Force())
-        | A.DerefExp ((pose, _) as exp) ->
+        | Ast.DerefExp ((pose, _) as exp) ->
             let (exp', c) = ty exp
             let retTau = freshtyvar ()
             let c' = c &&& (T.ConApp (T.TyCon T.RefTy, [retTau], []) =~= (T.getType exp', errStr [pose] "Attempting to dereference an expression with a non-ref type."))
             adorn posE retTau (T.DerefExp exp') c'
-        | A.DoWhileLoopExp {condition=(posc, _) as condition; body=(posb, _) as body} ->
+        | Ast.DoWhileLoopExp {condition=(posc, _) as condition; body=(posb, _) as body} ->
             let (body', c1) = ty body
             let (condition', c2) = ty condition
-            let c' = c1 &&& c2 &&& (T.getType condition' =~= (booltype, errStr [posc] "Condition of do while loop must be of boolean type")) &&&
-                                   (T.getType body' =~= (unittype, errStr [posb] "Body of do while loop must return type unit"))
-            adorn posE unittype (T.DoWhileLoopExp {condition=condition'; body=body'}) c'
-        | A.WhileLoopExp {condition=(posc, _) as condition; body=(posb, _) as body} ->
+            let c' = c1 &&& c2 &&& (T.getType condition' =~= (T.booltype, errStr [posc] "Condition of do while loop must be of boolean type")) &&&
+                                   (T.getType body' =~= (T.unittype, errStr [posb] "Body of do while loop must return type unit"))
+            adorn posE T.unittype (T.DoWhileLoopExp {condition=condition'; body=body'}) c'
+        | Ast.WhileLoopExp {condition=(posc, _) as condition; body=(posb, _) as body} ->
             let (body', c1) = ty body
             let (condition', c2) = ty condition
-            let c' = c1 &&& c2 &&& (T.getType condition' =~= (booltype, errStr [posc] "Condition of while loop must be of boolean type")) &&&
-                                   (T.getType body' =~= (unittype, errStr [posb] "Body of while loop must return type unit"))
-            adorn posE unittype (T.WhileLoopExp {condition=condition'; body=body'}) c'
-        | A.ForLoopExp {typ=maybeTyp; varName=(posv, varName); start=(poss, _) as start; direction=(posd, direction); body=(posb, _) as body; end_=(pose, _) as end_} ->
+            let c' = c1 &&& c2 &&& (T.getType condition' =~= (T.booltype, errStr [posc] "Condition of while loop must be of boolean type")) &&&
+                                   (T.getType body' =~= (T.unittype, errStr [posb] "Body of while loop must return type unit"))
+            adorn posE T.unittype (T.WhileLoopExp {condition=condition'; body=body'}) c'
+        | Ast.ForLoopExp {typ=maybeTyp; varName=(posv, varName); start=(poss, _) as start; direction=(posd, direction); body=(posb, _) as body; end_=(pose, _) as end_} ->
             let direction' =
                 match direction with
-                | A.Upto -> T.Upto
-                | A.Downto -> T.Downto
+                | Ast.Upto -> T.Upto
+                | Ast.Downto -> T.Downto
             let tauIterator =
                 match maybeTyp with
                 | Some (_, tau) ->
                     convertType' tau
                 | None ->
-                    int32type
+                    T.int32type
             let (start', c1) = ty start
             let (end_', c2) = ty end_
             let gamma' = Map.add varName (false, T.Forall ([], [], tauIterator)) gamma
             let (body', c3) = typeof body dtenv menv (Set.add varName localVars) ienv tyVarMapping capVarMapping gamma'
             let c' = c1 &&& c2 &&& (tauIterator =~= (T.getType start', errStr [posv; poss] "Type of the start expression does not match the type of the iterator")) &&&
                                    (tauIterator =~= (T.getType end_', errStr [posv; pose] "Type of the end expression doesn't match the type of the iterator")) &&&
-                                   (T.getType body' =~= (unittype, errStr [posb] "Body of do while loop must return type unit"))
-            adorn posE unittype (T.ForLoopExp {typ=tauIterator; varName=varName; start=start'; end_=end_'; body=body'; direction=direction'}) c'
-        | A.LambdaExp (posf, {returnTy=maybeReturnTy; arguments=(posargs, arguments); body=(posb, _) as body}) ->
+                                   (T.getType body' =~= (T.unittype, errStr [posb] "Body of do while loop must return type unit"))
+            adorn posE T.unittype (T.ForLoopExp {typ=tauIterator; varName=varName; start=start'; end_=end_'; body=body'; direction=direction'}) c'
+        | Ast.LambdaExp (posf, {returnTy=maybeReturnTy; arguments=(posargs, arguments); body=(posb, _) as body}) ->
             let (gamma1Lst, c1s, localVars1, arguments') =
                 arguments |>
                 List.map
@@ -751,12 +466,12 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
         // In this case its variable bindings are useless, but the right hand side might still
         // produce side effects
         // We also have to make sure that the pattern matching agrees with the type of the right
-        | A.LetExp {left=left; right=(posr, _) as right} ->
+        | Ast.LetExp {left=left; right=(posr, _) as right} ->
             let (right', c1) = ty right
             let (left', c2, _, _) = checkPattern left (T.getType right')
             let c' = c1 &&& c2
             adorn posE (T.getType right') (T.LetExp {left=left'; right=right'}) c'
-        | A.ModQualifierExp (posmq, {module_=(pos, module_); name=(posn, name)}) ->
+        | Ast.ModQualifierExp (posmq, {module_=(pos, module_); name=(posn, name)}) ->
             let (instance, t, c) =
                 match Map.tryFind (module_, name) dtenv with
                 | Some (T.FunDecTy tyscheme) ->
@@ -770,7 +485,7 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                 | None ->
                     raise <| TypeError ((errStr [posmq] (sprintf "Unable to find declaration named %s in module %s." name module_)).Force())
             adorn posE instance (T.ModQualifierExp ({module_=module_; name=name}, t, c)) Trivial
-        | A.QuitExp maybeTau ->
+        | Ast.QuitExp maybeTau ->
             let tau =
                 match maybeTau with
                 | Some (post, tau) ->
@@ -778,12 +493,12 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                 | None ->
                     freshtyvar ()
             adorn posE tau (T.QuitExp tau) Trivial
-        | A.RecordAccessExp {record=(posr, _) as record; fieldName=(posf, fieldName)} ->
+        | Ast.RecordAccessExp {record=(posr, _) as record; fieldName=(posf, fieldName)} ->
             let (record', c') = ty record
             // TODO: Do something about record access type checking
             let tau = freshtyvar ()
             adorn posE tau (T.RecordAccessExp {record=record'; fieldName=fieldName}) c'
-        | A.RecordExp { recordTy=(posr, recordTy); templateArgs=maybeTemplateArgs; initFields=(posi, initFields)} ->
+        | Ast.RecordExp { recordTy=(posr, recordTy); templateArgs=maybeTemplateArgs; initFields=(posi, initFields)} ->
             let (module_, name) =
                 match recordTy with
                 | Choice1Of2 name ->
@@ -800,7 +515,7 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
             | Some declarationTy ->
                 match declarationTy with
                 | T.RecordDecTy (tyvars, capvars, defFields) ->
-                    let initFieldNames = initFields |> List.map (fst >> A.unwrap)
+                    let initFieldNames = initFields |> List.map (fst >> Ast.unwrap)
                     if List.hasDuplicates initFieldNames then
                         raise <| TypeError ((errStr [posi] "Duplicate fields in record expression.").Force())
                     else
@@ -817,8 +532,8 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                         match maybeTemplateArgs with
                         // Explicit template instantiation
                         | Some (post, {tyExprs=(postyexprs, tyExprs); capExprs=(posc, capExprs)}) ->
-                            (tyExprs |> List.map (A.unwrap >> convertType'),
-                             capExprs |> List.map (A.unwrap >> convertCapacity'))
+                            (tyExprs |> List.map (Ast.unwrap >> convertType'),
+                             capExprs |> List.map (Ast.unwrap >> convertCapacity'))
                         | None ->
                             (List.map freshtyvar tyvars,
                              List.map freshcapvar capvars)
@@ -852,23 +567,23 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                     raise <| TypeError ((errStr [posr] (sprintf "Found a declaration named %s in module %s, but it was not a record type." name module_)).Force())
             | None ->
                 raise <| TypeError ((errStr [posr] (sprintf "Unable to find record type declaration named %s in module %s" name module_)).Force())
-        | A.RefExp ((pose, _) as expr) ->
+        | Ast.RefExp ((pose, _) as expr) ->
             let (expr', c') = ty expr
             let tau = T.ConApp ((T.TyCon T.RefTy), [T.getType expr'], [])
             adorn posE tau (T.RefExp expr') c'
-        | A.SequenceExp (poss, exps) ->
+        | Ast.SequenceExp (poss, exps) ->
             let ((pose, _) as exp)::rest = exps
             let (exp', c1) = ty exp
-            let (localVars', gamma') =
+            let (localVars', gamma', c2) =
                 match exp with
-                | (_, A.LetExp {left=left; right=right}) ->
+                | (_, Ast.LetExp {left=left; right=right}) ->
                     // The constraints are already included in c1 above
-                    let (_, _, localVars', gamma') = checkPattern left (T.getType exp')
-                    (Set.union localVars localVars', gamma')
+                    let (_, c2, localVars', gamma') = checkPattern left (T.getType exp')
+                    (Set.union localVars localVars', gamma', c2)
                 | _ ->
-                    (localVars, gamma)
+                    (localVars, gamma, Trivial)
 
-            let (tau, rest', c2)  =
+            let (tau, rest', c3)  =
                 if List.isEmpty rest then
                     // Last thing in the sequence
                     // so the type of the sequence is the type
@@ -878,12 +593,24 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                     // Not the last thing in the sequence
                     // so the type of the sequence is the type
                     // of the rest
-                    let ((_, tau, T.SequenceExp rest'), c2) = typeof (poss, A.SequenceExp (poss, rest)) dtenv menv localVars' ienv tyVarMapping capVarMapping gamma'
-                    (tau, rest', c2)
+                    let ((_, tau, T.SequenceExp rest'), c3) = typeof (poss, Ast.SequenceExp (poss, rest)) dtenv menv localVars' ienv tyVarMapping capVarMapping gamma'
+                    (tau, rest', c3)
                     
-            let c' = c1 &&& c2
+            let c' = c1 &&& c2 &&& c3
             adorn posE tau (T.SequenceExp (exp'::rest')) c'
-        | A.TemplateApplyExp {func=(posf, func); templateArgs=(post, {tyExprs=(postyexprs, tyExprs); capExprs=(posc, capExprs)})} ->            
+        | Ast.CharListLiteral (pos, str) ->
+            let codePoints =
+                (String.explode str |> List.map (fun c -> int64(c))) @ [0L] |>
+                List.map (fun c -> (pos, (pos, (int64) c) |> A.UInt8Exp))
+            let len = int64(String.length str + 1)
+            // Convert the string literal into a list of uint8s
+            ty (pos, A.RecordExp {recordTy=(pos, Choice2Of2 {module_=(pos, "Prelude"); name=(pos, "list")});
+                                  templateArgs=Some (pos, ({tyExprs=(pos, [(pos, A.BaseTy (pos, A.TyUint8))]); capExprs=(pos, [(pos, (pos, len) |> A.CapacityConst)])} : A.TemplateApply));
+                                  initFields=(pos, [((pos, "data"), (pos, A.ArrayLitExp (pos, codePoints)));
+                                                    ((pos, "length"), (pos, A.UInt32Exp (pos, len)))])})
+        | A.StringLiteral (pos, str) ->
+            adorn posE T.stringtype (T.StringExp str) Trivial
+        | Ast.TemplateApplyExp {func=(posf, func); templateArgs=(post, {tyExprs=(postyexprs, tyExprs); capExprs=(posc, capExprs)})} ->            
             let (func', scheme, decrefs) =
                 match func with
                 | Choice1Of2 name ->
@@ -908,243 +635,51 @@ let rec typeof ((posE, e) : A.PosAdorn<A.Expr>)
                         raise <| TypeError ((errStr [posf] (sprintf "Unable to find declaration named '%s' in module '%s'" name module_)).Force())
             //let templateArgs' = List.map (A.unwrap >> convertType menv Map.empty Map.empty) tyExprs
             //let templateArgsCaps' = List.map (A.unwrap >> convertCapacity Map.empty) capExprs
-            let templateArgs' = List.map (A.unwrap >> convertType') tyExprs
-            let templateArgsCaps' = List.map (A.unwrap >> convertCapacity') capExprs
-            // TODO: Deal with capacities (again)
+            let templateArgs' = List.map (Ast.unwrap >> convertType') tyExprs
+            let templateArgsCaps' = List.map (Ast.unwrap >> convertCapacity') capExprs
             let tau = instantiate scheme templateArgs' templateArgsCaps'
             //let tau = freshInstance scheme
             adorn posE tau (T.TemplateApplyExp {func=func'; templateArgs={tyExprs=templateArgs'; capExprs=templateArgsCaps'}}) Trivial
-        | A.TupleExp exprs ->
+        | Ast.TupleExp exprs ->
             let (exprs', c') = typesof exprs dtenv menv localVars gamma
             let subTaus = List.map T.getType exprs'
             let tau = T.ConApp ((T.TyCon T.TupleTy), subTaus, [])
             adorn posE tau (T.TupleExp exprs') c'
-        | A.TypeConstraint {exp=(pose, _) as exp; typ=(post, typ)} ->
+        | Ast.TypeConstraint {exp=(pose, _) as exp; typ=(post, typ)} ->
             let (exp', c1) = ty exp
             let c' = c1 &&& (convertType' typ =~= (T.getType exp', errStr [pose; post] "Type constraint could not be satisfied"))
             adorn posE (T.getType exp') (T.unwrap exp') c'
-        | A.UnsafeTypeCast {exp=(pose, _) as exp; typ=(post, typ)} ->
+        | Ast.UnsafeTypeCast {exp=(pose, _) as exp; typ=(post, typ)} ->
             let (exp', c) = ty exp
             let typ' = convertType' typ
             adorn pose typ' (T.unwrap exp') c
-        | A.UnaryOpExp {op=(poso, op); exp=(pose, _) as exp} ->
+        | Ast.UnaryOpExp {op=(poso, op); exp=(pose, _) as exp} ->
             let (exp', c1) = ty exp
             let (op', c2, tau) =
                 match op with
-                | A.LogicalNot ->
-                    (T.LogicalNot, booltype =~= (T.getType exp', errStr [pose] "The type of an expression applied to a logical not operation must be a boolean"), booltype)
-                | A.BitwiseNot ->
+                | Ast.LogicalNot ->
+                    (T.LogicalNot, T.booltype =~= (T.getType exp', errStr [pose] "The type of an expression applied to a logical not operation must be a boolean"), T.booltype)
+                | Ast.BitwiseNot ->
                     (T.BitwiseNot, Trivial, T.getType exp')
-                | A.Negate ->
+                | Ast.Negate ->
                     (T.Negate, Trivial, T.getType exp')
             let c' = c1 &&& c2
             adorn posE tau (T.UnaryOpExp {op=op'; exp=exp'}) c'
     ty (posE, e)
 
-let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.CapacityExpr>) (e : T.TyAdorn<T.Expr>) : (A.PosAdorn<string> list) * (A.PosAdorn<string> list) =
-    let ffv = findFreeVars theta kappa
-
-    let append2 (xs, ys) =
-        (List.concat xs, List.concat ys)
-    
-    let freeVarsTyp pos tau =
-        let tau' = Constraint.tycapsubst theta kappa tau
-        let (ft0, fc0) = Constraint.freeVars tau'
-        let ft = List.ofSeq ft0
-        let fc = List.ofSeq fc0
-        (List.zip (List.replicate (List.length ft) pos) ft,
-         List.zip (List.replicate (List.length fc) pos) fc)
-    
-    let freeVarsCap pos cap =
-        let cap' = Constraint.capsubst kappa cap
-        let fc = Constraint.freeCapVars cap' |> List.ofSeq
-        ([], List.zip (List.replicate (List.length fc) pos) fc)
-
-    let freeVarsTemplateApply pos ({tyExprs=tyExprs; capExprs=capExprs} : T.TemplateApply) =
-        let t = append2 (List.map (freeVarsTyp (T.getPos e)) tyExprs |> List.unzip)
-        let c = append2 (List.map (freeVarsCap (T.getPos e)) capExprs |> List.unzip)
-        append2 ([t; c] |> List.unzip)
-
-    let rec freeVarsLeftAssign pos left =
-        match left with
-        | (T.VarMutation _ | T.ModQualifierMutation _) ->
-            ([], [])
-        | T.ArrayMutation {array=array; index=index} ->
-            append2 ([freeVarsLeftAssign pos array; ffv index] |> List.unzip)
-        | T.RecordMutation {record=record} ->
-            freeVarsLeftAssign pos record
-
-    let rec freeVarsPattern ((pos, _, pat) : T.TyAdorn<T.Pattern>) =
-        match pat with
-        | T.MatchVar {typ=typ} ->
-            freeVarsTyp pos typ
-        | (T.MatchIntVal _ | T.MatchFloatVal _ | T.MatchUnit | T.MatchTrue | T.MatchFalse | T.MatchUnderscore | T.MatchValCon {innerPattern=None}) ->
-            ([], [])
-        | T.MatchValCon {innerPattern=Some innerPattern} ->
-            freeVarsPattern innerPattern
-        | T.MatchRecCon {fields=fields} ->
-            append2 (fields |> List.map (snd >> freeVarsPattern) |> List.unzip)
-        | T.MatchTuple pats ->
-            append2 (List.map freeVarsPattern pats |> List.unzip)
-    
-    let (freeTaus, freeCaps) = freeVarsTyp (T.getPos e) (T.getType e)
-    let (freeTaus', freeCaps') =
-        match T.unwrap e with
-        | T.ArrayLitExp exprs ->
-            append2 (List.map ffv exprs |> List.unzip)
-        | T.ArrayAccessExp {array=array; index=index} ->
-            append2 (List.map ffv [array; index] |> List.unzip)
-        | T.ArrayMakeExp {typ=typ; initializer=Some initializer} ->
-            append2 ([freeVarsTyp (T.getPos e) typ; ffv initializer] |> List.unzip)
-        | T.ArrayMakeExp {typ=typ; initializer=None} ->
-            freeVarsTyp (T.getPos e) typ
-        | T.AssignExp {left=left; right=right} ->
-            append2 ([ffv right; freeVarsLeftAssign (T.getPos left) (T.unwrap left)] |> List.unzip)
-        | T.BinaryOpExp {left=left; right=right} ->
-            append2 ([ffv left; ffv right] |> List.unzip)
-        | T.CallExp {func=func; args=args} ->
-            append2 (List.map ffv (func::args) |> List.unzip)
-        | T.CaseExp {on=on; clauses=clauses} ->
-            let pats = append2 (List.map (fst >> freeVarsPattern) clauses |> List.unzip)
-            let exprs = append2 (List.map (snd >> ffv) clauses |> List.unzip)
-            append2 ([ffv on; pats; exprs] |> List.unzip)
-        | T.DerefExp expr ->
-            ffv expr
-        | T.DoWhileLoopExp {condition=condition; body=body} ->
-            append2 ([ffv condition; ffv body] |> List.unzip)
-        | (T.FalseExp | T.FloatExp _ | T.InlineCode _ | T.IntExp _ |
-            T.InternalDeclareVar _ | T.ModQualifierExp _ | T.NullExp |
-            T.TrueExp | T.UnitExp | T.VarExp _) ->
-            ([], [])
-        | T.ForLoopExp {typ=typ; start=start; end_=end_; body=body} ->
-            append2 ([freeVarsTyp (T.getPos e) typ; ffv start; ffv end_; ffv body] |> List.unzip)
-        | T.IfElseExp {condition=condition; trueBranch=trueBranch; falseBranch=falseBranch} ->
-            append2 (List.map ffv [condition; trueBranch; falseBranch] |> List.unzip)
-        | T.LambdaExp {returnTy=returnTy; arguments=arguments; body=body} ->
-            let a = append2 (List.map (snd >> freeVarsTyp (T.getPos e)) arguments |> List.unzip)
-            append2 ([freeVarsTyp (T.getPos e) returnTy; a; ffv body] |> List.unzip)
-        | T.LetExp {left=left; right=right} ->
-            append2 ([freeVarsPattern left; ffv right] |> List.unzip)
-        | T.QuitExp typ ->
-            freeVarsTyp (T.getPos e) typ
-        | T.RecordAccessExp {record=record} ->
-            ffv record
-        | T.RecordExp {templateArgs=None; initFields=initFields} ->
-            append2 (List.map (snd >> ffv) initFields |> List.unzip)
-        | T.RecordExp {templateArgs=Some templateArgs; initFields=initFields} ->
-            let f = append2 (List.map (snd >> ffv) initFields |> List.unzip)
-            let t = freeVarsTemplateApply (T.getPos e) templateArgs
-            append2 ([f; t] |> List.unzip)
-        | T.RefExp exp ->
-            ffv exp
-        | T.SequenceExp exprs ->
-            append2 (List.map ffv exprs |> List.unzip)
-        | T.TemplateApplyExp {templateArgs=templateArgs} ->
-            freeVarsTemplateApply (T.getPos e) templateArgs
-        | T.TupleExp exprs ->
-            append2 (List.map ffv exprs |> List.unzip)
-        | T.UnaryOpExp {exp=exp} ->
-            ffv exp
-        | T.WhileLoopExp {condition=condition; body=body} ->
-            append2 ([ffv condition; ffv body] |> List.unzip)
-    
-    (List.append freeTaus freeTaus', List.append freeCaps freeCaps')
-
-// Takes in module's declarations and finds the name of the module
-let nameInModule (A.Module decs) =
-    let names = List.filter (fun dec -> match dec with
-                                            | (_, A.ModuleNameDec _) -> true
-                                            | _ -> false) decs
-    match names with
-        | [(_, A.ModuleNameDec name)] -> Some name
-        | _ -> None
-        
-// Takes in module's declarations and finds the names of the declarations in the module
-let declarationsInModule (A.Module decs) =
-    let namedDecs = List.filter (fun dec -> match dec with
-                                                | (_, A.FunctionDec _) -> true
-                                                | (_, A.RecordDec _) -> true
-                                                | (_, A.UnionDec _) -> true
-                                                | (_, A.LetDec _) -> true
-                                                | _ -> false) decs
-    List.concat (List.map (fun dec -> match dec with
-                                          | (_, A.FunctionDec {name=name}) -> [name]
-                                          | (_, A.RecordDec {name=name}) -> [name]
-                                          | (_, A.UnionDec {name=name; valCons=valCons}) ->
-                                                name::(valCons |> A.unwrap |> List.map fst)
-                                          | (_, A.LetDec {varName=name}) -> [name]
-                                          | _ -> failwith "This should never happen") namedDecs) |> List.map A.unwrap
-
-// Takes in module's declarations and finds the value declaratin names in the module
-let valueDecsInModule (A.Module decs) =
-    let namedDecs = List.filter (fun dec -> match dec with
-                                                | (_, A.FunctionDec _) -> true
-                                                | (_, A.LetDec _) -> true
-                                                | _ -> false) decs
-    List.map ((fun dec -> match dec with
-                             | (_, A.FunctionDec {name=name}) -> name
-                             | (_, A.LetDec {varName=name}) -> name
-                             | _ -> failwith "This should never happen") >> A.unwrap) namedDecs
-
-let isNamedDec dec = match dec with
-                         | (A.RecordDec _ | A.UnionDec _ | A.LetDec _ | A.FunctionDec _) -> true
-                         | _ -> false
-
-// Takes in module's declarations and finds the types in the module
-let typesInModule (A.Module decs) = 
-    let typeDecs = List.filter (fun dec -> match dec with
-                                           | (_, A.RecordDec _) -> true
-                                           | (_, A.UnionDec _ ) -> true
-                                           | _ -> false) decs
-    List.map ((fun dec -> match dec with
-                         | (_, A.RecordDec {name=name}) -> name
-                         | (_, A.UnionDec {name=name}) -> name
-                         | _ -> failwith "This should never happen") >> A.unwrap) typeDecs
-
-let opensInModule (A.Module decs) =
-    let opens = List.filter (fun dec -> match A.unwrap dec with
-                                        | A.OpenDec _ -> true
-                                        | _ -> false) decs
-    List.concat (List.map (fun dec -> match A.unwrap dec with
-                                      |A.OpenDec names -> A.unwrap names
-                                      | _ -> failwith "This 0should never happen") opens)
-
-let nameOfDec dec = match dec with
-                        | (A.RecordDec {name=name} | A.UnionDec {name=name} | A.LetDec {varName=name} | A.FunctionDec {name=name}) -> name
-                        | _ -> failwith "This declaration doesn't have a name"
-
-let isLet dec = match dec with
-                | A.LetDec _ -> true
-                | _ -> false
-let isFunction dec = match dec with
-                        | A.FunctionDec _ -> true
-                        | _ -> false
-let isInclude dec = match dec with
-                    | A.IncludeDec _ -> true
-                    | _ -> false
-let isOpen dec = match dec with
-                    | A.OpenDec _ -> true
-                    | _ -> false
-let isTypeDec dec = match dec with
-                    | (A.UnionDec _ | A.RecordDec _) -> true
-                    | _ -> false
-let isUnionDec dec = match dec with
-                     | A.UnionDec _ -> true
-                     | _ -> false
-
-let typecheckProgram (program : A.Module list) (fnames : string list) =
+let typecheckProgram (program : Ast.Module list) (fnames : string list) =
     let modNamesToMods =
         let names =
             List.zip program fnames |>
             List.map (fun (module_, fname) ->
                 match nameInModule module_ with
-                | Some name -> A.unwrap name
+                | Some name -> Ast.unwrap name
                 | None -> raise <| SemanticError (sprintf "Semantic error in %s: The module does not contain exactly one module declaration." fname))
         Map.ofList (List.zip names program)
     
     let valueDecsSet =
         program |> List.map (fun decs ->
-            let modName = nameInModule decs |> Option.get |> A.unwrap
+            let modName = nameInModule decs |> Option.get |> Ast.unwrap
             let valNames = valueDecsInModule decs
             List.zip
                 (List.map (fun _ -> modName) valNames)
@@ -1152,15 +687,15 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
 
     let modNamesToMenvs =
         // maps names to module qualifiers
-        let menvs0 = (List.map (fun (A.Module decs) ->
-            let modName = nameInModule (A.Module decs) |> Option.get |> A.unwrap
-            let typeNames = typesInModule (A.Module decs)
-            let valNames = valueDecsInModule (A.Module decs)
+        let menvs0 = (List.map (fun (Ast.Module decs) ->
+            let modName = nameInModule (Ast.Module decs) |> Option.get |> Ast.unwrap
+            let typeNames = typesInModule (Ast.Module decs)
+            let valNames = valueDecsInModule (Ast.Module decs)
             // Find the names of all of the value constructors as well
             let valConNames =
-                decs |> List.map A.unwrap |> List.filter isUnionDec |>
+                decs |> List.map Ast.unwrap |> List.filter isUnionDec |>
                 List.map
-                    (fun (A.UnionDec {valCons=(_, valCons)}) -> valCons |> List.map (fun ((_, name), _) -> name)) |>
+                    (fun (Ast.UnionDec {valCons=(_, valCons)}) -> valCons |> List.map (fun ((_, name), _) -> name)) |>
                 List.concat
             let names = typeNames @ valNames @ valConNames
             match Seq.duplicates names with
@@ -1173,11 +708,11 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
                 raise <| SemanticError (sprintf "Semantic error in module %s: The following declarations have duplicate definitions: %s" modName dupsStr)
         ) program)
 
-        let modNamesToMenvs0 = Map.ofList (List.zip (List.map (nameInModule >> Option.get >> A.unwrap) program) menvs0)
+        let modNamesToMenvs0 = Map.ofList (List.zip (List.map (nameInModule >> Option.get >> Ast.unwrap) program) menvs0)
 
         // Merge the menvs together based on the open declarations
         (Map.map (fun modName menv0 ->
-            let allOpens = List.map A.unwrap (opensInModule (Map.find modName modNamesToMods))
+            let allOpens = List.map Ast.unwrap (opensInModule (Map.find modName modNamesToMods))
             List.fold (fun menv1 nameToMerge ->
                 match Map.tryFind nameToMerge modNamesToMenvs0 with
                 | Some menv' -> Map.merge menv' menv1 
@@ -1186,18 +721,18 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
         ) modNamesToMenvs0)
     
     // Maps module qualifiers to their actual declarations
-    let denv = (List.fold (fun map (A.Module decs) ->
-        let modName = nameInModule (A.Module decs) |> Option.get
-        let namedDecs = List.filter (A.unwrap >> isNamedDec) decs
+    let denv = (List.fold (fun map (Ast.Module decs) ->
+        let modName = nameInModule (Ast.Module decs) |> Option.get
+        let namedDecs = List.filter (Ast.unwrap >> isNamedDec) decs
         List.fold (fun map2 dec0 ->
-            let decName = nameOfDec (A.unwrap dec0)
-            let qual = (A.unwrap modName, A.unwrap decName)
+            let decName = nameOfDec (Ast.unwrap dec0)
+            let qual = (Ast.unwrap modName, Ast.unwrap decName)
             Map.add qual dec0 map2) map namedDecs
     ) Map.empty program)
 
     let ienv = (Map.fold (fun accumIenv ((module_, name) as modQual) d ->
-        match A.unwrap d with
-        | A.UnionDec {valCons=(_, valCons)} ->
+        match Ast.unwrap d with
+        | Ast.UnionDec {valCons=(_, valCons)} ->
             (List.mapi (fun i ((_, valConName), _) ->
                 (valConName, i)
             ) valCons) |>
@@ -1211,23 +746,23 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
     let extractFromTemplate maybeTemplate =
         match maybeTemplate with
         | None -> ([], [])
-        | Some (_, ({tyVars=(_, tyVars); capVars=maybeCapVars} : A.Template)) ->
-            let t = List.map A.unwrap tyVars
+        | Some (_, ({tyVars=(_, tyVars); capVars=maybeCapVars} : Ast.Template)) ->
+            let t = List.map Ast.unwrap tyVars
             let c =
                 match maybeCapVars with
                 | None -> []
                 | Some (_, capVars) ->
-                    List.map A.unwrap capVars
+                    List.map Ast.unwrap capVars
             (t, c)
 
     let dtenv0 = (Map.fold (fun accumDtenv0 ((module_, name) as modQual) d ->
         let menv = Map.find module_ modNamesToMenvs
-        match A.unwrap d with
-        | A.RecordDec {fields=(_, fields); template=maybeTemplate} ->
+        match Ast.unwrap d with
+        | Ast.RecordDec {fields=(_, fields); template=maybeTemplate} ->
             let (t, c) = extractFromTemplate maybeTemplate
             let fieldMap = fields |> List.map (fun ((_, name), (_, ty)) -> (name, convertType menv Map.empty Map.empty ty)) |> Map.ofList
             Map.add (module_, name) (T.RecordDecTy (t, c, fieldMap)) accumDtenv0
-        | A.UnionDec {valCons=(_, valCons); template=maybeTemplate} ->
+        | Ast.UnionDec {valCons=(_, valCons); template=maybeTemplate} ->
             let (t, c) = extractFromTemplate maybeTemplate
             let udecty = T.UnionDecTy (t, c, {module_=module_; name=name})
             let retTyBase = T.TyCon <| T.ModuleQualifierTy {module_=module_; name=name}
@@ -1236,7 +771,7 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
                 | None -> retTyBase
                 | Some _ -> T.ConApp (retTyBase, List.map T.TyVar t, List.map T.CapacityVar c)
             let accumDtenv2 = valCons |> (List.fold (fun accumDtenv1 ((_, valConName), maybeTy) ->
-                let paramTy = Option.map (A.unwrap >> convertType menv Map.empty Map.empty) maybeTy |> Option.toList
+                let paramTy = Option.map (Ast.unwrap >> convertType menv Map.empty Map.empty) maybeTy |> Option.toList
                 let ts = T.FunDecTy <| T.Forall (t, c, T.ConApp (T.TyCon T.FunTy, retTy::paramTy, []))
                 Map.add (module_, valConName) ts accumDtenv1
             ) accumDtenv0)
@@ -1249,8 +784,8 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
     let valueGraph = new QuickGraph.AdjacencyGraph<string*string, QuickGraph.Edge<string*string>>()
 
     program |> List.iter (fun moduledef ->
-        let (A.Module decs) = moduledef
-        let module_ = nameInModule moduledef |> Option.get |> A.unwrap
+        let (Ast.Module decs) = moduledef
+        let module_ = nameInModule moduledef |> Option.get |> Ast.unwrap
         // List of all let and function declarations in
         // the module currently being considered
         let valueDecs = valueDecsInModule moduledef
@@ -1264,16 +799,16 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
             let (pos, dec) = Map.find (module_, name) denv
             let references =
                 match dec with
-                | (A.FunctionDec {template=template; clause=(_, {body=(_, expr); arguments=(_, arguments)})}) ->
-                    let a1 = arguments |> List.map (fst >> A.unwrap) |> Set.ofList
+                | (Ast.FunctionDec {template=template; clause=(_, {body=(_, expr); arguments=(_, arguments)})}) ->
+                    let a1 = arguments |> List.map (fst >> Ast.unwrap) |> Set.ofList
                     // Capacities are local variables as well!
                     let a2 =
                         match template with
                         | Some (_, {capVars=Some (_, capVars)}) ->
-                            capVars |> List.map A.unwrap |> Set.ofList
+                            capVars |> List.map Ast.unwrap |> Set.ofList
                         | _ -> Set.empty
                     decRefs valueDecsSet menv (Set.union a1 a2) expr
-                | A.LetDec {right=(_, expr)} ->
+                | Ast.LetDec {right=(_, expr)} ->
                     decRefs valueDecsSet menv Set.empty expr
             // Add all the edges to the graph
             references |> Set.iter (fun reference ->
@@ -1288,47 +823,47 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
 
     let includeDecs = 
         program |>
-        List.map (fun (A.Module decs) -> List.filter (A.unwrap >> isInclude) decs) |>
+        List.map (fun (Ast.Module decs) -> List.filter (Ast.unwrap >> isInclude) decs) |>
         List.concat |>
-        List.map (fun (_, A.IncludeDec (_, includes)) ->
-            T.IncludeDec (List.map A.unwrap includes))
+        List.map (fun (_, Ast.IncludeDec (_, includes)) ->
+            T.IncludeDec (List.map Ast.unwrap includes))
 
     let openDecs = 
         program |>
-        List.map (fun (A.Module decs) ->
-            let module_ = nameInModule (A.Module decs) |> Option.get |> A.unwrap
-            let opens = List.filter (A.unwrap >> isOpen) decs
+        List.map (fun (Ast.Module decs) ->
+            let module_ = nameInModule (Ast.Module decs) |> Option.get |> Ast.unwrap
+            let opens = List.filter (Ast.unwrap >> isOpen) decs
             let moduleNames = List.map (fun _ -> module_) opens
             List.zip moduleNames opens) |>
         List.concat |>
-        List.map (fun (module_, (_, A.OpenDec (_, openModules))) ->
-            (module_, T.OpenDec (List.map A.unwrap openModules)))
+        List.map (fun (module_, (_, Ast.OpenDec (_, openModules))) ->
+            (module_, T.OpenDec (List.map Ast.unwrap openModules)))
     
-    let moduleNames = program |> List.map (fun decs -> nameInModule decs |> Option.get |> A.unwrap)
+    let moduleNames = program |> List.map (fun decs -> nameInModule decs |> Option.get |> Ast.unwrap)
 
     let typeDecs =
         program |>
-        List.map (fun (A.Module decs) ->
-            let module_ = nameInModule (A.Module decs) |> Option.get |> A.unwrap
-            let types = List.filter (A.unwrap >> isTypeDec) decs
+        List.map (fun (Ast.Module decs) ->
+            let module_ = nameInModule (Ast.Module decs) |> Option.get |> Ast.unwrap
+            let types = List.filter (Ast.unwrap >> isTypeDec) decs
             let moduleNames = List.map (fun _ -> module_) types
             List.zip moduleNames types) |>
         List.concat |>
         List.map (fun (module_, (_, dec)) ->
             let menv = Map.find module_ modNamesToMenvs
             match dec with
-            | A.UnionDec {name=(_, name); valCons=(_, valCons); template=template} ->
+            | Ast.UnionDec {name=(_, name); valCons=(_, valCons); template=template} ->
                 let valCons' =
                     valCons |> List.map (fun ((_, valConName), maybeType) ->
-                        let maybeType' = Option.map (A.unwrap >> (convertType menv Map.empty Map.empty)) maybeType
+                        let maybeType' = Option.map (Ast.unwrap >> (convertType menv Map.empty Map.empty)) maybeType
                         (valConName, maybeType'))
-                (module_, T.UnionDec {name=name; template=Option.map (A.unwrap >> convertTemplate) template; valCons=valCons'})
-            | A.RecordDec {name=(_, name); template=template; fields=(_, fields)} ->
+                (module_, T.UnionDec {name=name; template=Option.map (Ast.unwrap >> convertTemplate) template; valCons=valCons'})
+            | Ast.RecordDec {name=(_, name); template=template; fields=(_, fields)} ->
                 let (names, types) = List.unzip fields
-                let names' = List.map A.unwrap names
-                let types' = List.map (A.unwrap >> convertType menv Map.empty Map.empty) types
+                let names' = List.map Ast.unwrap names
+                let types' = List.map (Ast.unwrap >> convertType menv Map.empty Map.empty) types
                 let fields' = List.zip names' types'
-                (module_, T.RecordDec {name=name; template=Option.map (A.unwrap >> convertTemplate) template; fields=fields'}))
+                (module_, T.RecordDec {name=name; template=Option.map (Ast.unwrap >> convertTemplate) template; fields=fields'}))
     
     let (_, connectedComponents) = valueGraph.StronglyConnectedComponents()
 
@@ -1340,12 +875,12 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
         (fun scc ->
             let sccStr = scc |> List.map (fun (m, n) -> sprintf "%s:%s" m n) |> String.concat ", "
             match scc with
-            | [x] when isLet (A.unwrap (Map.find x denv)) ->
+            | [x] when isLet (Ast.unwrap (Map.find x denv)) ->
                 ()
             | _ ->
                 scc |> List.iter
                     (fun decref ->
-                        if isLet (A.unwrap (Map.find decref denv)) then
+                        if isLet (Ast.unwrap (Map.find decref denv)) then
                             let (module_, name) = decref
                             raise <| TypeError (sprintf "The let named '%s' in module '%s' has a self reference. The following declarations all refer to each other: %s" name module_ sccStr)
                         else
@@ -1365,11 +900,11 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
         ) Map.empty menv)
 
     let globalGammaInit =
-        program |> List.map (fun (A.Module decs) ->
-            let module_ = nameInModule (A.Module decs) |> Option.get |> A.unwrap
-            decs |> List.map A.unwrap |> List.filter isUnionDec |>
+        program |> List.map (fun (Ast.Module decs) ->
+            let module_ = nameInModule (Ast.Module decs) |> Option.get |> Ast.unwrap
+            decs |> List.map Ast.unwrap |> List.filter isUnionDec |>
             List.map
-                (fun (A.UnionDec {valCons=(_, valCons)}) ->
+                (fun (Ast.UnionDec {valCons=(_, valCons)}) ->
                     valCons |> List.map (fun ((_, name), _) ->
                         let modqual = (module_, name)
                         let (T.FunDecTy scheme) = Map.find modqual dtenv0
@@ -1382,8 +917,8 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
             (fun (dtenv, globalGamma) scc ->
                 match scc with
                 // Found a SCC containing a single let statement
-                | [(module_, name) as modqual] when isLet (A.unwrap (Map.find modqual denv)) ->
-                    let (posl, A.LetDec {varName=varName; typ=typ; right=right}) = Map.find modqual denv
+                | [(module_, name) as modqual] when isLet (Ast.unwrap (Map.find modqual denv)) ->
+                    let (posl, Ast.LetDec {varName=varName; typ=typ; right=right}) = Map.find modqual denv
                     let menv = Map.find module_ modNamesToMenvs
                     let localVars = Set.empty
                     let gamma = localGamma globalGamma module_
@@ -1391,7 +926,7 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
                     let c2 =
                         match typ with
                         | Some (post, ty) ->
-                            T.getType right' =~= (convertType menv Map.empty Map.empty ty, errStr [post; A.getPos right] "The type of the right hand side of the let expression violates the given type constraint.")
+                            T.getType right' =~= (convertType menv Map.empty Map.empty ty, errStr [post; Ast.getPos right] "The type of the right hand side of the let expression violates the given type constraint.")
                         | None ->
                             Trivial
                     let c = c1 &&& c2
@@ -1415,9 +950,9 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
                         List.zip3 scc tempGammas alphas |>
                         List.map
                             (fun ((module_, name) as modqual, tempGamma, alpha) ->
-                                let (posf, A.FunctionDec {template=template; clause=(posc, {arguments=(posa, arguments); body=body; returnTy=maybeReturnTy})}) = Map.find modqual denv
+                                let (posf, Ast.FunctionDec {template=template; clause=(posc, {arguments=(posa, arguments); body=body; returnTy=maybeReturnTy})}) = Map.find modqual denv
                                 let menv = Map.find module_ modNamesToMenvs
-                                let localArguments = List.map (fst >> A.unwrap) arguments |> Set.ofList
+                                let localArguments = List.map (fst >> Ast.unwrap) arguments |> Set.ofList
                                 if Set.count localArguments = List.length arguments then
                                     ()
                                 else
@@ -1427,40 +962,32 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
                                     // TODO: CHECK THIS
                                     | None -> (Map.empty, Map.empty, None, Set.empty)
                                     | Some (_, {tyVars=(_, tyVars); capVars=maybeCapVars}) ->
-                                        let capVars = maybeCapVars |> Option.map A.unwrap |> Option.toList |> List.concat
+                                        let capVars = maybeCapVars |> Option.map Ast.unwrap |> Option.toList |> List.concat
                                         let tyVars' = List.map freshtyvar tyVars
                                         let tyVars'Names = List.map (fun (T.TyVar name) -> name) tyVars'
                                         let capVars' = List.map freshcapvar capVars
                                         let capVars'Names = List.map (fun (T.CapacityVar name) -> name) capVars'
-                                        let t = List.zip (List.map A.unwrap tyVars) tyVars' |> Map.ofList
-                                        let c = List.zip (List.map A.unwrap capVars) capVars' |> Map.ofList
-                                        let localVars1 = capVars |> List.map A.unwrap |> Set.ofList
-                                        let templatePos = (tyVars |> List.map A.getPos, capVars |> List.map A.getPos)
+                                        let t = List.zip (List.map Ast.unwrap tyVars) tyVars' |> Map.ofList
+                                        let c = List.zip (List.map Ast.unwrap capVars) capVars' |> Map.ofList
+                                        let localVars1 = capVars |> List.map Ast.unwrap |> Set.ofList
+                                        let templatePos = (tyVars |> List.map Ast.getPos, capVars |> List.map Ast.getPos)
                                         (t, c, Some (({tyVars=tyVars'Names; capVars=capVars'Names} : T.Template), templatePos, capVars), localVars1)
                                 let localVars = Set.union localArguments localCapacities
                                 // Add the arguments to the type environment (gamma)
                                 let (argTys, tempGamma') =
-                                    //let tyVarMapping' = Map.map (fun key _ -> freshtyvar ()) tyVarMapping
-                                    //let capVarMapping' = Map.map (fun key _ -> freshcapvar ()) capVarMapping
                                     arguments |>
                                     List.mapFold
                                         (fun accumTempGamma' ((posn, name), maybeTy) ->
                                             let argTy = match maybeTy with
                                                         | Some (_, ty) -> convertType menv tyVarMapping capVarMapping ty
-                                                        //| Some (_, ty) -> convertType menv tyVarMapping' capVarMapping' ty
-                                                        // TODO: Determine if we need to save this tyvar
                                                         | None -> freshtyvar ()
                                             let argTyScheme = T.Forall ([], [], argTy)
                                             (argTy, Map.add name (false, argTyScheme) accumTempGamma'))
                                         tempGamma
                                 // Add the capacities to the type environment
                                 let tempGamma'' = localCapacities |> (Set.fold (fun accum capVarName ->
-                                    Map.add capVarName (false, T.Forall ([], [], int32type)) accum
+                                    Map.add capVarName (false, T.Forall ([], [], T.int32type)) accum
                                 ) tempGamma')
-                                //let (post, retTy) =
-                                //    match maybeReturnTy with
-                                //    | Some (post, ty) -> ([post], convertType menv tyVarMapping capVarMapping ty)
-                                //    | None -> ([], freshtyvar ())
                                 // Finally typecheck the body
                                 let (body', c1) = typeof body dtenv menv localVars ienv tyVarMapping capVarMapping tempGamma''
                                 let c2 = alpha =~= (T.ConApp (T.TyCon T.FunTy, (T.getType body')::argTys, []), errStr [posf] "The inferred type of the function violated a constraint based on the function declaration")
@@ -1470,7 +997,7 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
                                     | Some (post, ty) ->
                                         (T.getType body') =~= (convertType menv tyVarMapping capVarMapping ty, errStr [posf; post] "The type of the body did not match the type of the return constraint")
                                 let c = c1 &&& c2 &&& c3
-                                let argNames = arguments |> List.map (fst >> A.unwrap)
+                                let argNames = arguments |> List.map (fst >> Ast.unwrap)
                                 ((modqual, maybeTemplate', argNames, argTys, T.getType body', body'), c)) |> List.unzip
                     let c = List.fold (&&&) Trivial cs
                     // Solve the entire SCC at once
@@ -1484,8 +1011,19 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
                                 let arguments' = List.zip argNames argTys'
                                 let (t, c, maybeTemplate'', maybeOriginalCapVars) =
                                     match maybeTemplate' with
-                                    // TODO: What about inference!
-                                    | None -> ([], [], None, None)
+                                    | None ->
+                                        let (freets, freecs) =
+                                            argTys' |> List.fold
+                                                (fun (accumFreeT, accumFreeC) argTy ->
+                                                    let (freeT, freeC) = freeVars argTy
+                                                    (Set.union freeT accumFreeT, Set.union freeC accumFreeC))
+                                                (Set.empty, Set.empty)
+                                        if Set.isEmpty freets && Set.isEmpty freecs then
+                                            ([], [], None, None)
+                                        else
+                                            let tyVars = List.ofSeq freets
+                                            let capVars = List.ofSeq freecs
+                                            (tyVars, capVars, Some ({tyVars=tyVars; capVars=capVars} : T.Template), None)
                                     | Some ({tyVars=tyVars; capVars=capVars}, (tyVarsPos, capVarsPos), originalCapVars) ->
                                         let tyVars' = List.zip tyVars tyVarsPos |> List.map (fun (tyvar, post) ->
                                             match tycapsubst theta kappa (T.TyVar tyvar) with
@@ -1509,7 +1047,7 @@ let typecheckProgram (program : A.Module list) (fnames : string list) =
                                         let (pos, tau, innerBody) = body'
                                         let saveCapVars =
                                             List.zip originalCapVars c |> List.map (fun ((posc, originalCapVar), newCapVar) ->
-                                                (posc, int32type, T.InternalDeclareVar {varName=originalCapVar; typ=int32type; right=(posc, int32type, T.VarExp (newCapVar, [], []))}))
+                                                (posc, T.int32type, T.InternalDeclareVar {varName=originalCapVar; typ=T.int32type; right=(posc, T.int32type, T.VarExp (newCapVar, [], []))}))
                                         let innerBody' = T.SequenceExp (saveCapVars @ [body'])
                                         (pos, tau, innerBody')
                                 let funDec' = T.FunctionDec {name=name; template=maybeTemplate''; clause={returnTy=retTy'; arguments=arguments'; body=body''}}

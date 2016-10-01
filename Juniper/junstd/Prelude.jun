@@ -4,7 +4,17 @@ module Prelude
     Interface: Prelude
 *)
 
+(* Internal use only, do not document *)
 type unit = {}
+type tuple2<'a,'b> = {e1 : 'a; e2 : 'b}
+type tuple3<'a,'b,'c> = {e1 : 'a; e2 : 'b; e3 : 'c}
+type tuple4<'a,'b,'c,'d> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd}
+type tuple5<'a,'b,'c,'d,'e> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e}
+type tuple6<'a,'b,'c,'d,'e,'f> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f}
+type tuple7<'a,'b,'c,'d,'e,'f,'g> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g}
+type tuple8<'a,'b,'c,'d,'e,'f,'g,'h> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h}
+type tuple9<'a,'b,'c,'d,'e,'f,'g,'h,'i> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h; e9 : 'i}
+type tuple10<'a,'b,'c,'d,'e,'f,'g,'h,'i,'j> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h; e9 : 'i; e10 : 'j}
 
 (*
     Type: maybe
@@ -76,19 +86,6 @@ type either<'a,'b> = left of 'a
 type list<'a; n> = { data : 'a[n]; length : uint32 }
 
 (*
-    Type: string
-
-    The string record type represents a string of characters
-
-    |string<;n>
-
-    Members:
-        characters : list<uint8;n> - The internal list used to store the
-        characters
-*)
-type string<;n> = { characters : list<uint8;n> }
-
-(*
     Type: sig
 
     The signal type encapsulates the concept of a signal. At any point in time,
@@ -132,7 +129,7 @@ fun compose<'a,'b,'c>(f : ('b) -> 'c, g : ('a) -> 'b) : ('a) -> 'c =
     Curries a function with an argument arity of 2.
 
     Type signature:
-    | <'a,'b,'c>(('a, 'b) -> 'c) -> (('a) -> (('b) -> 'c))
+    | <'a,'b,'c>(('a, 'b) -> 'c) -> (('a) -> ('b) -> 'c)
 
     Parameters:
         f : ('a, 'b) -> 'c - The function to curry.
@@ -148,12 +145,37 @@ fun curry<'a,'b,'c>(f : ('a, 'b) -> 'c) : ('a) -> ('b) -> 'c =
     end
 
 (*
+    Function: uncurrcy
+
+    Uncurries a function with an argument arity of 2.
+
+    Type signature:
+    | <'a,'b,'c>(('a) -> ('b) -> 'c) -> (('a, 'b) -> 'c)
+
+    Parameters:
+        f : ('a) -> ('b) -> 'c - The function to uncurry.
+
+    Returns:
+        A uncurried function
+*)
+fun uncurry<'a,'b,'c>(f : ('a) -> ('b) -> 'c) : ('a, 'b) -> 'c =
+    fn (valueA, valueB) ->
+        f(valueA)(valueB)
+    end
+
+(*
     Function: curry3
 
     Curries a function with an argument arity of 3.
 
     Type signature:
     | <'a,'b,'c,'d>(('a, 'b, 'c) -> 'd) -> (('a) -> ('b) -> ('c) -> 'd)
+
+    Parameters:
+        f : ('a, 'b, 'c) -> 'd - The function to curry.
+
+    Returns:
+        A curried function
 *)
 fun curry3<'a,'b,'c,'d>(f : ('a, 'b, 'c) -> 'd) : ('a) -> ('b) -> ('c) -> 'd =
     fn (valueA : 'a) : ('b) -> ('c) -> 'd ->
@@ -165,7 +187,26 @@ fun curry3<'a,'b,'c,'d>(f : ('a, 'b, 'c) -> 'd) : ('a) -> ('b) -> ('c) -> 'd =
     end
 
 (*
-    Function: equal
+    Function: uncurry3
+
+    Uncurries a function with an argument arity of 3.
+
+    Type signature:
+    | <'a,'b,'c,'d>(('a) -> ('b) -> ('c) -> 'd) -> (('a, 'b, 'c) -> 'd)
+
+    Parameters:
+        f : ('a) -> ('b) -> ('c) -> 'd - The function to uncurry
+
+    Returns:
+        An uncurried function
+*)
+fun uncurry3<'a,'b,'c,'d>(f : ('a) -> ('b) -> ('c) -> 'd) : ('a, 'b, 'c) -> 'd =
+    fn (valueA, valueB, valueC) ->
+        f(valueA)(valueB)(valueC)
+    end
+
+(*
+    Function: eq
 
     A function representation of the equality operator
 
@@ -179,18 +220,229 @@ fun curry3<'a,'b,'c,'d>(f : ('a, 'b, 'c) -> 'd) : ('a) -> ('b) -> ('c) -> 'd =
     Returns:
         True if the values are equivalent, false otherwise.
 *)
-fun equal<'a>(x : 'a, y : 'a) : bool =
+fun eq<'a>(x : 'a, y : 'a) : bool =
     x == y
 
-type tuple2<'a,'b> = {e1 : 'a; e2 : 'b}
-type tuple3<'a,'b,'c> = {e1 : 'a; e2 : 'b; e3 : 'c}
-type tuple4<'a,'b,'c,'d> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd}
-type tuple5<'a,'b,'c,'d,'e> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e}
-type tuple6<'a,'b,'c,'d,'e,'f> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f}
-type tuple7<'a,'b,'c,'d,'e,'f,'g> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g}
-type tuple8<'a,'b,'c,'d,'e,'f,'g,'h> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h}
-type tuple9<'a,'b,'c,'d,'e,'f,'g,'h,'i> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h; e9 : 'i}
-type tuple10<'a,'b,'c,'d,'e,'f,'g,'h,'i,'j> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h; e9 : 'i; e10 : 'j}
+(*
+    Function: neq
+
+    A function representation of the inequality operator
+
+    Type signature:
+    | <'a>('a, 'a) -> bool
+
+    Parameters:
+        x : 'a - The first value to compare
+        y : 'b - The second value to compare
+
+    Returns:
+        False if the values are equivalent, true otherwise.
+*)
+fun neq(x, y) =
+    x != y
+
+(*
+    Function: gt
+
+    A function representation of the greater than operator
+
+    Type signature:
+    | <'a>('a, 'a) -> bool
+
+    Parameters:
+        x : 'a - The first value to compare
+        y : 'b - The second value to compare
+
+    Returns:
+        True if x > y, false otherwise.
+*)
+fun gt(x, y) =
+    x > y
+
+(*
+    Function: geq
+
+    A function representation of the greater than or equal operator
+
+    Type signature:
+    | <'a>('a, 'a) -> bool
+
+    Parameters:
+        x : 'a - The first value to compare
+        y : 'b - The second value to compare
+
+    Returns:
+        True if x >= y, false otherwise.
+*)
+fun geq(x, y) =
+    x >= y
+
+(*
+    Function: lt
+
+    A function representation of the less than operator
+
+    Type signature:
+    | <'a>('a, 'a) -> bool
+
+    Parameters:
+        x : 'a - The first value to compare
+        y : 'b - The second value to compare
+
+    Returns:
+        True if x < y, false otherwise.
+*)
+fun lt(x, y) =
+    x < y
+
+(*
+    Function: leq
+
+    A function representation of the less than or equal operator
+
+    Type signature:
+    | <'a>('a, 'a) -> bool
+
+    Parameters:
+        x : 'a - The first value to compare
+        y : 'b - The second value to compare
+
+    Returns:
+        True if x <= y, false otherwise.
+*)
+fun leq(x, y) =
+    x <= y
+
+(*
+    Function: notf
+
+    A function representation of the not operator
+
+    Type signature:
+    | (bool) -> bool
+
+    Parameters:
+        x : bool - The value to take the logical inverse of
+
+    Returns:
+        The logical inverse of x
+*)
+fun notf(x) =
+    not x
+
+(*
+    Function: andf
+
+    A function representation of the and operator
+
+    Type signature:
+    | (bool, bool) -> bool
+
+    Parameters:
+        x : bool - The first boolean value
+        y : bool - The second boolean value
+
+    Returns:
+        x and y
+*)
+fun andf(x, y) =
+    x and y
+
+(*
+    Function: orf
+
+    A function representation of the or operator
+
+    Type signature:
+    | (bool, bool) -> bool
+
+    Parameters:
+        x : bool - The first boolean value
+        y : bool - The second boolean value
+
+    Returns:
+        x or y
+*)
+fun orf(x, y) =
+    x or y
+
+(*
+    FunctionL apply
+
+    Applies a value to the given function
+
+    Type signature:
+    | <'a,'b>(('a) -> 'b, 'a) -> 'b
+
+    Parameters:
+        f : ('a) -> 'b - The function to apply
+        x : 'a - The value to pass to the function
+
+    Returns:
+        The result of x applied to f
+*)
+fun apply<'a,'b>(f : ('a) -> 'b, x : 'a) : 'b =
+    f(x)
+
+(*
+    Function: apply2
+
+    Applies a tuple of values to the given function
+
+    Type signature:
+    | <'a,'b,'c>(('a,'b) -> 'c, 'a*'b) -> 'c
+
+    Parameters:
+        f : ('a,'b) -> 'c - The function to apply
+        tup : 'a*'b - The values to pass to the function
+
+    Returns:
+        The result of the values held in the tuple applied to f
+*)
+fun apply2<'a,'b,'c>(f : ('a, 'b) -> 'c, tup : 'a*'b) : 'c = (
+    let (a, b) = tup;
+    f(a, b)
+)
+
+(*
+    Function: apply3
+
+    Applies a tuple of values to the given function
+
+    Type signature:
+    | <'a,'b,'c,'d>(('a,'b,'c) -> 'd, 'a*'b*'c) -> 'd
+
+    Parameters:
+        f : ('a,'b,'c) -> 'd - The function to apply
+        tup : 'a*'b*'c - The values to pass to the function
+
+    Returns:
+        The result of the values held in the tuple applied to f
+*)
+fun apply3<'a,'b,'c,'d>(f : ('a, 'b, 'c) -> 'd, tup : 'a*'b*'c) : 'd = (
+    let (a, b, c) = tup;
+    f(a, b, c)
+)
+
+(*
+    Function: apply4
+
+    Applies a tuple of values to the given function
+
+    Type signature:
+    | <'a,'b,'c,'d,'e>(('a,'b,'c,'d) -> 'e, 'a*'b*'c*'d) -> 'e
+
+    Parameters:
+        f : ('a,'b,'c,'d) -> 'e - The function to apply
+        tup : 'a*'b*'c*'d - The values to pass to the function
+
+    Returns:
+        The result of the values held in the tuple applied to f
+*)
+fun apply4<'a,'b,'c,'d,'e>(f : ('a,'b,'c,'d) -> 'e, tup : 'a*'b*'c*'d) : 'e = (
+    let (a, b, c, d) = tup;
+    f(a, b, c, d)
+)
 
 (*
     Function: fst
@@ -297,3 +549,44 @@ fun mul<'a>(numA : 'a, numB : 'a) : 'a = numA * numB
         The difference of the two numbers
 *)
 fun div<'a>(numA : 'a, numB : 'a) : 'a = numA / numB
+
+(*
+    Function: swap
+
+    Swaps the two elements of a tuple
+
+    Type signature:
+    | <'a,'b>('a*'b) -> ('b*'a)
+
+    Parameters:
+        tup : 'a*'b - The tuple to swap
+
+    Returns:
+        The tuple with swapped elements
+*)
+fun swap(tup) = (
+    let (alpha, beta) = tup;
+    (beta, alpha)
+)
+
+(*
+    Funtction: until
+
+    Yields the result of applying f until p holds.
+
+    Type signature:
+    | <'a>(('a) -> bool, ('a) -> 'a, 'a) -> 'a
+
+    Parameters:
+        p: ('a) -> bool - The predicate
+        f: ('a) -> 'a - The function to repeatedly apply
+        a0: 'a - The initial value to supply to the function
+*)
+fun until<'a>(p : ('a) -> bool, f : ('a) -> 'a, a0 : 'a) : 'a = (
+    let mutable a = a0;
+    while not p(a) do (
+        set a = f(a);
+        ()
+    ) end;
+    a
+)

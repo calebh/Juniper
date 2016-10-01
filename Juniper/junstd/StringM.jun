@@ -1,0 +1,2 @@
+module StringM
+open(Prelude)

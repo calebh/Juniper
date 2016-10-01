@@ -1,13 +1,6 @@
-﻿module Parse2
+﻿module Parse
 open FParsec
-open Ast2
-
-let (<!>) (p: Parser<_,_>) label : Parser<_,_> =
-    fun stream ->
-        printfn "%A: Entering %s" stream.Position label
-        let reply = p stream
-        printfn "%A: Leaving %s (%A)" stream.Position label reply.Status
-        reply
+open Ast
 
 let singleLineComment = skipString "//" >>. restOfLine true >>% ()
 let multiLineComment = skipString "(*" >>. skipCharsTillString "*)" true System.Int32.MaxValue
@@ -17,15 +10,15 @@ let pipe6 p1 p2 p3 p4 p5 p6 f =
     pipe5 p1 p2 p3 p4 (tuple2 p5 p6)
           (fun x1 x2 x3 x4 (x5, x6) -> f x1 x2 x3 x4 x5 x6)
 
-let stringLiteral =
+let stringLiteral containingChar asciiOnly =
     let str s = pstring s
-    let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '"')
+    let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '"' && (not asciiOnly || (int) c < 256))
     let escapedChar = str "\\" >>. (anyOf "\\\"nrt" |>> function
                                                         | 'n' -> "\n"
                                                         | 'r' -> "\r"
                                                         | 't' -> "\t"
                                                         | c   -> string c)
-    between (str "\"") (str "\"")
+    between (skipString containingChar) (skipString containingChar)
             (stringsSepBy normalCharSnippet escapedChar)
 
 type LeftRecursiveExp = CallArgs of PosAdorn<PosAdorn<Expr> list>
@@ -104,37 +97,38 @@ let prefix str precidence op f opp =
 
 List.iter
     (fun f -> f  (fun l op r -> BinaryOpExp {left=l; right=r; op=op}) opp)
-    [infix "or"  1 LogicalOr Associativity.Left;
-    infix "and" 2 LogicalAnd Associativity.Left;
-    infix "|||" 3 BitwiseOr Associativity.Left;
-    infix "^^^" 4 BitwiseXor Associativity.Left;
-    infix "&&&" 5 BitwiseAnd Associativity.Left;
-    infix "=="  6 Equal Associativity.Left;
-    infix "!="  6 NotEqual Associativity.Left;
-    infix "<"   7 Less Associativity.None;
-    infix ">"   7 Greater Associativity.None;
-    infix "<="  7 LessOrEqual Associativity.None;
-    infix ">="  7 GreaterOrEqual Associativity.None;
-    infix ">>>" 8 BitshiftRight Associativity.Left;
-    infix "<<<" 8 BitshiftLeft Associativity.Left;
-    infix "+"   9 Add Associativity.Left;
-    infix "-"   9 Subtract Associativity.Left;
-    infix "*"   10 Multiply Associativity.Left;
-    infix "/"   10 Divide Associativity.Left;
-    infix "mod" 10 Modulo Associativity.Left]
+    [infix "|>" 1 Pipe Associativity.Left;
+    infix "or"  2 LogicalOr Associativity.Left;
+    infix "and" 3 LogicalAnd Associativity.Left;
+    infix "|||" 4 BitwiseOr Associativity.Left;
+    infix "^^^" 5 BitwiseXor Associativity.Left;
+    infix "&&&" 6 BitwiseAnd Associativity.Left;
+    infix "=="  7 Equal Associativity.Left;
+    infix "!="  7 NotEqual Associativity.Left;
+    infix "<"   8 Less Associativity.None;
+    infix ">"   8 Greater Associativity.None;
+    infix "<="  8 LessOrEqual Associativity.None;
+    infix ">="  8 GreaterOrEqual Associativity.None;
+    infix ">>>" 9 BitshiftRight Associativity.Left;
+    infix "<<<" 9 BitshiftLeft Associativity.Left;
+    infix "+"   10 Add Associativity.Left;
+    infix "-"   10 Subtract Associativity.Left;
+    infix "*"   11 Multiply Associativity.Left;
+    infix "/"   11 Divide Associativity.Left;
+    infix "mod" 11 Modulo Associativity.Left]
 
 List.iter
     (fun f -> f (fun op term -> UnaryOpExp {op=op; exp=term}) opp)
-    [prefix "-"  11 Negate;
-    prefix "~~~" 11 BitwiseNot;
-    prefix "not " 11 LogicalNot]
+    [prefix "-"  12 Negate;
+    prefix "~~~" 12 BitwiseNot;
+    prefix "not " 12 LogicalNot]
 
 List.iter
     (fun f -> f (fun l op r -> CapacityOp {left=l; op=op; right=r}) capOpp)
-    [infix "+" 9 CapAdd Associativity.Left;
-    infix "-"  9 CapSubtract Associativity.Left;
-    infix "*"  10 CapMultiply Associativity.Left;
-    infix "/"  10 CapDivide Associativity.Left]
+    [infix "+" 10 CapAdd Associativity.Left;
+    infix "-"  10 CapSubtract Associativity.Left;
+    infix "*"  11 CapMultiply Associativity.Left;
+    infix "/"  11 CapDivide Associativity.Left]
 
 List.iter
     (fun f -> f (fun op term -> CapacityUnaryOp {op=op; term=term}) capOpp)
@@ -257,6 +251,7 @@ do
             | "float" -> BaseTy (p, TyFloat)
             | "double" -> BaseTy (p, TyDouble)
             | "pointer" -> BaseTy (p, TyPointer)
+            | "string" -> BaseTy (p, TyString)
             | _ -> NameTy (p, n))
     let mQual = moduleQualifier |>> ModuleQualifierTy
     let fn =
@@ -393,6 +388,8 @@ do
     let puint16 = pos (pint64 .>> skipString "u16") |>> UInt16Exp
     let puint32 = pos (pint64 .>> skipString "u32") |>> UInt32Exp
     let puint64 = pos (pint64 .>> skipString "u64") |>> UInt64Exp
+    let charlist = pos (stringLiteral "'" true) |>> CharListLiteral
+    let str = pos (stringLiteral "\"" true) |>> StringLiteral
     let seq = betweenChar '(' (separatedList (attempt expr) ';' |> pos) ')' |>> SequenceExp
     let quit = skipString "quit" >>. ws >>. opt (skipChar '<' >>. ws >>. tyExpr .>> ws .>> skipChar '>') .>> ws .>> skipChar '(' .>> ws .>> skipChar ')' |>> QuitExp
     let applyTemplateToFunc =
@@ -474,7 +471,7 @@ do
         let escapedChar = pstring "\\" >>. (anyOf "\\#" |>> string)
         between (pstring "#") (pstring "#") (stringsSepBy normalCharSnippet escapedChar) |> pos |>> InlineCode
     let tuple = betweenChar '(' (separatedList1 expr ',') ')' |>> TupleExp
-    let e = choice (List.map attempt [punit; parens; ptrue; pfalse; pnull;
+    let e = choice (List.map attempt [punit; parens; ptrue; pfalse; pnull; charlist; str;
                     pint8; pint16; pint32; pint64'; puint8; puint16; puint32; puint64;
                     pint; pfloat; pdouble;
                     fn; quit; tuple; recordExpr; applyTemplateToFunc; seq;
@@ -550,7 +547,7 @@ let letDec =
 let openDec = skipString "open" >>. ws >>. skipChar '(' >>. ws >>. (separatedList (pos id) ',' |> pos) .>>
                 ws .>> skipChar ')' .>> ws |>> OpenDec
 
-let includeDec = skipString "include" >>. ws >>. skipChar '(' >>. ws >>. separatedList (pos stringLiteral) ',' |> pos .>>
+let includeDec = skipString "include" >>. ws >>. skipChar '(' >>. ws >>. separatedList (pos (stringLiteral "\"" false)) ',' |> pos .>>
                     ws .>> skipChar ')' .>> ws |>> IncludeDec
 
 let program =

@@ -80,6 +80,7 @@ and compileType theta kappa (ty : TyExpr) : string =
             | TyUnit -> output "Prelude::unit"
             | TyDouble -> output "double"
             | TyPointer -> output "juniper::shared_ptr<void>"
+            | TyString -> output "const char *"
         | ModuleQualifierTy {module_ = module_; name=name} ->
             output module_ +
             output "::" +
@@ -166,6 +167,8 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
     let compileLeftAssign = compileLeftAssign theta kappa
     let unitty = TyCon <| BaseTy TyUnit
     match expr with
+    | StringExp str ->
+        output (sprintf "((const PROGMEM char *)(\"%s\"))" str)
     | QuitExp ty ->
         getQuitExpr ty |> compile
     | NullExp _ ->
@@ -519,6 +522,10 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
             output ";" +
             newline())) |> String.concat ""
     | FunctionDec {name=name; template=maybeTemplate; clause=clause} ->
+        if name = "flip" then
+            ()
+        else
+            ()
         compileFunctionSignature theta kappa dec + " {" +
         newline() +
         indentId() +

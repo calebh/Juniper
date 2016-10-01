@@ -71,11 +71,15 @@
     <Content Include="packages.config" />
     <Compile Include="TypedAst.fs" />
     <Compile Include="Constraint.fs" />
-    <Compile Include="Ast2.fs" />
+    <Compile Include="Ast.fs" />
     <Compile Include="Compiler.fs" />
-    <Compile Include="Parse2.fs" />
-    <Compile Include="TypeChecker2.fs" />
-    <Compile Include="Program2.fs" />
+    <Compile Include="Parse.fs" />
+    <Compile Include="ConvertAst.fs" />
+    <Compile Include="Error.fs" />
+    <Compile Include="AstAnalysis.fs" />
+    <Compile Include="Module.fs" />
+    <Compile Include="TypeChecker.fs" />
+    <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FParsec">

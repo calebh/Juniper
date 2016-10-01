@@ -82,21 +82,38 @@ fun toggle(p : pinState) : pinState =
     end
 
 (*
-    Function: printStr
+    Function: printString
 
     Writes a string to the serial output.
 
     Type Signature:
-    | <;n>(string<;n>) -> unit
+    | (string) -> unit
 
     Parameters:
-        str : string<;n> - The string to write
+        str : string - The string to write
 
     Returns:
         Unit
 *)
-fun printStr<;n>(str : string<;n>) : unit =
-    #Serial.print(&str.characters.data);#
+fun printStr(str : string) : unit =
+    #Serial.print(str);#
+
+(*
+    Function: printCharList
+
+    Writes a character list to the serial output.
+
+    Type Signature:
+    | <;n>(list<uint8;n>) -> unit
+
+    Parameters:
+        cl : list<uint8;n> - The character list to print
+
+    Returns:
+        Unit
+*)
+fun printCharList<;n>(cl : list<uint8; n>) : unit =
+    #Serial.print((char *) &cl.data[0]);#
 
 (*
     Function: printFloat

@@ -1,0 +1,22 @@
+module CharList
+open(Prelude)
+
+fun toUpper(str) =
+    str |>
+    List:map(fn (c : uint8) ->
+        if c >= 97u8 and c <= 122u8 then
+            c - 32u8
+        else
+            c
+        end
+    end)
+
+fun toLower(str) =
+    str |>
+    List:map(fn (c) ->
+        if c >= 65u8 and c <= 90u8 then
+            c + 32u8
+        else
+            c
+        end
+    end)

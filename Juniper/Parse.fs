@@ -12,13 +12,13 @@ let pipe6 p1 p2 p3 p4 p5 p6 f =
 
 let stringLiteral containingChar asciiOnly =
     let str s = pstring s
-    let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '"' && (not asciiOnly || (int) c < 256))
+    let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> containingChar && (not asciiOnly || (int) c < 256))
     let escapedChar = str "\\" >>. (anyOf "\\\"nrt" |>> function
                                                         | 'n' -> "\n"
                                                         | 'r' -> "\r"
                                                         | 't' -> "\t"
                                                         | c   -> string c)
-    between (skipString containingChar) (skipString containingChar)
+    between (skipChar containingChar) (skipChar containingChar)
             (stringsSepBy normalCharSnippet escapedChar)
 
 type LeftRecursiveExp = CallArgs of PosAdorn<PosAdorn<Expr> list>
@@ -388,8 +388,8 @@ do
     let puint16 = pos (pint64 .>> skipString "u16") |>> UInt16Exp
     let puint32 = pos (pint64 .>> skipString "u32") |>> UInt32Exp
     let puint64 = pos (pint64 .>> skipString "u64") |>> UInt64Exp
-    let charlist = pos (stringLiteral "'" true) |>> CharListLiteral
-    let str = pos (stringLiteral "\"" true) |>> StringLiteral
+    let charlist = pos (stringLiteral '\'' true) |>> CharListLiteral
+    let str = pos (stringLiteral '"' true) |>> StringLiteral
     let seq = betweenChar '(' (separatedList (attempt expr) ';' |> pos) ')' |>> SequenceExp
     let quit = skipString "quit" >>. ws >>. opt (skipChar '<' >>. ws >>. tyExpr .>> ws .>> skipChar '>') .>> ws .>> skipChar '(' .>> ws .>> skipChar ')' |>> QuitExp
     let applyTemplateToFunc =
@@ -547,7 +547,7 @@ let letDec =
 let openDec = skipString "open" >>. ws >>. skipChar '(' >>. ws >>. (separatedList (pos id) ',' |> pos) .>>
                 ws .>> skipChar ')' .>> ws |>> OpenDec
 
-let includeDec = skipString "include" >>. ws >>. skipChar '(' >>. ws >>. separatedList (pos (stringLiteral "\"" false)) ',' |> pos .>>
+let includeDec = skipString "include" >>. ws >>. skipChar '(' >>. ws >>. separatedList (pos (stringLiteral '"' false)) ',' |> pos .>>
                     ws .>> skipChar ')' .>> ws |>> IncludeDec
 
 let program =

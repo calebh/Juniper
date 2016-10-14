@@ -93,7 +93,7 @@ fun toggle(p : pinState) : pinState =
         str : string - The string to write
 
     Returns:
-        Unit
+        unit
 *)
 fun printStr(str : string) : unit =
     #Serial.print(str);#
@@ -110,7 +110,7 @@ fun printStr(str : string) : unit =
         cl : list<uint8;n> - The character list to print
 
     Returns:
-        Unit
+        unit
 *)
 fun printCharList<;n>(cl : list<uint8; n>) : unit =
     #Serial.print((char *) &cl.data[0]);#
@@ -127,10 +127,110 @@ fun printCharList<;n>(cl : list<uint8; n>) : unit =
         f : float - The number to write
 
     Returns:
-        Unit
+        unit
 *)
 fun printFloat(f : float) : unit =
     #Serial.print(f);#
+
+(*
+    Function: printInt
+
+    Writes an integer to the serial output.
+
+    Type Signature:
+    | (int32) -> unit
+
+    Parameters:
+        n : int32 - The number to write
+
+    Returns:
+        unit
+*)
+fun printInt(n : int32) : unit =
+    #Serial.print(n);#
+
+(*
+    Type: base
+
+    | base
+
+    Constructors:
+        - <binary>
+        - <octal>
+        - <decimal>
+        - <hexadecimal>
+*)
+(*
+    Function: binary
+
+    Type Signature:
+    | () -> base
+*)
+(*
+    Function: octal
+
+    Type Signature:
+    | () -> base
+*)
+(*
+    Function: decimal
+
+    Type Signature:
+    | () -> base
+*)
+(*
+    Function: hexadecimal
+
+    Type Signature:
+    | () -> base
+*)
+type base = binary | octal | decimal | hexadecimal
+
+fun baseToInt(b) =
+    case b of
+    | binary() => 2
+    | octal() => 8
+    | decimal() => 10
+    | hexadecimal() => 16
+    end
+
+(*
+    Function: printIntBase
+
+    Writes an integer in the given base to the serial output.
+
+    Type Signature:
+    | (int32, base) -> unit
+
+    Parameters:
+        n : int32 - The number to write
+        b : <base> - The base to use
+
+    Returns:
+        unit
+*)
+fun printIntBase(n : int32, b : base) : unit = (
+    let bint = baseToInt(b);
+    #Serial.print(n, bint);#
+)
+
+(*
+    Function: printFloatPlaces
+
+    Writes a float with the given number of decimal places to the serial output.
+
+    Type Signature:
+    | (float, int32) -> unit
+
+    Parameters:
+        f : float - The number to write
+        numPlaces : int32 - The number of decimal places to use
+
+    Returns:
+        unit
+*)
+fun printFloatPlaces(f : float, numPlaces : int32) : unit =
+    #Serial.print(f, numPlaces);#
 
 (*
     Function: beginSerial

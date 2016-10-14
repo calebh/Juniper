@@ -428,10 +428,6 @@ and compileTemplate theta kappa (template : Template) : string =
         template.tyVars |>
         List.map (fun n ->
             let (TyVar n') = Constraint.tycapsubst theta kappa (TyVar n)
-            if n = n' then
-                ()
-            else
-                ()
             "typename " + n')
     let capVars =
         template.capVars |>
@@ -522,10 +518,6 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
             output ";" +
             newline())) |> String.concat ""
     | FunctionDec {name=name; template=maybeTemplate; clause=clause} ->
-        if name = "flip" then
-            ()
-        else
-            ()
         compileFunctionSignature theta kappa dec + " {" +
         newline() +
         indentId() +

@@ -427,7 +427,9 @@ and compileTemplate theta kappa (template : Template) : string =
     let tyVars =
         template.tyVars |>
         List.map (fun n ->
-            let (TyVar n') = Constraint.tycapsubst theta kappa (TyVar n)
+            let n' = match Constraint.tycapsubst theta kappa (TyVar n) with
+                     | TyVar n' -> n'
+                     | _ -> failwith "Internal compiler error: attempting to compile template where one of the template tyVars is not actully a tyVar"
             "typename " + n')
     let capVars =
         template.capVars |>

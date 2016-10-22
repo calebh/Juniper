@@ -34,11 +34,6 @@ let idSubst = Map.empty
 
 let bind = Map.add
 
-let varsubst theta a =
-    match Map.tryFind a theta with
-    | None -> TyVar a
-    | Some x -> x
-
 let varsubstCap kappa a =
     match Map.tryFind a kappa with
     | None -> CapacityVar a
@@ -51,10 +46,15 @@ let rec capsubst kappa =
     | (CapacityConst x) -> CapacityConst x
     | (CapacityUnaryOp {op=op; term=term}) -> CapacityUnaryOp {op=op; term=capsubst kappa term}
 
-let tycapsubst theta kappa =
+let rec varsubst theta kappa a =
+    match Map.tryFind a theta with
+    | None -> TyVar a
+    | Some x -> tycapsubst theta kappa x
+
+and tycapsubst theta kappa =
     let rec subst =
         function
-        | (TyVar a) -> varsubst theta a
+        | (TyVar a) -> varsubst theta kappa a
         | (TyCon c) -> TyCon c
         | (ConApp (tau, taus, caps)) -> ConApp (subst tau, List.map subst taus, List.map (capsubst kappa) caps)
     subst

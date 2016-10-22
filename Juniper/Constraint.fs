@@ -34,12 +34,12 @@ let idSubst = Map.empty
 
 let bind = Map.add
 
-let varsubstCap kappa a =
+let rec varsubstCap kappa a =
     match Map.tryFind a kappa with
     | None -> CapacityVar a
-    | Some x -> x
+    | Some x -> capsubst kappa x
 
-let rec capsubst kappa =
+and capsubst kappa =
     function
     | (CapacityVar a) -> varsubstCap kappa a
     | (CapacityOp {op=op; left=left; right=right}) -> CapacityOp {op=op; left=capsubst kappa left; right=capsubst kappa right}

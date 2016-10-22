@@ -1,6 +1,5 @@
 module AdafruitLSM303Accelerometer
 open(Prelude, Vector, Time)
-export(accelerometer, accelerometerState, state, make, begin, read, getSignal)
 
 type accelerometer = { ptr : pointer }
 type accelerometerState = { timeState : timerState ref;

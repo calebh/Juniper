@@ -1,6 +1,5 @@
 module AdafruitLSM303
 open(Prelude, Time, Vector)
-export(accMag, accMagState, make, state, begin, read, getSignal)
 include("\"Adafruit_LSM303.h\"")
 
 type accMag = { ptr : pointer; offset : vector<float;3>; scale : vector<float;3> }

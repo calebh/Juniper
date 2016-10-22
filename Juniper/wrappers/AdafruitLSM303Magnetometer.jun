@@ -1,6 +1,5 @@
 module AdafruitLSM303Magnetometer
 open(Prelude, Vector, Time)
-export(magnetometer, magnetometerState, state, make, begin, read, getSignal)
 
 type magnetometer = { ptr : pointer; offset : vector<float;3>; scale : vector<float;3> }
 type magnetometerState = { timeState : timerState ref;

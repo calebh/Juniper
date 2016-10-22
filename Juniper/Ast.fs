@@ -183,7 +183,6 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | ArrayLitExp of PosAdorn<PosAdorn<Expr> list>
           | ArrayMakeExp of ArrayMakeExpRec
           | RefExp of PosAdorn<Expr>
-          | DerefExp of PosAdorn<Expr>
           | TupleExp of PosAdorn<Expr> list
           | NullExp of PosAdorn<unit>
           | QuitExp of PosAdorn<TyExpr> option
@@ -191,7 +190,7 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | BitwiseXor
               | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
               | BitshiftLeft | BitshiftRight | Pipe
-and UnaryOps = LogicalNot | BitwiseNot | Negate
+and UnaryOps = LogicalNot | BitwiseNot | Negate | Deref
 
 // Mutations are changes in already declared variables, arrays, records, etc.
 and ArrayMutationRec =  { array : PosAdorn<LeftAssign>; index : PosAdorn<Expr> }

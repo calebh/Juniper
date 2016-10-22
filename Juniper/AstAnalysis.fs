@@ -64,8 +64,6 @@ let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
                         let localVars' = Set.union (getVars pat) localVars
                         d localVars' expr)
             Set.unionMany (s1::s2)
-        | Ast.DerefExp (_, expr) ->
-            d' expr
         | Ast.DoWhileLoopExp {condition=(_, condition); body=(_, body)} ->
             Set.union (d' condition) (d' body)
         | Ast.FalseExp _ ->
@@ -237,8 +235,6 @@ let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.Capa
             let pats = append2 (List.map (fst >> freeVarsPattern) clauses |> List.unzip)
             let exprs = append2 (List.map (snd >> ffv) clauses |> List.unzip)
             append2 ([ffv on; pats; exprs] |> List.unzip)
-        | T.DerefExp expr ->
-            ffv expr
         | T.DoWhileLoopExp {condition=condition; body=body} ->
             append2 ([ffv condition; ffv body] |> List.unzip)
         | (T.FalseExp | T.FloatExp _ | T.InlineCode _ | T.IntExp _ |

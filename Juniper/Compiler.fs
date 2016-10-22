@@ -367,10 +367,13 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
                 | None -> output "") +
         output ")"
     | UnaryOpExp {op=op; exp=exp} ->
-        (match op with
-        | Negate -> output "-"
-        | LogicalNot -> output "!"
-        | BitwiseNot -> output "~") + output "(" + compile exp + output ")"
+        match op with
+        | Deref -> output "(*((" + compile exp + output ").get()))"
+        | _ ->
+            (match op with
+            | Negate -> output "-"
+            | LogicalNot -> output "!"
+            | BitwiseNot -> output "~") + output "(" + compile exp + output ")"
     | ForLoopExp {typ=typ; varName=varName; start=start; direction=direction; end_=end_; body=body} ->
         let startName = Guid.string()
         let endName = Guid.string()
@@ -412,8 +415,6 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
         let (_, typ, _) = exp
         output "(juniper::shared_ptr<" + compileType typ + output ">(new " + compileType typ +
         output "(" + compile exp  + output ")))"
-    | DerefExp exp ->
-        output "(*((" + compile exp + output ").get()))"
     | DoWhileLoopExp {condition=condition; body=body} ->
         output "(([&]() -> " + indentId() + newline() +
         output "do {" + indentId() + newline() +

@@ -121,7 +121,8 @@ List.iter
     (fun f -> f (fun op term -> UnaryOpExp {op=op; exp=term}) opp)
     [prefix "-"  12 Negate;
     prefix "~~~" 12 BitwiseNot;
-    prefix "not " 12 LogicalNot]
+    prefix "not " 12 LogicalNot;
+    prefix "!" 12 Deref]
 
 List.iter
     (fun f -> f (fun l op r -> CapacityOp {left=l; op=op; right=r}) capOpp)
@@ -458,7 +459,6 @@ do
                 RecordExp {recordTy=recordTy; templateArgs=template; initFields=fields})
     let arrayLiteral = betweenChar '[' (separatedList expr ',') ']' |> pos |>> ArrayLitExp
     let pref = pstring "ref" >>. ws >>. expr |>> RefExp
-    let deref = skipChar '!' >>. ws >>. expr |>> DerefExp
     let modQual = moduleQualifier |> pos |>> ModQualifierExp
     let varReference = attempt id |> pos |>> VarExp
     let arrayMake =
@@ -477,7 +477,7 @@ do
                     fn; quit; tuple; recordExpr; applyTemplateToFunc; seq;
                     modQual; forLoop; doWhileLoop; whileLoop;
                     pLet; pIf; assign; case;
-                    arrayLiteral; pref; deref;
+                    arrayLiteral; pref;
                     arrayMake; inlineCpp; varReference]) .>> ws |> pos
     opp.TermParser <-
         leftRecurse

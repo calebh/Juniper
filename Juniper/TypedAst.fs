@@ -183,14 +183,13 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | ArrayLitExp of TyAdorn<Expr> list
           | ArrayMakeExp of ArrayMakeExpRec
           | RefExp of TyAdorn<Expr>
-          | DerefExp of TyAdorn<Expr>
           | TupleExp of TyAdorn<Expr> list
           | NullExp
           | QuitExp of TyExpr
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | BitwiseXor
               | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
               | BitshiftLeft | BitshiftRight
-and UnaryOps = LogicalNot | BitwiseNot | Negate
+and UnaryOps = LogicalNot | BitwiseNot | Negate | Deref
 
 // Mutations are changes in already declared variables, arrays, records, etc.
 and ArrayMutationRec =  { array : LeftAssign; index : TyAdorn<Expr> }

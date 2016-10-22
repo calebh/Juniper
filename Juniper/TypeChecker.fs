@@ -398,11 +398,6 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 adorn posE firstClauseTau (T.CaseExp {on=on'; clauses=clauses'}) c'
             | _ ->
                 raise <| TypeError ((errStr [posc] "No clauses were found in the case statement").Force())
-        | Ast.DerefExp ((pose, _) as exp) ->
-            let (exp', c) = ty exp
-            let retTau = freshtyvar ()
-            let c' = c &&& (T.ConApp (T.TyCon T.RefTy, [retTau], []) =~= (T.getType exp', errStr [pose] "Attempting to dereference an expression with a non-ref type."))
-            adorn posE retTau (T.DerefExp exp') c'
         | Ast.DoWhileLoopExp {condition=(posc, _) as condition; body=(posb, _) as body} ->
             let (body', c1) = ty body
             let (condition', c2) = ty condition
@@ -663,6 +658,10 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     (T.BitwiseNot, Trivial, T.getType exp')
                 | Ast.Negate ->
                     (T.Negate, Trivial, T.getType exp')
+                | Ast.Deref ->
+                    let retTau = freshtyvar ()
+                    let c' = (T.ConApp (T.TyCon T.RefTy, [retTau], []) =~= (T.getType exp', errStr [pose] "Attempting to dereference an expression with a non-ref type."))
+                    (T.Deref, c', retTau)
             let c' = c1 &&& c2
             adorn posE tau (T.UnaryOpExp {op=op'; exp=exp'}) c'
     ty (posE, e)

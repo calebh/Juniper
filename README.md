@@ -8,7 +8,7 @@ The purpose of Juniper is to provide a functional reactive programming platform 
 
 ### Language Features
 
-- Compiler written in F#, FsLex and FsYacc
+- Compiler written in F#
 - Transpiled to C++
 - Statically typed
 - Algebraic datatypes

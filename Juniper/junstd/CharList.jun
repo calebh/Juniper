@@ -1,6 +1,24 @@
 module CharList
 open(Prelude)
 
+(*
+    Interface: CharList
+*)
+
+(*
+    Function: toUpper
+
+    Converts characters in a character list from lower case to upper case
+
+    Type Signature:
+    | (list<uint8; n>) -> list<uint8; n>
+
+    Parameters:
+        str : list<uint8; n> - The string to convert to upper case
+
+   Returns:
+        A list of characters
+*)
 fun toUpper(str) =
     str |>
     List:map(fn (c : uint8) ->
@@ -11,6 +29,20 @@ fun toUpper(str) =
         end
     end)
 
+(*
+    Function: toLower
+
+    Converts characters in a character list from upper case to lower case
+
+    Type Signature:
+    | (list<uint8; n>) -> list<uint8; n>
+
+    Parameters:
+        str : list<uint8; n> - The string to convert to lower case
+
+   Returns:
+        A list of characters
+*)
 fun toLower(str) =
     str |>
     List:map(fn (c) ->

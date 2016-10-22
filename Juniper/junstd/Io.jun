@@ -204,7 +204,7 @@ fun baseToInt(b) =
 
     Parameters:
         n : int32 - The number to write
-        b : <base> - The base to use
+        b : base - The base to use
 
     Returns:
         unit

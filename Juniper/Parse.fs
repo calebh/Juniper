@@ -310,13 +310,13 @@ do
             (pos moduleQualifier .>> ws)
             recordPatternEnd
             (fun (posn, modQual) (template, fields) ->
-                MatchRecCon {name=(posn, Choice2Of2 modQual); template=template; fields=fields})
+                MatchRecCon {name=(posn, Choice2Of2 modQual); template=template; fields=fields}) |> pos
     let unitPattern = skipString "()" |> pos |>> MatchUnit |> pos
     let parensPattern = betweenChar '(' pattern ')'
     let tuplePattern = betweenChar '(' (separatedList pattern ',') ')' |> pos |>> MatchTuple |> pos
     patternRef := choice (List.map attempt [intPattern; floatPattern; truePattern;
                           falsePattern; valConPattern; valConModQualPattern;
-                          underscorePattern; recordPattern; unitPattern;
+                          underscorePattern; recordPattern; recordModQualPattern; unitPattern;
                           parensPattern; tuplePattern; varPattern])
 
 // leftRecursiveLeftAssign

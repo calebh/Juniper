@@ -269,7 +269,8 @@ fun latch<'a>(incoming : sig<'a>, prevValue : 'a ref) : sig<'a> =
     Function: map2
 
     Applys a mapping function to two signals. The function is evaluated when
-    a value arrives on either signal.
+    a value arrives on either signal. If no value is held by either of the input
+    signals, then the output signal holds no value.
 
     Type Signature:
     | <'a,'b,'c>(('a,'b)->'c, sig<'a>, sig<'b>, ('a*'b) ref) -> sig<'c>
@@ -319,3 +320,88 @@ fun map2<'a,'b,'c>(f : ('a, 'b) -> 'c,
 *)
 fun record<'a;n>(incoming : sig<'a>, pastValues : list<'a;n> ref) : sig<list<'a;n>> =
     foldP<'a,list<'a;n>>(List:pushOffFront<'a;n>, pastValues, incoming)
+
+(*
+    Function: constant
+
+    Gives a signal holding a specific value.
+
+    Type Signature:
+    | <'a>('a) -> sig<'a>
+
+    Parameters:
+        val : 'a - The value that will be held within the signal
+
+    Returns:
+        A signal containing the given value
+*)
+fun constant<'a>(val : 'a) : sig<'a> =
+    signal<'a>(just<'a>(val))
+
+(*
+    Function: meta
+
+    Performs a meta analysis on a signal, and outputs this result
+    in a signal. The output signal will hold a value of nothing
+    when there is no value on the input signal, and will return
+    just the value if there is a value on the input signal.
+    The output signal will always hold a value, which makes it useful
+    for many applications.
+
+    Type Signature:
+    | <'a>(sig<'a>) -> sig<maybe<'a>>
+
+    Parameters:
+        sigA : sig<'a> - The signal on which the meta analysis will be performed
+
+    Returns:
+        A signal of either nothing or just the value of the input signal
+*)
+fun meta<'a>(sigA : sig<'a>) : sig<maybe<'a>> = (
+    let signal<'a>(val) = sigA;
+    constant<maybe<'a>>(val)
+)
+
+(*
+    Function: unmeta
+
+    The opposite of the meta function. If the input signal holds a value of
+    nothing, then the output signal will not hold a value. If the input signal
+    holds just a value, then the output signal will hold that value.
+
+    Parameters:
+        sigA : sig<maybe<'a>> - The signal to "make concrete"
+
+    Returns:
+        A signal that holds a value in the case of the input signal holding
+        just a value, and holds no value otherwise.
+*)
+fun unmeta<'a>(sigA : sig<maybe<'a>>) : sig<'a> =
+    case sigA of
+    | signal<maybe<'a>>(just<maybe<'a>>(just<'a>(val))) =>
+        constant<'a>(val)
+    | _ =>
+        signal<'a>(nothing<'a>())
+    end
+
+(*
+    Function: zip
+
+    Zips two signals together, so that if a value is received on either signal,
+    then the output signal will also contain the latest value from the other
+    signal. If no value is held by either of the input signals, then the output
+    signal holds no value.
+
+    Parameters:
+        sigA : sig<'a> - The first signal to zip
+        sigB : sig<'b> - The second signal to zip
+        state : ('a * 'b) ref - The state holding the past values of the signals
+
+    Returns:
+        A zipped signal.
+*)
+fun zip<'a,'b>(sigA : sig<'a>, sigB : sig<'b>, state : ('a * 'b) ref) : sig<('a * 'b)> =
+    map2<'a,'b,'a*'b>(
+        fn (valA : 'a, valB : 'b) : ('a * 'b) ->
+            (valA, valB)
+        end, sigA, sigB, state)

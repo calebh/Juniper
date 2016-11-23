@@ -10,7 +10,7 @@ fun blink() = (
     let timerSig = Time:every(1000, tState);
     let ledSig =
         Signal:foldP(
-            fn (currentTime, lastState) : pinState ->
+            fn (currentTime, lastState) ->
                 Io:toggle(lastState)
             end,
             ledState, timerSig);

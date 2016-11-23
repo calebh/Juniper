@@ -369,6 +369,9 @@ fun meta<'a>(sigA : sig<'a>) : sig<maybe<'a>> = (
     nothing, then the output signal will not hold a value. If the input signal
     holds just a value, then the output signal will hold that value.
 
+    Type Signature:
+    | <'a>(sig<maybe<'a>>) -> sig<'a>
+
     Parameters:
         sigA : sig<maybe<'a>> - The signal to "make concrete"
 
@@ -392,6 +395,9 @@ fun unmeta<'a>(sigA : sig<maybe<'a>>) : sig<'a> =
     signal. If no value is held by either of the input signals, then the output
     signal holds no value.
 
+    Type Signature:
+    | <'a,'b>(sig<'a>, sig<'b>, ('a * 'b) ref) -> sig<'a * 'b>
+
     Parameters:
         sigA : sig<'a> - The first signal to zip
         sigB : sig<'b> - The second signal to zip
@@ -405,3 +411,55 @@ fun zip<'a,'b>(sigA : sig<'a>, sigB : sig<'b>, state : ('a * 'b) ref) : sig<('a 
         fn (valA : 'a, valB : 'b) : ('a * 'b) ->
             (valA, valB)
         end, sigA, sigB, state)
+
+(*
+    Function: unzip
+
+    Unzips two signals apart, so that the tuple on the incoming signal is split
+    into two signals.
+
+    Type Signature:
+    | <'a,'b>(sig<'a * 'b>) -> (sig<'a> * sig<'b>)
+
+    Parameters:
+        incoming : sig<'a> - The signal to unzip
+
+    Returns:
+        Two signals inside a tuple
+*)
+fun unzip<'a,'b>(incoming : sig<'a*'b>) : sig<'a>*sig<'b> =
+    case incoming of
+    | signal(just((x, y))) => (signal(just(x)), signal(just(y)))
+    | _ => (signal(nothing()), signal(nothing()))
+    end
+
+(*
+    Function: toggle
+
+    If a value is carried on the incoming signal, then the output signal holds
+    a value of val2 if the value stored in state is equal to val1; otherwise,
+    the output signal holds a value of val1. If no value is carried on the
+    incoming signal, then no value is outputted on the return signal.
+
+    Type Signature:
+    | <'a,'b>('a, 'a, 'a ref, sig<'b>) -> sig<'a>
+
+    Parameters:
+        val1 : 'a - The first value to toggle between
+        val2 : 'a - The second value to toggle between
+        state : 'a ref - Holds the previous value outputted on the return signal
+        incoming : sig<'b> - The signal which will trigger a toggle
+
+    Returns:
+        A signal containing either val1 or val2, depending on what was
+        previously value carried on the output signal.
+*)
+fun toggle<'a,'b>(val1 : 'a, val2 : 'a, state : 'a ref, incoming : sig<'b>) : sig<'a> =
+    incoming |>
+    foldP(fn (event, prevVal) ->
+              if prevVal == val1 then
+                  val2
+              else
+                  val1
+              end
+          end, state)

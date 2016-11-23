@@ -63,7 +63,6 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="TreeTraversals.fs" />
     <Compile Include="Extensions.fs" />
     <Compile Include="Guid.fs" />
     <Compile Include="AssemblyInfo.fs" />

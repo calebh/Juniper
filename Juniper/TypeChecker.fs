@@ -425,9 +425,9 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let (end_', c2) = ty end_
             let gamma' = Map.add varName (false, T.Forall ([], [], tauIterator)) gamma
             let (body', c3) = typeof body dtenv menv (Set.add varName localVars) ienv tyVarMapping capVarMapping gamma'
-            let c' = c1 &&& c2 &&& (tauIterator =~= (T.getType start', errStr [posv; poss] "Type of the start expression does not match the type of the iterator")) &&&
-                                   (tauIterator =~= (T.getType end_', errStr [posv; pose] "Type of the end expression doesn't match the type of the iterator")) &&&
-                                   (T.getType body' =~= (T.unittype, errStr [posb] "Body of do while loop must return type unit"))
+            let c' = c1 &&& c2 &&& c3 &&& (tauIterator =~= (T.getType start', errStr [posv; poss] "Type of the start expression does not match the type of the iterator")) &&&
+                                          (tauIterator =~= (T.getType end_', errStr [posv; pose] "Type of the end expression doesn't match the type of the iterator")) &&&
+                                          (T.getType body' =~= (T.unittype, errStr [posb] "Body of do while loop must return type unit"))
             adorn posE T.unittype (T.ForLoopExp {typ=tauIterator; varName=varName; start=start'; end_=end_'; body=body'; direction=direction'}) c'
         | Ast.LambdaExp (posf, {returnTy=maybeReturnTy; arguments=(posargs, arguments); body=(posb, _) as body}) ->
             let (gamma1Lst, c1s, localVars1, arguments') =

@@ -26,9 +26,10 @@ open(Prelude)
 *)
 fun map<'a,'b;n>(f : ('a) -> 'b, lst : list<'a; n>) : list<'b; n> = (
     let mutable ret = array 'b[n] end;
-    for i : uint32 in 0 to lst.length - 1 do
-        set ret[i] = f(lst.data[i])
-    end;
+    for i : uint32 in 0 to lst.length - 1 do (
+        set ret[i] = f(lst.data[i]);
+        ()
+    ) end;
     list<'b;n>{data=ret; length=lst.length}
 )
 
@@ -51,9 +52,10 @@ fun map<'a,'b;n>(f : ('a) -> 'b, lst : list<'a; n>) : list<'b; n> = (
 *)
 fun foldl<'t,'state;n>(f : ('t, 'state) -> 'state, initState : 'state, lst : list<'t; n>) : 'state = (
     let mutable s = initState;
-    for i : uint32 in 0 to lst.length - 1 do
-        set s = f(lst.data[i], s)
-    end;
+    for i : uint32 in 0 to lst.length - 1 do (
+        set s = f(lst.data[i], s);
+        ()
+    ) end;
     s
 )
 
@@ -77,9 +79,10 @@ fun foldl<'t,'state;n>(f : ('t, 'state) -> 'state, initState : 'state, lst : lis
 *)
 fun foldr<'t,'state;n>(f : ('t, 'state) -> 'state, initState : 'state, lst : list<'t; n>) : 'state = (
     let mutable s = initState;
-    for i : uint32 in lst.length - 1 downto 0 do
-        set s = f(lst.data[i], s)
-    end;
+    for i : uint32 in lst.length - 1 downto 0 do (
+        set s = f(lst.data[i], s);
+        ()
+    ) end;
     s
 )
 
@@ -157,10 +160,11 @@ fun flattenSafe<'t;m,n>(listOfLists : list<list<'t;m>;n>) : list<'t;m*n> = (
     let mutable ret = array 't[m*n] end;
     let mutable index : uint32 = 0;
     for i : uint32 in 0 to listOfLists.length - 1 do
-        for j : uint32 in 0 to listOfLists.data[i].length - 1 do
-            (set ret[index] = listOfLists.data[i].data[j];
-            set index = ((index + 1) : uint32))
-        end
+        for j : uint32 in 0 to listOfLists.data[i].length - 1 do (
+            set ret[index] = listOfLists.data[i].data[j];
+            set index = ((index + 1) : uint32);
+            ()
+        ) end
     end;
     list<'t;m*n>{data=ret; length=index}
 )
@@ -183,9 +187,10 @@ fun flattenSafe<'t;m,n>(listOfLists : list<list<'t;m>;n>) : list<'t;m*n> = (
 *)
 fun resize<'t;n,m>(lst : list<'t;n>) : list<'t;m> = (
     let mutable ret = array 't[m] end;
-    for i : uint32 in 0 to lst.length - 1 do
-        set ret[i] = lst.data[i]
-    end;
+    for i : uint32 in 0 to lst.length - 1 do (
+        set ret[i] = lst.data[i];
+        ()
+    ) end;
     list<'t;m>{data=ret; length=lst.length}
 )
 
@@ -295,9 +300,10 @@ fun pushBack<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
 *)
 fun pushOffFront<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
     let mutable ret = lst;
-    for i : int32 in n - 2 downto 0 do
-        set ret.data[i + 1] = ret.data[i]
-    end;
+    for i : int32 in n - 2 downto 0 do (
+        set ret.data[i + 1] = ret.data[i];
+        ()
+    ) end;
     set ret.data[0] = elem;
     if ret.length == n then
         ret

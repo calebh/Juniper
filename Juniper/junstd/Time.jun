@@ -32,7 +32,7 @@ fun wait(time : uint32) : unit =
         The time elapsed
 *)
 fun now() : uint32 = (
-    let ret : uint32 = 0;
+    let ret : uint32 = 0u32;
     #ret = millis();#;
     ret
 )

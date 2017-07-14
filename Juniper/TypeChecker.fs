@@ -820,6 +820,43 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
         )
     )
 
+    // Also build a dependency graph for the types
+    let typeGraph = new QuickGraph.AdjacencyGraph<string*string, QuickGraph.Edge<string*string>>()
+
+    program |> List.iter (fun moduledef ->
+        let (Ast.Module decs) = moduledef
+        let module_ = nameInModule moduledef |> Option.get |> Ast.unwrap
+        // List of all algebraic and record datatypes in
+        // the module currently being considered
+        let typeDecs = typesInModule moduledef
+        let menv = Map.find module_ modNamesToMenvs
+        // Add all the declarations as vertices to the graph
+        typeDecs |> List.iter (fun name ->
+            typeGraph.AddVertex((module_, name)) |> ignore
+            let (pos, dec) = Map.find (module_, name) denv
+            let references = tyRefs menv dec
+            references |> Set.iter (fun reference ->
+                // TODO: Better check here
+                if Map.containsKey reference dtenv0 || Map.containsKey reference denv then
+                    typeGraph.AddEdge(new QuickGraph.Edge<string*string>((module_, name), reference)) |> ignore
+                else
+                    raise <| TypeError ((errStr [pos] (sprintf "Reference made to %s:%s which could not be found" (fst reference) (snd reference))).Force()))))
+    
+    let typeDependencyOrder =
+        // Ensure that there are no circular type dependencies
+        let typeCondensation = typeGraph.CondensateStronglyConnected<_, _, QuickGraph.AdjacencyGraph<_, _>>()
+        typeCondensation.Vertices |>
+        Seq.iter
+            (fun scc ->
+                let sccStr = scc.Vertices |> Seq.map (fun (m, n) -> sprintf "%s:%s" m n) |> String.concat ", "
+                // Check for mutually recursive types
+                if Seq.length scc.Vertices > 1 then
+                    raise <| TypeError (sprintf "Semantic error: The following type declarations form an unresolvable dependency cycle: %s" sccStr)
+                // Check for self-referential types
+                elif Seq.length scc.Edges > 0 then
+                    raise <| TypeError (sprintf "Semantic error: The following type refers to itself: %s" sccStr))
+        typeGraph.TopologicalSort() |> Seq.rev |> List.ofSeq
+
     let includeDecs = 
         program |>
         List.map (fun (Ast.Module decs) -> List.filter (Ast.unwrap >> isInclude) decs) |>
@@ -841,28 +878,35 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
     let moduleNames = program |> List.map (fun decs -> nameInModule decs |> Option.get |> Ast.unwrap)
 
     let typeDecs =
-        program |>
-        List.map (fun (Ast.Module decs) ->
-            let module_ = nameInModule (Ast.Module decs) |> Option.get |> Ast.unwrap
-            let types = List.filter (Ast.unwrap >> isTypeDec) decs
-            let moduleNames = List.map (fun _ -> module_) types
-            List.zip moduleNames types) |>
-        List.concat |>
-        List.map (fun (module_, (_, dec)) ->
-            let menv = Map.find module_ modNamesToMenvs
-            match dec with
-            | Ast.UnionDec {name=(_, name); valCons=(_, valCons); template=template} ->
-                let valCons' =
-                    valCons |> List.map (fun ((_, valConName), maybeType) ->
-                        let maybeType' = Option.map (Ast.unwrap >> (convertType menv Map.empty Map.empty)) maybeType
-                        (valConName, maybeType'))
-                (module_, T.UnionDec {name=name; template=Option.map (Ast.unwrap >> convertTemplate) template; valCons=valCons'})
-            | Ast.RecordDec {name=(_, name); template=template; fields=(_, fields)} ->
-                let (names, types) = List.unzip fields
-                let names' = List.map Ast.unwrap names
-                let types' = List.map (Ast.unwrap >> convertType menv Map.empty Map.empty) types
-                let fields' = List.zip names' types'
-                (module_, T.RecordDec {name=name; template=Option.map (Ast.unwrap >> convertTemplate) template; fields=fields'}))
+        let unorderedDecs =
+            program |>
+            List.map (fun (Ast.Module decs) ->
+                let module_ = nameInModule (Ast.Module decs) |> Option.get |> Ast.unwrap
+                let types = List.filter (Ast.unwrap >> isTypeDec) decs
+                let moduleNames = List.map (fun _ -> module_) types
+                List.zip moduleNames types) |>
+            List.concat |>
+            List.map (fun (module_, (_, dec)) ->
+                let menv = Map.find module_ modNamesToMenvs
+                match dec with
+                | Ast.UnionDec {name=(_, name); valCons=(_, valCons); template=template} ->
+                    let valCons' =
+                        valCons |> List.map (fun ((_, valConName), maybeType) ->
+                            let maybeType' = Option.map (Ast.unwrap >> (convertType menv Map.empty Map.empty)) maybeType
+                            (valConName, maybeType'))
+                    let ret = (module_, T.UnionDec {name=name; template=Option.map (Ast.unwrap >> convertTemplate) template; valCons=valCons'})
+                    ((module_, name), ret)
+                | Ast.RecordDec {name=(_, name); template=template; fields=(_, fields)} ->
+                    let (names, types) = List.unzip fields
+                    let names' = List.map Ast.unwrap names
+                    let types' = List.map (Ast.unwrap >> convertType menv Map.empty Map.empty) types
+                    let fields' = List.zip names' types'
+                    let ret = (module_, T.RecordDec {name=name; template=Option.map (Ast.unwrap >> convertTemplate) template; fields=fields'})
+                    ((module_, name), ret)) |>
+            Map.ofList
+        // Put the declarations into dependency order (reverse topological order)
+        List.map (fun modQual -> Map.find modQual unorderedDecs) typeDependencyOrder
+
     
     let (_, connectedComponents) = valueGraph.StronglyConnectedComponents()
 
@@ -881,7 +925,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                     (fun decref ->
                         if isLet (Ast.unwrap (Map.find decref denv)) then
                             let (module_, name) = decref
-                            raise <| TypeError (sprintf "The let named '%s' in module '%s' has a self reference. The following declarations all refer to each other: %s" name module_ sccStr)
+                            raise <| TypeError (sprintf "Semantic error: The let named '%s' in module '%s' has a self reference. The following declarations form an unresolvable dependency cycle: %s" name module_ sccStr)
                         else
                             ()))
     

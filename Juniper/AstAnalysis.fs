@@ -2,6 +2,54 @@
 module A = Ast
 module T = TypedAst
 
+// Find all types that a type declaration is referring to
+let tyRefs (menv : Map<string, string*string>) tyDec =
+    let rec refsInTyExpr t =
+        match t with
+        | A.BaseTy _ ->
+            Set.empty
+        | A.ModuleQualifierTy {module_=(_, module_); name=(_, name)} ->
+            Set.singleton (module_, name)
+        | A.ApplyTy {tyConstructor=(_, tyConstructor); args=(_, {tyExprs=(_, tyExprs)})} ->
+            let t1 = refsInTyExpr tyConstructor
+            let t2 = List.map (A.unwrap >> refsInTyExpr) tyExprs
+            Set.unionMany (t1::t2)
+        | A.ArrayTy {valueType=(_, valueType)} ->
+            refsInTyExpr valueType
+        | A.FunTy {args=args; returnType=(_, returnType)} ->
+            let t1 = List.map (A.unwrap >> refsInTyExpr) args
+            let t2 = refsInTyExpr returnType
+            Set.unionMany (t2::t1)
+        | A.NameTy (_, name) ->
+            match Map.tryFind name menv with
+            | None ->
+                Set.empty
+            | Some modQual ->
+                Set.singleton modQual
+        | A.ParensTy (_, tau) ->
+            refsInTyExpr tau
+        | A.RefTy (_, tau) ->
+            refsInTyExpr tau
+        | A.TupleTy taus ->
+            taus |> List.map (A.unwrap >> refsInTyExpr) |> Set.unionMany
+        | A.VarTy _ ->
+            Set.empty
+
+    match tyDec with
+    | A.UnionDec {valCons=(_, valCons)} ->
+        valCons |>
+        List.map
+            (fun valueCon ->
+                match valueCon with
+                | (_, Some (_, tyExpr)) -> refsInTyExpr tyExpr
+                | _ -> Set.empty) |>
+        Set.unionMany
+    | A.RecordDec {fields=(_, fields)} ->
+        fields |>
+        List.map (snd >> A.unwrap >> refsInTyExpr) |>
+        Set.unionMany
+    
+
 // Find all top level function and let declarations (value declarations)
 // that some expression is referring to
 let decRefs valueDecs (menv : Map<string, string*string>) localVars e =

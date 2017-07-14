@@ -33,7 +33,7 @@ let isWindows = System.Environment.OSVersion.Platform = System.PlatformID.Win32N
 
 let helpText =
     let runTimeName = if isWindows then "Juniper.exe" else "juniper"
-    ["Juniper 2.2.0";
+    ["Juniper 2.3.0";
      "usage: " + runTimeName + " -s s1.jun s2.jun ... sn.jun -o main.cpp";
      "  options:";
      "    -s, --source: The .jun Juniper source files to compile";

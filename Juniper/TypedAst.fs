@@ -184,8 +184,8 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | ArrayMakeExp of ArrayMakeExpRec
           | RefExp of TyAdorn<Expr>
           | TupleExp of TyAdorn<Expr> list
-          | NullExp
           | QuitExp of TyExpr
+          | Smartpointer of string * TyAdorn<Expr>
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | BitwiseXor
               | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
               | BitshiftLeft | BitshiftRight

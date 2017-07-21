@@ -77,9 +77,9 @@ and compileType theta kappa (ty : TyExpr) : string =
             | TyInt64 -> output "int64_t"
             | TyFloat -> output "float"
             | TyBool -> output "bool"
-            | TyUnit -> output "Prelude::unit"
+            | TyUnit -> output "juniper::unit"
             | TyDouble -> output "double"
-            | TyPointer -> output "juniper::shared_ptr<void>"
+            | TyPointer -> output "juniper::smartpointer"
             | TyString -> output "const char *"
         | ModuleQualifierTy {module_ = module_; name=name} ->
             output module_ +
@@ -171,8 +171,14 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
         output (sprintf "((const PROGMEM char *)(\"%s\"))" str)
     | QuitExp ty ->
         getQuitExpr ty |> compile
-    | NullExp _ ->
-        output "juniper::shared_ptr<void>(NULL)"
+    | Smartpointer (name, body) ->
+        output "(([&]() -> " +
+        compileType ty +
+        output " {" + newline() + indentId() +
+        compileType (TyCon <| (BaseTy TyPointer)) + " " + name + ";" +
+        output name + output ".destructorCallback = " + compile body + ";" + newline() +
+        output "return " + name + ";" + newline() + unindentId() +
+        output "})())"
     // Convert inline C++ code from Juniper directly to C++
     | InlineCode code ->
         output "(([&]() -> " + compileType (TyCon <| (BaseTy TyUnit)) + " {" + newline() + indentId() +
@@ -283,7 +289,7 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
         (args |> List.map compile |> String.concat ", ") +
         output ")"
     | UnitExp _ ->
-        output "Prelude::unit()"
+        output "juniper::unit()"
     | VarExp (name, [], []) ->
         output name
     | VarExp (name, t, c) ->

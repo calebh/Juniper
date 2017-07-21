@@ -143,8 +143,8 @@ let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
                 Set.singleton modqual
             else
                 Set.empty
-        | Ast.NullExp _ ->
-            Set.empty
+        | Ast.Smartpointer ((_, varname), (_, body)) ->
+            d (Set.add varname localVars) body
         | Ast.QuitExp _ ->
             Set.empty
         | Ast.RecordAccessExp {record=(_, record)} ->
@@ -285,8 +285,10 @@ let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.Capa
             append2 ([ffv on; pats; exprs] |> List.unzip)
         | T.DoWhileLoopExp {condition=condition; body=body} ->
             append2 ([ffv condition; ffv body] |> List.unzip)
+        | T.Smartpointer (_, expr) ->
+            ffv expr
         | (T.FalseExp | T.FloatExp _ | T.InlineCode _ | T.IntExp _ |
-            T.InternalDeclareVar _ | T.ModQualifierExp _ | T.NullExp |
+            T.InternalDeclareVar _ | T.ModQualifierExp _ |
             T.TrueExp | T.UnitExp | T.VarExp _ | T.DoubleExp _ |
             T.Int16Exp _  | T.UInt16Exp _ | T.Int32Exp _ | T.UInt32Exp _ |
             T.UInt64Exp _ | T.Int64Exp _ | T.Int8Exp _ | T.UInt8Exp _) ->

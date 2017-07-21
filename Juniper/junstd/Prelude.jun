@@ -5,7 +5,6 @@ module Prelude
 *)
 
 (* Internal use only, do not document *)
-type unit = {}
 type tuple2<'a,'b> = {e1 : 'a; e2 : 'b}
 type tuple3<'a,'b,'c> = {e1 : 'a; e2 : 'b; e3 : 'c}
 type tuple4<'a,'b,'c,'d> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd}

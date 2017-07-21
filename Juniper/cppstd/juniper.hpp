@@ -5,90 +5,6 @@
 
 namespace juniper
 {
-    template<typename Result, typename ...Args>
-    struct abstract_function
-    {
-        virtual Result operator()(Args... args) = 0;
-        virtual abstract_function *clone() const = 0;
-        virtual ~abstract_function() = default;
-    };
-
-    template<typename Func, typename Result, typename ...Args>
-    class concrete_function : public abstract_function<Result, Args...>
-    {
-        Func f;
-    public:
-        concrete_function(const Func &x)
-            : f(x)
-        {}
-        Result operator()(Args... args) override
-        {
-            return f(args...);
-        }
-        concrete_function *clone() const override
-        {
-            return new concrete_function{ f };
-        }
-    };
-
-    template<typename Func>
-    struct func_filter
-    {
-        typedef Func type;
-    };
-    template<typename Result, typename ...Args>
-    struct func_filter<Result(Args...)>
-    {
-        typedef Result(*type)(Args...);
-    };
-
-    template<typename signature>
-    class function;
-
-    template<typename Result, typename ...Args>
-    class function<Result(Args...)>
-    {
-        abstract_function<Result, Args...> *f;
-    public:
-        function()
-            : f(nullptr)
-        {}
-        template<typename Func> function(const Func &x)
-            : f(new concrete_function<typename func_filter<Func>::type, Result, Args...>(x))
-        {}
-        function(const function &rhs)
-            : f(rhs.f ? rhs.f->clone() : nullptr)
-        {}
-        function &operator=(const function &rhs)
-        {
-            if ((&rhs != this) && (rhs.f))
-            {
-                auto *temp = rhs.f->clone();
-                delete f;
-                f = temp;
-            }
-            return *this;
-        }
-        template<typename Func> function &operator=(const Func &x)
-        {
-            auto *temp = new concrete_function<typename func_filter<Func>::type, Result, Args...>(x);
-            delete f;
-            f = temp;
-            return *this;
-        }
-        Result operator()(Args... args)
-        {
-            if (f)
-                return (*f)(args...);
-            else
-                return Result{};
-        }
-        ~function()
-        {
-            delete f;
-        }
-    };
-
     template <class T>
     void swap(T& a, T& b) {
         T c(a);
@@ -114,17 +30,10 @@ namespace juniper
             inc_ref();
         }
 
-        ~shared_ptr() {
-            if (ref_count_ && 0 == dec_ref()) {
-                if (ptr_) {
-                    delete ptr_;
-                }
-                delete ref_count_;
-            }
-        }
+        ~shared_ptr();
 
         void set(contained* p) {
-          ptr_ = p;
+            ptr_ = p;
         }
 
         contained* get() { return ptr_; }
@@ -169,6 +78,99 @@ namespace juniper
         int * ref_count_;
     };
 
+    template<>
+    shared_ptr<void>::~shared_ptr() {
+        if (ref_count_ && 0 == dec_ref()) {
+            delete ref_count_;
+        }
+    }
+
+    template<typename T>
+    shared_ptr<T>::~shared_ptr() {
+        if (ref_count_ && 0 == dec_ref()) {
+            if (ptr_) {
+                delete ptr_;
+            }
+            delete ref_count_;
+        }
+    }
+    
+    template<typename Func>
+    struct func_filter
+    {
+        typedef Func type;
+    };
+
+    template<typename Result, typename ...Args>
+    struct func_filter<Result(Args...)>
+    {
+        typedef Result(*type)(Args...);
+    };
+
+    template<typename Result, typename ...Args>
+    struct abstract_function
+    {
+        virtual Result operator()(Args... args) = 0;
+        virtual ~abstract_function() = default;
+    };
+
+    template<typename Func, typename Result, typename ...Args>
+    class concrete_function : public abstract_function<Result, Args...>
+    {
+        Func f;
+    public:
+        concrete_function(const Func &x)
+            : f(x)
+        {}
+        Result operator()(Args... args) override {
+            return f(args...);
+        }
+    };
+
+    template<typename signature>
+    class function;
+
+    template<typename Result, typename ...Args>
+    class function<Result(Args...)>
+    {
+    public:
+        shared_ptr<abstract_function<Result, Args...>> f;
+        function()
+            : f(nullptr) {
+        }
+
+        template<typename Func>
+        function(const Func &x)
+            : f(new concrete_function<typename func_filter<Func>::type, Result, Args...>(x)) {
+        }
+
+        function(const function &rhs)
+            : f(rhs.f) {}
+
+        function &operator=(const function &rhs) {
+            if (&rhs != this) {
+                f = rhs.f;
+            }
+            return *this;
+        }
+
+        template<typename Func>
+        function &operator=(const Func &rhs) {
+            shared_ptr<abstract_function<Result, Args...>> f2(new concrete_function<typename func_filter<Func>::type, Result, Args...>(rhs));
+            f = f2;
+            return *this;
+        }
+
+        Result operator()(Args... args) {
+            if (f.get() != nullptr) {
+                return (*(f.get()))(args...);
+            }
+            else {
+                return Result{};
+            }
+        }
+    };
+
     template<typename T, size_t N>
     class array {
     public:
@@ -196,6 +198,45 @@ namespace juniper
         bool operator!=(array<T, N>& rhs) { return !(rhs == *this); }
 
         T data[N];
+    };
+
+    struct unit {
+    public:
+        bool operator==(unit rhs) {
+            return true;
+        }
+
+        bool operator!=(unit rhs) {
+            return !(rhs == *this);
+        }
+    };
+
+    class smartpointer : public shared_ptr<void> {
+    public:
+        function<unit(smartpointer)> destructorCallback;
+
+        smartpointer() : shared_ptr<void>() {}
+        smartpointer(function<unit(smartpointer)> d) : shared_ptr<void>(), destructorCallback(d) {}
+
+        bool operator==(smartpointer& rhs) {
+            return shared_ptr<void>::operator==(rhs);
+        }
+        
+        shared_ptr& operator=(const smartpointer& rhs) {
+            shared_ptr<void>::operator=(rhs);
+            destructorCallback = rhs.destructorCallback;
+            return *this;
+        }
+
+        bool operator!=(shared_ptr& rhs) {
+            return shared_ptr<void>::operator!=(rhs);
+        }
+
+        ~smartpointer() {
+            if (destructorCallback.f.get() != nullptr) {
+                destructorCallback(*this);
+            }
+        }
     };
 
     template<typename T>

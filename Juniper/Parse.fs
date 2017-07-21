@@ -377,7 +377,6 @@ do
     let parens = betweenChar '(' (expr |>> unwrap) ')'
     let ptrue = skipString "true" |> pos |>> TrueExp
     let pfalse = skipString "false" |> pos |>> FalseExp
-    let pnull = skipString "null" |> pos |>> NullExp
     let pint = pos pint64 |>> IntExp .>> notFollowedByString "."
     let pdouble = pos pfloat |>> DoubleExp
     let pfloat = pos (pfloat .>> skipChar 'f') |>> FloatExp
@@ -471,9 +470,10 @@ do
         let escapedChar = pstring "\\" >>. (anyOf "\\#" |>> string)
         between (pstring "#") (pstring "#") (stringsSepBy normalCharSnippet escapedChar) |> pos |>> InlineCode
     let tuple = betweenChar '(' (separatedList1 expr ',') ')' |>> TupleExp
-    let e = choice (List.map attempt [punit; parens; ptrue; pfalse; pnull; charlist; str;
+    let smartpointer = (skipString "smartpointer" >>. ws >>. (pos id) .>> ws) .>>. (skipString "in" >>. ws >>. expr .>> ws .>> skipString "end") |>> Smartpointer
+    let e = choice (List.map attempt [punit; parens; ptrue; pfalse; charlist; str;
                     pint8; pint16; pint32; pint64'; puint8; puint16; puint32; puint64;
-                    pint; pfloat; pdouble;
+                    pint; pfloat; pdouble; smartpointer;
                     fn; quit; tuple; recordExpr; applyTemplateToFunc; seq;
                     modQual; forLoop; doWhileLoop; whileLoop;
                     pLet; pIf; assign; case;

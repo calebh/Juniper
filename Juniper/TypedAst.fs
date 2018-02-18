@@ -247,10 +247,6 @@ let rec typeConString con appliedTo capExprs =
         | TyString -> "string"
     | ArrayTy ->
         let [arrTy] = appliedTo
-        if List.length capExprs = 0 then
-            printfn "Hello"
-        else
-            ()
         let size =
             match capExprs with
             | [size] ->

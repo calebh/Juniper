@@ -68,6 +68,8 @@
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
+    <Compile Include="NestedPair.fs" />
+    <Compile Include="NeoConstraint.fs" />
     <Compile Include="TypedAst.fs" />
     <Compile Include="Constraint.fs" />
     <Compile Include="Ast.fs" />

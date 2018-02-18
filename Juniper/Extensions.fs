@@ -45,6 +45,12 @@ module Map =
                 Map.add v keys' acc)
             Map.empty
             m
+    
+    let fromKeys f keys =
+        Seq.fold (fun accum k -> Map.add k (f k) accum) Map.empty keys
+
+    let singleton key value =
+        Map.add key value Map.empty
 
 module List =
     let hasDuplicates lst : bool = not (Set.count (Set.ofList lst) = List.length lst)
@@ -60,6 +66,32 @@ module List =
         | (w, x, y, z)::rest ->
             let (ws, xs, ys, zs) = unzip4 rest
             (w::ws, x::xs, y::ys, z::zs)
+
+    let union lstA lstB =
+        let rec union' lstA lstB =
+            match (lstA, lstB) with
+            | ((elem::lstA', lstB') | (lstA', elem::lstB')) ->
+                let (unionOfTail, elemsInTail) = union' lstA' lstB'
+                if Set.contains elem elemsInTail then
+                    (unionOfTail, elemsInTail)
+                else
+                    (elem::unionOfTail, Set.add elem elemsInTail)
+            | ([], []) ->
+                ([], Set.empty)
+        union' lstA lstB |> fst
+
+    let removeDuplicates xs =
+        let rec removeDuplicates' xs =
+            match xs with
+            | x::xs' ->
+                let (dedupedTail, elemsInTail) = removeDuplicates' xs'
+                if Set.contains x elemsInTail then
+                    (dedupedTail, elemsInTail)
+                else
+                    (x::dedupedTail, Set.add x elemsInTail)
+            | [] ->
+                ([], Set.empty)
+        removeDuplicates' xs |> fst
 
 module Seq =
     let duplicates (xs: _ seq) =
@@ -85,3 +117,7 @@ module String =
         let sb = System.Text.StringBuilder(xs.Length)
         xs |> List.iter (sb.Append >> ignore)
         sb.ToString()
+
+    let indentLevel levels (str : string) =
+        let indentationPrepend = (List.replicate levels "    " |> String.concat "")
+        str.Split([|'\n'|]) |> Array.map ((+) indentationPrepend) |> String.concat "\n"

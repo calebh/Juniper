@@ -1,6 +1,7 @@
 ﻿module Parse
 open FParsec
 open Ast
+open FSharpx
 
 let singleLineComment = skipString "//" >>. restOfLine true >>% ()
 let multiLineComment = skipString "(*" >>. skipCharsTillString "*)" true System.Int32.MaxValue
@@ -27,7 +28,7 @@ type LeftRecursiveExp = CallArgs of PosAdorn<PosAdorn<Expr> list>
                       | FieldAccessName of PosAdorn<string>
                       | UnsafeTypeCastType of PosAdorn<TyExpr>
 
-type LeftRecursiveTyp = ArrayTyCap of PosAdorn<CapacityExpr>
+type LeftRecursiveTyp = ArrayTyCap of PosAdorn<TyExpr>
                       | RefTyRef of PosAdorn<unit>
                       | ApplyTyTemplate of PosAdorn<TemplateApply>
 
@@ -41,7 +42,6 @@ let (pattern, patternRef) = createParserForwardedToRef()
 let opp = new OperatorPrecedenceParser<PosAdorn<Expr>, Position, unit>()
 let expr = attempt opp.ExpressionParser
 
-let capOpp = new OperatorPrecedenceParser<PosAdorn<CapacityExpr>, Position, unit>()
 let typOpp = new OperatorPrecedenceParser<PosAdorn<TyExpr>, Position, unit>()
 
 let leftRecurse pterm pchain makeTree =
@@ -124,17 +124,6 @@ List.iter
     prefix "not " 12 LogicalNot;
     prefix "!" 12 Deref]
 
-List.iter
-    (fun f -> f (fun l op r -> CapacityOp {left=l; op=op; right=r}) capOpp)
-    [infix "+" 10 CapAdd Associativity.Left;
-    infix "-"  10 CapSubtract Associativity.Left;
-    infix "*"  11 CapMultiply Associativity.Left;
-    infix "/"  11 CapDivide Associativity.Left]
-
-List.iter
-    (fun f -> f (fun op term -> CapacityUnaryOp {op=op; term=term}) capOpp)
-    [prefix "-" 11 CapNegate]
-
 infix "*" 1 () Associativity.Left
     (fun l _ r ->
         let (_, left) = l
@@ -149,7 +138,7 @@ let pos p : Parser<PosAdorn<'a>, 'b> = getPosition .>>. p .>>. getPosition |>> f
 
 let betweenChar left p right = skipChar left >>. ws >>. p .>> ws .>> skipChar right
 
-let id : Parser<string, unit> =
+let idn : Parser<string, unit> =
     let inRange (c : char) (low, high) =
         let i = int c
         low <= i && i <= high
@@ -198,27 +187,13 @@ let separatedList1 p c = sepBy1 p (ws >>. skipChar c >>. ws)
 
 let moduleQualifier =
     pipe2
-        (pos id .>> skipChar ':')
-        (pos id .>> ws)
+        (pos idn .>> skipChar ':')
+        (pos idn .>> ws)
         (fun moduleName decName -> {module_=moduleName; name=decName})
 
 let templateDec =
-    pipe2
-        // Parse type variables
-        (skipChar '<' >>. ws >>. (separatedList (skipChar '\'' >>. pos id) ',' |> pos))
-        // Parse capacity variables
-        (ws >>. opt (skipChar ';' >>. ws >>. (separatedList (pos id) ',') |> pos) .>> ws .>> skipChar '>')
-        (fun tyVars capVars ->
-            {tyVars = tyVars; capVars = capVars})
-
-// capExpr
-let capExpr = attempt capOpp.ExpressionParser
-
-do
-    let capVar = pos id |>> CapacityNameExpr |> pos
-    let capConst = pos pint64 |>> CapacityConst |> pos
-    let capParens = skipChar '(' >>. ws >>. capExpr .>> ws .>> skipChar ')'
-    capOpp.TermParser <- choice [capVar; capConst; capParens]
+    (skipChar '<' >>. ws >>. (separatedList (skipChar '\'' >>. pos idn) ',' |> pos)) |>>
+    (fun tyVars -> {tyVars = tyVars})
 
 let tyExpr = attempt typOpp.ExpressionParser
 
@@ -226,7 +201,7 @@ let tyExpr = attempt typOpp.ExpressionParser
 let leftRecursiveTyp =
     let openBracket = skipChar '[' >>. ws
     let closingBracket = ws >>. skipChar ']' >>. ws
-    let arrayTyCap = between openBracket closingBracket capExpr |>> ArrayTyCap
+    let arrayTyCap = between openBracket closingBracket tyExpr |>> ArrayTyCap
     let refTyRef = pstring "ref" >>. ws >>% () |> pos |>> RefTyRef
     let applyTyTemplate = templateApply .>> ws |>> ApplyTyTemplate
     (choice [arrayTyCap; refTyRef; applyTyTemplate]) |> pos |> many
@@ -234,9 +209,9 @@ let leftRecursiveTyp =
 // tyExpr
 do
     let varTy =
-        skipChar '\'' >>. id |> pos |>> VarTy
+        skipChar '\'' >>. idn |> pos |>> VarTy
     let name =
-        pos id |>>
+        pos idn |>>
         (fun (p, n) ->
             match n with
             | "uint8" -> BaseTy (p, TyUint8)
@@ -261,7 +236,8 @@ do
             tyExpr
             (fun argTys retTy -> FunTy {template = None; args = argTys; returnType = retTy})
     let parens = skipChar '(' >>. ws >>. tyExpr .>> ws .>> skipChar ')' |>> ParensTy
-    let t = choice (List.map attempt [mQual; varTy; name; fn; parens]) |> pos .>> ws
+    let natNum = pint64 |> pos |>> NatNumTy
+    let t = choice (List.map attempt [natNum; mQual; varTy; name; fn; parens]) |> pos .>> ws
     typOpp.TermParser <-
         leftRecurse
             t
@@ -277,7 +253,7 @@ do
     let varPattern =
         pipe3
             (pstring "mutable" |> opt |>> Option.isSome |> pos .>> ws)
-            (pos id .>> ws)
+            (pos idn .>> ws)
             (skipChar ':' >>. ws >>. tyExpr |> opt .>> ws)
             (fun mut name typ ->
                 MatchVar {varName=name; mutable_=mut; typ=typ}) |> pos
@@ -288,7 +264,7 @@ do
     let valConEnd = opt templateApply .>> ws .>>. (skipChar '(' >>. ws >>. (opt pattern) .>> ws .>> skipChar ')') .>> ws
     let valConPattern =
         pipe2
-            (pos id .>> ws)
+            (pos idn .>> ws)
             valConEnd
             (fun (posn, name) (template, innerPattern) ->
                 MatchValCon {name=(posn, Choice1Of2 name); template=template; innerPattern=innerPattern}) |> pos
@@ -299,10 +275,10 @@ do
             (fun (posm, modQual) (template, innerPattern) ->
                 MatchValCon {name=(posm, Choice2Of2 modQual); template=template; innerPattern=innerPattern}) |> pos
     let underscorePattern = skipChar '_' |> pos |>> MatchUnderscore |> pos
-    let recordPatternEnd = opt templateApply .>> ws .>>. (skipChar '{' >>. ws >>. (separatedList (pos id .>>. (ws >>. skipChar '=' >>. pattern .>> ws)) ';' |> pos .>> ws .>> skipChar '}' .>> ws))
+    let recordPatternEnd = opt templateApply .>> ws .>>. (skipChar '{' >>. ws >>. (separatedList (pos idn .>>. (ws >>. skipChar '=' >>. pattern .>> ws)) ';' |> pos .>> ws .>> skipChar '}' .>> ws))
     let recordPattern =
         pipe2
-            (pos id .>> ws)
+            (pos idn .>> ws)
             recordPatternEnd
             (fun (posn, name) (template, fields) ->
                 MatchRecCon {name=(posn, Choice1Of2 name); template=template; fields=fields}) |> pos
@@ -323,11 +299,11 @@ do
 // leftRecursiveLeftAssign
 let leftRecursiveLeftAssign =
     let arrayMutationIndex = betweenChar '[' expr ']' |>> ArrayMutationIndex
-    let recordMutationField = skipChar '.' >>. pos id |>> RecordMutationField
+    let recordMutationField = skipChar '.' >>. pos idn |>> RecordMutationField
     choice [arrayMutationIndex; recordMutationField] |> pos .>> ws |> many
 
 let leftAssign =
-    let varMutation = id |> pos |>> VarMutation
+    let varMutation = idn |> pos |>> VarMutation
     let modQualifierMutation = moduleQualifier |> pos |>> ModQualifierMutation
     let term = (varMutation <|> modQualifierMutation) |> pos .>> ws
     leftRecurse
@@ -338,20 +314,22 @@ let leftAssign =
             | ArrayMutationIndex index -> ArrayMutation {array=term; index=index}
             | RecordMutationField fname -> RecordMutation {record=term; fieldName=fname})
 
+let functionReturnType = skipChar ':' >>. ws >>. tyExpr .>> ws
+
 let functionClause delimiter =
-    let arguments = betweenChar '(' (separatedList (pos id .>>. opt (ws >>. skipChar ':' >>. ws >>. tyExpr)) ',' |> pos) ')' .>> ws
-    let returnTy = opt (skipChar ':' >>. ws >>. tyExpr .>> ws) .>> skipString delimiter .>> ws
+    let functionArguments =
+        betweenChar '(' (separatedList (pos idn .>>. opt (ws >>. skipChar ':' >>. ws >>. tyExpr)) ',' |> pos) ')' .>> ws
     let body = expr
-    pipe3 arguments returnTy body
-        (fun a r b ->
-            {returnTy = r; arguments = a; body = b})
+    pipe3
+        functionArguments ((opt functionReturnType) .>> skipString delimiter .>> ws) body
+        (fun a r b -> {returnType = r; arguments = a; body = b})
 
 // leftRecursiveExp
 let leftRecursiveExp =
     let callArgs = betweenChar '(' (separatedList expr ',' |> pos) ')' |>> CallArgs
     let arrayIndex = betweenChar '[' expr ']' |>> ArrayIndex
     let typeConstraint = skipChar ':' >>. ws >>. tyExpr |>> TypeConstraintType
-    let fieldAccessName = skipChar '.' >>. ws >>. attempt id |> pos |>> FieldAccessName
+    let fieldAccessName = skipChar '.' >>. ws >>. attempt idn |> pos |>> FieldAccessName
     let unsafeTypeCast = skipString "::::" >>. ws >>. tyExpr |>> UnsafeTypeCastType
     List.map attempt [callArgs; arrayIndex; unsafeTypeCast; typeConstraint; fieldAccessName] |> choice |> pos .>> ws |> many
 
@@ -394,7 +372,7 @@ do
     let quit = skipString "quit" >>. ws >>. opt (skipChar '<' >>. ws >>. tyExpr .>> ws .>> skipChar '>') .>> ws .>> skipChar '(' .>> ws .>> skipChar ')' |>> QuitExp
     let applyTemplateToFunc =
         pipe2
-            (pos ((attempt moduleQualifier |>> Choice2Of2) <|> (id |>> Choice1Of2)) .>> ws)
+            (pos ((attempt moduleQualifier |>> Choice2Of2) <|> (idn |>> Choice1Of2)) .>> ws)
             templateApply
             (fun funExpr temp -> TemplateApplyExp {func = funExpr; templateArgs = temp})
     let pIf =
@@ -422,7 +400,7 @@ do
             (fun ref_ left right -> AssignExp {left=left; right=right; ref=ref_})
     let forLoop =
         pipe6
-            (pstring "for" >>. ws >>. pos id .>> ws)
+            (pstring "for" >>. ws >>. pos idn .>> ws)
             (skipChar ':' >>. ws >>. tyExpr .>> ws |> opt)
             (pstring "in" >>. ws >>. expr .>> ws)
             ((pstring "to" >>% Upto) <|> (pstring "downto" >>% Downto) |> pos .>> ws)
@@ -449,9 +427,9 @@ do
             (fun on clauses ->
                 CaseExp {on=on; clauses=clauses})
     let recordExpr =
-        let fieldList = separatedList ((pos id .>> ws) .>>. (skipChar '=' >>. ws >>. expr)) ';'
+        let fieldList = separatedList ((pos idn .>> ws) .>>. (skipChar '=' >>. ws >>. expr)) ';'
         pipe3
-            (pos ((attempt moduleQualifier |>> Choice2Of2) <|> (id |>> Choice1Of2)) .>> ws)
+            (pos ((attempt moduleQualifier |>> Choice2Of2) <|> (idn |>> Choice1Of2)) .>> ws)
             (templateApply |> opt .>> ws)
             (betweenChar '{' (ws >>. fieldList .>> ws) '}' |> pos)
             (fun recordTy template fields ->
@@ -459,7 +437,7 @@ do
     let arrayLiteral = betweenChar '[' (separatedList expr ',') ']' |> pos |>> ArrayLitExp
     let pref = pstring "ref" >>. ws >>. expr |>> RefExp
     let modQual = moduleQualifier |> pos |>> ModQualifierExp
-    let varReference = attempt id |> pos |>> VarExp
+    let varReference = attempt idn |> pos |>> VarExp
     let arrayMake =
         pipe2
             (skipString "array" >>. ws >>. tyExpr .>> ws)
@@ -470,7 +448,7 @@ do
         let escapedChar = pstring "\\" >>. (anyOf "\\#" |>> string)
         between (pstring "#") (pstring "#") (stringsSepBy normalCharSnippet escapedChar) |> pos |>> InlineCode
     let tuple = betweenChar '(' (separatedList1 expr ',') ')' |>> TupleExp
-    let smartpointer = (skipString "smartpointer" >>. ws >>. (pos id) .>> ws) .>>. (skipString "in" >>. ws >>. expr .>> ws .>> skipString "end") |>> Smartpointer
+    let smartpointer = (skipString "smartpointer" >>. ws >>. (pos idn) .>> ws) .>>. (skipString "in" >>. ws >>. expr .>> ws .>> skipString "end") |>> Smartpointer
     let e = choice (List.map attempt [punit; parens; ptrue; pfalse; charlist; str;
                     pint8; pint16; pint32; pint64'; puint8; puint16; puint32; puint64;
                     pint; pfloat; pdouble; smartpointer;
@@ -494,43 +472,65 @@ do
 // templateApply
 do
     templateApplyRef :=
-        pipe2
-            (skipChar '<' >>. ws >>. separatedList tyExpr ',' .>> ws |> pos |> attempt)
-            ((((opt (skipChar ';' >>. ws >>. separatedList (capExpr) ','))) |>>
-                fun x ->
-                    match x with
-                    | Some x -> x
-                    | None -> []
-                |> pos) .>> ws .>> skipChar '>' |> attempt)
-            (fun tyExprs capExprs ->
-                {tyExprs = tyExprs; capExprs = capExprs}) |> pos
+        (skipChar '<' >>. ws >>. separatedList tyExpr ',' .>> ws .>> skipChar '>') |> pos |>>
+        (fun tyExprs -> {tyExprs = tyExprs}) |> pos
 
-let functionDec =
-    let funName = skipString "fun" >>. ws >>. pos id
+// Typeclass predicates
+let typeclassPred =
+    pipe2
+        (idn |> pos)
+        templateApply
+        (fun name application -> {name = name; templateApply = application})
+
+let typeclassPreds =
+    separatedList (pos typeclassPred) ','
+
+let typeclassWherePreds =
+    skipString "where" >>. ws >>. typeclassPreds
+
+let funName = skipString "fun" >>. ws >>. pos idn .>> ws
+
+let functionArguments =
+    betweenChar '(' (separatedList (pos idn .>>. opt (ws >>. skipChar ':' >>. ws >>. tyExpr)) ',' |> pos) ')' .>> ws
+
+let functionp =
+    let body = expr
+    pipe6
+        funName
+        (templateDec |> pos |> opt)
+        functionArguments
+        (opt functionReturnType)
+        ((typeclassWherePreds |> pos |> opt) .>> skipString "=" .>> ws)
+        body
+        (fun name template arguments returnType predicates body ->
+            let clause = { returnType = returnType; arguments = arguments; body = body }
+            { name=name; template=template; predicates=predicates; clause={} })
+
+let functionp =
     let template = templateDec |> pos |> opt
     let clause = functionClause "=" |> pos
-    pipe3 funName (ws >>. template .>> ws) clause
-        (fun n t c ->
-            FunctionDec {
-                name = n;
-                template = t;
-                clause = c
-            })
+    pipe3
+        (funName .>> ws)
+        (template .>> ws)
+        (clause .>> ws)
+        (fun n t c -> { name = n; template = t; clause = c; predicates })
 
-let moduleName = skipString "module" >>. ws >>. pos id .>> ws |>> ModuleNameDec
+let functionDec = functionp |>> FunctionDec
+
+let moduleName = skipString "module" >>. ws >>. pos idn .>> ws |>> ModuleNameDec
 
 let recordDec =
     pipe3
-        (skipString "type" >>. ws >>. pos id .>> ws)
+        (skipString "type" >>. ws >>. pos idn .>> ws)
         (templateDec |> pos |> opt .>> ws .>> skipChar '=' .>> ws .>> skipChar '{' .>> ws)
-        (separatedList ((pos id .>> ws .>> skipChar ':' .>> ws) .>>. tyExpr) ';' |> pos .>> ws .>> skipChar '}' .>> ws)
+        (separatedList ((pos idn .>> ws .>> skipChar ':' .>> ws) .>>. tyExpr) ';' |> pos .>> ws .>> skipChar '}' .>> ws)
         (fun name template fields ->
             RecordDec {name=name; template=template; fields=fields})
 
 let unionDec =
-    let valueConstructor = pos id .>> ws .>>. (skipString "of" >>. ws >>. tyExpr |> opt .>> ws)
+    let valueConstructor = pos idn .>> ws .>>. (skipString "of" >>. ws >>. tyExpr |> opt .>> ws)
     pipe3
-        (skipString "type" >>. ws >>. pos id .>> ws)
+        (skipString "type" >>. ws >>. pos idn .>> ws)
         (templateDec |> pos |> opt .>> ws .>> skipChar '=' .>> ws)
         (separatedList valueConstructor '|' |> pos)
         (fun name template valCons ->
@@ -538,18 +538,48 @@ let unionDec =
 
 let letDec =
     pipe3
-        (skipString "let" >>. ws >>. pos id .>> ws)
+        (skipString "let" >>. ws >>. pos idn .>> ws)
         (skipChar ':' >>. ws >>. tyExpr |> opt .>> ws)
         (skipChar '=' >>. ws >>. expr .>> ws)
         (fun name typ right ->
             LetDec {varName=name; typ=typ; right=right})
 
-let openDec = skipString "open" >>. ws >>. skipChar '(' >>. ws >>. (separatedList (pos id) ',' |> pos) .>>
+let openDec = skipString "open" >>. ws >>. skipChar '(' >>. ws >>. (separatedList (pos idn) ',' |> pos) .>>
                 ws .>> skipChar ')' .>> ws |>> OpenDec
 
 let includeDec = skipString "include" >>. ws >>. skipChar '(' >>. ws >>. separatedList (pos (stringLiteral '"' false)) ',' |> pos .>>
                     ws .>> skipChar ')' .>> ws |>> IncludeDec
 
+let typeclassDec =
+    let functionArguments =
+        betweenChar '(' (separatedList (pos idn .>>. (ws >>. skipChar ':' >>. ws >>. tyExpr)) ',' |> pos) ')' .>> ws
+
+    let typeClassDecFun =
+        pipe5
+            funName
+            (templateDec |> pos |> opt)
+            functionArguments
+            functionReturnType
+            (pos typeclassWherePreds |> opt)
+            (fun name template arguments returnType preds ->
+                {name = name; template = template; arguments = arguments; returnType = returnType;
+                 predicates = preds})
+    
+    pipe3
+        (skipString "typeclass" >>. ws >>. (pos idn) .>> ws)
+        (templateDec .>> ws .>> (skipString "do"))
+        ((many (typeClassDecFun |> pos) |> pos) .>> (skipString "end"))
+        (fun name template funs -> {name = name; template = template; functions = funs}) |>
+    pos |>>
+    Typeclass
+
+let typeclassInstanceDec =
+    pipe2
+        (skipString "instance" >>. ws >>. (pos typeclassPred) .>> ws .>> skipString "do" .>> ws)
+        (pos (many (pos functionp)) .>> ws .>> skipString "end")
+        (fun pred funcs -> {predicate = pred; functions = funcs})
+
 let program =
-    let declarationTypes = [functionDec; moduleName; attempt recordDec; unionDec; letDec; openDec; includeDec]
+    let declarationTypes = [functionDec; moduleName; attempt recordDec; unionDec;
+                            letDec; openDec; includeDec; typeclassDec]
     ws >>. many (choice declarationTypes |> pos .>> ws) .>> eof

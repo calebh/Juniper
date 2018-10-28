@@ -13,28 +13,42 @@ type Module = Module of PosAdorn<Declaration> list
 and PosAdorn<'a> = (Position * Position) * 'a
 
 // Top level declarations
-// Function object. Template is optional.
 and FunctionRec = { name     : PosAdorn<string>;
                     template : PosAdorn<Template> option;
+                    predicates : PosAdorn<PosAdorn<TypeclassPred> list> option;
                     clause   : PosAdorn<FunctionClause> }
 
-// Record object. Template is optional.
 and RecordRec =   { name     : PosAdorn<string>;
                     fields   : PosAdorn<(PosAdorn<string> * PosAdorn<TyExpr>) list>;
                     template : PosAdorn<Template> option }
 
-// Value constructor. Type is optional.
 and ValueCon =    PosAdorn<string> * (PosAdorn<TyExpr> option)
 
-// Union algrebraic datatype. Template is optional.
+// Union algrebraic datatype/"sum" datatype
 and UnionRec =    { name     : PosAdorn<string>;
                     valCons  : PosAdorn<ValueCon list>;
                     template : PosAdorn<Template> option }
 
-// Let statement for functional-style declarations.
 and LetDecRec = { varName : PosAdorn<string>;
                   typ     : PosAdorn<TyExpr> option;
                   right   : PosAdorn<Expr>; }
+
+and TypeclassPred = { name : PosAdorn<string>;
+                      templateApply: PosAdorn<TemplateApply> }
+
+and TypeclassFunc = { name : PosAdorn<string>;
+                      template: PosAdorn<Template> option
+                      returnType : PosAdorn<TyExpr>;
+                      predicates: PosAdorn<PosAdorn<TypeclassPred> list> option;
+                      arguments :  PosAdorn<(PosAdorn<string> * PosAdorn<TyExpr>) list>; }
+
+and TypeclassRec = { name : PosAdorn<string>;
+                     template : Template;
+                     predicates: PosAdorn<PosAdorn<TypeclassPred> list> option;
+                     functions : PosAdorn<PosAdorn<TypeclassFunc> list> }
+
+and TypeclassInstanceRec = { predicate: PosAdorn<TypeclassPred>
+                             functions : PosAdorn<PosAdorn<FunctionRec> list> }
 
 // Declaration defined as any of the above.
 and Declaration = FunctionDec   of FunctionRec
@@ -44,27 +58,18 @@ and Declaration = FunctionDec   of FunctionRec
                 | ModuleNameDec of PosAdorn<string>
                 | OpenDec       of PosAdorn<PosAdorn<string> list>
                 | IncludeDec    of PosAdorn<PosAdorn<string> list>
+                | Typeclass     of PosAdorn<TypeclassRec>
 
-// A template is associated with a function, record or union
-and Template = { tyVars : PosAdorn<PosAdorn<string> list>; capVars : PosAdorn<PosAdorn<string> list> option }
+// A template is a list of type variables
+and Template = { tyVars : PosAdorn<PosAdorn<string> list> }
 
 // Use these to apply a template (ex: when calling a function with a template)
-and TemplateApply = { tyExprs : PosAdorn<PosAdorn<TyExpr> list>; capExprs : PosAdorn<PosAdorn<CapacityExpr> list> }
-
-// Capacities are used for making lists and arrays of fixed maximum sizes.
-and CapacityArithOp = CapAdd | CapSubtract | CapMultiply | CapDivide
-and CapacityUnaryOp = CapNegate
-and CapacityArithOpRec = { left : PosAdorn<CapacityExpr>; op : PosAdorn<CapacityArithOp>; right : PosAdorn<CapacityExpr> }
-and CapacityUnaryOpRec = { op : PosAdorn<CapacityUnaryOp>; term : PosAdorn<CapacityExpr> }
-and CapacityExpr = CapacityNameExpr of PosAdorn<string>
-                 | CapacityOp of CapacityArithOpRec
-                 | CapacityUnaryOp of CapacityUnaryOpRec
-                 | CapacityConst of PosAdorn<int64>
+and TemplateApply = { tyExprs : PosAdorn<PosAdorn<TyExpr> list> }
 
 // The language is statically typed, and so there must be support for Type Expressons and their applications
 // (applying a typed datatype, typed arrays, typed functions definitions, a list of base types).
 and TyApplyRec = { tyConstructor : PosAdorn<TyExpr>; args : PosAdorn<TemplateApply> }
-and ArrayTyRec = { valueType : PosAdorn<TyExpr>; capacity : PosAdorn<CapacityExpr> }
+and ArrayTyRec = { valueType : PosAdorn<TyExpr>; capacity : PosAdorn<TyExpr> }
 and FunTyRec = { template : PosAdorn<Template> option; args : PosAdorn<TyExpr> list; returnType : PosAdorn<TyExpr> }
 and BaseTypes = TyUint8
               | TyUint16
@@ -91,6 +96,7 @@ and TyExpr = BaseTy of PosAdorn<BaseTypes>
            | TupleTy of PosAdorn<TyExpr> list
            // Need this extra type for infix parser combinator matching on tuples
            | ParensTy of PosAdorn<TyExpr>
+           | NatNumTy of PosAdorn<int64>
 
 // Pattern matching AST datatypes.
 and MatchVarRec = {varName : PosAdorn<string>; mutable_ : PosAdorn<bool>; typ : PosAdorn<TyExpr> option}
@@ -109,7 +115,7 @@ and Pattern = MatchVar of MatchVarRec
             | MatchFalse of PosAdorn<unit>
 
 // Elements of a function clause.
-and FunctionClause = {returnTy : PosAdorn<TyExpr> option; arguments : PosAdorn<(PosAdorn<string> * (PosAdorn<TyExpr> option)) list>; body : PosAdorn<Expr>}
+and FunctionClause = {returnType : PosAdorn<TyExpr> option; arguments : PosAdorn<(PosAdorn<string> * (PosAdorn<TyExpr> option)) list>; body : PosAdorn<Expr>}
 
 // Module qualifier.
 and ModQualifierRec = { module_ : PosAdorn<string>; name : PosAdorn<string> }

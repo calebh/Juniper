@@ -503,17 +503,11 @@ let functionp =
         ((typeclassWherePreds |> pos |> opt) .>> skipString "=" .>> ws)
         body
         (fun name template arguments returnType predicates body ->
-            let clause = { returnType = returnType; arguments = arguments; body = body }
-            { name=name; template=template; predicates=predicates; clause={} })
-
-let functionp =
-    let template = templateDec |> pos |> opt
-    let clause = functionClause "=" |> pos
-    pipe3
-        (funName .>> ws)
-        (template .>> ws)
-        (clause .>> ws)
-        (fun n t c -> { name = n; template = t; clause = c; predicates })
+            let (clausePosL, _) = getPos arguments
+            let (_, clausePosR) = getPos arguments
+            let clausePos = (clausePosL, clausePosR)
+            let clause = (clausePos, { returnType = returnType; arguments = arguments; body = body })
+            { name=name; template=template; predicates=predicates; clause=clause })
 
 let functionDec = functionp |>> FunctionDec
 
@@ -565,19 +559,23 @@ let typeclassDec =
                 {name = name; template = template; arguments = arguments; returnType = returnType;
                  predicates = preds})
     
-    pipe3
+    pipe4
         (skipString "typeclass" >>. ws >>. (pos idn) .>> ws)
-        (templateDec .>> ws .>> (skipString "do"))
+        (templateDec)
+        (typeclassWherePreds |> pos |> opt)
         ((many (typeClassDecFun |> pos) |> pos) .>> (skipString "end"))
-        (fun name template funs -> {name = name; template = template; functions = funs}) |>
+        (fun name template predicates funs ->
+            {name = name; template = template; predicates = predicates; functions = funs}) |>
     pos |>>
     Typeclass
 
 let typeclassInstanceDec =
-    pipe2
-        (skipString "instance" >>. ws >>. (pos typeclassPred) .>> ws .>> skipString "do" .>> ws)
+    pipe3
+        (skipString "instance" >>. ws >>. (pos typeclassPred) .>> ws)
+        (typeclassWherePreds |> pos |> opt)
         (pos (many (pos functionp)) .>> ws .>> skipString "end")
-        (fun pred funcs -> {predicate = pred; functions = funcs})
+        (fun instanceOf predicates funcs ->
+            {instanceOf = instanceOf; predicates = predicates; functions = funcs})
 
 let program =
     let declarationTypes = [functionDec; moduleName; attempt recordDec; unionDec;

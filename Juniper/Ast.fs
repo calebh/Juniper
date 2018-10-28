@@ -47,7 +47,8 @@ and TypeclassRec = { name : PosAdorn<string>;
                      predicates: PosAdorn<PosAdorn<TypeclassPred> list> option;
                      functions : PosAdorn<PosAdorn<TypeclassFunc> list> }
 
-and TypeclassInstanceRec = { predicate: PosAdorn<TypeclassPred>
+and TypeclassInstanceRec = { instanceOf: PosAdorn<TypeclassPred>;
+                             predicates : PosAdorn<PosAdorn<TypeclassPred> list> option;
                              functions : PosAdorn<PosAdorn<FunctionRec> list> }
 
 // Declaration defined as any of the above.

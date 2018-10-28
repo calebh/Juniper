@@ -4,37 +4,44 @@ open FParsec
 // Allows for module type to be used for declaring modules.
 type Module = Module of Declaration list
 
-// Tuple of starting position and ending position
-// Note: The 'option' keyword indicates that field is optional (can have 'none' as assignment)
-
-// PosAdorn wraps a an AST object in a start and end line position for helpful debugging
-// messages. It also includes the type of the object, which starts as 'none'.
-// Virtually every object in the AST is a PosAdorn wrapping another object.
 and TyAdorn<'a> = (Position * Position) * TyExpr * 'a
 
 // Top level declarations
-// Function object. Template is optional.
 and FunctionRec = { name     : string;
                     template : Template option;
                     clause   : FunctionClause }
 
-// Record object. Template is optional.
 and RecordRec =   { name     : string
                     fields   : (string * TyExpr) list;
                     template : Template option }
 
-// Value constructor. Type is optional.
 and ValueCon =    string * (TyExpr option)
 
-// Union algrebraic datatype. Template is optional.
 and UnionRec =    { name     : string;
                     valCons  : ValueCon list;
                     template : Template option }
 
-// Let statement for functional-style declarations.
 and LetDecRec = { varName : string;
                   typ     : TyExpr;
                   right   : TyAdorn<Expr>; }
+
+and TypeclassPred = { name : string;
+                      templateApply: TemplateApply }
+
+and TypeclassFunc = { name : string;
+                      template: Template option
+                      returnType : TyExpr;
+                      predicates: TypeclassPred list;
+                      arguments :  (string * TyExpr) list; }
+
+and TypeclassRec = { name : string;
+                     template : Template;
+                     predicates: TypeclassPred list;
+                     functions : TypeclassFunc list }
+
+and TypeclassInstanceRec = { instanceOf: TypeclassPred;
+                             predicates : TypeclassPred list;
+                             functions : FunctionRec list }
 
 // Declaration defined as any of the above.
 and Declaration = FunctionDec   of FunctionRec
@@ -46,20 +53,10 @@ and Declaration = FunctionDec   of FunctionRec
                 | IncludeDec    of string list
 
 // A template is associated with a function, record or union
-and Template = { tyVars : string list; capVars : string list }
+and Template = { tyVars : string list }
 
 // Use these to apply a template (ex: when calling a function with a template)
-and TemplateApply = { tyExprs : TyExpr list; capExprs : CapacityExpr list }
-
-// Capacities are used for making lists and arrays of fixed maximum sizes.
-and CapacityArithOp = CapAdd | CapSubtract | CapMultiply | CapDivide
-and CapacityUnaryOp = CapNegate
-and CapacityArithOpRec = { left : CapacityExpr; op : CapacityArithOp; right : CapacityExpr }
-and CapacityUnaryOpRec = { op : CapacityUnaryOp; term : CapacityExpr }
-and CapacityExpr = CapacityVar of string
-                 | CapacityOp of CapacityArithOpRec
-                 | CapacityUnaryOp of CapacityUnaryOpRec
-                 | CapacityConst of int64
+and TemplateApply = { tyExprs : TyExpr list }
 
 and BaseTypes = TyUint8
               | TyUint16
@@ -84,16 +81,16 @@ and TyCons = BaseTy of BaseTypes
 and TyExpr = TyCon of TyCons
                     // For TyCon FunTy, the first element in the TyExpr list is the return type
                     // v this must be a TyCon
-           | ConApp of TyExpr * (TyExpr list) * (CapacityExpr list)
+           | ConApp of TyExpr * (TyExpr list)
            | TyVar of string
-                      // v Types       v capacities
-and TyScheme = Forall of string list * string list * TyExpr
+                      // v Types
+and TyScheme = Forall of string list * TyExpr
 
 and DeclarationTy = FunDecTy of TyScheme
-                    //              v Types      v capacities
-                  | RecordDecTy of string list * string list * Map<string, TyExpr>
+                    //              v Types
+                  | RecordDecTy of string list * Map<string, TyExpr>
                   | LetDecTy of TyExpr
-                  | UnionDecTy of string list * string list * ModQualifierRec
+                  | UnionDecTy of string list * ModQualifierRec
 
 // Pattern matching AST datatypes.
 and MatchVarRec = { varName : string; mutable_ : bool; typ : TyExpr }
@@ -159,7 +156,7 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | UnaryOpExp of UnaryOpRec
           | RecordAccessExp of RecordAccessRec
           | ArrayAccessExp of ArrayAccessRec
-          | VarExp of string * TyExpr list * CapacityExpr list
+          | VarExp of string * TyExpr list
           | UnitExp
           | TrueExp
           | FalseExp
@@ -178,7 +175,7 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | StringExp of string
           | CallExp of CallRec
           | TemplateApplyExp of TemplateApplyExpRec
-          | ModQualifierExp of ModQualifierRec * TyExpr list * CapacityExpr list
+          | ModQualifierExp of ModQualifierRec * TyExpr list
           | RecordExp of RecordExprRec
           | ArrayLitExp of TyAdorn<Expr> list
           | ArrayMakeExp of ArrayMakeExpRec
@@ -211,23 +208,8 @@ let dummyWrap<'a> c : TyAdorn<'a> = ((dummyPos, dummyPos), TyCon <| BaseTy TyUni
 // Add typing to a TyAdorn.
 let wrapWithType<'a> t c : TyAdorn<'a> = ((dummyPos, dummyPos), t, c)
 
-// Turns a capacity expression into a string for debugging (printing error messages)
-let rec capacityString cap =
-    match cap with
-    | CapacityVar name -> name
-    | CapacityOp {left=left; op=op; right=right} ->
-        let opStr = match op with
-                    | CapAdd -> "+"
-                    | CapSubtract -> "-"
-                    | CapDivide -> "/"
-                    | CapMultiply -> "*"
-        sprintf "(%s %s %s)" (capacityString left) opStr (capacityString right)
-    | CapacityConst number -> sprintf "%i" number
-    | CapacityUnaryOp {op=CapNegate; term=term} -> sprintf "-%s" (capacityString term)
-
-let rec typeConString con appliedTo capExprs =
+let rec typeConString con appliedTo =
     let typeStrings tys sep = List.map typeString tys |> String.concat sep
-    let capacityStrings caps sep = List.map capacityString caps |> String.concat sep
     match con with
     | BaseTy baseTy ->
         match baseTy with
@@ -246,14 +228,8 @@ let rec typeConString con appliedTo capExprs =
         | TyPointer -> "pointer"
         | TyString -> "string"
     | ArrayTy ->
-        let [arrTy] = appliedTo
-        let size =
-            match capExprs with
-            | [size] ->
-                capacityString size
-            | _ ->
-                "???"
-        sprintf "%s[%s]" (typeString arrTy) size
+        let [arrTy; capTy] = appliedTo
+        sprintf "%s[%s]" (typeString arrTy) (typeString capTy)
     | FunTy ->
         let retTy::argsTys = appliedTo
         sprintf "(%s) -> %s" (typeStrings argsTys ", ") (typeString retTy)
@@ -261,11 +237,7 @@ let rec typeConString con appliedTo capExprs =
         let genericApplication =
             match appliedTo with
             | [] -> ""
-            | _ ->
-                if List.length capExprs = 0 then
-                    sprintf "<%s>" (typeStrings appliedTo ", ")
-                else
-                    sprintf "<%s; %s>" (typeStrings appliedTo ", ") (capacityStrings capExprs ", ")
+            | _ -> sprintf "<%s>" (typeStrings appliedTo ", ")
         sprintf "%s:%s%s" module_ name genericApplication
     | RefTy ->
         let [refTy] = appliedTo
@@ -276,9 +248,9 @@ let rec typeConString con appliedTo capExprs =
 and typeString (ty : TyExpr) : string =
     match ty with
     | TyCon con ->
-        typeConString con [] []
-    | ConApp (TyCon con, args, capArgs) ->
-        typeConString con args capArgs
+        typeConString con []
+    | ConApp (TyCon con, args) ->
+        typeConString con args
     | TyVar name ->
         sprintf "'%s" name
     | _ ->

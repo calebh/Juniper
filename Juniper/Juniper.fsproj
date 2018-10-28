@@ -71,7 +71,6 @@
     <Compile Include="NestedPair.fs" />
     <Compile Include="NeoConstraint.fs" />
     <Compile Include="TypedAst.fs" />
-    <Compile Include="Constraint.fs" />
     <Compile Include="Ast.fs" />
     <Compile Include="Compiler.fs" />
     <Compile Include="Parse.fs" />

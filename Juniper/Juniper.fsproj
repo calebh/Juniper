@@ -107,7 +107,6 @@
   <Target Name="BeforeBuild">
   </Target>-->
   <ItemGroup>
-    <LinuxLauncher Include="juniper" />
     <Compile Include="Extensions.fs" />
     <Compile Include="Guid.fs" />
     <Compile Include="AssemblyInfo.fs" />
@@ -124,11 +123,6 @@
     <Compile Include="Module.fs" />
     <Compile Include="TypeChecker.fs" />
     <Compile Include="Program.fs" />
-    <JunStd Include="$(ProjectDir)junstd/*" />
-    <CppStd Include="$(ProjectDir)cppstd/*" />
-    <Examples Include="$(ProjectDir)examples/*" />
-    <Wrappers Include="$(ProjectDir)wrappers/*" />
-    <LinuxLauncher Include="$(ProjectDir)juniper" />
   </ItemGroup>
   <Target Name="AfterBuild" Condition=" '$(OS)' == 'Unix'">
     <Copy SourceFiles="@(JunStd)" DestinationFolder="$(ProjectDir)bin/$(ConfigurationName)/junstd" />
@@ -141,6 +135,11 @@
     <!-- Mono copy support -->
     <When Condition=" '$(OS)' == 'Unix'">
       <ItemGroup>
+        <JunStd Include="$(ProjectDir)junstd/*" />
+        <CppStd Include="$(ProjectDir)cppstd/*" />
+        <Examples Include="$(ProjectDir)examples/*" />
+        <Wrappers Include="$(ProjectDir)wrappers/*" />
+        <LinuxLauncher Include="$(ProjectDir)juniper" />
       </ItemGroup>
     </When>
     <!-- Visual Studio can't seem to copy entire directories with the copy command

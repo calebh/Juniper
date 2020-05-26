@@ -1,4 +1,5 @@
 ﻿module Compiler
+open System
 open TypedAst
 open Extensions
 
@@ -657,6 +658,7 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
         output "namespace " + output module_ + output " {" + newline() + indentId() +
         compileDec module_ theta kappa dec + newline() + unindentId() +
         output "}" + newline() + newline()
+    output "//Compiled on " + DateTime.Now.ToString() + newline() +
     output "#include <inttypes.h>" + newline() +
     output "#include <stdbool.h>" + newline() + newline() +
     junCppStd + newline() +

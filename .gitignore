@@ -238,3 +238,6 @@ _Pvt_Extensions
 
 # FAKE - F# Make
 .fake/
+
+# MacOS
+.DS_Store

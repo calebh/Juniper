@@ -6,7 +6,7 @@ let boardLed = 13
 let tState = Time:state()
 let ledState = ref low()
 
-fun blink() = (
+fun loop() = (
     let timerSig = Time:every(1000, tState);
     let ledSig =
         Signal:foldP(
@@ -19,10 +19,3 @@ fun blink() = (
 
 fun setup() =
     Io:setPinMode(boardLed, Io:output())
-
-fun main() = (
-    setup();
-    while true do
-        blink()
-    end
-)

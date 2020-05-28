@@ -1,4 +1,4 @@
-﻿module NeoConstraint
+﻿module Constraint
 
 // This code is based off of Norman Ramsey's implementation as
 // described in the book Programming Languages: Build, Prove, and Compare

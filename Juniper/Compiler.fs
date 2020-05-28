@@ -696,7 +696,7 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
         | None ->
             failwith "Unable to find program entry point. Please create a function called setup.\n fun setup() = ()"
         | Some module_ ->
-            output "void setup() {" + newline() + indentId() + output "init();" + newline() +
+            output "void setup() {" + newline() +
             output module_ + output "::" + output "setup();" +
             output (unindentId() + newline() + "}" + newline()))+
 

@@ -49,22 +49,31 @@ To get started using Juniper, you'll first need to build the compiler using the 
 6. The result should be a built .exe file called "Juniper.exe".
 7. (Optional) Add Juniper.exe to PATH variables so that it can be run from any directory.
 
-#### For writing Juniper files:
+### For Linux machines:
 
-You can write Juniper files in any text editor, but the Atom text editor supports a plugin for Juniper text highlighting, which is very useful for code readability. Install Atom, and install the plugin "language-juniper" from inside the editor.
+1. Follow [these instructions](http://fsharp.org/use/linux/) for F# installation on Linux. Choose the option that works best for you.
+2. Open the Juniper.sln solution file. Check the references, and refresh them if necessary. Verify that FParsec and QuickGraph work. Update NuGet packages.
+3. If the target framework version is not supported, open Juniper.fsproj, and change the TargetFrameworkVersion tag to v4.8.
+4. Build the Juniper project.
 
-#### For running the compiler:
+### For MacOS machines:
+
+1. Follow [these instructions](http://fsharp.org/use/mac/) (Option 3: Install Visual Studio for Mac) is tested, but choose the option that works best for you. The package manager is NuGet and has not been updated to paket.
+2. Open the Juniper solution. Check the references, and refresh them if necessary. Verify that FParsec, FParsecCS and QuickGraph work. Update Nuget packages.
+3. If the target framework version is not supported, open Juniper.fsproj, and change the TargetFrameworkVersion tag to v4.8.
+4. Build the Juniper project.
+
+#### For running the compiler with Mono
+5. Install [Mono](https://www.mono-project.com/docs/getting-started/install/mac/).
+6. Run Juniper using Mono: `mono Juniper.exe -s examples/Blink.jun -o Blink.cpp`.
+
+### For writing Juniper files:
+
+You can write Juniper files in any text editor, but the Atom text editor supports a plugin for Juniper text highlighting, which is very useful for code readability. Install Atom, and install the package "language-juniper" from inside the editor.
+
+### For running the compiler:
 
 1. From the command line, run "Juniper.exe -s [.jun modules as arguments] -o [output file]"
 2. This should build your .cpp file. Compile and upload to your Arduino (with your preferred method, such as PlatformIO).
 
-### For Linux Machines:
 
-1. Follow [these instructions](http://fsharp.org/use/linux/) for F# installation on Linux. Choose the option that works best for you.
-2. Open the Juniper.sln solution file. Check the references, and refresh them if necessary. Verify that FParsec and QuickGraph work. Update NuGet packages.
-3. If the target framework version is not supported, open Juniper.fsproj, and change the TargetFrameworkVersion tag to v4.5.
-3. Build the Juniper project.
-
-#### For writing Juniper files:
-
-You can write Juniper files in any text editor, but the Atom text editor supports a plugin for Juniper text highlighting, which is very useful for code readability. Install Atom, and install the package "language-juniper" from inside the editor.

@@ -640,18 +640,21 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
 // Program: includes, types, values
 //                              module names   opens                         v incudes           v mod name  v type dec           v mod    v fun/let dec v scc    v theta              v kappa
 and compileProgram (program : string list * ((string * Declaration) list) * Declaration list * ((string * Declaration) list) * (((string * Declaration) list) * Map<string, TyExpr> * Map<string, CapacityExpr>) list) : string =
-    let mutable entryPoint = None
     let executingDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
     let junCppStdPath = executingDir + "/cppstd/juniper.hpp"
     let junCppStd = System.IO.File.ReadAllText junCppStdPath
     let (moduleNames, opens, includes, typeDecs, valueSccs) = program
+    let mutable setupModule = None
+    let mutable loopModule = None
     (valueSccs |> List.iter (fun scc ->
         match scc with
         | (decs, _, _) ->
             decs |> List.iter (fun (module_, dec) ->
                 match dec with
-                | FunctionDec {name=name} when name = "main" ->
-                    entryPoint <- Some {module_=module_; name=name}
+                | FunctionDec {name=name} when name = "setup" ->
+                    setupModule <- Some module_
+                | FunctionDec {name=name} when name = "loop" ->
+                    loopModule <- Some module_
                 | _ -> ())
         | _ -> ()))
     let compileNamespace theta kappa (module_, dec) =
@@ -683,10 +686,28 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
     ) |> String.concat "") +
     (valueSccs |> List.map (fun (decs, theta, kappa) ->
         decs |> List.map (compileNamespace theta kappa) |> String.concat "") |> String.concat "") +
-    (match entryPoint with
-    | None ->
-        failwith "Unable to find program entry point. Please create a function called main."
-    | Some {module_=module_; name=name} ->
-        output "int main() {" + newline() + indentId() + output "init();" + newline() +
-        output module_ + output "::" + output name + output "();" + newline() +
-        output "return 0;" + unindentId() + newline() + "}")
+
+    (*
+        void setup() {
+          Blink::setup();
+        }
+    *)
+    (match setupModule with
+        | None ->
+            failwith "Unable to find program entry point. Please create a function called setup.\n fun setup() = ()"
+        | Some module_ ->
+            output "void setup() {" + newline() + indentId() + output "init();" + newline() +
+            output module_ + output "::" + output "setup();" +
+            output (unindentId() + newline() + "}" + newline()))+
+
+    (*
+        void loop() {
+          Blink::loop();
+        }
+    *)
+    (match loopModule with
+        | None ->
+            failwith "Unable to find program entry point. Please create a function called loop.\n fun loop() = ()."
+        | Some module_ ->
+            output "void loop() {" + indentId() + newline() +
+            output module_ + output "::" + output "loop();" + unindentId() + newline() + "}")

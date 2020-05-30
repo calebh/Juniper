@@ -697,8 +697,8 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
             failwith "Unable to find program entry point. Please create a function called setup.\n fun setup() = ()"
         | Some module_ ->
             output "void setup() {" + newline() +
-            output module_ + output "::" + output "setup();" +
-            output (unindentId() + newline() + "}" + newline()))+
+            indentId() + output module_ + output "::" + output "setup();" + newline() + unindentId() +
+            "}" + newline()) +
 
     (*
         void loop() {
@@ -709,5 +709,6 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
         | None ->
             failwith "Unable to find program entry point. Please create a function called loop.\n fun loop() = ()."
         | Some module_ ->
-            output "void loop() {" + indentId() + newline() +
-            output module_ + output "::" + output "loop();" + unindentId() + newline() + "}")
+            output "void loop() {" + newline() +
+            indentId() + output module_ + output "::" + output "loop();" + newline() + unindentId()
+            + "}")

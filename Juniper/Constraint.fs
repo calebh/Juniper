@@ -50,36 +50,36 @@ type TyExpr = TVarExpr of TyVar
 //            | TGen of int
 
 [<CustomEquality; CustomComparison>]
-type Pred = IsIn of (Namespace * List<TyExpr> * ErrorMessage)
-                override x.Equals y =
-                    match y with
-                    | :? Pred as x' ->
-                        let (IsIn (n, t, e), IsIn(n', t', e')) = (x, x')
-                        (n, t, e.GetHashCode()) = (n', t', e'.GetHashCode())
-                    | _ -> false
-                override x.GetHashCode() =
-                    let (IsIn (n, t, e)) = x
-                    (n, t, e.GetHashCode()).GetHashCode()
-                interface System.IComparable with
-                    override x.CompareTo y =
-                        match y with
-                        | :? Pred as x' ->
-                            let (IsIn (n, t, e), IsIn(n', t', e')) = (x, x')
-                            let tup1 = (n, t, e.GetHashCode())
-                            let tup2 = (n', t', e'.GetHashCode())
-                            compare tup1 tup2
-                        | _ ->
-                            invalidArg "y" "Cannot compare Pred to non-Pred type"
+type Pred<'a> when 'a : equality and 'a : comparison = IsIn of (Namespace * List<'a> * ErrorMessage)
+                                                            override x.Equals y =
+                                                                match y with
+                                                                | :? Pred<'a> as x' ->
+                                                                    let (IsIn (n, t, e), IsIn(n', t', e')) = (x, x')
+                                                                    (n, t, e.GetHashCode()) = (n', t', e'.GetHashCode())
+                                                                | _ -> false
+                                                            override x.GetHashCode() =
+                                                                let (IsIn (n, t, e)) = x
+                                                                (n, t, e.GetHashCode()).GetHashCode()
+                                                            interface System.IComparable with
+                                                                override x.CompareTo y =
+                                                                    match y with
+                                                                    | :? Pred<'a> as x' ->
+                                                                        let (IsIn (n, t, e), IsIn(n', t', e')) = (x, x')
+                                                                        let tup1 = (n, t, e.GetHashCode())
+                                                                        let tup2 = (n', t', e'.GetHashCode())
+                                                                        compare tup1 tup2
+                                                                    | _ ->
+                                                                        invalidArg "y" "Cannot compare Pred to non-Pred type"
 
-type Qual = Qual of (Set<Pred> * TyExpr)
-type Inst = Qual
-type Class = {superClasses : List<Namespace>; instances : List<Inst>}
-type ClassEnv = { classes : Map<Namespace, Class>; defaults : List<TyExpr>}
+type Qual<'a, 'b> when 'a : equality and 'a : comparison = Qual of (Set<Pred<'a>> * 'b)
+type Inst = Qual<TyExpr, Pred<TyExpr>>
+type Class = { classDec : Qual<TyVar, Pred<TyVar>>; instances : List<Inst> }
+type ClassEnv = Map<Namespace, Class>
 type Subst = Map<TyVar, TyExpr>
-type ConstrainedSubst = (Subst * Set<Pred>)
-type Scheme = Forall of (List<TyVar> * Qual)
+type ConstrainedSubst = (Subst * Set<Pred<TyExpr>>)
+type Scheme = Forall of (List<TyVar> * Qual<TyExpr, TyExpr>)
 
-type Constraint = Equal of Qual * Qual * ErrorMessage
+type Constraint = Equal of Qual<TyExpr, TyExpr> * Qual<TyExpr, TyExpr> * ErrorMessage
                 | And of Constraint * Constraint
                 | Trivial
 
@@ -134,7 +134,7 @@ let tTuple tArgs =
 let tRefCon = TConExpr (TyCon (TyConRef, KFun (Star, Star)))
 let tRef refTy = TApExpr (tRefCon, refTy)
 
-let emptyClassEnv = { classes = Map.empty; defaults = [ tInt32; tFloat ] }
+let emptyClassEnv = Map.empty
 let idTheta : Subst = Map.empty
 let idSubst : ConstrainedSubst = (idTheta, Set.empty)
 
@@ -246,39 +246,42 @@ let tyExprString e =
         | _ -> if addParens then sprintf "(%s)" str else str
     tyExprString' false (flattenTypeAppChain e)
 
-let predicateString (IsIn (path, tyExprs, _)) =
-    sprintf "%s %s" (namespaceString path) (List.map tyExprString tyExprs |> String.concat " ")
+let predicateString f (IsIn (path, tys, _)) =
+    sprintf "%s %s" (namespaceString path) (List.map f tys |> String.concat " ")
 
-let qualString (Qual (predicates, tau)) =
+let predicateTyExprString =
+    predicateString (tyExprString)
+
+let predicateTyVarString =
+    predicateString (tyVarString false)
+
+let qualString pstring tstring (Qual (predicates, tau)) =
     let predStr =
-        let s = lazy (Set.map predicateString predicates |> String.concat ", ")
+        let s = lazy (Set.map pstring predicates |> String.concat ", ")
         match Set.count predicates with
         | 0 -> ""
         | 1 -> s.Force()
         | _ -> sprintf "(%s)" (s.Force())
     if predStr = "" then
-        tyExprString tau
+        tstring tau
     else
-        sprintf "%s => %s" predStr (tyExprString tau)
+        sprintf "%s => %s" predStr (tstring tau)
 
-let classString {superClasses = superClasses; instances = instances} =
-    let superClassesStr = List.map namespaceString superClasses |> String.concat ", "
-    let instancesStr = List.map qualString instances |> String.concat ", "
-    sprintf "Superclasses: %s\nInstances: %s" superClassesStr instancesStr
+let classString {classDec = classDec; instances = instances} =
+    let s = qualString predicateTyVarString predicateTyVarString classDec
+    let instancesStr = List.map (qualString predicateTyExprString predicateTyExprString) instances |> String.concat ", "
+    sprintf "%s\nInstances: %s" s instancesStr
 
-let classEnvString {classes = classes; defaults = defaults} =
-    let classesStr =
-        classes |>
-        Map.toSeq |>
-        Seq.map
-            (fun (name, classInfo) ->
-                sprintf "Class %s:\n%s" (namespaceString name) (classString classInfo)) |>
-        String.concat "\n\n"
-    let defaultsStr = List.map tyExprString defaults |> String.concat ", "
-    sprintf "%s\n\nDefaults: %s" classesStr defaultsStr
+let classEnvString classes =
+    classes |>
+    Map.toSeq |>
+    Seq.map
+        (fun (name, classInfo) ->
+            sprintf "Class %s:\n%s" (namespaceString name) (classString classInfo)) |>
+    String.concat "\n\n"
 
 let schemeString (Forall (tyvars, qual)) =
-    sprintf "∀ %s . %s" (List.map (tyVarString false) tyvars |> String.concat " ") (qualString qual)
+    sprintf "∀ %s . %s" (List.map (tyVarString false) tyvars |> String.concat " ") (qualString predicateTyExprString tyExprString qual)
 
 let kindOfTyVar (TyVar (_, k)) = k
 let kindOfTyCon (TyCon (_, k)) = k
@@ -337,20 +340,20 @@ let freeVarsInQual (Qual (predicates, tau)) =
         (Set.map freeVarsInPred predicates |> Set.unionMany)
         (freeVarsInTyExpr tau)
 
-let super ({ classes = classes } as classEnv) (path : Namespace) =
+let super classes (path : Namespace) =
     match Map.tryFind path classes with
-    | Some { superClasses = superClasses } -> superClasses
-    | None -> raise <| InternalCompilerError (sprintf "Attempting to find superclass of typeclass with path %s, but this typeclass does not exist in the passed typeclass environment.\n\nTypeclass environment: %s" (namespaceString path) (classEnvString classEnv))
+    | Some { classDec = Qual (superClasses, _) } -> superClasses
+    | None -> raise <| InternalCompilerError (sprintf "Attempting to find superclass of typeclass with path %s, but this typeclass does not exist in the passed typeclass environment.\n\nTypeclass environment: %s" (namespaceString path) (classEnvString classes))
 
-let insts ({ classes = classes } as classEnv) (path : Namespace) =
+let insts classes (path : Namespace) =
     match Map.tryFind path classes with
     | Some { instances = instances } -> instances
-    | None -> raise <| InternalCompilerError (sprintf "Attempting to find instances of typeclass with path %s, but this typeclass does not exist in the passed typeclass environment.\n\nTypeclass environment: %s" (namespaceString path) (classEnvString classEnv))
+    | None -> raise <| InternalCompilerError (sprintf "Attempting to find instances of typeclass with path %s, but this typeclass does not exist in the passed typeclass environment.\n\nTypeclass environment: %s" (namespaceString path) (classEnvString classes))
 
 let defined = Option.isSome
 
-let modify ({classes = classes} as env) path classDef =
-    {env with classes = Map.add path classDef classes}
+let modify classes path classDef =
+    Map.add path classDef classes
 
 // t2(t1(x)) = t2 o t1
 // x --> t1 --> t2 -->
@@ -361,7 +364,7 @@ let compose ((theta2, preds2) : ConstrainedSubst) ((theta1, preds1) : Constraine
     let preds' = Set.union (Set.map (predicatesubst theta') preds1) (Set.map (predicatesubst theta') preds2)
     (theta', preds')
 
-let (|--->) (a : TyVar) (tau : TyExpr) (preds : Set<Pred>) =
+let (|--->) (a : TyVar) (tau : TyExpr) (preds : Set<Pred<TyExpr>>) =
     let theta =
         match tau with
         | TVarExpr tv ->
@@ -431,3 +434,14 @@ let rec solve con : ConstrainedSubst =
             solve c
         | _ ->
             raise <| TypeError (failMsg.Force())
+
+let isOverlapping ((Qual (ctx1, IsIn (name1, tyExprs1, _))) : Inst) (Qual (ctx2, IsIn (name2, tyExprs2, _)) : Inst) =
+    if name1 = name2 then
+        let c = conjoinConstraints (List.zip tyExprs1 tyExprs2 |> List.map (fun (tau1, tau2) -> (Qual (ctx1, tau1) =~= Qual (ctx2, tau2)) (lazy "")))
+        try
+            solve c |> ignore
+            false
+        with
+        | TypeError _ -> true
+    else
+        raise <| InternalCompilerError "Checking overlapping instances between instances of two different typeclasses"

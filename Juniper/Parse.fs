@@ -8,7 +8,7 @@ let multiLineComment = skipString "(*" >>. skipCharsTillString "*)" true System.
 let ws = spaces .>> (choice [singleLineComment; multiLineComment] >>. spaces |> many)
 
 let pipe6 p1 p2 p3 p4 p5 p6 f = 
-    pipe5 p1 p2 p3 p4 (tuple2 p5 p6)
+    pipe5 p1 p2 p3 p4 (FParsec.Primitives.tuple2 p5 p6)
           (fun x1 x2 x3 x4 (x5, x6) -> f x1 x2 x3 x4 x5 x6)
 
 let stringLiteral containingChar asciiOnly =

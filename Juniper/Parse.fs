@@ -476,11 +476,23 @@ do
         (fun tyExprs -> {tyExprs = tyExprs}) |> pos
 
 // Typeclass predicates
+let typeclassPredApply =
+    pipe2
+        (pos ((attempt moduleQualifier |>> Choice2Of2) <|> (idn |>> Choice1Of2)) .>> ws)
+        templateApply
+        (fun name application -> {predName = name; templateApply = application})
+
+let typeclassPredsApply =
+    separatedList (pos typeclassPredApply) ','
+
+let typeclassWherePredsApply =
+    skipString "where" >>. ws >>. typeclassPredsApply
+
 let typeclassPred =
     pipe2
-        (idn |> pos)
-        templateApply
-        (fun name application -> {name = name; templateApply = application})
+        (pos ((attempt moduleQualifier |>> Choice2Of2) <|> (idn |>> Choice1Of2)) .>> ws)
+        (pos templateDec)
+        (fun name template -> {predName = name; template = template})
 
 let typeclassPreds =
     separatedList (pos typeclassPred) ','
@@ -500,7 +512,7 @@ let functionp =
         (templateDec |> pos |> opt)
         functionArguments
         (opt functionReturnType)
-        ((typeclassWherePreds |> pos |> opt) .>> skipString "=" .>> ws)
+        ((typeclassWherePredsApply |> pos |> opt) .>> skipString "=" .>> ws)
         body
         (fun name template arguments returnType predicates body ->
             let (clausePosL, _) = getPos arguments
@@ -554,7 +566,7 @@ let typeclassDec =
             (templateDec |> pos |> opt)
             functionArguments
             functionReturnType
-            (pos typeclassWherePreds |> opt)
+            (pos typeclassWherePredsApply |> opt)
             (fun name template arguments returnType preds ->
                 {name = name; template = template; arguments = arguments; returnType = returnType;
                  predicates = preds})
@@ -571,8 +583,8 @@ let typeclassDec =
 
 let typeclassInstanceDec =
     pipe3
-        (skipString "instance" >>. ws >>. (pos typeclassPred) .>> ws)
-        (typeclassWherePreds |> pos |> opt)
+        (skipString "instance" >>. ws >>. (pos typeclassPredApply) .>> ws)
+        (typeclassWherePredsApply |> pos |> opt)
         (pos (many (pos functionp)) .>> ws .>> skipString "end")
         (fun instanceOf predicates funcs ->
             {instanceOf = instanceOf; predicates = predicates; functions = funcs})

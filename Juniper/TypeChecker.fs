@@ -10,18 +10,19 @@ open AstAnalysis
 open Module
 
 let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
+               // dtenv maps module qualifiers to declaration types
                (dtenv : Map<string * string, T.DeclarationTy>)
+               // menv maps variables to fully resolved module qualifiers
                (menv : Map<string, string*string>)
                (localVars : Set<string>)
                (ienv : Map<string * string, int>)
                (tyVarMapping : Map<string, T.TyExpr>)
-               (capVarMapping : Map<string, T.CapacityExpr>)
                // First bool represents mutability
-               (gamma : Map<string, bool * T.TyScheme>) =
+               // Gamma maps variables to their types
+               (gamma : Map<string, bool * T.Scheme>) =
     let getTypes = List.map T.getType
 
-    let convertType' = convertType menv tyVarMapping capVarMapping
-    let convertCapacity' = convertCapacity capVarMapping
+    let convertType' = convertType menv tyVarMapping
 
     // Taus is what the overall pattern's type should equal
     let rec checkPattern (posp, p) tau =

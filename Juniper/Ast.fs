@@ -15,7 +15,7 @@ and PosAdorn<'a> = (Position * Position) * 'a
 // Top level declarations
 and FunctionRec = { name     : PosAdorn<string>;
                     template : PosAdorn<Template> option;
-                    predicates : PosAdorn<PosAdorn<TypeclassPred> list> option;
+                    predicates : PosAdorn<PosAdorn<TypeclassPredApply> list> option;
                     clause   : PosAdorn<FunctionClause> }
 
 and RecordRec =   { name     : PosAdorn<string>;
@@ -33,13 +33,16 @@ and LetDecRec = { varName : PosAdorn<string>;
                   typ     : PosAdorn<TyExpr> option;
                   right   : PosAdorn<Expr>; }
 
-and TypeclassPred = { name : PosAdorn<string>;
-                      templateApply: PosAdorn<TemplateApply> }
+and TypeclassPred = { predName : PosAdorn<Choice<string, ModQualifierRec>>;
+                      template : PosAdorn<Template> }
+
+and TypeclassPredApply = { predName : PosAdorn<Choice<string, ModQualifierRec>>;
+                           templateApply: PosAdorn<TemplateApply> }
 
 and TypeclassFunc = { name : PosAdorn<string>;
                       template: PosAdorn<Template> option
                       returnType : PosAdorn<TyExpr>;
-                      predicates: PosAdorn<PosAdorn<TypeclassPred> list> option;
+                      predicates: PosAdorn<PosAdorn<TypeclassPredApply> list> option;
                       arguments :  PosAdorn<(PosAdorn<string> * PosAdorn<TyExpr>) list>; }
 
 and TypeclassRec = { name : PosAdorn<string>;
@@ -47,8 +50,8 @@ and TypeclassRec = { name : PosAdorn<string>;
                      predicates: PosAdorn<PosAdorn<TypeclassPred> list> option;
                      functions : PosAdorn<PosAdorn<TypeclassFunc> list> }
 
-and TypeclassInstanceRec = { instanceOf: PosAdorn<TypeclassPred>;
-                             predicates : PosAdorn<PosAdorn<TypeclassPred> list> option;
+and TypeclassInstanceRec = { instanceOf: PosAdorn<TypeclassPredApply>;
+                             predicates : PosAdorn<PosAdorn<TypeclassPredApply> list> option;
                              functions : PosAdorn<PosAdorn<FunctionRec> list> }
 
 // Declaration defined as any of the above.

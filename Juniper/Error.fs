@@ -4,6 +4,8 @@ open System.IO
 
 exception TypeError of string
 exception SemanticError of string
+exception InternalCompilerError of string
+exception ImpossibleInternalCompilerError of string
 
 // Get position of the error (starting line and column, end line and column) in the form of a string to be used
 // for error messages.

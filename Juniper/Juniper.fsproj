@@ -113,13 +113,13 @@
     <None Include="App.config" />
     <Content Include="packages.config" />
     <Compile Include="NestedPair.fs" />
+    <Compile Include="Error.fs" />
     <Compile Include="TypedAst.fs" />
     <Compile Include="Constraint.fs" />
     <Compile Include="Ast.fs" />
     <Compile Include="Compiler.fs" />
     <Compile Include="Parse.fs" />
     <Compile Include="ConvertAst.fs" />
-    <Compile Include="Error.fs" />
     <Compile Include="AstAnalysis.fs" />
     <Compile Include="Module.fs" />
     <Compile Include="TypeChecker.fs" />

@@ -1,83 +1,13 @@
 ﻿module Constraint
+open Error
+open TypedAst
 
 // This code is based off of Norman Ramsey's implementation as
 // described in the book Programming Languages: Build, Prove, and Compare
 
 open Extensions
 
-exception TypeError of string
-exception ImpossibleInternalCompilerError of string
-exception InternalCompilerError of string
-
 type ErrorMessage = Lazy<string>
-
-type Namespace = string list
-type Kind = Star | KFun of Kind * Kind
-
-let rec kindStack numTyArgs =
-    match numTyArgs with
-    | 0 -> Star
-    | n -> KFun (Star, kindStack (n - 1))
-
-type BaseTyCon = TyConUint8
-               | TyConUint16
-               | TyConUint32
-               | TyConUint64
-               | TyConInt8
-               | TyConInt16
-               | TyConInt32
-               | TyConInt64
-               | TyConFloat
-               | TyConDouble
-               | TyConBool
-               | TyConUnit
-               | TyConPointer
-               | TyConString
-               | TyConUserDefined of Namespace
-               | TyConArray
-               | TyConFun
-               | TyConFunArgs // TyConFunArgs act a lot like tuples
-               | TyConRef
-               | TyConTuple
-
-type TyCon = TyCon of BaseTyCon * Kind
-
-type TyVar = TyVar of string * Kind
-
-type TyExpr = TVarExpr of TyVar
-            | TConExpr of TyCon
-            | TApExpr of TyExpr * TyExpr
-//            | TGen of int
-
-[<CustomEquality; CustomComparison>]
-type Pred<'a> when 'a : equality and 'a : comparison = IsIn of (Namespace * List<'a> * ErrorMessage)
-                                                            override x.Equals y =
-                                                                match y with
-                                                                | :? Pred<'a> as x' ->
-                                                                    let (IsIn (n, t, e), IsIn(n', t', e')) = (x, x')
-                                                                    (n, t, e.GetHashCode()) = (n', t', e'.GetHashCode())
-                                                                | _ -> false
-                                                            override x.GetHashCode() =
-                                                                let (IsIn (n, t, e)) = x
-                                                                (n, t, e.GetHashCode()).GetHashCode()
-                                                            interface System.IComparable with
-                                                                override x.CompareTo y =
-                                                                    match y with
-                                                                    | :? Pred<'a> as x' ->
-                                                                        let (IsIn (n, t, e), IsIn(n', t', e')) = (x, x')
-                                                                        let tup1 = (n, t, e.GetHashCode())
-                                                                        let tup2 = (n', t', e'.GetHashCode())
-                                                                        compare tup1 tup2
-                                                                    | _ ->
-                                                                        invalidArg "y" "Cannot compare Pred to non-Pred type"
-
-type Qual<'a, 'b> when 'a : equality and 'a : comparison = Qual of (Set<Pred<'a>> * 'b)
-type Inst = Qual<TyExpr, Pred<TyExpr>>
-type Class = { classDec : Qual<TyVar, Pred<TyVar>>; instances : List<Inst> }
-type ClassEnv = Map<Namespace, Class>
-type Subst = Map<TyVar, TyExpr>
-type ConstrainedSubst = (Subst * Set<Pred<TyExpr>>)
-type Scheme = Forall of (List<TyVar> * Qual<TyExpr, TyExpr>)
 
 type Constraint = Equal of Qual<TyExpr, TyExpr> * Qual<TyExpr, TyExpr> * ErrorMessage
                 | And of Constraint * Constraint
@@ -103,185 +33,9 @@ let freshpolytyvar kind =
 let freshtyvar _ =
     freshpolytyvar Star
 
-let tUint8 = TConExpr (TyCon (TyConUint8, Star))
-let tUint16 = TConExpr (TyCon (TyConUint16, Star))
-let tUint32 = TConExpr (TyCon (TyConUint32, Star))
-let tUint64 = TConExpr (TyCon (TyConUint64, Star))
-let tInt8 = TConExpr (TyCon (TyConInt8, Star))
-let tInt16 = TConExpr (TyCon (TyConInt16, Star))
-let tInt32 = TConExpr (TyCon (TyConInt32, Star))
-let tInt64 = TConExpr (TyCon (TyConInt64, Star))
-let tFloat = TConExpr (TyCon (TyConFloat, Star))
-let tDouble = TConExpr (TyCon (TyConDouble, Star))
-let tBool = TConExpr (TyCon (TyConBool, Star))
-let tUnit = TConExpr (TyCon (TyConUnit, Star))
-let tPointer = TConExpr (TyCon (TyConPointer, Star))
-let tString = TConExpr (TyCon (TyConString, Star))
-
-let tArrow = TConExpr (TyCon (TyConFun, KFun (Star, KFun (Star, Star))))
-let tFun tArgs tBody = TApExpr (TApExpr (tArrow, tArgs), tBody)
-
-let tFunArgsComma numArgs = TConExpr (TyCon (TyConFunArgs, kindStack numArgs))
-let tFunArgs tArgs =
-    let numArgs = List.length tArgs
-    List.fold (fun accumTyExpr tyArg -> TApExpr (accumTyExpr, tyArg)) (tFunArgsComma numArgs) tArgs
-
-let tComma numArgs = TConExpr (TyCon (TyConTuple, kindStack numArgs))
-let tTuple tArgs =
-    let numArgs = List.length tArgs
-    List.fold (fun accumTyExpr tyArg -> TApExpr (accumTyExpr, tyArg)) (tComma numArgs) tArgs
-
-let tRefCon = TConExpr (TyCon (TyConRef, KFun (Star, Star)))
-let tRef refTy = TApExpr (tRefCon, refTy)
-
 let emptyClassEnv = Map.empty
 let idTheta : Subst = Map.empty
 let idSubst : ConstrainedSubst = (idTheta, Set.empty)
-
-let namespaceString (path : Namespace) =
-    String.concat ":" path
-
-let baseTyConString b =
-    match b with
-    | TyConUint8 -> "uint8"
-    | TyConUint16 -> "uint16"
-    | TyConUint32 -> "uint32"
-    | TyConUint64 -> "uint64"
-    | TyConInt8 -> "int8"
-    | TyConInt16 -> "int16"
-    | TyConInt32 -> "int32"
-    | TyConInt64 -> "int64"
-    | TyConFloat -> "float"
-    | TyConDouble -> "double"
-    | TyConBool -> "bool"
-    | TyConUnit -> "unit"
-    | TyConPointer -> "pointer"
-    | TyConString -> "string"
-    | TyConUserDefined path -> namespaceString path
-    // Higher kinded types cannot be printed without context of what they are parameterized by
-    | (TyConArray | TyConFun | TyConFunArgs | TyConRef | TyConTuple) ->
-        let tyConName =
-            match b with
-            | TyConArray -> "array"
-            | TyConFun -> "function"
-            | TyConFunArgs -> "function args"
-            | TyConRef -> "ref"
-            | TyConTuple -> "tuple"
-            | _ -> raise <| ImpossibleInternalCompilerError "Failed to generate type constructor name when generating internal compiler error"
-        raise <| InternalCompilerError (sprintf "Cannot convert %s constructor type to string without the context of its type parameters" tyConName)
-
-// * -> * -> * -> * = * -> (* -> (* -> *))
-// Flattens an application chain into a list
-let rec flattenKindChain k =
-    match k with
-    | KFun (l, r) ->
-        l::(flattenKindChain r)
-    | Star ->
-        [k]
-
-// let myKind = KFun (Star, KFun (Star, KFun (Star, Star)))
-let kindString k =
-    let rec kindString' addParens chain =
-        let kindString'' addParens k = kindString' addParens (flattenKindChain k)
-        let str =
-            match chain with
-            | [Star] -> "*"
-            | _ -> List.map (kindString'' true) chain |> String.concat " -> "
-        match chain with
-        | [_] -> str
-        | _ -> if addParens then sprintf "(%s)" str else str
-    kindString' false (flattenKindChain k)
-
-let tyVarString showKind (TyVar (name, kind)) =
-    if showKind then
-        sprintf "'%s : %s" name (kindString kind)
-    else
-        sprintf "'%s" name
-
-let tyConString (TyCon (baseTyCon, _)) = baseTyConString baseTyCon
-
-let flattenTypeAppChain e =
-    // Example: (((tuple int) bool) float) -> [tuple; int; bool; float]
-    let rec flattenTypeArguments' e accum =
-        match e with
-        | TApExpr (l, r) -> flattenTypeArguments' l (r::accum)
-        | _ -> e::accum
-    flattenTypeArguments' e []
-
-(*
-  TApExpr
-    (TApExpr
-       (TConExpr (TyCon (TyConTuple,KFun (Star,KFun (Star,Star)))),
-        TConExpr (TyCon (TyConBool,Star))),TConExpr (TyCon (TyConUint8,Star)))
-*)
-let tyExprString e =        
-    let rec tyExprString' addParens chain =
-        let tyExprString'' addParens e = tyExprString' addParens (flattenTypeAppChain e)
-        let str =
-            match chain with
-            | [(TConExpr (TyCon (TyConRef, _))); containedType] ->
-                sprintf "%s ref" (tyExprString'' true containedType)
-            | (TConExpr (TyCon (TyConTuple, _)))::tupleArgs ->
-                List.map (tyExprString'' true) tupleArgs |> String.concat " * "
-            | [(TConExpr (TyCon (TyConArray, _))); containedType; capacityType] ->
-                sprintf "%s[%s]" (tyExprString'' true containedType) (tyExprString'' false capacityType)
-            | [(TConExpr (TyCon (TyConFun, _))); argsType; (TConExpr (TyCon (TyConFun, _))) as retType] ->
-                sprintf "%s -> %s" (tyExprString'' false argsType) (tyExprString'' false retType)
-            | [(TConExpr (TyCon (TyConFun, _))); argsType; retType] ->
-                sprintf "%s -> %s" (tyExprString'' false argsType) (tyExprString'' true retType)
-            | (TConExpr (TyCon (TyConFunArgs, _)))::args ->
-                sprintf "(%s)" (List.map (tyExprString'' false) args |> String.concat ", ")
-            | (TConExpr (TyCon (baseTy, _)))::args ->
-                (baseTyConString baseTy)::(List.map (tyExprString'' true) args) |> String.concat " "
-            | TVarExpr tv::args ->
-                (tyVarString false tv)::((List.map (tyExprString'' true)) args) |> String.concat " "
-            | (TApExpr _)::_ ->
-                raise <| InternalCompilerError "Type application was left unflattened"
-//            | (TGen _)::_ ->
-//                raise <| InternalCompilerError "Attempting to convert TGen to a string"
-            | [] ->
-                ""
-        match chain with
-        | [_] -> str
-        | _ -> if addParens then sprintf "(%s)" str else str
-    tyExprString' false (flattenTypeAppChain e)
-
-let predicateString f (IsIn (path, tys, _)) =
-    sprintf "%s %s" (namespaceString path) (List.map f tys |> String.concat " ")
-
-let predicateTyExprString =
-    predicateString (tyExprString)
-
-let predicateTyVarString =
-    predicateString (tyVarString false)
-
-let qualString pstring tstring (Qual (predicates, tau)) =
-    let predStr =
-        let s = lazy (Set.map pstring predicates |> String.concat ", ")
-        match Set.count predicates with
-        | 0 -> ""
-        | 1 -> s.Force()
-        | _ -> sprintf "(%s)" (s.Force())
-    if predStr = "" then
-        tstring tau
-    else
-        sprintf "%s => %s" predStr (tstring tau)
-
-let classString {classDec = classDec; instances = instances} =
-    let s = qualString predicateTyVarString predicateTyVarString classDec
-    let instancesStr = List.map (qualString predicateTyExprString predicateTyExprString) instances |> String.concat ", "
-    sprintf "%s\nInstances: %s" s instancesStr
-
-let classEnvString classes =
-    classes |>
-    Map.toSeq |>
-    Seq.map
-        (fun (name, classInfo) ->
-            sprintf "Class %s:\n%s" (namespaceString name) (classString classInfo)) |>
-    String.concat "\n\n"
-
-let schemeString (Forall (tyvars, qual)) =
-    sprintf "∀ %s . %s" (List.map (tyVarString false) tyvars |> String.concat " ") (qualString predicateTyExprString tyExprString qual)
 
 let kindOfTyVar (TyVar (_, k)) = k
 let kindOfTyCon (TyCon (_, k)) = k
@@ -293,8 +47,6 @@ let rec kindOfTyExpr tau =
         match kindOfTyExpr t with
         | KFun (_, k) -> k
         | _ -> raise <| InternalCompilerError "Invalid kind was encountered when attempting to determine the kind of a TApExpr"
-//    | TGen _ ->
-//        raise <| InternalCompilerError "Attempting to find the kind of a TGen type expression"
 
 let rec tysubst theta t =
     match t with
@@ -303,7 +55,7 @@ let rec tysubst theta t =
         | Some t' -> t'
         | None -> t
     | TApExpr (l, r) ->
-        TApExpr (tysubst theta l, tysubst theta r)
+        TApExpr (tysubst theta l, List.map (tysubst theta) r)
     | _ ->
         t
 
@@ -327,7 +79,7 @@ let rec freeVarsInTyExpr t =
     match t with
     | TVarExpr u -> Set.singleton u
     | TApExpr (l, r) ->
-        Set.union (freeVarsInTyExpr l) (freeVarsInTyExpr r)
+        Set.union (freeVarsInTyExpr l) (List.map freeVarsInTyExpr r |> Set.unionMany)
     | TConExpr _ -> Set.empty
 
 let freeVarsInTyExprList ts = List.map freeVarsInTyExpr ts |> Set.unionMany
@@ -340,15 +92,10 @@ let freeVarsInQual (Qual (predicates, tau)) =
         (Set.map freeVarsInPred predicates |> Set.unionMany)
         (freeVarsInTyExpr tau)
 
-let super classes (path : Namespace) =
-    match Map.tryFind path classes with
-    | Some { classDec = Qual (superClasses, _) } -> superClasses
-    | None -> raise <| InternalCompilerError (sprintf "Attempting to find superclass of typeclass with path %s, but this typeclass does not exist in the passed typeclass environment.\n\nTypeclass environment: %s" (namespaceString path) (classEnvString classes))
-
-let insts classes (path : Namespace) =
-    match Map.tryFind path classes with
-    | Some { instances = instances } -> instances
-    | None -> raise <| InternalCompilerError (sprintf "Attempting to find instances of typeclass with path %s, but this typeclass does not exist in the passed typeclass environment.\n\nTypeclass environment: %s" (namespaceString path) (classEnvString classes))
+let super classes modQual =
+    match Map.tryFind modQual classes with
+    | Some (Qual (superClasses, _)) -> superClasses
+    | None -> raise <| InternalCompilerError (sprintf "Attempting to find superclass of typeclass with path %s, but this typeclass does not exist in the passed typeclass environment.\n\nTypeclass environment: %s" (modQualifierString modQual) (classEnvString classes))
 
 let defined = Option.isSome
 
@@ -389,13 +136,22 @@ let generalize skipTyVars qual =
 
 let eqType = (=) : (TyExpr -> TyExpr -> bool)
 
+let kindOf (tau : TyExpr) : Kind =
+    match tau with
+    | TVarExpr (TyVar (_, kind)) -> kind
+    | TApExpr _ -> Star
+    | TConExpr (TyCon (_, kind)) -> kind
+
 let solveTyvarEq a tau preds =
     if eqType (TVarExpr a) tau then
         Some idSubst
     elif Set.contains a (freeVarsInTyExpr tau) then
         None // error
     else
-        (a |---> tau) preds |> Some
+        if (kindOf (TVarExpr a)) = (kindOf tau) then
+            (a |---> tau) preds |> Some
+        else
+            None
 
 let rec consubst theta con =
     match con with
@@ -430,18 +186,23 @@ let rec solve con : ConstrainedSubst =
                 raise <| TypeError (failMsg.Force())
         | (TApExpr (l1, r1), TApExpr (l2, r2)) ->
             let p' = preds'.Force()
-            let c = ((Qual (p', l1) =~= Qual (p', l2)) err) &&& ((Qual (p', r1) =~= Qual (p', r2)) err)
-            solve c
+            let c1 = (Qual (p', l1) =~= Qual (p', l2)) err
+            if List.length r1 = List.length r2 then
+                let c2 = List.zip r1 r2 |> List.map (fun (tau1, tau2) -> ((Qual (p', tau1) =~= Qual (p', tau2)) err)) |> conjoinConstraints
+                let c = c1 &&& c2
+                solve c
+            else
+                raise <| TypeError (failMsg.Force())
         | _ ->
             raise <| TypeError (failMsg.Force())
 
-let isOverlapping ((Qual (ctx1, IsIn (name1, tyExprs1, _))) : Inst) (Qual (ctx2, IsIn (name2, tyExprs2, _)) : Inst) =
+let isOverlapping ((Qual (_, IsIn (name1, tyExprs1, _))) : Inst) (Qual (_, IsIn (name2, tyExprs2, _)) : Inst) =
     if name1 = name2 then
-        let c = conjoinConstraints (List.zip tyExprs1 tyExprs2 |> List.map (fun (tau1, tau2) -> (Qual (ctx1, tau1) =~= Qual (ctx2, tau2)) (lazy "")))
+        let c = conjoinConstraints (List.zip tyExprs1 tyExprs2 |> List.map (fun (tau1, tau2) -> (Qual (Set.empty, tau1) =~= Qual (Set.empty, tau2)) (lazy "")))
         try
             solve c |> ignore
-            false
+            true
         with
-        | TypeError _ -> true
+        | TypeError _ -> false
     else
         raise <| InternalCompilerError "Checking overlapping instances between instances of two different typeclasses"

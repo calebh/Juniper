@@ -1,13 +1,80 @@
 ﻿module TypedAst
 open FParsec
+open Error
+
+// Module qualifier.
+type ModQualifierRec = { module_ : string; name : string }
+
+type Kind = Star | KFun of List<Kind> * Kind
+
+type BaseTyCon = TyConUint8
+               | TyConUint16
+               | TyConUint32
+               | TyConUint64
+               | TyConInt8
+               | TyConInt16
+               | TyConInt32
+               | TyConInt64
+               | TyConFloat
+               | TyConDouble
+               | TyConBool
+               | TyConUnit
+               | TyConPointer
+               | TyConString
+               | TyConUserDefined of ModQualifierRec
+               | TyConArray
+               | TyConFun // the first element in a TyConFun TApExpr is the return type, rest are arguments
+               | TyConRef
+               | TyConTuple
+
+type TyCon = TyCon of BaseTyCon * Kind
+
+type TyVar = TyVar of string * Kind
+
+type TyExpr = TVarExpr of TyVar
+            | TConExpr of TyCon
+            | TApExpr of TyExpr * List<TyExpr>
+
+// The third element of the parameter tuple (Lazy<string>) is the error message to show to the user
+// in the event that an instance could not be located for this predicate
+[<CustomEquality; CustomComparison>]
+type Pred<'a> when 'a : equality and 'a : comparison = IsIn of (ModQualifierRec * List<'a> * Lazy<string>)
+                                                             override x.Equals y =
+                                                                 match y with
+                                                                 | :? Pred<'a> as x' ->
+                                                                     let (IsIn (n, t, _), IsIn(n', t', _)) = (x, x')
+                                                                     (n, t) = (n', t')
+                                                                 | _ -> false
+                                                             override x.GetHashCode() =
+                                                                 let (IsIn (n, t, e)) = x
+                                                                 (n, t).GetHashCode()
+                                                             interface System.IComparable with
+                                                                 override x.CompareTo y =
+                                                                     match y with
+                                                                     | :? Pred<'a> as x' ->
+                                                                         let (IsIn (n, t, _), IsIn(n', t', _)) = (x, x')
+                                                                         let tup1 = (n, t)
+                                                                         let tup2 = (n', t')
+                                                                         compare tup1 tup2
+                                                                     | _ ->
+                                                                         invalidArg "y" "Cannot compare Pred to non-Pred type"
+
+type Qual<'a, 'b> when 'a : equality and 'a : comparison = Qual of (Set<Pred<'a>> * 'b)
+type Inst = Qual<TyExpr, Pred<TyExpr>>
+type Class = Qual<TyVar, Pred<TyVar>>
+type ClassEnv = Map<ModQualifierRec, Class>
+type Subst = Map<TyVar, TyExpr>
+type ConstrainedSubst = (Subst * Set<Pred<TyExpr>>)
+type Scheme = Forall of (List<TyVar> * Qual<TyExpr, TyExpr>)
 
 // Allows for module type to be used for declaring modules.
 type Module = Module of Declaration list
 
-and TyAdorn<'a> = (Position * Position) * TyExpr * 'a
+and TyAdorn<'a> = (Position * Position) * Qual<TyExpr, TyExpr> * 'a
 
 // Top level declarations
 and FunctionRec = { name     : string;
+                    scheme   : Scheme;
                     template : Template option;
                     clause   : FunctionClause }
 
@@ -21,26 +88,21 @@ and UnionRec =    { name     : string;
                     valCons  : ValueCon list;
                     template : Template option }
 
-and LetDecRec = { varName : string;
-                  typ     : TyExpr;
-                  right   : TyAdorn<Expr>; }
-
-and TypeclassPred = { name : string;
-                      templateApply: TemplateApply }
+and LetDecRec =    { varName : string;
+                     typ     : Qual<TyExpr, TyExpr>;
+                     right   : TyAdorn<Expr>; }
 
 and TypeclassFunc = { name : string;
+                      scheme : Scheme;
                       template: Template option
                       returnType : TyExpr;
-                      predicates: TypeclassPred list;
                       arguments :  (string * TyExpr) list; }
 
 and TypeclassRec = { name : string;
-                     template : Template;
-                     predicates: TypeclassPred list;
+                     class_ : Class;
                      functions : TypeclassFunc list }
 
-and TypeclassInstanceRec = { instanceOf: TypeclassPred;
-                             predicates : TypeclassPred list;
+and TypeclassInstanceRec = { instance : Inst;
                              functions : FunctionRec list }
 
 // Declaration defined as any of the above.
@@ -53,44 +115,15 @@ and Declaration = FunctionDec   of FunctionRec
                 | IncludeDec    of string list
 
 // A template is associated with a function, record or union
-and Template = { tyVars : string list }
+and Template = TyVar list
 
 // Use these to apply a template (ex: when calling a function with a template)
-and TemplateApply = { tyExprs : TyExpr list }
+and TemplateApply = TyExpr list
 
-and BaseTypes = TyUint8
-              | TyUint16
-              | TyUint32
-              | TyUint64
-              | TyInt8
-              | TyInt16
-              | TyInt32
-              | TyInt64
-              | TyFloat
-              | TyDouble
-              | TyBool
-              | TyUnit
-              | TyPointer
-              | TyString
-and TyCons = BaseTy of BaseTypes
-           | ModuleQualifierTy of ModQualifierRec
-           | ArrayTy
-           | FunTy
-           | RefTy
-           | TupleTy
-and TyExpr = TyCon of TyCons
-                    // For TyCon FunTy, the first element in the TyExpr list is the return type
-                    // v this must be a TyCon
-           | ConApp of TyExpr * (TyExpr list)
-           | TyVar of string
-                      // v Types
-and TyScheme = Forall of string list * TyExpr
-
-and DeclarationTy = FunDecTy of TyScheme
-                    //              v Types
-                  | RecordDecTy of string list * Map<string, TyExpr>
+and DeclarationTy = FunDecTy of Scheme
+                  | RecordDecTy of TyVar list * Map<string, TyExpr>
                   | LetDecTy of TyExpr
-                  | UnionDecTy of string list * ModQualifierRec
+                  | UnionDecTy of TyVar list * ModQualifierRec
 
 // Pattern matching AST datatypes.
 and MatchVarRec = { varName : string; mutable_ : bool; typ : TyExpr }
@@ -110,9 +143,6 @@ and Pattern = MatchVar of MatchVarRec
 
 // Elements of a function clause.
 and FunctionClause = {returnTy : TyExpr; arguments : (string * TyExpr) list; body : TyAdorn<Expr>}
-
-// Module qualifier.
-and ModQualifierRec = { module_ : string; name : string }
 
 and Direction = Upto
               | Downto
@@ -196,6 +226,138 @@ and LeftAssign = VarMutation of string
                | ArrayMutation of ArrayMutationRec
                | RecordMutation of RecordMutationRec
 
+let rec kindFun numTyArgs =
+    match numTyArgs with
+    | 0 -> Star
+    | _ -> KFun ((List.replicate numTyArgs Star), Star)
+
+let tUint8 = TConExpr (TyCon (TyConUint8, Star))
+let tUint16 = TConExpr (TyCon (TyConUint16, Star))
+let tUint32 = TConExpr (TyCon (TyConUint32, Star))
+let tUint64 = TConExpr (TyCon (TyConUint64, Star))
+let tInt8 = TConExpr (TyCon (TyConInt8, Star))
+let tInt16 = TConExpr (TyCon (TyConInt16, Star))
+let tInt32 = TConExpr (TyCon (TyConInt32, Star))
+let tInt64 = TConExpr (TyCon (TyConInt64, Star))
+let tFloat = TConExpr (TyCon (TyConFloat, Star))
+let tDouble = TConExpr (TyCon (TyConDouble, Star))
+let tBool = TConExpr (TyCon (TyConBool, Star))
+let tUnit = TConExpr (TyCon (TyConUnit, Star))
+let tPointer = TConExpr (TyCon (TyConPointer, Star))
+let tString = TConExpr (TyCon (TyConString, Star))
+
+let tFun tArgs tBody = TApExpr (TConExpr (TyCon (TyConFun, kindFun (List.length (tBody::tArgs)))), tBody::tArgs)
+
+let tTuple tArgs = TApExpr (TConExpr (TyCon (TyConTuple, kindFun (List.length tArgs))), tArgs)
+
+let tRef refTy = TApExpr (TConExpr (TyCon (TyConRef, KFun ([Star], Star))), [refTy])
+
+let tArray elementTy capacityTy = TApExpr (TConExpr (TyCon (TyConArray, KFun ([Star; Star], Star))), [elementTy; capacityTy])
+
+let tModuleQualifier modQual kind = TConExpr (TyCon (TyConUserDefined modQual, kind))
+
+let modQualifierString {module_=module_; name=name} =
+    module_ + ":" + name
+
+let baseTyConString b =
+    match b with
+    | TyConUint8 -> "uint8"
+    | TyConUint16 -> "uint16"
+    | TyConUint32 -> "uint32"
+    | TyConUint64 -> "uint64"
+    | TyConInt8 -> "int8"
+    | TyConInt16 -> "int16"
+    | TyConInt32 -> "int32"
+    | TyConInt64 -> "int64"
+    | TyConFloat -> "float"
+    | TyConDouble -> "double"
+    | TyConBool -> "bool"
+    | TyConUnit -> "unit"
+    | TyConPointer -> "pointer"
+    | TyConString -> "string"
+    | TyConUserDefined modQual -> modQualifierString modQual
+    // Higher kinded types cannot be printed without context of what they are parameterized by
+    | (TyConArray | TyConFun | TyConRef | TyConTuple) ->
+        let tyConName =
+            match b with
+            | TyConArray -> "array"
+            | TyConFun -> "function"
+            | TyConRef -> "ref"
+            | TyConTuple -> "tuple"
+            | _ -> raise <| ImpossibleInternalCompilerError "Failed to generate type constructor name when generating internal compiler error"
+        raise <| InternalCompilerError (sprintf "Cannot convert %s constructor type to string without the context of its type parameters" tyConName)
+
+let rec kindString k =
+    match k with
+    | Star -> "*"
+    | KFun (kArgs, kRet) ->
+        sprintf "(%s) -> %s" (List.map kindString kArgs |> String.concat ", ") (kindString kRet)
+
+let tyVarString showKind (TyVar (name, kind)) =
+    if showKind then
+        sprintf "'%s : %s" name (kindString kind)
+    else
+        sprintf "'%s" name
+
+let tyConString (TyCon (baseTyCon, _)) = baseTyConString baseTyCon
+
+let tyExprString e =
+    let rec tyExprString' addParens e' =
+        let str =
+            match e' with
+            | TApExpr (TConExpr (TyCon (TyConRef, _)), [containedType]) ->
+                sprintf "%s ref" (tyExprString' true containedType)
+            | TApExpr (TConExpr (TyCon (TyConTuple, _)), tupleArgs) ->
+                List.map (tyExprString' true) tupleArgs |> String.concat " * "
+            | TApExpr (TConExpr (TyCon (TyConArray, _)), [containedType; capacityType]) ->
+                sprintf "%s[%s]" (tyExprString' true containedType) (tyExprString' false capacityType)
+            | TApExpr (TConExpr (TyCon (TyConFun, _)), retType::argTypes) ->
+                let parensRetType =
+                    match retType with
+                    | TApExpr (TConExpr (TyCon (TyConFun, _)), _) -> false
+                    | _ -> true
+                sprintf "(%s) -> %s" (List.map (tyExprString' false) argTypes |> String.concat ", ") (tyExprString' parensRetType retType)
+            | TConExpr (TyCon (baseTy, _)) ->
+                baseTyConString baseTy
+            | TVarExpr tv ->
+                tyVarString false tv
+            | TApExpr (tau, args) ->
+                sprintf "%s<%s>" (tyExprString' true tau) (List.map (tyExprString' false) args |> String.concat ", ")
+        match (e', addParens) with
+        | (TApExpr _, true) ->
+            sprintf "(%s)" str
+        | _ ->
+            str
+    tyExprString' false e
+
+let predicateString f (IsIn (path, tys, _)) =
+    sprintf "%s<%s>" (modQualifierString path) (List.map f tys |> String.concat ", ")
+
+let predicateTyExprString =
+    predicateString (tyExprString)
+
+let predicateTyVarString =
+    predicateString (tyVarString false)
+
+let qualString pstring tstring (Qual (predicates, tau)) =
+    match Set.count predicates with
+    | 0 -> tstring tau
+    | _ -> sprintf "%s where %s" (tstring tau) (Set.map pstring predicates |> String.concat ", ")
+
+let classString classDec =
+    qualString predicateTyVarString predicateTyVarString classDec
+
+let classEnvString classes =
+    classes |>
+    Map.toSeq |>
+    Seq.map
+        (fun (name, classInfo) ->
+            sprintf "Class %s:\n%s" (modQualifierString name) (classString classInfo)) |>
+    String.concat "\n\n"
+
+let schemeString (Forall (tyvars, qual)) =
+    sprintf "∀ %s . %s" (List.map (tyVarString false) tyvars |> String.concat " ") (qualString predicateTyExprString tyExprString qual)
+
 // Takes in a wrapped AST object, returns the object within the TyAdorn.
 let unwrap<'a> ((_, _, c) : TyAdorn<'a>) = c
 let getType<'a> ((_, b, _) : TyAdorn<'a>) = b
@@ -203,71 +365,11 @@ let getPos<'a> ((a, _, _) : TyAdorn<'a>) = a
 
 let dummyPos : Position = new Position("", -1L, -1L, -1L)
 
-let dummyWrap<'a> c : TyAdorn<'a> = ((dummyPos, dummyPos), TyCon <| BaseTy TyUnit, c)
+let dummyWrap<'a> c : TyAdorn<'a> = ((dummyPos, dummyPos), Qual (Set.empty, tUnit), c)
 
 // Add typing to a TyAdorn.
 let wrapWithType<'a> t c : TyAdorn<'a> = ((dummyPos, dummyPos), t, c)
 
-let rec typeConString con appliedTo =
-    let typeStrings tys sep = List.map typeString tys |> String.concat sep
-    match con with
-    | BaseTy baseTy ->
-        match baseTy with
-        | TyUint8 -> "uint8"
-        | TyUint16 -> "uint16"
-        | TyUint32 -> "uint32"
-        | TyUint64 -> "uint64"
-        | TyInt8 -> "int8"
-        | TyInt16 -> "int16"
-        | TyInt32 -> "int32"
-        | TyInt64 -> "int64"
-        | TyBool -> "bool"
-        | TyUnit -> "unit"
-        | TyFloat -> "float"
-        | TyDouble -> "double"
-        | TyPointer -> "pointer"
-        | TyString -> "string"
-    | ArrayTy ->
-        let [arrTy; capTy] = appliedTo
-        sprintf "%s[%s]" (typeString arrTy) (typeString capTy)
-    | FunTy ->
-        let retTy::argsTys = appliedTo
-        sprintf "(%s) -> %s" (typeStrings argsTys ", ") (typeString retTy)
-    | ModuleQualifierTy {module_=module_; name=name} ->
-        let genericApplication =
-            match appliedTo with
-            | [] -> ""
-            | _ -> sprintf "<%s>" (typeStrings appliedTo ", ")
-        sprintf "%s:%s%s" module_ name genericApplication
-    | RefTy ->
-        let [refTy] = appliedTo
-        sprintf "%s ref" (typeString refTy)
-    | TupleTy ->
-        typeStrings appliedTo " * "
+let getQualPreds (Qual (preds, _)) = preds
 
-and typeString (ty : TyExpr) : string =
-    match ty with
-    | TyCon con ->
-        typeConString con []
-    | ConApp (TyCon con, args) ->
-        typeConString con args
-    | TyVar name ->
-        sprintf "'%s" name
-    | _ ->
-        failwith "Compiler error in typeString"
-
-let baseTy b = TyCon <| BaseTy b
-let unittype = baseTy TyUnit
-let booltype = baseTy TyBool
-let int8type = baseTy TyInt8
-let uint8type = baseTy TyUint8
-let int16type = baseTy TyInt16
-let uint16type = baseTy TyUint16
-let int32type = baseTy TyInt32
-let uint32type = baseTy TyUint32
-let int64type = baseTy TyInt64
-let uint64type = baseTy TyUint64
-let floattype = baseTy TyFloat
-let doubletype = baseTy TyDouble
-let pointertype = baseTy TyPointer
-let stringtype = baseTy TyString
+let unwrapQual (Qual (_, x)) = x

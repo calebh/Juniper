@@ -14,21 +14,24 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                (dtenv : Map<string * string, T.DeclarationTy>)
                // menv maps variables to fully resolved module qualifiers
                (menv : Map<string, string*string>)
+               // maps module qualifiers to their kind
+               (kindEnv : Map<string * string, T.Kind>)
+               (explicitTyVarKindEnv : Map<string, T.Kind>)
                (localVars : Set<string>)
                (ienv : Map<string * string, int>)
-               (tyVarMapping : Map<string, T.TyExpr>)
+               (tyVarMapping : Map<string, T.TyVar>)
                // First bool represents mutability
                // Gamma maps variables to their types
                (gamma : Map<string, bool * T.Scheme>) =
     let getTypes = List.map T.getType
 
-    let convertType' = convertType menv tyVarMapping
+    let convertType' = convertType menv kindEnv explicitTyVarKindEnv tyVarMapping
 
     // Taus is what the overall pattern's type should equal
-    let rec checkPattern (posp, p) tau =
+    let rec checkPattern (posp, p) (tau : T.Qual<T.TyExpr, T.TyExpr>) =
         let mutable gamma' = gamma
         let mutable localVars = Set.empty
-        let rec checkPattern' (posp, p) tau =
+        let rec checkPattern' (posp, p) (tau : T.Qual<T.TyExpr, T.TyExpr>) =
             let rec checkPatterns pats =
                 match pats with
                 | [] -> ([], Trivial)
@@ -38,22 +41,22 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     (p'::ps', c &&& c')
             match p with
             | Ast.MatchTuple (_, pats) ->
-                let innerTaus = List.map freshtyvar pats
-                let c = T.ConApp (T.TyCon T.TupleTy, innerTaus, []) =~= (tau, errStr [posp] "Tuple pattern does not match the expression.")
-                let (pats', c') = checkPatterns (List.zip pats innerTaus)
+                let innerTaus = List.map freshtyvar pats |> List.map T.TVarExpr
+                let c = ((T.Qual (Set.empty, T.tTuple innerTaus)) =~= tau) (errStr [posp] "Tuple pattern does not match the expression.")
+                let (pats', c') = checkPatterns (List.zip pats (innerTaus |> List.map T.wrapEmptyQual))
                 ((posp, tau, T.MatchTuple pats'), c &&& c')
             | Ast.MatchFalse _ ->
-                ((posp, tau, T.MatchFalse), T.booltype =~= (tau, errStr [posp] "False pattern does not match the type of the expression."))
+                (((posp, tau, T.MatchFalse), (T.wrapEmptyQual T.tBool =~= tau) (errStr [posp] "False pattern does not match the type of the expression.")))
             | Ast.MatchTrue _ ->
-                ((posp, tau, T.MatchTrue), T.booltype =~= (tau, errStr [posp] "True pattern does not match the type of the expression."))
+                (((posp, tau, T.MatchTrue), (T.wrapEmptyQual T.tBool =~= tau) (errStr [posp] "True pattern does not match the type of the expression.")))
             | Ast.MatchFloatVal (_, value) ->
-                ((posp, tau, T.MatchFloatVal value), T.floattype =~= (tau, errStr [posp] "Float pattern does not match the type of the expression."))
+                ((posp, tau, T.MatchFloatVal value), (T.wrapEmptyQual T.tFloat =~= tau) (errStr [posp] "Float pattern does not match the type of the expression."))
             | Ast.MatchIntVal (_, value) ->
-                ((posp, tau, T.MatchIntVal value), T.int32type =~= (tau, errStr [posp] "Integer pattern does not match the type of the expression."))
+                ((posp, tau, T.MatchIntVal value), (T.wrapEmptyQual T.tInt32 =~= tau) (errStr [posp] "Integer pattern does not match the type of the expression."))
             | Ast.MatchUnderscore _ ->
                 ((posp, tau, T.MatchUnderscore), Trivial)
             | Ast.MatchUnit (posu, _) ->
-                ((posp, tau, T.MatchUnit), T.unittype =~= (tau, errStr [posu] "Unit pattern does not match the type of the expression."))
+                ((posp, tau, T.MatchUnit), (T.wrapEmptyQual T.tUnit =~= tau) (errStr [posu] "Unit pattern does not match the type of the expression."))
             | Ast.MatchVar { varName=(posv, varName); mutable_=(posm, mutable_); typ=typ } ->
                 if Set.contains varName localVars then
                     raise <| TypeError ((errStr [posv] (sprintf "This pattern already contains a variable named %s." varName)).Force())
@@ -62,10 +65,10 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     // NOTICE THAT WE DO NOT GENERALIZE HERE
                     // This is what makes this type system different from
                     // Hindley Milner
-                    gamma' <- Map.add varName (mutable_, T.Forall ([], [], tau)) gamma'
+                    gamma' <- Map.add varName (mutable_, T.Forall ([], tau)) gamma'
                     let c' = match typ with
                              | Some (post, typ) ->
-                                 convertType' typ =~= (tau, errStr [post] "Type constraint in pattern could not be satisfied")
+                                 (convertType' typ =~= tau) (errStr [post] "Type constraint in pattern could not be satisfied")
                              | None ->
                                  Trivial
                     ((posp, tau, T.MatchVar { varName=varName; mutable_=mutable_; typ=tau}), c')

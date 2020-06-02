@@ -373,3 +373,5 @@ let wrapWithType<'a> t c : TyAdorn<'a> = ((dummyPos, dummyPos), t, c)
 let getQualPreds (Qual (preds, _)) = preds
 
 let unwrapQual (Qual (_, x)) = x
+
+let wrapEmptyQual x = Qual (Set.empty, x)

@@ -24,7 +24,7 @@ let stringLiteral containingChar asciiOnly =
 
 type LeftRecursiveExp = CallArgs of PosAdorn<PosAdorn<Expr> list>
                       | ArrayIndex of PosAdorn<Expr>
-                      | TypeConstraintType of PosAdorn<TyExpr>
+                      | TypeConstraintType of PosAdorn<Qual>
                       | FieldAccessName of PosAdorn<string>
                       | UnsafeTypeCastType of PosAdorn<TyExpr>
 
@@ -197,6 +197,37 @@ let templateDec =
 
 let tyExpr = attempt typOpp.ExpressionParser
 
+// Typeclass predicates
+let predApply =
+    pipe2
+        (pos ((attempt moduleQualifier |>> Choice2Of2) <|> (idn |>> Choice1Of2)) .>> ws)
+        templateApply
+        (fun name application -> {predName = name; templateApply = application})
+
+let predsApply =
+    separatedList (pos predApply) ','
+
+let wherePredsApply =
+    skipString "where" >>. ws >>. predsApply
+
+let qual =
+    pipe2
+        (tyExpr .>> ws)
+        (pos wherePredsApply |> opt)
+        (fun ty maybePreds -> { tyExpr = ty; preds = maybePreds})
+
+let pred =
+    pipe2
+        (pos ((attempt moduleQualifier |>> Choice2Of2) <|> (idn |>> Choice1Of2)) .>> ws)
+        (pos templateDec)
+        (fun name template -> {predName = name; template = template})
+
+let preds =
+    separatedList (pos pred) ','
+
+let wherePreds =
+    skipString "where" >>. ws >>. preds
+
 // leftRecursiveTyp
 let leftRecursiveTyp =
     let openBracket = skipChar '[' >>. ws
@@ -254,7 +285,7 @@ do
         pipe3
             (pstring "mutable" |> opt |>> Option.isSome |> pos .>> ws)
             (pos idn .>> ws)
-            (skipChar ':' >>. ws >>. tyExpr |> opt .>> ws)
+            (skipChar ':' >>. ws >>. qual |> pos |> opt .>> ws)
             (fun mut name typ ->
                 MatchVar {varName=name; mutable_=mut; typ=typ}) |> pos
     let intPattern = pint64 |> pos |>> MatchIntVal |> pos
@@ -328,7 +359,7 @@ let functionClause delimiter =
 let leftRecursiveExp =
     let callArgs = betweenChar '(' (separatedList expr ',' |> pos) ')' |>> CallArgs
     let arrayIndex = betweenChar '[' expr ']' |>> ArrayIndex
-    let typeConstraint = skipChar ':' >>. ws >>. tyExpr |>> TypeConstraintType
+    let typeConstraint = skipChar ':' >>. ws >>. qual |> pos |>> TypeConstraintType
     let fieldAccessName = skipChar '.' >>. ws >>. attempt idn |> pos |>> FieldAccessName
     let unsafeTypeCast = skipString "::::" >>. ws >>. tyExpr |>> UnsafeTypeCastType
     List.map attempt [callArgs; arrayIndex; unsafeTypeCast; typeConstraint; fieldAccessName] |> choice |> pos .>> ws |> many
@@ -475,31 +506,6 @@ do
         (skipChar '<' >>. ws >>. separatedList tyExpr ',' .>> ws .>> skipChar '>') |> pos |>>
         (fun tyExprs -> {tyExprs = tyExprs}) |> pos
 
-// Typeclass predicates
-let typeclassPredApply =
-    pipe2
-        (pos ((attempt moduleQualifier |>> Choice2Of2) <|> (idn |>> Choice1Of2)) .>> ws)
-        templateApply
-        (fun name application -> {predName = name; templateApply = application})
-
-let typeclassPredsApply =
-    separatedList (pos typeclassPredApply) ','
-
-let typeclassWherePredsApply =
-    skipString "where" >>. ws >>. typeclassPredsApply
-
-let typeclassPred =
-    pipe2
-        (pos ((attempt moduleQualifier |>> Choice2Of2) <|> (idn |>> Choice1Of2)) .>> ws)
-        (pos templateDec)
-        (fun name template -> {predName = name; template = template})
-
-let typeclassPreds =
-    separatedList (pos typeclassPred) ','
-
-let typeclassWherePreds =
-    skipString "where" >>. ws >>. typeclassPreds
-
 let funName = skipString "fun" >>. ws >>. pos idn .>> ws
 
 let functionArguments =
@@ -512,7 +518,7 @@ let functionp =
         (templateDec |> pos |> opt)
         functionArguments
         (opt functionReturnType)
-        ((typeclassWherePredsApply |> pos |> opt) .>> skipString "=" .>> ws)
+        ((wherePredsApply |> pos |> opt) .>> skipString "=" .>> ws)
         body
         (fun name template arguments returnType predicates body ->
             let (clausePosL, _) = getPos arguments
@@ -566,7 +572,7 @@ let typeclassDec =
             (templateDec |> pos |> opt)
             functionArguments
             functionReturnType
-            (pos typeclassWherePredsApply |> opt)
+            (pos wherePredsApply |> opt)
             (fun name template arguments returnType preds ->
                 {name = name; template = template; arguments = arguments; returnType = returnType;
                  predicates = preds})
@@ -574,7 +580,7 @@ let typeclassDec =
     pipe4
         (skipString "typeclass" >>. ws >>. (pos idn) .>> ws)
         (templateDec)
-        (typeclassWherePreds |> pos |> opt)
+        (wherePreds |> pos |> opt)
         ((many (typeClassDecFun |> pos) |> pos) .>> (skipString "end"))
         (fun name template predicates funs ->
             {name = name; template = template; predicates = predicates; functions = funs}) |>
@@ -583,8 +589,8 @@ let typeclassDec =
 
 let typeclassInstanceDec =
     pipe3
-        (skipString "instance" >>. ws >>. (pos typeclassPredApply) .>> ws)
-        (typeclassWherePredsApply |> pos |> opt)
+        (skipString "instance" >>. ws >>. (pos predApply) .>> ws)
+        (wherePredsApply |> pos |> opt)
         (pos (many (pos functionp)) .>> ws .>> skipString "end")
         (fun instanceOf predicates funcs ->
             {instanceOf = instanceOf; predicates = predicates; functions = funcs})

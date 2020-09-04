@@ -15,7 +15,7 @@ and PosAdorn<'a> = (Position * Position) * 'a
 // Top level declarations
 and FunctionRec = { name     : PosAdorn<string>;
                     template : PosAdorn<Template> option;
-                    predicates : PosAdorn<PosAdorn<TypeclassPredApply> list> option;
+                    predicates : PosAdorn<PosAdorn<PredApply> list> option;
                     clause   : PosAdorn<FunctionClause> }
 
 and RecordRec =   { name     : PosAdorn<string>;
@@ -33,26 +33,29 @@ and LetDecRec = { varName : PosAdorn<string>;
                   typ     : PosAdorn<TyExpr> option;
                   right   : PosAdorn<Expr>; }
 
-and TypeclassPred = { predName : PosAdorn<Choice<string, ModQualifierRec>>;
-                      template : PosAdorn<Template> }
+and Pred = { predName : PosAdorn<Choice<string, ModQualifierRec>>;
+             template : PosAdorn<Template> }
 
-and TypeclassPredApply = { predName : PosAdorn<Choice<string, ModQualifierRec>>;
-                           templateApply: PosAdorn<TemplateApply> }
+and PredApply = { predName : PosAdorn<Choice<string, ModQualifierRec>>;
+                  templateApply: PosAdorn<TemplateApply> }
 
 and TypeclassFunc = { name : PosAdorn<string>;
                       template: PosAdorn<Template> option
                       returnType : PosAdorn<TyExpr>;
-                      predicates: PosAdorn<PosAdorn<TypeclassPredApply> list> option;
+                      predicates: PosAdorn<PosAdorn<PredApply> list> option;
                       arguments :  PosAdorn<(PosAdorn<string> * PosAdorn<TyExpr>) list>; }
 
 and TypeclassRec = { name : PosAdorn<string>;
                      template : Template;
-                     predicates: PosAdorn<PosAdorn<TypeclassPred> list> option;
+                     predicates: PosAdorn<PosAdorn<Pred> list> option;
                      functions : PosAdorn<PosAdorn<TypeclassFunc> list> }
 
-and TypeclassInstanceRec = { instanceOf: PosAdorn<TypeclassPredApply>;
-                             predicates : PosAdorn<PosAdorn<TypeclassPredApply> list> option;
+and TypeclassInstanceRec = { instanceOf: PosAdorn<PredApply>;
+                             predicates : PosAdorn<PosAdorn<PredApply> list> option;
                              functions : PosAdorn<PosAdorn<FunctionRec> list> }
+
+and Qual = { tyExpr : PosAdorn<TyExpr>;
+             preds : PosAdorn<PosAdorn<PredApply> list> option }
 
 // Declaration defined as any of the above.
 and Declaration = FunctionDec   of FunctionRec
@@ -103,7 +106,7 @@ and TyExpr = BaseTy of PosAdorn<BaseTypes>
            | NatNumTy of PosAdorn<int64>
 
 // Pattern matching AST datatypes.
-and MatchVarRec = {varName : PosAdorn<string>; mutable_ : PosAdorn<bool>; typ : PosAdorn<TyExpr> option}
+and MatchVarRec = {varName : PosAdorn<string>; mutable_ : PosAdorn<bool>; typ : PosAdorn<Qual> option}
 and MatchValConRec = { name : PosAdorn<Choice<string, ModQualifierRec>>; template : PosAdorn<TemplateApply> option; innerPattern : PosAdorn<Pattern> option }
 and MatchRecConRec = { name : PosAdorn<Choice<string, ModQualifierRec>>; template : PosAdorn<TemplateApply> option; fields : PosAdorn<(PosAdorn<string> * PosAdorn<Pattern>) list>}
 
@@ -152,7 +155,7 @@ and CallRec =         { func : PosAdorn<Expr>; args : PosAdorn<PosAdorn<Expr> li
 and TemplateApplyExpRec = { func : PosAdorn<Choice<string, ModQualifierRec>>; templateArgs : PosAdorn<TemplateApply> }
 and RecordExprRec =   { recordTy : PosAdorn<Choice<string, ModQualifierRec>>; templateArgs : PosAdorn<TemplateApply> option; initFields : PosAdorn<(PosAdorn<string> * PosAdorn<Expr>) list> }
 and ArrayMakeExpRec = { typ : PosAdorn<TyExpr>; initializer : PosAdorn<Expr> option }
-and TypeConstraintRec = { exp : PosAdorn<Expr>; typ : PosAdorn<TyExpr> }
+and TypeConstraintRec = { exp : PosAdorn<Expr>; typ : PosAdorn<Qual> }
 and UnsafeTypeCastRec = { exp : PosAdorn<Expr>; typ : PosAdorn<TyExpr> }
 and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | BinaryOpExp of BinaryOpRec

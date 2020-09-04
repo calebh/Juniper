@@ -124,11 +124,15 @@ let (|--->) (a : TyVar) (tau : TyExpr) (preds : Set<Pred<TyExpr>>) =
     let preds' = Set.map (predicatesubst theta) preds
     (theta, preds')
 
-let instantiate (Forall (formals, qual)) actuals =
-    qualsubst (Map.ofList (List.zip formals actuals)) qual
+let instantiate (Forall (formals, qual)) (actualQuals : List<Qual<TyExpr, TyExpr>>) =
+    let actualsPreds = List.map getQualPreds actualQuals |> Set.unionMany
+    let actuals = List.map unwrapQual actualQuals
+    let (Qual (preds', tau)) = qualsubst (Map.ofList (List.zip formals actuals)) qual
+    Qual (Set.union actualsPreds preds', tau)
 
-let freshInstance (Forall (formals, qual) as scheme) =
-    instantiate scheme (List.map (freshtyvar >> TVarExpr) formals)
+let freshInstance (Forall (formals, _) as scheme) =
+    let actuals = List.map (freshtyvar >> TVarExpr >> fun tau -> Qual (Set.empty, tau)) formals
+    (instantiate scheme actuals, actuals)
 
 let generalize skipTyVars qual =
     let ts = freeVarsInQual qual

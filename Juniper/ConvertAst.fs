@@ -93,24 +93,18 @@ let rec convertType (menv : Map<string, string * string>) (kindEnv : Map<string 
                 (T.TyVar (name, kind))
         T.Qual (Set.empty, T.TVarExpr tyVar)
     | A.NatNumTy n ->
-        let rec buildType n' : T.TyExpr =
-            if n' = 0L then
-                T.tModuleQualifier {T.module_="Prelude"; name="zero"} T.Star
-            else
-                let innerType = buildType (n' - 1L)
-                T.TApExpr (T.tModuleQualifier {T.module_="Prelude"; name="succ"} (T.kindFun 1), [innerType])
-        let nAsType = buildType (A.unwrap n)
+        let nAsType = T.tNat (A.unwrap n)
         let pred = T.IsIn ({T.module_="Prelude"; T.name="Nat"}, [nAsType], errStr [A.getPos n] "Unable to find Prelude:Nat type class instance associated with this natural number type literal. Are you using a non-standard Prelude?")
         T.Qual (Set.singleton pred, nAsType)
 
 let convertPredicates (menv : Map<string, string * string>) (kindEnv : Map<string * string, T.Kind>)
                       (explicitTyVarKindEnv : Map<string, T.Kind>) (tyVarMapping : Map<string, T.TyVar>)
-                      (predicates : List<A.PosAdorn<A.TypeclassPredApply>>) : Set<T.Pred<T.TyExpr>> =
+                      (predicates : List<A.PosAdorn<A.PredApply>>) : Set<T.Pred<T.TyExpr>> =
     let ct = convertType menv kindEnv explicitTyVarKindEnv tyVarMapping
     predicates |>
     List.map
         (fun wrappedPred ->
-            let {A.TypeclassPredApply.predName=predName; A.templateApply=templateApply} = A.unwrap wrappedPred
+            let {A.PredApply.predName=predName; A.templateApply=templateApply} = A.unwrap wrappedPred
             let modQual =
                 match A.unwrap predName with
                 | Choice1Of2 name ->
@@ -131,7 +125,7 @@ let convertPredicates (menv : Map<string, string * string>) (kindEnv : Map<strin
 
 let convertQual (menv : Map<string, string * string>) (kindEnv : Map<string * string, T.Kind>)
                 (explicitTyVarKindEnv : Map<string, T.Kind>) (tyVarMapping : Map<string, T.TyVar>)
-                (predicates : List<A.PosAdorn<A.TypeclassPredApply>>) (tau : A.TyExpr) : T.Qual<T.TyExpr, T.TyExpr> =
+                (predicates : List<A.PosAdorn<A.PredApply>>) (tau : A.TyExpr) : T.Qual<T.TyExpr, T.TyExpr> =
     let preds1 = convertPredicates menv kindEnv explicitTyVarKindEnv tyVarMapping predicates
     let (Qual (preds2, tau')) = convertType menv kindEnv explicitTyVarKindEnv tyVarMapping tau
     T.Qual (Set.union preds1 preds2, tau')

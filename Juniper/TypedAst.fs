@@ -170,7 +170,7 @@ and CallRec =         { func : TyAdorn<Expr>; args : TyAdorn<Expr> list }
 // Applying the template of a function
 and TemplateApplyExpRec = { func : Choice<string, ModQualifierRec>; templateArgs : TemplateApply }
 and RecordExprRec =   { recordTy : ModQualifierRec; templateArgs : TemplateApply option; initFields : (string * TyAdorn<Expr>) list }
-and ArrayMakeExpRec = { typ : TyExpr; initializer : TyAdorn<Expr> option }
+and ArrayMakeExpRec = { typ : Qual<TyExpr, TyExpr>; initializer : TyAdorn<Expr> option }
 and Expr = SequenceExp of TyAdorn<Expr> list
           | BinaryOpExp of BinaryOpRec
           | IfElseExp of IfElseRec
@@ -186,7 +186,7 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | UnaryOpExp of UnaryOpRec
           | RecordAccessExp of RecordAccessRec
           | ArrayAccessExp of ArrayAccessRec
-          | VarExp of string * TyExpr list
+          | VarExp of string * Qual<TyExpr, TyExpr> list
           | UnitExp
           | TrueExp
           | FalseExp
@@ -255,6 +255,13 @@ let tRef refTy = TApExpr (TConExpr (TyCon (TyConRef, KFun ([Star], Star))), [ref
 let tArray elementTy capacityTy = TApExpr (TConExpr (TyCon (TyConArray, KFun ([Star; Star], Star))), [elementTy; capacityTy])
 
 let tModuleQualifier modQual kind = TConExpr (TyCon (TyConUserDefined modQual, kind))
+
+let rec tNat n =
+    if n = 0L then
+        tModuleQualifier {module_="Prelude"; name="zero"} Star
+    else
+        let innerType = tNat (n - 1L)
+        TApExpr (tModuleQualifier {module_="Prelude"; name="succ"} (kindFun 1), [innerType])
 
 let modQualifierString {module_=module_; name=name} =
     module_ + ":" + name

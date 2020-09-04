@@ -26,6 +26,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
     let getTypes = List.map T.getType
 
     let convertType' = convertType menv kindEnv explicitTyVarKindEnv tyVarMapping
+    let convertQual' = convertQual menv kindEnv explicitTyVarKindEnv tyVarMapping
 
     // Taus is what the overall pattern's type should equal
     let rec checkPattern (posp, p) (tau : T.Qual<T.TyExpr, T.TyExpr>) =
@@ -66,12 +67,17 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     // This is what makes this type system different from
                     // Hindley Milner
                     gamma' <- Map.add varName (mutable_, T.Forall ([], tau)) gamma'
-                    let c' = match typ with
-                             | Some (post, typ) ->
-                                 (convertType' typ =~= tau) (errStr [post] "Type constraint in pattern could not be satisfied")
-                             | None ->
-                                 Trivial
-                    ((posp, tau, T.MatchVar { varName=varName; mutable_=mutable_; typ=tau}), c')
+                    let c' =
+                        match typ with
+                        | Some (post, {tyExpr=typ; preds=preds}) ->
+                            let preds' =
+                                match preds with
+                                | Some ps -> A.unwrap ps
+                                | None -> []
+                            (convertQual' preds' (A.unwrap typ) =~= tau) (errStr [post] "Type constraint in pattern could not be satisfied")
+                        | None ->
+                            Trivial
+                    ((posp, tau, T.MatchVar { varName=varName; mutable_=mutable_; typ=T.unwrapQual tau}), c')
             | Ast.MatchRecCon {name=(posn, decRef); template=template; fields=(posf, fields)} ->
                 let modQual =
                     match decRef with
@@ -88,41 +94,38 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 match Map.tryFind (module_, name) dtenv with
                 | Some dec ->
                     match dec with
-                    | T.RecordDecTy (taus, caps, fieldTaus) ->
+                    | T.RecordDecTy (taus, fieldTaus) ->
                         let fieldNamesInDec = Map.keys fieldTaus
                         let fieldNamesInPattern = fields |> List.map (fst >> Ast.unwrap) |> Set.ofList
                         if Set.isSubset fieldNamesInPattern fieldNamesInDec then
-                            let (taus', caps') =
+                            let quals =
                                 match template with
-                                | Some (postemp, {tyExprs=(post, tyExprs); capExprs=(posc, capExprs)}) ->
-                                    (List.map (Ast.unwrap >> convertType') tyExprs,
-                                     List.map (Ast.unwrap >> convertCapacity') capExprs)
+                                | Some (postemp, { tyExprs=(post, tyExprs) }) ->
+                                    List.map (Ast.unwrap >> convertType') tyExprs
                                 | None ->
-                                    (List.map Constraint.freshtyvar taus,
-                                     List.map Constraint.freshcapvar caps)
+                                    List.map (Constraint.freshtyvar >> T.TVarExpr >> T.wrapEmptyQual) taus
+                            let preds = quals |> List.map T.getQualPreds |> Set.unionMany
+                            let taus' = quals |> List.map T.unwrapQual
                             let substitution =
                                 List.zip taus taus' |> Map.ofList
-                            let capSubstitution =
-                                List.zip caps caps' |> Map.ofList
                             let freshRecordInstance =
                                 Map.map
                                     (fun fieldName fieldTau ->
-                                        Constraint.tycapsubst substitution capSubstitution fieldTau)
+                                        Constraint.tysubst substitution fieldTau)
                                     fieldTaus
                             let pats =
                                 List.map
                                     (fun ((_, fieldName), pattern) ->
-                                        (pattern, Map.find fieldName freshRecordInstance))
+                                        (pattern, Map.find fieldName freshRecordInstance |> T.wrapEmptyQual))
                                     fields
                             let comparisonTau =
-                                let b = T.TyCon (T.ModuleQualifierTy modQual)
                                 if List.isEmpty taus then
-                                    b
+                                    T.TConExpr (T.TyCon (T.TyConUserDefined modQual, T.Star))
                                 else
-                                    T.ConApp (b, taus', caps')
-                            let c = comparisonTau =~= (tau, errStr [posp] "Record pattern did not match expression.")
+                                    T.TApExpr (T.TConExpr (T.TyCon (T.TyConUserDefined modQual, T.kindFun (List.length taus))), taus')
+                            let c = ((T.Qual (preds, comparisonTau)) =~= tau) (errStr [posp] "Record pattern did not match expression.")
                             let (pats', c') = checkPatterns pats
-                            ((posp, tau, T.MatchRecCon {typ=modQual; fields=List.zip (List.map (fst >> Ast.unwrap) fields) pats'}), c')
+                            ((posp, tau, T.MatchRecCon {typ=modQual; fields=List.zip (List.map (fst >> Ast.unwrap) fields) pats'}), c &&& c')
                         else
                             let diff = Set.difference fieldNamesInPattern fieldNamesInDec
                             let diffStr = String.concat ", " diff
@@ -151,19 +154,19 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     let id = Map.find (module_, name) ienv
                     let inst =
                         match template with
-                        | Some (post, {tyExprs=(posm, tyExprs); capExprs=(posn, capExprs)}) ->
-                            instantiate valueConstructor (List.map (Ast.unwrap >> convertType') tyExprs) (List.map (Ast.unwrap >> convertCapacity') capExprs)
+                        | Some (post, {tyExprs=(posm, tyExprs)}) ->
+                            instantiate valueConstructor (List.map (Ast.unwrap >> convertType') tyExprs)
                         | None ->
-                            let (instance, _, _) = freshInstance valueConstructor
+                            let (instance, _) = (freshInstance valueConstructor)
                             instance
                     match inst with
-                    | T.ConApp (T.TyCon T.FunTy, returnTau::argTaus, _) ->
+                    | T.Qual (preds, T.TApExpr (T.TConExpr (T.TyCon (T.TyConFun, _)), returnTau::argTaus)) ->
                         match (argTaus, maybeInnerPattern) with
                         | ([], None) ->
-                            ((posp, tau, T.MatchValCon {modQualifier=modQual; innerPattern=None; id=id}), returnTau =~= (tau, errStr [posn] "Value constructor pattern type does not match the expression."))
+                            ((posp, tau, T.MatchValCon {modQualifier=modQual; innerPattern=None; id=id}), ((T.Qual (preds, returnTau)) =~= tau) (errStr [posn] "Value constructor pattern type does not match the expression."))
                         | ([valueConTau], Some innerPattern) ->
-                            let c = returnTau =~= (tau, errStr [posn] "Value constructor pattern type does not match expression.")
-                            let (innerPattern', c') = checkPattern' innerPattern valueConTau
+                            let c = ((T.Qual (preds, returnTau)) =~= tau) (errStr [posn] "Value constructor pattern type does not match expression.")
+                            let (innerPattern', c') = checkPattern' innerPattern (T.Qual (preds, valueConTau))
                             ((posp, tau, T.MatchValCon {modQualifier=modQual; innerPattern=Some innerPattern'; id=id}), c &&& c')
                         | ([_], None) ->
                             raise <| TypeError ((errStr [posn] (sprintf "Value constructor named %s does not take in an argument, but there was one inner pattern within the pattern match." name)).Force())
@@ -182,7 +185,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
         match exprs with
         | [] -> ([], Trivial)
         | e::es ->
-            let (tau, c) = typeof e dtenv menv localVars ienv tyVarMapping capVarMapping gamma
+            let (tau, c) = typeof e dtenv menv kindEnv explicitTyVarKindEnv localVars ienv tyVarMapping gamma
             let (taus, c') = typesof es dtenv menv localVars gamma
             (tau::taus, c &&& c')
     and ty ((posE, expr) : Ast.PosAdorn<Ast.Expr>) : (T.TyAdorn<T.Expr> * Constraint) =
@@ -190,48 +193,49 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             ((pos, tau, expr), con)
         match expr with
         | Ast.UnitExp (pos, ()) ->
-            adorn posE T.unittype T.UnitExp Trivial
+            adorn posE (T.wrapEmptyQual T.tUnit) T.UnitExp Trivial
         | Ast.InlineCode (pos, code) ->
-            adorn posE T.unittype (T.InlineCode code) Trivial
+            adorn posE (T.wrapEmptyQual T.tUnit) (T.InlineCode code) Trivial
         | Ast.TrueExp (pos, ()) ->
-            adorn posE T.booltype T.TrueExp Trivial
+            adorn posE (T.wrapEmptyQual T.tBool) T.TrueExp Trivial
         | Ast.FalseExp (pos, ()) ->
-            adorn posE T.booltype T.FalseExp Trivial
+            adorn posE (T.wrapEmptyQual T.tBool) T.FalseExp Trivial
         | Ast.IntExp (pos, num) ->
-            adorn posE T.int32type (T.IntExp num) Trivial
+            adorn posE (T.wrapEmptyQual T.tInt32) (T.IntExp num) Trivial
         | Ast.Int8Exp (pos, num) ->
-            adorn posE T.int8type (T.Int8Exp num) Trivial
+            adorn posE (T.wrapEmptyQual T.tInt8) (T.Int8Exp num) Trivial
         | Ast.Int16Exp (pos, num) ->
-            adorn posE T.int16type (T.Int16Exp num) Trivial
+            adorn posE (T.wrapEmptyQual T.tInt16) (T.Int16Exp num) Trivial
         | Ast.Int32Exp (pos, num) ->
-            adorn posE T.int32type (T.Int32Exp num) Trivial
+            adorn posE (T.wrapEmptyQual T.tInt32) (T.Int32Exp num) Trivial
         | Ast.Int64Exp (pos, num) ->
-            adorn posE T.int64type (T.Int64Exp num) Trivial
+            adorn posE (T.wrapEmptyQual T.tInt64) (T.Int64Exp num) Trivial
         | Ast.UInt8Exp (pos, num) ->
-            adorn posE T.uint8type (T.UInt8Exp num) Trivial
+            adorn posE (T.wrapEmptyQual T.tUint8) (T.UInt8Exp num) Trivial
         | Ast.UInt16Exp (pos, num) ->
-            adorn posE T.uint16type (T.UInt16Exp num) Trivial
+            adorn posE (T.wrapEmptyQual T.tUint16) (T.UInt16Exp num) Trivial
         | Ast.UInt32Exp (pos, num) ->
-            adorn posE T.uint32type (T.UInt32Exp num) Trivial
+            adorn posE (T.wrapEmptyQual T.tUint32) (T.UInt32Exp num) Trivial
         | Ast.UInt64Exp (pos, num) ->
-            adorn posE T.uint64type (T.UInt64Exp num) Trivial
+            adorn posE (T.wrapEmptyQual T.tUint64) (T.UInt64Exp num) Trivial
         | Ast.FloatExp (pos, num) ->
-            adorn posE T.floattype (T.FloatExp num) Trivial
+            adorn posE (T.wrapEmptyQual T.tFloat) (T.FloatExp num) Trivial
         | Ast.DoubleExp (pos, num) ->
-            adorn posE T.doubletype (T.DoubleExp num) Trivial
+            adorn posE (T.wrapEmptyQual T.tDouble) (T.DoubleExp num) Trivial
         | Ast.IfElseExp {condition=(posc, _) as condition; trueBranch=(post, _) as trueBranch; falseBranch=(posf, _) as falseBranch} ->
             let (exprs', c) = typesof [condition; trueBranch; falseBranch] dtenv menv localVars gamma
             let [condition'; trueBranch'; falseBranch'] = exprs'
             let [tauC; tauT; tauF] = getTypes exprs'
             let c' = c &&&
-                        (tauC =~= (T.booltype, errStr [posc] "Condition of if statement expected to be type bool")) &&&
-                        (tauT =~= (tauF, errStr [post; posf] "Branches of if statement expected to be of the same type"))
-            adorn posE tauT (T.IfElseExp {condition=condition'; trueBranch=trueBranch'; falseBranch=falseBranch'}) c'
+                        ((tauC =~= (T.wrapEmptyQual T.tBool)) (errStr [posc] "Condition of if statement expected to be type bool")) &&&
+                        ((tauT =~= tauF) (errStr [post; posf] "Branches of if statement expected to be of the same type"))
+            let preds = List.map T.getQualPreds [tauC; tauT; tauF] |> Set.unionMany
+            adorn posE (T.Qual (preds, T.unwrapQual tauT)) (T.IfElseExp {condition=condition'; trueBranch=trueBranch'; falseBranch=falseBranch'}) c'
         | Ast.VarExp (posn, varName) ->
             match Map.tryFind varName gamma with
             | Some (_, tyscheme) ->
-                let (instance, t, c) = freshInstance tyscheme
-                adorn posE instance (T.VarExp (varName, t, c)) Trivial
+                let (instance, t) = freshInstance tyscheme
+                adorn posE instance (T.VarExp (varName, t)) Trivial
             | None ->
                 raise <| TypeError ((errStr [posn] (sprintf "Variable named %s could not be found" varName)).Force())
         | Ast.ArrayAccessExp { array=(posa, _) as array; index=(posi, _) as index } ->
@@ -239,27 +243,32 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let [array'; index'] = exprs'
             let [tauA; tauI] = getTypes exprs'
             let tauElement = freshtyvar ()
-            let arraySize = freshcapvar ()
-            let tauArray = T.ConApp (T.TyCon T.ArrayTy, [tauElement], [arraySize])
-            let c' = c &&& (tauA =~= (tauArray, errStr [posa] "An array access expression must access a value of an array type")) &&&
-                           (tauI =~= (T.int32type, errStr [posi] "Expected index of array access expression to have integer type"))
-            adorn posE tauElement (T.ArrayAccessExp {array=array'; index=index'}) c'
+            let arraySize = freshtyvar ()
+            let tauArray = T.tArray (T.TVarExpr tauElement) (T.TVarExpr arraySize)
+            let capPred = T.IsIn ({T.module_="Prelude"; T.name="Nat"}, [T.TVarExpr arraySize], errStr [posa] "Unable to find Prelude:Nat type class instance associated with this array's capacity.")
+            let c' = c &&& ((tauA =~= (T.Qual (Set.singleton capPred, tauArray))) (errStr [posa] "An array access expression must access a value of an array type")) &&&
+                           ((tauI =~= (T.wrapEmptyQual T.tInt32)) (errStr [posi] "Expected index of array access expression to have integer type"))
+            let preds = [array' |> T.getType |> T.getQualPreds; index' |> T.getType |> T.getQualPreds; Set.singleton capPred] |> Set.unionMany
+            adorn posE (T.Qual (preds, T.TVarExpr tauElement)) (T.ArrayAccessExp {array=array'; index=index'}) c'
         | Ast.ArrayLitExp (posa, exprs) ->
             let (exprs', c) = typesof exprs dtenv menv localVars gamma
-            let tauElement = freshtyvar ()
-            let c' = List.fold (&&&) c (List.map (flip (T.getType >> (=~=)) (tauElement, errStr [posa] "Expected all elements of array to be of the same type")) exprs')
-            let tauArray = T.ConApp (T.TyCon T.ArrayTy, [tauElement], [T.CapacityConst <| int64 (List.length exprs)])
-            adorn posE tauArray (T.ArrayLitExp exprs') c'
+            let tauElement = freshtyvar () |> T.TVarExpr
+            let c' = conjoinConstraints (exprs' |> List.map (fun expr' -> (T.getType expr' =~= T.wrapEmptyQual tauElement) (errStr [posa] "Expected all elements of array to be of the same type")))
+            let capacity = T.tNat (int64 (List.length exprs))
+            let tauArray = T.tArray tauElement capacity
+            let capPred = T.IsIn ({T.module_="Prelude"; T.name="Nat"}, [capacity], errStr [posa] "Unable to find Prelude:Nat type class instance associated with this array's capacity.")
+            let preds' = (Set.singleton capPred)::(List.map (T.getType >> T.getQualPreds) exprs') |> Set.unionMany
+            adorn posE (T.Qual (preds', tauArray)) (T.ArrayLitExp exprs') (c &&& c')
         | Ast.ArrayMakeExp {typ=(post, typ); initializer=maybeInitializer} ->
             let typ' = convertType' typ
-            match typ' with
-            | T.ConApp (T.TyCon T.ArrayTy, [tauElement], [cap]) ->
+            match T.unwrapQual typ' with
+            | T.TApExpr (T.TConExpr (T.TyCon (T.TyConArray, T.KFun ([T.Star; T.Star], T.Star))), [tauElement; cap]) ->
                 let (maybeInitializer', c) =
                     match maybeInitializer with
                     | Some ((posi, _) as initializer) ->
                         let (initializer', c) = ty initializer
-                        let c' = c &&& (T.getType initializer' =~= (tauElement, errStr [post; posi] "Expected initializer to have the same type as the type declaration."))
-                        (Some initializer', c)
+                        let c' = c &&& (T.getType initializer' =~= T.wrapEmptyQual tauElement) (errStr [post; posi] "Expected initializer to have the same type as the type declaration.")
+                        (Some initializer', c')
                     | None ->
                         (None, Trivial)
                 adorn posE typ' (T.ArrayMakeExp {typ=typ'; initializer=maybeInitializer'}) c

@@ -1,4 +1,5 @@
 ﻿module Compiler
+open Error
 open System
 open TypedAst
 open Extensions
@@ -694,7 +695,7 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
     *)
     (match setupModule with
         | None ->
-            failwith "Unable to find program entry point. Please create a function called setup.\n fun setup() = ()"
+            raise <| SemanticError "Unable to find program entry point. Please create a function called setup.\n fun setup() = ()"
         | Some module_ ->
             output "void setup() {" + newline() +
             indentId() + output module_ + output "::" + output "setup();" + newline() + unindentId() +
@@ -707,7 +708,7 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
     *)
     (match loopModule with
         | None ->
-            failwith "Unable to find program entry point. Please create a function called loop.\n fun loop() = ()."
+            raise <| SemanticError "Unable to find program entry point. Please create a function called loop.\n fun loop() = ()."
         | Some module_ ->
             output "void loop() {" + newline() +
             indentId() + output module_ + output "::" + output "loop();" + newline() + unindentId()

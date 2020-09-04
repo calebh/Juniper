@@ -110,6 +110,7 @@
     <Compile Include="Extensions.fs" />
     <Compile Include="Guid.fs" />
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Error.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
     <Compile Include="TypedAst.fs" />
@@ -118,7 +119,6 @@
     <Compile Include="Compiler.fs" />
     <Compile Include="Parse.fs" />
     <Compile Include="ConvertAst.fs" />
-    <Compile Include="Error.fs" />
     <Compile Include="AstAnalysis.fs" />
     <Compile Include="Module.fs" />
     <Compile Include="TypeChecker.fs" />

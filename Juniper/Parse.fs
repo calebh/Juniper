@@ -470,7 +470,7 @@ do
         let escapedChar = pstring "\\" >>. (anyOf "\\#" |>> string)
         between (pstring "#") (pstring "#") (stringsSepBy normalCharSnippet escapedChar) |> pos |>> InlineCode
     let tuple = betweenChar '(' (separatedList1 expr ',') ')' |>> TupleExp
-    let smartpointer = (skipString "smartpointer" >>. ws >>. expr) |>> Smartpointer
+    let smartpointer = (skipString "smartpointer" >>. ws >>. expr .>> ws .>> skipString "end") |>> Smartpointer
     let e = choice (List.map attempt [punit; parens; ptrue; pfalse; charlist; str;
                     pint8; pint16; pint32; pint64'; puint8; puint16; puint32; puint64;
                     pint; pfloat; pdouble; smartpointer;

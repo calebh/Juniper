@@ -569,7 +569,7 @@ fun swap(tup) = (
 )
 
 (*
-    Funtction: until
+    Function: until
 
     Yields the result of applying f until p holds.
 
@@ -589,3 +589,13 @@ fun until<'a>(p : ('a) -> bool, f : ('a) -> 'a, a0 : 'a) : 'a = (
     ) end;
     a
 )
+
+(*
+    Function: ignore
+
+    Takes a value as a parameter and ignores it.
+
+    Type signature:
+    | <'a>('a) -> unit
+*)
+fun ignore<'a>(val : 'a) = ()

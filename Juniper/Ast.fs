@@ -186,7 +186,7 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | TupleExp of PosAdorn<Expr> list
           | QuitExp of PosAdorn<TyExpr> option
           | TypeConstraint of TypeConstraintRec
-          | Smartpointer of PosAdorn<string> * PosAdorn<Expr>
+          | Smartpointer of PosAdorn<Expr>
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | BitwiseXor
               | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
               | BitshiftLeft | BitshiftRight | Pipe

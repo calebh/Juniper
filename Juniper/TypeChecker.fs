@@ -564,15 +564,13 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let (expr', c') = ty expr
             let tau = T.ConApp ((T.TyCon T.RefTy), [T.getType expr'], [])
             adorn posE tau (T.RefExp expr') c'
-        | Ast.Smartpointer ((posv, varname), expr) ->
+        | Ast.Smartpointer expr ->
             let (pose, _) = expr
-            let localVars' = Set.add varname localVars
-            let gamma' = Map.add varname (false, T.Forall ([], [], (T.TyCon (T.BaseTy T.TyPointer)))) gamma
-            let (expr', c1) = typeof expr dtenv menv localVars' ienv tyVarMapping capVarMapping gamma'
+            let (expr', c1) = typeof expr dtenv menv localVars ienv tyVarMapping capVarMapping gamma
             let destructorTy = T.ConApp (T.FunTy |> T.TyCon, [T.TyUnit |> T.BaseTy |> T.TyCon; T.TyPointer |> T.BaseTy |> T.TyCon], [])
             let c2 = T.getType expr' =~= (destructorTy, errStr [pose] "Expression in smartpointer block must be a destructor of type (pointer) -> unit")
             let c' = c1 &&& c2
-            adorn posE (T.TyPointer |> T.BaseTy |> T.TyCon) (T.Smartpointer (varname, expr')) c'
+            adorn posE (T.TyPointer |> T.BaseTy |> T.TyCon) (T.Smartpointer expr') c'
         | Ast.SequenceExp (poss, exps) ->
             let ((pose, _) as exp)::rest = exps
             let (exp', c1) = ty exp

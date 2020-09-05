@@ -173,12 +173,13 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
         output (sprintf "((const PROGMEM char *)(\"%s\"))" str)
     | QuitExp ty ->
         getQuitExpr ty |> compile
-    | Smartpointer (name, body) ->
+    | Smartpointer destructor ->
+        let name = Guid.string()
         output "(([&]() -> " +
         compileType ty +
         output " {" + newline() + indentId() +
         compileType (TyCon <| (BaseTy TyPointer)) + " " + name + ";" +
-        output name + output ".destructorCallback = " + compile body + ";" + newline() +
+        output name + output ".destructorCallback = " + compile destructor + ";" + newline() +
         output "return " + name + ";" + newline() + unindentId() +
         output "})())"
     // Convert inline C++ code from Juniper directly to C++

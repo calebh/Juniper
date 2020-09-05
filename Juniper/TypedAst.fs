@@ -185,7 +185,7 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | RefExp of TyAdorn<Expr>
           | TupleExp of TyAdorn<Expr> list
           | QuitExp of TyExpr
-          | Smartpointer of string * TyAdorn<Expr>
+          | Smartpointer of TyAdorn<Expr>
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | BitwiseXor
               | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
               | BitshiftLeft | BitshiftRight

@@ -911,7 +911,17 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
             Map.ofList
         // Put the declarations into dependency order (reverse topological order)
         List.map (fun modQual -> Map.find modQual unorderedDecs) typeDependencyOrder
-
+    
+    let inlineCodeDecs = 
+        program |>
+        List.map (fun (Ast.Module decs) ->
+            let module_ = nameInModule (Ast.Module decs) |> Option.get |> Ast.unwrap
+            let inlineCode = List.filter (Ast.unwrap >> isInlineCodeDec) decs
+            let moduleNames = List.map (fun _ -> module_) inlineCode
+            List.zip moduleNames inlineCode) |>
+        List.concat |>
+        List.map (fun (module_, (_, Ast.InlineCodeDec (_, code))) ->
+            (module_, T.InlineCodeDec code))
     
     let (_, connectedComponents) = valueGraph.StronglyConnectedComponents()
 
@@ -1105,4 +1115,4 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                             (dtenv, globalGamma)
                     ((funDecs', theta, kappa), (dtenv', globalGamma'))
             ) (dtenv0, globalGammaInit)
-    (moduleNames, openDecs, includeDecs, typeDecs, checkedDecs)
+    (moduleNames, openDecs, includeDecs, typeDecs, inlineCodeDecs, checkedDecs)

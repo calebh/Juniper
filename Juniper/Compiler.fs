@@ -521,8 +521,8 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
     let compileCap = compileCap kappa
     let compileLeftAssign = compileLeftAssign theta kappa
     match dec with
-    //| InlineCodeDec (_, _, code) ->
-        //output code
+    | InlineCodeDec code ->
+        output code
     | ModuleNameDec _ ->
         ""
     | IncludeDec inc ->
@@ -644,12 +644,12 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
             unindentId() + output "}" + newline() + newline()) |> String.concat "")
 
 // Program: includes, types, values
-//                              module names   opens                         v incudes           v mod name  v type dec           v mod    v fun/let dec v scc    v theta              v kappa
-and compileProgram (program : string list * ((string * Declaration) list) * Declaration list * ((string * Declaration) list) * (((string * Declaration) list) * Map<string, TyExpr> * Map<string, CapacityExpr>) list) : string =
+//                              module names   opens                         v incudes           v mod name  v type dec             v Inline code decs                 v mod    v fun/let dec v scc    v theta              v kappa
+and compileProgram (program : string list * ((string * Declaration) list) * Declaration list * ((string * Declaration) list) * ((string * Declaration) list) * (((string * Declaration) list) * Map<string, TyExpr> * Map<string, CapacityExpr>) list) : string =
     let executingDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
     let junCppStdPath = executingDir + "/cppstd/juniper.hpp"
     let junCppStd = System.IO.File.ReadAllText junCppStdPath
-    let (moduleNames, opens, includes, typeDecs, valueSccs) = program
+    let (moduleNames, opens, includes, typeDecs, inlineCodeDecs, valueSccs) = program
     let mutable setupModule = None
     let mutable loopModule = None
     (valueSccs |> List.iter (fun scc ->
@@ -676,6 +676,7 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
     (moduleNames |> List.map (fun name -> output "namespace " + output name + output " {}" + newline()) |> String.concat "") +
     // Now insert all the usings
     (opens |> List.map (compileNamespace Map.empty Map.empty) |> String.concat "") +
+    // Compile all the types
     (typeDecs |> List.map (compileNamespace Map.empty Map.empty) |> String.concat "") +
     // Compile forward declarations of all functions to enable recursion
     (valueSccs |> List.map (fun (decs, theta, kappa) ->
@@ -690,6 +691,9 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
             output "}" + newline() + newline()) |>
         String.concat ""
     ) |> String.concat "") +
+    // Compile all global inline code
+    (inlineCodeDecs |> List.map (compileNamespace Map.empty Map.empty) |> String.concat "") +
+    // Compile all global variables and functions
     (valueSccs |> List.map (fun (decs, theta, kappa) ->
         decs |> List.map (compileNamespace theta kappa) |> String.concat "") |> String.concat "") +
 

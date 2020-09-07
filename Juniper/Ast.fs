@@ -44,6 +44,7 @@ and Declaration = FunctionDec   of FunctionRec
                 | ModuleNameDec of PosAdorn<string>
                 | OpenDec       of PosAdorn<PosAdorn<string> list>
                 | IncludeDec    of PosAdorn<PosAdorn<string> list>
+                | InlineCodeDec of PosAdorn<string>
 
 // A template is associated with a function, record or union
 and Template = { tyVars : PosAdorn<PosAdorn<string> list>; capVars : PosAdorn<PosAdorn<string> list> option }

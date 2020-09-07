@@ -44,6 +44,7 @@ and Declaration = FunctionDec   of FunctionRec
                 | ModuleNameDec of string
                 | OpenDec       of string list
                 | IncludeDec    of string list
+                | InlineCodeDec of string
 
 // A template is associated with a function, record or union
 and Template = { tyVars : string list; capVars : string list }

@@ -371,6 +371,11 @@ do
                 }) |> pos
     elifListRef := choice [elseEnd; pelif]
 
+let inlineCpp =
+    let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '#')
+    let escapedChar = pstring "\\" >>. (anyOf "\\#" |>> string)
+    between (pstring "#") (pstring "#") (stringsSepBy normalCharSnippet escapedChar) |> pos
+
 // expr
 do
     let punit = skipString "()" >>% () |> pos |>> UnitExp
@@ -465,10 +470,7 @@ do
             (skipString "array" >>. ws >>. tyExpr .>> ws)
             ((skipString "of" >>. ws >>. expr |> opt) .>> ws .>> skipString "end")
             (fun arrTy initializer -> ArrayMakeExp {typ=arrTy; initializer=initializer})
-    let inlineCpp =
-        let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '#')
-        let escapedChar = pstring "\\" >>. (anyOf "\\#" |>> string)
-        between (pstring "#") (pstring "#") (stringsSepBy normalCharSnippet escapedChar) |> pos |>> InlineCode
+    let inlineCpp' = inlineCpp |>> InlineCode
     let tuple = betweenChar '(' (separatedList1 expr ',') ')' |>> TupleExp
     let smartpointer = (skipString "smartpointer" >>. ws >>. expr .>> ws .>> skipString "end") |>> Smartpointer
     let e = choice (List.map attempt [punit; parens; ptrue; pfalse; charlist; str;
@@ -478,7 +480,7 @@ do
                     modQual; forLoop; doWhileLoop; whileLoop;
                     pLet; pIf; assign; case;
                     arrayLiteral; pref;
-                    arrayMake; inlineCpp; varReference]) .>> ws |> pos
+                    arrayMake; inlineCpp'; varReference]) .>> ws |> pos
     opp.TermParser <-
         leftRecurse
             e
@@ -550,6 +552,8 @@ let openDec = skipString "open" >>. ws >>. skipChar '(' >>. ws >>. (separatedLis
 let includeDec = skipString "include" >>. ws >>. skipChar '(' >>. ws >>. separatedList (pos (stringLiteral '"' false)) ',' |> pos .>>
                     ws .>> skipChar ')' .>> ws |>> IncludeDec
 
+let inlineCppDec = inlineCpp .>> ws |>> InlineCodeDec
+
 let program =
-    let declarationTypes = [functionDec; moduleName; attempt recordDec; unionDec; letDec; openDec; includeDec]
+    let declarationTypes = [functionDec; moduleName; attempt recordDec; unionDec; letDec; openDec; includeDec; inlineCppDec]
     ws >>. many (choice declarationTypes |> pos .>> ws) .>> eof

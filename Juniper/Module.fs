@@ -81,3 +81,6 @@ let isTypeDec dec = match dec with
 let isUnionDec dec = match dec with
                      | Ast.UnionDec _ -> true
                      | _ -> false
+let isInlineCodeDec dec = match dec with
+                          | Ast.InlineCodeDec _ -> true
+                          | _ -> false

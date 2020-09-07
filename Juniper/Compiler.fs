@@ -95,9 +95,9 @@ and compileType theta kappa (ty : TyExpr) : string =
             failwith "This should never happen"
 
 // Converts left side of a variable assignment to the C++ representation.
-and compileLeftAssign theta kappa (left : LeftAssign) : string =
-    let compileLeftAssign = compileLeftAssign theta kappa
-    let compile = compile theta kappa
+and compileLeftAssign theta kappa topLevel (left : LeftAssign) : string =
+    let compileLeftAssign = compileLeftAssign theta kappa topLevel
+    let compile = compile theta kappa topLevel
     match left with
     | VarMutation varName ->
         output varName
@@ -160,14 +160,18 @@ and compileDecRef d =
     | Choice1Of2 name -> output name
     | Choice2Of2 {module_=module_; name=name} -> output module_ + output "::" + output name
 
-// Technically "compile expression"--converts an expression in Juniper to the C++ representation,
-// but it encapsulates a ton of the conversions and is considered holistic for that reason.
-and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
-    let compile = compile theta kappa
+// Technically "compile expression"--converts an expression in Juniper to the C++ representation
+// topLevel determines if the expression is being compiled at the top level of a C++ module
+// for the purpose of determining whether or not C++ lambdas should capture anything.
+// topLevel is needed since capturing by reference (&) in the right hand side of an assignment
+// expression is not allowed.
+and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : string =
+    let compile = compile theta kappa false
     let compileType = compileType theta kappa
     let compileCap = compileCap kappa
-    let compileLeftAssign = compileLeftAssign theta kappa
+    let compileLeftAssign = compileLeftAssign theta kappa topLevel
     let unitty = TyCon <| BaseTy TyUnit
+    let capture = if topLevel then "[]" else "[&]"
     match expr with
     | StringExp str ->
         output (sprintf "((const PROGMEM char *)(\"%s\"))" str)
@@ -175,16 +179,16 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
         getQuitExpr ty |> compile
     | Smartpointer destructor ->
         let name = Guid.string()
-        output "(([&]() -> " +
+        output ("((" + capture + "() -> ") +
         compileType ty +
         output " {" + newline() + indentId() +
-        compileType (TyCon <| (BaseTy TyPointer)) + " " + name + ";" +
+        compileType (TyCon <| (BaseTy TyPointer)) + " " + name + ";" + newline() +
         output name + output ".destructorCallback = " + compile destructor + ";" + newline() +
         output "return " + name + ";" + newline() + unindentId() +
         output "})())"
     // Convert inline C++ code from Juniper directly to C++
     | InlineCode code ->
-        output "(([&]() -> " + compileType (TyCon <| (BaseTy TyUnit)) + " {" + newline() + indentId() +
+        output ("((" + capture + "() -> ") + compileType (TyCon <| (BaseTy TyUnit)) + " {" + newline() + indentId() +
         output code + newline() + output "return {};" + newline() + unindentId() +
         output "})())"
     | TrueExp _ ->
@@ -232,7 +236,7 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
     // is returned
     | SequenceExp sequence ->
         let len = List.length sequence
-        output "(([&]() -> " +
+        output "((" + capture + "() -> " +
         compileType ty +
         output " {" +
         newline() +
@@ -270,7 +274,7 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
         let unitTy = TyCon <| BaseTy TyUnit
         let varName = Guid.string()
         let (condition, assignments) = compilePattern left (dummyWrap (VarExp (varName, [], [])))
-        output "(([&]() -> " + compileType ty + output " {" + indentId() + newline() +
+        output ("((" + capture + "() -> ") + compileType ty + output " {" + indentId() + newline() +
         compile (dummyWrap (InternalDeclareVar {varName=varName; typ=ty; right=right})) + output ";" + newline() +
         output "if (!(" + compile condition + output ")) {" + newline() + indentId() +
         compile (getQuitExpr unitTy) + output ";" + newline() + unindentId() +
@@ -301,7 +305,7 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
         let c' = List.map (Constraint.capsubst kappa >> compileCap) c
         output name + output "<" + (t' @ c' |> String.concat ", ") + output ">"
     | WhileLoopExp {condition=condition; body=body} ->
-        output "(([&]() -> " +
+        output ("((" + capture + "() -> ") +
         compileType unitty +
         output " {" + newline() + indentId() +
         output "while (" + compile condition + ") {" + indentId() + newline() +
@@ -353,7 +357,7 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
         output "(" + compile record + output ")." + output fieldName
     | LambdaExp {returnTy=returnTy; arguments=args; body=body} ->
         output "juniper::function<" + compileType returnTy + "(" + (args |> List.map (snd >> compileType) |> String.concat ",") + ")>(" +
-        output "[=](" + (args |> List.map (fun (name, ty) -> compileType ty + output " " + output name) |> String.concat ", ") +
+        output "[" + (if topLevel then output "" else output "=") + "](" + (args |> List.map (fun (name, ty) -> compileType ty + output " " + output name) |> String.concat ", ") +
         output ") mutable -> " + compileType returnTy + output " { " + newline() +
         indentId() + output "return " + compile body + output ";" + unindentId() + newline() + output " })"
     | ModQualifierExp ({module_=module_; name=name}, [], []) ->
@@ -386,7 +390,7 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
     | ForLoopExp {typ=typ; varName=varName; start=start; direction=direction; end_=end_; body=body} ->
         let startName = Guid.string()
         let endName = Guid.string()
-        output "(([&]() -> " +
+        output ("((" + capture + "() -> ") +
         compileType unitty +
         output " {" + newline() + indentId() +
         compileType typ + output " " + output startName + output " = " + compile start + output ";" + newline() +
@@ -411,7 +415,7 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
             match templateArgs with
             | None -> unwrap recordTy
             | Some args -> TyApply {tyConstructor=recordTy; args=args}*)
-        output "(([&]() -> " + compileType ty + output "{" + newline() + indentId() +
+        output ("((" + capture + "() -> ") + compileType ty + output "{" + newline() + indentId() +
         compileType ty + output " " + output retName + output ";" + newline() +
         (initFields |> List.map (fun (fieldName, fieldExpr) ->
                                         output retName + output "." + output fieldName + output " = " + compile fieldExpr + output ";" + newline()) |> String.concat "") +
@@ -425,7 +429,7 @@ and compile theta kappa ((_, ty, expr) : TyAdorn<Expr>) : string =
         output "(juniper::shared_ptr<" + compileType typ + output ">(new " + compileType typ +
         output "(" + compile exp  + output ")))"
     | DoWhileLoopExp {condition=condition; body=body} ->
-        output "(([&]() -> " + indentId() + newline() +
+        output ("((" + capture + "() -> ") + indentId() + newline() +
         output "do {" + indentId() + newline() +
         compile body + output ";" + unindentId() + newline() +
         output "} while(" + compile condition + output ");" + newline() +
@@ -534,7 +538,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
         newline() +
         indentId() +
         output "return " +
-        compile clause.body +
+        compile false clause.body +
         output ";" +
         unindentId() +
         newline() +
@@ -570,7 +574,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
         output " " +
         output varName +
         output " = " +
-        compile right + output ";"
+        compile true right + output ";"
     | UnionDec { name=name; valCons=valCons; template=maybeTemplate } ->
         (match maybeTemplate with
             | Some template ->

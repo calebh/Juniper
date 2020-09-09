@@ -218,7 +218,7 @@ do
     let capVar = pos id |>> CapacityNameExpr |> pos
     let capConst = pos pint64 |>> CapacityConst |> pos
     let capParens = skipChar '(' >>. ws >>. capExpr .>> ws .>> skipChar ')'
-    capOpp.TermParser <- choice [capVar; capConst; capParens]
+    capOpp.TermParser <- (choice [capVar; capConst; capParens]) .>> ws
 
 let tyExpr = attempt typOpp.ExpressionParser
 

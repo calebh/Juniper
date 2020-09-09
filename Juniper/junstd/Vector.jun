@@ -100,7 +100,7 @@ fun get<'a;n>(i : uint32, v : vector<'a;n>) : 'a = (
 fun add<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> = (
     let mutable result = v1;
     for i : uint32 in 0 to n - 1 do (
-        set result.data[i] = result.data[i] + v2.data[i]
+        set result.data[i] = result.data[i] + v2.data[i];
         ()
     ) end;
     result

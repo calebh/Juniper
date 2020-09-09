@@ -52,3 +52,102 @@ fun toLower(str) =
             c
         end
     end)
+
+(*
+    Function: i32ToCharList
+
+    Converts an int32 to a char list, truncating the string if the
+    char list capacity is not sufficient. The output string will be
+    at most length n.
+
+    Type Signature:
+    | <;n>(int32) -> list<uint8; n + 1>
+
+    Parameters:
+        m : int32 - The number to convert
+    
+    Returns:
+        A list of characters
+*)
+fun i32ToCharList<;n>(m : int32) : list<uint8; n + 1> = (
+    let ret = list<uint8; n + 1>{data=array uint8[n + 1] of 0u8 end; length=0u32};
+    #
+    int charsPrinted = 1 + snprintf((char *) &ret.data[0], n + 1, "%d", m);
+    ret.length = charsPrinted >= (n + 1) ? (n + 1) : charsPrinted;
+    #;
+    ret
+)
+
+(*
+    Function: length
+
+    Returns the length of a character list, equal to the list length minus one 
+    (takes into account the null byte at the end of the character list)
+
+    Type Signature:
+    | <;n>(list<uint8; n>) -> uint32
+
+    Parameters:
+        s : list<uint8; n> - The character list to find the length of
+    
+    Returns:
+        The length of the character list
+*)
+fun length<;n>(s : list<uint8; n>) : uint32 = (
+    let list<uint8; n>{length=slen} = s;
+    // Subtract one for the null byte
+    slen - 1u32
+)
+
+(*
+    Function: concat
+
+    Concatenates two character lists together. This should be used instead of List:append 
+    due to the null bytes at the end of character lists.
+
+    Type Signature:
+    | <;aCap,bCap,retCap>(list<uint8;aCap>, list<uint8;bCap>) -> list<uint8;retCap>
+
+    Parameters:
+        sA : list<uint8;aCap> - The first character list.
+        sB : list<uint8;bCap> - The second character list.
+
+   Returns:
+        The two lists appended together.
+*)
+fun concat<;aCap,bCap,retCap>(sA : list<uint8;aCap>, sB : list<uint8;bCap>) : list<uint8;retCap> = (
+    let mutable j : uint32 = 0;
+    let lenA = length(sA);
+    let lenB = length(sB);
+    let mutable out = list<uint8;retCap>{data=array uint8[retCap] of 0u8 end;
+                                          length=lenA + lenB + 1};
+    for i : uint32 in 0 to lenA - 1 do (
+        set out.data[j] = sA.data[i];
+        set j = j + 1;
+        ()
+    ) end;
+    for i : uint32 in 0 to lenB - 1 do (
+        set out.data[j] = sB.data[i];
+        set j = j + 1;
+        ()
+    ) end;
+    out
+)
+
+(*
+    Function: safeConcat
+
+    Concatenates two character lists together. Since the return capacity is determined 
+    by the input capacities, less type annotations than normal concat are necessary.
+
+    Type Signature:
+    | <;aCap,bCap>(list<uint8;aCap>, list<uint8;bCap>) -> list<uint8; aCap + bCap - 1>
+
+    Parameters:
+        sA : list<uint8;aCap> - The first character list.
+        sB : list<uint8;bCap> - The second character list.
+
+   Returns:
+        The two lists appended together.
+*)
+fun safeConcat<;aCap,bCap>(sA : list<uint8;aCap>, sB : list<uint8;bCap>) : list<uint8; aCap + bCap - 1> = concat(sA, sB)

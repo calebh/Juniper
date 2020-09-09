@@ -58,16 +58,19 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     raise <| TypeError ((errStr [posv] (sprintf "This pattern already contains a variable named %s." varName)).Force())
                 else
                     localVars <- Set.add varName localVars
-                    // NOTICE THAT WE DO NOT GENERALIZE HERE
-                    // This is what makes this type system different from
-                    // Hindley Milner
-                    gamma' <- Map.add varName (mutable_, T.Forall ([], [], tau)) gamma'
-                    let c' = match typ with
-                             | Some (post, typ) ->
-                                 convertType' typ =~= (tau, errStr [post] "Type constraint in pattern could not be satisfied")
-                             | None ->
-                                 Trivial
-                    ((posp, tau, T.MatchVar { varName=varName; mutable_=mutable_; typ=tau}), c')
+                    let (c', retTau) =
+                        match typ with
+                        | Some (post, typ) ->
+                            let typ' = convertType' typ
+                            gamma' <- Map.add varName (mutable_, T.Forall ([], [], typ')) gamma'
+                            (tau =~= (typ', errStr [post] "Type constraint in pattern could not be satisfied"), typ')
+                        | None ->
+                            // NOTICE THAT WE DO NOT GENERALIZE HERE
+                            // This is what makes this type system different from
+                            // Hindley Milner
+                            gamma' <- Map.add varName (mutable_, T.Forall ([], [], tau)) gamma'
+                            (Trivial, tau)
+                    ((posp, retTau, T.MatchVar { varName=varName; mutable_=mutable_; typ=tau}), c')
             | Ast.MatchRecCon {name=(posn, decRef); template=template; fields=(posf, fields)} ->
                 let modQual =
                     match decRef with
@@ -463,7 +466,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let (right', c1) = ty right
             let (left', c2, _, _) = checkPattern left (T.getType right')
             let c' = c1 &&& c2
-            adorn posE (T.getType right') (T.LetExp {left=left'; right=right'}) c'
+            adorn posE (T.getType left') (T.LetExp {left=left'; right=right'}) c'
         | Ast.ModQualifierExp (posmq, {module_=(pos, module_); name=(posn, name)}) ->
             let (instance, t, c) =
                 match Map.tryFind (module_, name) dtenv with

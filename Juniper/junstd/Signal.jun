@@ -214,14 +214,14 @@ fun foldP<'a, 'state>(f : ('a,'state)->'state, state0 : 'state ref, incoming : s
     | <'a>(sig<'a>, maybe<'a> ref) -> sig<'a>
 
     Parameters:
-        incoming : sig<'a> - The incoming signal
         maybePrevValue : maybe<'a> ref - A reference holding the previous value
             or none if there hasn't been a previous value yet
+        incoming : sig<'a> - The incoming signal
 
     Returns:
         A filtered signal where two values in a row will not be repeated.
 *)
-fun dropRepeats<'a>(incoming : sig<'a>, maybePrevValue : maybe<'a> ref) : sig<'a> =
+fun dropRepeats<'a>(maybePrevValue : maybe<'a> ref, incoming : sig<'a>) : sig<'a> =
     filter<'a>(
         fn (value : 'a) : bool ->
             (let filtered =
@@ -249,14 +249,14 @@ fun dropRepeats<'a>(incoming : sig<'a>, maybePrevValue : maybe<'a> ref) : sig<'a
     | <'a>(sig<'a>, 'a ref) -> sig<'a>
 
     Parameters:
-        incoming : sig<'a> - The incoming latch update signal
         prevValue : 'a ref - Holds the previous values that the latch received
+        incoming : sig<'a> - The incoming latch update signal
 
     Returns:
         A signal which constantly emmits the value last received on the incoming
         signal.
 *)
-fun latch<'a>(incoming : sig<'a>, prevValue : 'a ref) : sig<'a> =
+fun latch<'a>(prevValue : 'a ref, incoming : sig<'a>) : sig<'a> =
     case incoming of
     | signal<'a>(just<'a>(val)) =>
         (set ref prevValue = val;
@@ -277,17 +277,17 @@ fun latch<'a>(incoming : sig<'a>, prevValue : 'a ref) : sig<'a> =
 
     Parameters:
         f : ('a,'b) -> 'c - The mapping function
+        state : ('a * 'b) ref - Holds the last values received from the signals.
         incomingA : sig<'a> - The first signal
         incomingB : sig<'b> - The second signal
-        state : ('a * 'b) ref - Holds the last values received from the signals.
-
+    
     Returns:
         The mapped signal
 *)
 fun map2<'a,'b,'c>(f : ('a, 'b) -> 'c,
+                   state : ('a * 'b) ref,
                    incomingA : sig<'a>,
-                   incomingB : sig<'b>,
-                   state : ('a * 'b) ref) : sig<'c> = (
+                   incomingB : sig<'b>) : sig<'c> = (
     let valA = case incomingA of
                | signal<'a>(just<'a>(val1 : 'a)) => val1
                | _ => fst<'a,'b>(!state)
@@ -312,13 +312,13 @@ fun map2<'a,'b,'c>(f : ('a, 'b) -> 'c,
     | <'a;n>(sig<'a>, list<'a;n> ref) -> sig<list<'a;n>>
 
     Parameters:
-        incoming : sig<'a> - Incoming values to record
         pastValues : list<'a;n> ref - Previous values recorded from the signal
+        incoming : sig<'a> - Incoming values to record
 
     Returns:
         A signal holding the list of previous values
 *)
-fun record<'a;n>(incoming : sig<'a>, pastValues : list<'a;n> ref) : sig<list<'a;n>> =
+fun record<'a;n>(pastValues : list<'a;n> ref, incoming : sig<'a>) : sig<list<'a;n>> =
     foldP<'a,list<'a;n>>(List:pushOffFront<'a;n>, pastValues, incoming)
 
 (*
@@ -399,18 +399,18 @@ fun unmeta<'a>(sigA : sig<maybe<'a>>) : sig<'a> =
     | <'a,'b>(sig<'a>, sig<'b>, ('a * 'b) ref) -> sig<'a * 'b>
 
     Parameters:
+        state : ('a * 'b) ref - The state holding the past values of the signals
         sigA : sig<'a> - The first signal to zip
         sigB : sig<'b> - The second signal to zip
-        state : ('a * 'b) ref - The state holding the past values of the signals
 
     Returns:
         A zipped signal.
 *)
-fun zip<'a,'b>(sigA : sig<'a>, sigB : sig<'b>, state : ('a * 'b) ref) : sig<('a * 'b)> =
+fun zip<'a,'b>(state : ('a * 'b) ref, sigA : sig<'a>, sigB : sig<'b>) : sig<('a * 'b)> =
     map2<'a,'b,'a*'b>(
         fn (valA : 'a, valB : 'b) : ('a * 'b) ->
             (valA, valB)
-        end, sigA, sigB, state)
+        end, state, sigA, sigB)
 
 (*
     Function: unzip

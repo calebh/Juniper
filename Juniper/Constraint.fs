@@ -256,6 +256,28 @@ let solveCapvarEq a cap =
     else
         a |-%-> cap |> Some
 
+let rec simplifyCap cap =
+    match cap with
+    | CapacityVar _ -> cap
+    | CapacityOp {left=left; op=op; right=right} ->
+        let left' = simplifyCap left
+        let right' = simplifyCap right
+        match (left', right') with
+        | (CapacityConst m, CapacityConst n) ->
+            match op with
+            | CapAdd -> CapacityConst (m + n)
+            | CapSubtract -> CapacityConst (m - n)
+            | CapMultiply -> CapacityConst (m * n)
+            | CapDivide -> CapacityConst (m / n)
+        | _ -> 
+            CapacityOp {left=left'; op=op; right=right'}
+    | CapacityConst _ -> cap
+    | CapacityUnaryOp {op=CapacityNegate; term=term} ->
+        let term' = simplifyCap term
+        match term' with
+        | CapacityConst n -> CapacityConst (-n)
+        | _ -> term'
+
 let rec solveCap con : Map<string, CapacityExpr> =
     match con with
     | TrivialCap -> idSubst
@@ -265,7 +287,7 @@ let rec solveCap con : Map<string, CapacityExpr> =
         composeKappa kappa2 kappa1
     | EqualCap (cap, cap', err) ->
         let failMsg = lazy (sprintf "Capacity type error: The capacities %s and %s are not equal.\n\n%s" (capacityString cap) (capacityString cap') (err.Force()))
-        match (cap, cap') with
+        match (simplifyCap cap, simplifyCap cap') with
         | ((CapacityVar a, cap) | (cap, CapacityVar a)) ->
             match solveCapvarEq a cap with
             | Some answer -> answer

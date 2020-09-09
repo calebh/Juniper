@@ -166,7 +166,7 @@ and compileDecRef d =
 // topLevel is needed since capturing by reference (&) in the right hand side of an assignment
 // expression is not allowed.
 and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : string =
-    let compile = compile theta kappa false
+    let compile = compile theta kappa
     let compileType = compileType theta kappa
     let compileCap = compileCap kappa
     let compileLeftAssign = compileLeftAssign theta kappa topLevel
@@ -176,14 +176,14 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
     | StringExp str ->
         output (sprintf "((const PROGMEM char *)(\"%s\"))" str)
     | QuitExp ty ->
-        getQuitExpr ty |> compile
+        getQuitExpr ty |> compile topLevel
     | Smartpointer destructor ->
         let name = Guid.string()
         output ("((" + capture + "() -> ") +
         compileType ty +
         output " {" + newline() + indentId() +
         compileType (TyCon <| (BaseTy TyPointer)) + " " + name + ";" + newline() +
-        output name + output ".destructorCallback = " + compile destructor + ";" + newline() +
+        output name + output ".destructorCallback = " + compile false destructor + ";" + newline() +
         output "return " + name + ";" + newline() + unindentId() +
         output "})())"
     // Convert inline C++ code from Juniper directly to C++
@@ -219,17 +219,17 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
         output (sprintf "((uint64_t) %i)" num)
     | IfElseExp {condition=condition; trueBranch=trueBranch; falseBranch=falseBranch} ->
         output "(" +
-        compile condition +
+        compile topLevel condition +
         output " ? " +
         newline() +
         indentId() +
-        compile trueBranch +
+        compile topLevel trueBranch +
         unindentId() +
         newline() +
         output ":" +
         newline() +
         indentId() +
-        compile falseBranch +
+        compile topLevel falseBranch +
         output ")" +
         unindentId()
     // A sequence is a set of expressions separated by semicolons inside parentheses, where the last exp
@@ -248,13 +248,13 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
                 | LetExp {left=left; right=right} ->
                     let varName = Guid.string()
                     let (condition, assignments) = compilePattern left (dummyWrap (VarExp (varName, [], [])))
-                    compile (dummyWrap (InternalDeclareVar {varName=varName; typ=getType right; right=right})) + output ";" + newline() +
-                    output "if (!(" + compile condition + output ")) {" + newline() + indentId() +
-                    compile (getQuitExpr (TyCon <| (BaseTy TyUnit))) + output ";" + newline() + unindentId() +
+                    compile false (dummyWrap (InternalDeclareVar {varName=varName; typ=getType right; right=right})) + output ";" + newline() +
+                    output "if (!(" + compile false condition + output ")) {" + newline() + indentId() +
+                    compile false (getQuitExpr (TyCon <| (BaseTy TyUnit))) + output ";" + newline() + unindentId() +
                     output "}" + newline() +
-                    (assignments |> List.map (fun expr -> compile (dummyWrap expr) + output ";" + newline()) |> String.concat "") +
+                    (assignments |> List.map (fun expr -> compile false (dummyWrap expr) + output ";" + newline()) |> String.concat "") +
                     (if isLastElem then
-                        output "return " + compile (dummyWrap (VarExp (varName, [], []))) + output ";"
+                        output "return " + compile false (dummyWrap (VarExp (varName, [], []))) + output ";"
                     else
                         output "")
                 | _ ->
@@ -262,7 +262,7 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
                         output "return "
                     else
                         output "") +
-                    compile seqElement + output ";") +
+                    compile false seqElement + output ";") +
             newline()
         ) sequence) |> String.concat "") +
         unindentId() +
@@ -275,11 +275,11 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
         let varName = Guid.string()
         let (condition, assignments) = compilePattern left (dummyWrap (VarExp (varName, [], [])))
         output ("((" + capture + "() -> ") + compileType ty + output " {" + indentId() + newline() +
-        compile (dummyWrap (InternalDeclareVar {varName=varName; typ=ty; right=right})) + output ";" + newline() +
-        output "if (!(" + compile condition + output ")) {" + newline() + indentId() +
-        compile (getQuitExpr unitTy) + output ";" + newline() + unindentId() +
+        compile false (dummyWrap (InternalDeclareVar {varName=varName; typ=ty; right=right})) + output ";" + newline() +
+        output "if (!(" + compile false condition + output ")) {" + newline() + indentId() +
+        compile false (getQuitExpr unitTy) + output ";" + newline() + unindentId() +
         output "}" + newline() +
-        output "return " + compile (dummyWrap (VarExp (varName, [], []))) + output ";" +
+        output "return " + compile false (dummyWrap (VarExp (varName, [], []))) + output ";" +
         unindentId() + newline() + output "})())"
     | AssignExp {left=(_, _, left); right=right; ref=ref} ->
         let (_, ty, _) = right
@@ -289,11 +289,11 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
         else
             compileLeftAssign left) +
         output " = " +
-        compile right +
+        compile topLevel right +
         output ")"
     | CallExp {func=func; args=args} ->
-        compile func + output "(" +
-        (args |> List.map compile |> String.concat ", ") +
+        compile topLevel func + output "(" +
+        (args |> List.map (compile topLevel) |> String.concat ", ") +
         output ")"
     | UnitExp _ ->
         output "juniper::unit()"
@@ -308,8 +308,8 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
         output ("((" + capture + "() -> ") +
         compileType unitty +
         output " {" + newline() + indentId() +
-        output "while (" + compile condition + ") {" + indentId() + newline() +
-        compile body + output ";" + unindentId() + newline() + output "}" + newline() +
+        output "while (" + compile false condition + ") {" + indentId() + newline() +
+        compile false body + output ";" + unindentId() + newline() + output "}" + newline() +
         output "return {};" + newline() +
         unindentId() +
         output "})())"
@@ -325,10 +325,10 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
                     IfElseExp {condition=condition; trueBranch=wrapWithType ty seq; falseBranch=ifElseTree} |> wrapWithType ty
                 ) clauses (getQuitExpr ty)
         let decOn = InternalDeclareVar {varName=onVarName; typ=onTy; right=(poso, onTy, on)} |> wrapWithType unitty
-        compile (wrapWithType ty (SequenceExp [decOn; equivalentExpr]))
+        compile topLevel (wrapWithType ty (SequenceExp [decOn; equivalentExpr]))
     // Internal declarations are used only by the compiler, not the user, for hidden variables
     | InternalDeclareVar {varName=varName; typ=typ; right=right} ->
-        output (compileType typ) + output " " + output varName + output " = " + output (compile right)
+        output (compileType typ) + output " " + output varName + output " = " + output (compile topLevel right)
         //output "auto " + output varName + output " = " + output (compile right)
     | TemplateApplyExp {func=func; templateArgs=templateArgs} ->
         output (compileDecRef func) + output (compileTemplateApply theta kappa templateArgs)
@@ -352,14 +352,14 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
                     | BitshiftLeft -> "<<"
                     | BitshiftRight -> ">>"
                     | BitwiseXor -> "^"
-        output "(" + compile left + output " " + output opStr + output " " + compile right + output ")"
+        output "(" + compile topLevel left + output " " + output opStr + output " " + compile topLevel right + output ")"
     | RecordAccessExp { record=record; fieldName=fieldName} ->
-        output "(" + compile record + output ")." + output fieldName
+        output "(" + compile topLevel record + output ")." + output fieldName
     | LambdaExp {returnTy=returnTy; arguments=args; body=body} ->
         output "juniper::function<" + compileType returnTy + "(" + (args |> List.map (snd >> compileType) |> String.concat ",") + ")>(" +
         output "[" + (if topLevel then output "" else output "=") + "](" + (args |> List.map (fun (name, ty) -> compileType ty + output " " + output name) |> String.concat ", ") +
         output ") mutable -> " + compileType returnTy + output " { " + newline() +
-        indentId() + output "return " + compile body + output ";" + unindentId() + newline() + output " })"
+        indentId() + output "return " + compile false body + output ";" + unindentId() + newline() + output " })"
     | ModQualifierExp ({module_=module_; name=name}, [], []) ->
         output module_ + "::" + output name
     | ModQualifierExp ({module_=module_; name=name}, t, c) ->
@@ -370,31 +370,31 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
     | ArrayLitExp exprs ->
         let (ConApp (TyCon ArrayTy, [valueType], [capacity])) = ty
         output "(juniper::array<" + compileType valueType + output ", " + compileCap capacity + output "> { {" +
-        (exprs |> List.map (fun expr -> compile expr) |> String.concat ", ") +
+        (exprs |> List.map (fun expr -> compile topLevel expr) |> String.concat ", ") +
         output"} })"
     | ArrayMakeExp {typ=typ; initializer=maybeInitializer} ->
         let (ConApp (TyCon ArrayTy, [valueType], [capacity])) = typ
         output "(juniper::array<" + compileType valueType + output ", " + compileCap capacity + output ">()" +
         (match maybeInitializer with
-                | Some initializer -> output ".fill(" + compile initializer + output ")"
+                | Some initializer -> output ".fill(" + compile topLevel initializer + output ")"
                 | None -> output "") +
         output ")"
     | UnaryOpExp {op=op; exp=exp} ->
         match op with
-        | Deref -> output "(*((" + compile exp + output ").get()))"
+        | Deref -> output "(*((" + compile topLevel exp + output ").get()))"
         | _ ->
             (match op with
             | Negate -> output "-"
             | LogicalNot -> output "!"
-            | BitwiseNot -> output "~") + output "(" + compile exp + output ")"
+            | BitwiseNot -> output "~") + output "(" + compile topLevel exp + output ")"
     | ForLoopExp {typ=typ; varName=varName; start=start; direction=direction; end_=end_; body=body} ->
         let startName = Guid.string()
         let endName = Guid.string()
         output ("((" + capture + "() -> ") +
         compileType unitty +
         output " {" + newline() + indentId() +
-        compileType typ + output " " + output startName + output " = " + compile start + output ";" + newline() +
-        compileType typ + output " " + output endName + output " = " + compile end_ + output ";" + newline() +
+        compileType typ + output " " + output startName + output " = " + compile topLevel start + output ";" + newline() +
+        compileType typ + output " " + output endName + output " = " + compile topLevel end_ + output ";" + newline() +
         output "for (" + compileType typ + output " " + output varName + output " = " + output startName + output "; " +
         output varName + (match direction with
                             | Upto -> output " <= "
@@ -402,13 +402,13 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
         output varName + (match direction with
                             | Upto -> output "++"
                             | Downto -> output "--") + output ") {" + indentId() + newline() +
-        compile body + output ";" + unindentId() + newline() +
+        compile false body + output ";" + unindentId() + newline() +
         output "}" + newline() +
         output "return {};" + newline() +
         unindentId() +
         output "})())"
     | ArrayAccessExp {array=array; index=index} ->
-        output "(" + compile array + output ")[" + compile index + "]"
+        output "(" + compile topLevel array + output ")[" + compile topLevel index + "]"
     | RecordExp {recordTy=recordTy; templateArgs=templateArgs; initFields=initFields} ->
         let retName = Guid.string()
         (*let actualTy =
@@ -418,21 +418,21 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
         output ("((" + capture + "() -> ") + compileType ty + output "{" + newline() + indentId() +
         compileType ty + output " " + output retName + output ";" + newline() +
         (initFields |> List.map (fun (fieldName, fieldExpr) ->
-                                        output retName + output "." + output fieldName + output " = " + compile fieldExpr + output ";" + newline()) |> String.concat "") +
+                                        output retName + output "." + output fieldName + output " = " + compile false fieldExpr + output ";" + newline()) |> String.concat "") +
         output "return " + output retName + output ";" + unindentId() + newline() + output "})())"
     | TupleExp exps ->
         output "(Prelude::tuple" + output (sprintf "%d" (List.length exps)) + output "<" +
         (exps |> List.map (fun (_, typ, _) -> compileType typ) |> String.concat ",") +
-        output ">" + output "{" + (exps |> List.map compile |> String.concat ", ") + output "}" + output ")"
+        output ">" + output "{" + (exps |> List.map (compile topLevel) |> String.concat ", ") + output "}" + output ")"
     | RefExp exp ->
         let (_, typ, _) = exp
         output "(juniper::shared_ptr<" + compileType typ + output ">(new " + compileType typ +
-        output "(" + compile exp  + output ")))"
+        output "(" + compile topLevel exp  + output ")))"
     | DoWhileLoopExp {condition=condition; body=body} ->
         output ("((" + capture + "() -> ") + indentId() + newline() +
         output "do {" + indentId() + newline() +
-        compile body + output ";" + unindentId() + newline() +
-        output "} while(" + compile condition + output ");" + newline() +
+        compile false body + output ";" + unindentId() + newline() +
+        output "} while(" + compile false condition + output ");" + newline() +
         output "return {};" + unindentId() + newline() +
         output "})())"
 
@@ -458,26 +458,25 @@ and compileTemplate theta kappa (template : Template) : string =
 
 // Convert Juniper capacity values to C++ capacities (part of templates)
 and compileCap kappa (cap : CapacityExpr) : string =
-    let compileCap = compileCap kappa
-    match cap with
-    | CapacityVar name ->
-        match Map.tryFind name kappa with
-        | None -> name
-        | Some cap' -> compileCap cap'
-    | CapacityOp { left=left; op=op; right=right } ->
-        "(" + compileCap left + ")" +
-        (match op with
-        | CapAdd -> "+"
-        | CapSubtract -> "-"
-        | CapMultiply -> "*"
-        | CapDivide -> "/") +
-        "(" + compileCap right + ")"
-    | CapacityConst constant ->
-        sprintf "%i" constant
-    | CapacityUnaryOp {op=op; term=term} ->
-        (match op with
-        | CapNegate -> "-") +
-        "(" + compileCap term + ")"
+    let rec compileCap' cap' =
+        match cap' with
+        | CapacityVar name ->
+            name
+        | CapacityOp { left=left; op=op; right=right } ->
+            "(" + compileCap' left + ")" +
+            (match op with
+            | CapAdd -> "+"
+            | CapSubtract -> "-"
+            | CapMultiply -> "*"
+            | CapDivide -> "/") +
+            "(" + compileCap' right + ")"
+        | CapacityConst constant ->
+            sprintf "%i" constant
+        | CapacityUnaryOp {op=op; term=term} ->
+            (match op with
+            | CapNegate -> "-") +
+            "(" + compileCap' term + ")"
+    compileCap' (Constraint.simplifyCap (Constraint.capsubst kappa cap))
 
 // Convert Juniper template apply to C++ template apply
 and compileTemplateApply theta kappa (templateApp : TemplateApply) : string =

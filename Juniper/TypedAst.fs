@@ -273,8 +273,9 @@ let rec typeConString con appliedTo capExprs =
                     sprintf "<%s; %s>" (typeStrings appliedTo ", ") (capacityStrings capExprs ", ")
         sprintf "%s:%s%s" module_ name genericApplication
     | RefTy ->
-        let [refTy] = appliedTo
-        sprintf "%s ref" (typeString refTy)
+        match appliedTo with
+        | [refTy] -> sprintf "%s ref" (typeString refTy)
+        | _ -> "ref"
     | TupleTy ->
         typeStrings appliedTo " * "
 

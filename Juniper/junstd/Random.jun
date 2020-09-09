@@ -1,0 +1,54 @@
+module Random
+open(Prelude)
+include("<Arduino.h>")
+
+(*
+    Interface: Io
+*)
+
+(*
+    Function: random_
+
+    The random_ function generates pseudo-random numbers.
+
+    Type Signature:
+    | (int32, int32) -> int32
+
+    Parameters:
+        low : int32 - Lower bound of the random value, inclusive
+        high : int32 - Upper bound of the random value, exclusive
+
+    Returns:
+        A random number in the range [low, high)
+*)
+fun random_(low : int32, high : int32) : int32 = (
+    let mutable ret : int32 = 0;
+    #ret = random(low, high);#;
+    ret
+)
+
+(*
+    Function: seed
+
+    Random seed initializes the pseudo-random number generator, 
+    causing it to start at an arbitrary point in its random 
+    sequence. This sequence, while very long and random is always 
+    the same. Consider initializing the random seed by using the 
+    value returned by anaRead on an unconnected pin.
+
+    Type Signature:
+    | (uint32) -> unit
+
+    Parameters:
+        n : uint32 - The seed value for the random number generator
+
+    Returns:
+        Unit
+*)
+fun seed(n : uint32) : unit = #randomSeed(n);#
+
+fun choice<'t;n>(lst : list<'t;n>) : 't = (
+    let list<'t;n>{length=length} = lst;
+    let i : int32 = random_(0, length);
+    List:nth(i, lst)
+)

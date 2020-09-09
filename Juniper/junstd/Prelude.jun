@@ -599,3 +599,1067 @@ fun until<'a>(p : ('a) -> bool, f : ('a) -> 'a, a0 : 'a) : 'a = (
     | <'a>('a) -> unit
 *)
 fun ignore<'a>(val : 'a) = ()
+
+(*
+    Function: u8ToU16
+
+    Converts a uint8 to a uint16.
+
+    Type signature:
+    | (uint8) ->uint16
+
+    Parameters:
+        n : uint8 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u8ToU16(n : uint8) : uint16 = (
+    let ret : uint16 = n;
+    ret
+)
+
+(*
+    Function: u8ToU32
+
+    Converts a uint8 to a uint32.
+
+    Type signature:
+    | (uint8) ->uint32
+
+    Parameters:
+        n : uint8 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u8ToU32(n : uint8) : uint32 = (
+    let ret : uint32 = n;
+    ret
+)
+
+(*
+    Function: u8ToI8
+
+    Converts a uint8 to a int8.
+
+    Type signature:
+    | (uint8) ->int8
+
+    Parameters:
+        n : uint8 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u8ToI8(n : uint8) : int8 = (
+    let ret : int8 = n;
+    ret
+)
+
+(*
+    Function: u8ToI16
+
+    Converts a uint8 to a int16.
+
+    Type signature:
+    | (uint8) ->int16
+
+    Parameters:
+        n : uint8 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u8ToI16(n : uint8) : int16 = (
+    let ret : int16 = n;
+    ret
+)
+
+(*
+    Function: u8ToI32
+
+    Converts a uint8 to a int32.
+
+    Type signature:
+    | (uint8) ->int32
+
+    Parameters:
+        n : uint8 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u8ToI32(n : uint8) : int32 = (
+    let ret : int32 = n;
+    ret
+)
+
+(*
+    Function: u8ToFloat
+
+    Converts a uint8 to a float.
+
+    Type signature:
+    | (uint8) ->float
+
+    Parameters:
+        n : uint8 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u8ToFloat(n : uint8) : float = (
+    let ret : float = n;
+    ret
+)
+
+(*
+    Function: u8ToDouble
+
+    Converts a uint8 to a double.
+
+    Type signature:
+    | (uint8) ->double
+
+    Parameters:
+        n : uint8 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u8ToDouble(n : uint8) : double = (
+    let ret : double = n;
+    ret
+)
+
+(*
+    Function: u16ToU8
+
+    Converts a uint16 to a uint8.
+
+    Type signature:
+    | (uint16) ->uint8
+
+    Parameters:
+        n : uint16 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u16ToU8(n : uint16) : uint8 = (
+    let ret : uint8 = n;
+    ret
+)
+
+(*
+    Function: u16ToU32
+
+    Converts a uint16 to a uint32.
+
+    Type signature:
+    | (uint16) ->uint32
+
+    Parameters:
+        n : uint16 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u16ToU32(n : uint16) : uint32 = (
+    let ret : uint32 = n;
+    ret
+)
+
+(*
+    Function: u16ToI8
+
+    Converts a uint16 to a int8.
+
+    Type signature:
+    | (uint16) ->int8
+
+    Parameters:
+        n : uint16 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u16ToI8(n : uint16) : int8 = (
+    let ret : int8 = n;
+    ret
+)
+
+(*
+    Function: u16ToI16
+
+    Converts a uint16 to a int16.
+
+    Type signature:
+    | (uint16) ->int16
+
+    Parameters:
+        n : uint16 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u16ToI16(n : uint16) : int16 = (
+    let ret : int16 = n;
+    ret
+)
+
+(*
+    Function: u16ToI32
+
+    Converts a uint16 to a int32.
+
+    Type signature:
+    | (uint16) ->int32
+
+    Parameters:
+        n : uint16 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u16ToI32(n : uint16) : int32 = (
+    let ret : int32 = n;
+    ret
+)
+
+(*
+    Function: u16ToFloat
+
+    Converts a uint16 to a float.
+
+    Type signature:
+    | (uint16) ->float
+
+    Parameters:
+        n : uint16 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u16ToFloat(n : uint16) : float = (
+    let ret : float = n;
+    ret
+)
+
+(*
+    Function: u16ToDouble
+
+    Converts a uint16 to a double.
+
+    Type signature:
+    | (uint16) ->double
+
+    Parameters:
+        n : uint16 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u16ToDouble(n : uint16) : double = (
+    let ret : double = n;
+    ret
+)
+
+(*
+    Function: u32ToU8
+
+    Converts a uint32 to a uint8.
+
+    Type signature:
+    | (uint32) ->uint8
+
+    Parameters:
+        n : uint32 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u32ToU8(n : uint32) : uint8 = (
+    let ret : uint8 = n;
+    ret
+)
+
+(*
+    Function: u32ToU16
+
+    Converts a uint32 to a uint16.
+
+    Type signature:
+    | (uint32) ->uint16
+
+    Parameters:
+        n : uint32 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u32ToU16(n : uint32) : uint16 = (
+    let ret : uint16 = n;
+    ret
+)
+
+(*
+    Function: u32ToI8
+
+    Converts a uint32 to a int8.
+
+    Type signature:
+    | (uint32) ->int8
+
+    Parameters:
+        n : uint32 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u32ToI8(n : uint32) : int8 = (
+    let ret : int8 = n;
+    ret
+)
+
+(*
+    Function: u32ToI16
+
+    Converts a uint32 to a int16.
+
+    Type signature:
+    | (uint32) ->int16
+
+    Parameters:
+        n : uint32 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u32ToI16(n : uint32) : int16 = (
+    let ret : int16 = n;
+    ret
+)
+
+(*
+    Function: u32ToI32
+
+    Converts a uint32 to a int32.
+
+    Type signature:
+    | (uint32) ->int32
+
+    Parameters:
+        n : uint32 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u32ToI32(n : uint32) : int32 = (
+    let ret : int32 = n;
+    ret
+)
+
+(*
+    Function: u32ToFloat
+
+    Converts a uint32 to a float.
+
+    Type signature:
+    | (uint32) ->float
+
+    Parameters:
+        n : uint32 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u32ToFloat(n : uint32) : float = (
+    let ret : float = n;
+    ret
+)
+
+(*
+    Function: u32ToDouble
+
+    Converts a uint32 to a double.
+
+    Type signature:
+    | (uint32) ->double
+
+    Parameters:
+        n : uint32 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun u32ToDouble(n : uint32) : double = (
+    let ret : double = n;
+    ret
+)
+
+(*
+    Function: i8ToU8
+
+    Converts a int8 to a uint8.
+
+    Type signature:
+    | (int8) ->uint8
+
+    Parameters:
+        n : int8 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i8ToU8(n : int8) : uint8 = (
+    let ret : uint8 = n;
+    ret
+)
+
+(*
+    Function: i8ToU16
+
+    Converts a int8 to a uint16.
+
+    Type signature:
+    | (int8) ->uint16
+
+    Parameters:
+        n : int8 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i8ToU16(n : int8) : uint16 = (
+    let ret : uint16 = n;
+    ret
+)
+
+(*
+    Function: i8ToU32
+
+    Converts a int8 to a uint32.
+
+    Type signature:
+    | (int8) ->uint32
+
+    Parameters:
+        n : int8 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i8ToU32(n : int8) : uint32 = (
+    let ret : uint32 = n;
+    ret
+)
+
+(*
+    Function: i8ToI16
+
+    Converts a int8 to a int16.
+
+    Type signature:
+    | (int8) ->int16
+
+    Parameters:
+        n : int8 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i8ToI16(n : int8) : int16 = (
+    let ret : int16 = n;
+    ret
+)
+
+(*
+    Function: i8ToI32
+
+    Converts a int8 to a int32.
+
+    Type signature:
+    | (int8) ->int32
+
+    Parameters:
+        n : int8 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i8ToI32(n : int8) : int32 = (
+    let ret : int32 = n;
+    ret
+)
+
+(*
+    Function: i8ToFloat
+
+    Converts a int8 to a float.
+
+    Type signature:
+    | (int8) ->float
+
+    Parameters:
+        n : int8 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i8ToFloat(n : int8) : float = (
+    let ret : float = n;
+    ret
+)
+
+(*
+    Function: i8ToDouble
+
+    Converts a int8 to a double.
+
+    Type signature:
+    | (int8) ->double
+
+    Parameters:
+        n : int8 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i8ToDouble(n : int8) : double = (
+    let ret : double = n;
+    ret
+)
+
+(*
+    Function: i16ToU8
+
+    Converts a int16 to a uint8.
+
+    Type signature:
+    | (int16) ->uint8
+
+    Parameters:
+        n : int16 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i16ToU8(n : int16) : uint8 = (
+    let ret : uint8 = n;
+    ret
+)
+
+(*
+    Function: i16ToU16
+
+    Converts a int16 to a uint16.
+
+    Type signature:
+    | (int16) ->uint16
+
+    Parameters:
+        n : int16 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i16ToU16(n : int16) : uint16 = (
+    let ret : uint16 = n;
+    ret
+)
+
+(*
+    Function: i16ToU32
+
+    Converts a int16 to a uint32.
+
+    Type signature:
+    | (int16) ->uint32
+
+    Parameters:
+        n : int16 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i16ToU32(n : int16) : uint32 = (
+    let ret : uint32 = n;
+    ret
+)
+
+(*
+    Function: i16ToI8
+
+    Converts a int16 to a int8.
+
+    Type signature:
+    | (int16) ->int8
+
+    Parameters:
+        n : int16 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i16ToI8(n : int16) : int8 = (
+    let ret : int8 = n;
+    ret
+)
+
+(*
+    Function: i16ToI32
+
+    Converts a int16 to a int32.
+
+    Type signature:
+    | (int16) ->int32
+
+    Parameters:
+        n : int16 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i16ToI32(n : int16) : int32 = (
+    let ret : int32 = n;
+    ret
+)
+
+(*
+    Function: i16ToFloat
+
+    Converts a int16 to a float.
+
+    Type signature:
+    | (int16) ->float
+
+    Parameters:
+        n : int16 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i16ToFloat(n : int16) : float = (
+    let ret : float = n;
+    ret
+)
+
+(*
+    Function: i16ToDouble
+
+    Converts a int16 to a double.
+
+    Type signature:
+    | (int16) ->double
+
+    Parameters:
+        n : int16 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i16ToDouble(n : int16) : double = (
+    let ret : double = n;
+    ret
+)
+
+(*
+    Function: i32ToU8
+
+    Converts a int32 to a uint8.
+
+    Type signature:
+    | (int32) ->uint8
+
+    Parameters:
+        n : int32 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i32ToU8(n : int32) : uint8 = (
+    let ret : uint8 = n;
+    ret
+)
+
+(*
+    Function: i32ToU16
+
+    Converts a int32 to a uint16.
+
+    Type signature:
+    | (int32) ->uint16
+
+    Parameters:
+        n : int32 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i32ToU16(n : int32) : uint16 = (
+    let ret : uint16 = n;
+    ret
+)
+
+(*
+    Function: i32ToU32
+
+    Converts a int32 to a uint32.
+
+    Type signature:
+    | (int32) ->uint32
+
+    Parameters:
+        n : int32 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i32ToU32(n : int32) : uint32 = (
+    let ret : uint32 = n;
+    ret
+)
+
+(*
+    Function: i32ToI8
+
+    Converts a int32 to a int8.
+
+    Type signature:
+    | (int32) ->int8
+
+    Parameters:
+        n : int32 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i32ToI8(n : int32) : int8 = (
+    let ret : int8 = n;
+    ret
+)
+
+(*
+    Function: i32ToI16
+
+    Converts a int32 to a int16.
+
+    Type signature:
+    | (int32) ->int16
+
+    Parameters:
+        n : int32 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i32ToI16(n : int32) : int16 = (
+    let ret : int16 = n;
+    ret
+)
+
+(*
+    Function: i32ToFloat
+
+    Converts a int32 to a float.
+
+    Type signature:
+    | (int32) ->float
+
+    Parameters:
+        n : int32 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i32ToFloat(n : int32) : float = (
+    let ret : float = n;
+    ret
+)
+
+(*
+    Function: i32ToDouble
+
+    Converts a int32 to a double.
+
+    Type signature:
+    | (int32) ->double
+
+    Parameters:
+        n : int32 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun i32ToDouble(n : int32) : double = (
+    let ret : double = n;
+    ret
+)
+
+(*
+    Function: floatToU8
+
+    Converts a float to a uint8.
+
+    Type signature:
+    | (float) ->uint8
+
+    Parameters:
+        n : float - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun floatToU8(n : float) : uint8 = (
+    let ret : uint8 = n;
+    ret
+)
+
+(*
+    Function: floatToU16
+
+    Converts a float to a uint16.
+
+    Type signature:
+    | (float) ->uint16
+
+    Parameters:
+        n : float - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun floatToU16(n : float) : uint16 = (
+    let ret : uint16 = n;
+    ret
+)
+
+(*
+    Function: floatToU32
+
+    Converts a float to a uint32.
+
+    Type signature:
+    | (float) ->uint32
+
+    Parameters:
+        n : float - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun floatToU32(n : float) : uint32 = (
+    let ret : uint32 = n;
+    ret
+)
+
+(*
+    Function: floatToI8
+
+    Converts a float to a int8.
+
+    Type signature:
+    | (float) ->int8
+
+    Parameters:
+        n : float - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun floatToI8(n : float) : int8 = (
+    let ret : int8 = n;
+    ret
+)
+
+(*
+    Function: floatToI16
+
+    Converts a float to a int16.
+
+    Type signature:
+    | (float) ->int16
+
+    Parameters:
+        n : float - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun floatToI16(n : float) : int16 = (
+    let ret : int16 = n;
+    ret
+)
+
+(*
+    Function: floatToI32
+
+    Converts a float to a int32.
+
+    Type signature:
+    | (float) ->int32
+
+    Parameters:
+        n : float - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun floatToI32(n : float) : int32 = (
+    let ret : int32 = n;
+    ret
+)
+
+(*
+    Function: floatToDouble
+
+    Converts a float to a double.
+
+    Type signature:
+    | (float) ->double
+
+    Parameters:
+        n : float - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun floatToDouble(n : float) : double = (
+    let ret : double = n;
+    ret
+)
+
+(*
+    Function: doubleToU8
+
+    Converts a double to a uint8.
+
+    Type signature:
+    | (double) ->uint8
+
+    Parameters:
+        n : double - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun doubleToU8(n : double) : uint8 = (
+    let ret : uint8 = n;
+    ret
+)
+
+(*
+    Function: doubleToU16
+
+    Converts a double to a uint16.
+
+    Type signature:
+    | (double) ->uint16
+
+    Parameters:
+        n : double - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun doubleToU16(n : double) : uint16 = (
+    let ret : uint16 = n;
+    ret
+)
+
+(*
+    Function: doubleToU32
+
+    Converts a double to a uint32.
+
+    Type signature:
+    | (double) ->uint32
+
+    Parameters:
+        n : double - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun doubleToU32(n : double) : uint32 = (
+    let ret : uint32 = n;
+    ret
+)
+
+(*
+    Function: doubleToI8
+
+    Converts a double to a int8.
+
+    Type signature:
+    | (double) ->int8
+
+    Parameters:
+        n : double - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun doubleToI8(n : double) : int8 = (
+    let ret : int8 = n;
+    ret
+)
+
+(*
+    Function: doubleToI16
+
+    Converts a double to a int16.
+
+    Type signature:
+    | (double) ->int16
+
+    Parameters:
+        n : double - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun doubleToI16(n : double) : int16 = (
+    let ret : int16 = n;
+    ret
+)
+
+(*
+    Function: doubleToI32
+
+    Converts a double to a int32.
+
+    Type signature:
+    | (double) ->int32
+
+    Parameters:
+        n : double - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun doubleToI32(n : double) : int32 = (
+    let ret : int32 = n;
+    ret
+)
+
+(*
+    Function: doubleToFloat
+
+    Converts a double to a float.
+
+    Type signature:
+    | (double) ->float
+
+    Parameters:
+        n : double - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun doubleToFloat(n : double) : float = (
+    let ret : float = n;
+    ret
+)

@@ -19,7 +19,7 @@ open(Prelude)
 
     Parameters:
         f : ('a) -> 'b - The mapping function
-        lst : list<'t;aCap> - The list to map.
+        lst : list<'t;n> - The list to map.
 
    Returns:
         The list obtained by applying f to every element of lst.

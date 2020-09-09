@@ -206,7 +206,7 @@ let freshInstance (Forall (bound, caps, tau)) =
 
 let instantiateRecord (bound, caps, fields) actuals capActuals =
     let substitutions = List.zip bound actuals |> Map.ofList
-    let capSubstitutions = List.zip bound capActuals |> Map.ofList
+    let capSubstitutions = List.zip caps capActuals |> Map.ofList
     fields |> Map.map (fun (fieldName : string) tau -> tycapsubst substitutions capSubstitutions tau)
 
 let freshInstanceRecord (bound, caps, fields) =

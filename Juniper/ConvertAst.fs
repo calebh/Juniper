@@ -2,6 +2,7 @@
 module A = Ast
 module T = TypedAst
 open Extensions
+open Error
 
 // This module converts between untyped AST representations and typed AST representations
 
@@ -42,9 +43,10 @@ let rec convertType menv tyVarMapping capVarMapping (tau : Ast.TyExpr) : T.TyExp
         T.ConApp (T.TyCon T.FunTy, returnType'::(List.map (Ast.unwrap >> ct) args), [])
     | Ast.ModuleQualifierTy {module_=(_, module_); name=(_, name)} ->
         T.TyCon <| T.ModuleQualifierTy {module_=module_; name=name}
-    | Ast.NameTy (_, name) ->
-        let (module_, name) = Map.find name menv
-        T.TyCon <| T.ModuleQualifierTy {module_=module_; name=name}
+    | Ast.NameTy (pos, name) ->
+        match Map.tryFind name menv with
+        | Some (module_, name) -> T.TyCon <| T.ModuleQualifierTy {module_=module_; name=name}
+        | None -> raise (SemanticError ((errStr [pos] ("Unable to find type named " + name + " in the module environment")).Force()))
     | Ast.ParensTy (_, tau) ->
         ct tau
     | Ast.RefTy (_, tau) ->

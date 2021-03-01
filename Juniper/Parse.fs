@@ -2,6 +2,14 @@
 open FParsec
 open Ast
 
+let fatalizeAnyError (p : Parser<'a, 'u>) : Parser<'a, 'u> =
+    fun stream ->
+        let reply = p stream
+        if reply.Status = Ok then
+            reply
+        else
+            Reply(FatalError, reply.Error)
+
 let singleLineComment = skipString "//" >>. restOfLine true >>% ()
 let multiLineComment = skipString "(*" >>. skipCharsTillString "*)" true System.Int32.MaxValue
 let ws = spaces .>> (choice [singleLineComment; multiLineComment] >>. spaces |> many)
@@ -354,7 +362,7 @@ let leftRecursiveExp =
     let typeConstraint = skipChar ':' >>. ws >>. tyExpr |>> TypeConstraintType
     let fieldAccessName = skipChar '.' >>. ws >>. attempt id |> pos |>> FieldAccessName
     let unsafeTypeCast = skipString "::::" >>. ws >>. tyExpr |>> UnsafeTypeCastType
-    List.map attempt [callArgs; arrayIndex; unsafeTypeCast; typeConstraint; fieldAccessName] |> choice |> pos .>> ws |> many
+    [callArgs; arrayIndex; unsafeTypeCast; typeConstraint; fieldAccessName] |> choice |> pos .>> ws |> many
 
 // elifList
 do
@@ -375,29 +383,57 @@ do
 let inlineCpp =
     let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '#')
     let escapedChar = pstring "\\" >>. (anyOf "\\#" |>> string)
-    between (pstring "#") (pstring "#") (stringsSepBy normalCharSnippet escapedChar) |> pos
+    between (pstring "#") (pstring "#") (fatalizeAnyError (stringsSepBy normalCharSnippet escapedChar)) |> pos
 
 // expr
 do
-    let punit = skipString "()" >>% () |> pos |>> UnitExp
+    let punit = skipString "()" |> pos |>> UnitExp
     let parens = betweenChar '(' (expr |>> unwrap) ')'
     let ptrue = skipString "true" |> pos |>> TrueExp
     let pfalse = skipString "false" |> pos |>> FalseExp
-    let pint = pos pint64 |>> IntExp .>> notFollowedByString "."
-    let pdouble = pos pfloat |>> DoubleExp
-    let pfloat = pos (pfloat .>> skipChar 'f') |>> FloatExp
-    let pint8 = pos (pint64 .>> skipString "i8") |>> Int8Exp
-    let pint16 = pos (pint64 .>> skipString "i16") |>> Int16Exp
-    let pint32 = pos (pint64 .>> skipString "i32") |>> Int32Exp
-    let pint64' = pos (pint64 .>> skipString "i64") |>> Int64Exp
-    let puint8 = pos (pint64 .>> skipString "u8") |>> UInt8Exp
-    let puint16 = pos (pint64 .>> skipString "u16") |>> UInt16Exp
-    let puint32 = pos (pint64 .>> skipString "u32") |>> UInt32Exp
-    let puint64 = pos (pint64 .>> skipString "u64") |>> UInt64Exp
+    let floatParser =
+        fun stream ->
+            let reply = numberLiteralE NumberLiteralOptions.DefaultFloat (expected "floating-point number") stream
+            if reply.Status = Ok then
+                let result = reply.Result
+                if result.IsInteger then
+                    stream.Skip(-result.String.Length)
+                    Reply(Error, expected "floating-point number with decimal")
+                else
+                    try
+                        let d =
+                            if result.IsDecimal then
+                                System.Double.Parse(result.String, System.Globalization.CultureInfo.InvariantCulture)
+                            elif result.IsHexadecimal then
+                                floatOfHexString result.String
+                            elif result.IsInfinity then
+                                if result.HasMinusSign then System.Double.NegativeInfinity else System.Double.PositiveInfinity
+                            else
+                                System.Double.NaN
+                        Reply(d)
+                    with 
+                    | :? System.OverflowException ->
+                        Reply(if result.HasMinusSign then System.Double.NegativeInfinity else System.Double.PositiveInfinity)
+                    | :? System.FormatException ->
+                        stream.Skip(-result.String.Length)
+                        Reply(FatalError, messageError "The floating-point number has an invalid format (this error is unexpected, please report this error message to fparsec@quanttec.com).")
+            else
+                Reply(reply.Status, reply.Error)
+    
+    let pfloating = (floatParser .>>. choice [skipChar 'f' >>. preturn FloatExp; preturn DoubleExp]) |>
+                    pos |>>
+                    (fun (posN, (num, constructor)) -> constructor (posN, num))
+    let parseInt s t = skipString s >>. preturn t
+    let pint = (pint64 .>>.
+                    choice [parseInt "i8" Int8Exp; parseInt "i16" Int16Exp; parseInt "i32" Int32Exp;
+                            parseInt "i64" Int64Exp; parseInt "u8" UInt8Exp; parseInt "u16" UInt32Exp;
+                            parseInt "u32" UInt32Exp; parseInt "u64" UInt64Exp; preturn Int32Exp]) |>
+               pos |>>
+               (fun (posN, (num, constructor)) -> constructor (posN, num))
     let charlist = pos (stringLiteral '\'' true) |>> CharListLiteral
     let str = pos (stringLiteral '"' true) |>> StringLiteral
-    let seq = betweenChar '(' (separatedList (attempt expr) ';' |> pos) ')' |>> SequenceExp
-    let quit = skipString "quit" >>. ws >>. opt (skipChar '<' >>. ws >>. tyExpr .>> ws .>> skipChar '>') .>> ws .>> skipChar '(' .>> ws .>> skipChar ')' |>> QuitExp
+    let seq = betweenChar '(' (((expr .>> ws .>> skipChar ';' .>> ws) .>>. fatalizeAnyError (separatedList expr ';')) |> pos) ')' |>> (fun (overallPos, (firstExpr, restExprs)) -> SequenceExp (overallPos, firstExpr::restExprs))
+    let quit = skipString "quit" >>. ws >>. (fatalizeAnyError (opt (skipChar '<' >>. ws >>. tyExpr .>> ws .>> skipChar '>') .>> ws .>> skipChar '(' .>> ws .>> skipChar ')')) |>> QuitExp
     let applyTemplateToFunc =
         pipe2
             (pos ((attempt moduleQualifier |>> Choice2Of2) <|> (id |>> Choice1Of2)) .>> ws)
@@ -405,9 +441,9 @@ do
             (fun funExpr temp -> TemplateApplyExp {func = funExpr; templateArgs = temp})
     let pIf =
         pipe3
-            (skipString "if" >>. ws >>. expr .>> ws)
-            (skipString "then" >>. ws >>. expr .>> ws)
-            elifList
+            (skipString "if" >>. ws >>. fatalizeAnyError (expr .>> ws))
+            (fatalizeAnyError (skipString "then" >>. ws >>. expr .>> ws))
+            (fatalizeAnyError elifList)
             (fun condition trueBranch falseBranch ->
                 IfElseExp {
                     condition = condition;
@@ -416,79 +452,77 @@ do
                 })
     let pLet =
         pipe2
-            (pstring "let" >>. ws >>. pattern .>> ws .>> skipChar '=' .>> ws)
-            (expr .>> ws)
+            (pstring "let" >>. ws >>. fatalizeAnyError (pattern .>> ws .>> skipChar '=' .>> ws))
+            (fatalizeAnyError (expr .>> ws))
             (fun pat expr ->
                 LetExp {left=pat; right=expr})
     let pVar =
         pipe2
-            (pstring "var" >>. ws >>. pos id .>> ws)
-            (skipChar ':' >>. ws >>. tyExpr)
+            (pstring "var" >>. ws >>. fatalizeAnyError (pos id .>> ws))
+            (fatalizeAnyError (skipChar ':' >>. ws >>. tyExpr))
             (fun varName ty ->
                 DeclVarExp { varName = varName; typ = ty} )
     let assign =
         pipe3
-            (skipString "set" >>. ws >>. (skipString "ref" |> opt |>> Option.isSome |> pos) .>> ws)
-            (leftAssign .>> ws .>> skipChar '=' .>> ws)
-            expr
+            (skipString "set" >>. ws >>. (fatalizeAnyError (skipString "ref" |> opt |>> Option.isSome |> pos) .>> ws))
+            (fatalizeAnyError (leftAssign .>> ws .>> skipChar '=' .>> ws))
+            (fatalizeAnyError expr)
             (fun ref_ left right -> AssignExp {left=left; right=right; ref=ref_})
     let forLoop =
         pipe6
-            (pstring "for" >>. ws >>. pos id .>> ws)
-            (skipChar ':' >>. ws >>. tyExpr .>> ws |> opt)
-            (pstring "in" >>. ws >>. expr .>> ws)
-            ((pstring "to" >>% Upto) <|> (pstring "downto" >>% Downto) |> pos .>> ws)
-            expr
-            (pstring "do" >>. ws >>. expr .>> pstring "end")
+            (pstring "for" >>. ws >>. fatalizeAnyError (pos id .>> ws))
+            (fatalizeAnyError (skipChar ':' >>. ws >>. tyExpr .>> ws |> opt))
+            (fatalizeAnyError (pstring "in" >>. ws >>. expr .>> ws))
+            (fatalizeAnyError ((pstring "to" >>% Upto) <|> (pstring "downto" >>% Downto) |> pos .>> ws))
+            (fatalizeAnyError expr)
+            (fatalizeAnyError (pstring "do" >>. ws >>. expr .>> pstring "end"))
             (fun varName typ start direction end_ body ->
                 ForLoopExp {varName=varName; typ=typ; start=start; direction=direction; end_=end_; body=body})
     let doWhileLoop =
         pipe2
-            (pstring "do" >>. ws >>. expr .>> ws)
-            (pstring "while" >>. ws >>. expr .>> ws .>> pstring "end")
+            (pstring "do" >>. ws >>. fatalizeAnyError (expr .>> ws))
+            (fatalizeAnyError (pstring "while" >>. ws >>. expr .>> ws .>> pstring "end"))
             (fun body condition -> DoWhileLoopExp {body=body; condition=condition})
     let whileLoop =
         pipe2
-            (pstring "while" >>. ws >>. expr .>> ws .>> pstring "do" .>> ws)
-            (expr .>> ws .>> pstring "end")
+            (pstring "while" >>. ws >>. fatalizeAnyError (expr .>> ws .>> pstring "do" .>> ws))
+            (fatalizeAnyError (expr .>> ws .>> pstring "end"))
             (fun condition body -> WhileLoopExp {condition=condition; body=body})
-    let fn = skipString "fn" >>. ws >>. functionClause "->" .>> ws .>> skipString "end" |> pos |>> LambdaExp
+    let fn = skipString "fn" >>. ws >>. fatalizeAnyError (functionClause "->" .>> ws .>> skipString "end") |> pos |>> LambdaExp
     let case =
         let caseClause = (pattern .>> ws) .>>. (pstring "=>" >>. ws >>. expr)
         pipe2
-            (pstring "case" >>. ws >>. expr .>> pstring "of" .>> ws)
-            ((skipChar '|' >>. ws >>. caseClause) |> many1 |> pos .>> ws .>> pstring "end")
+            (pstring "case" >>. ws >>. fatalizeAnyError (expr .>> pstring "of" .>> ws))
+            (fatalizeAnyError ((skipChar '|' >>. ws >>. caseClause) |> many1 |> pos .>> ws .>> pstring "end"))
             (fun on clauses ->
                 CaseExp {on=on; clauses=clauses})
     let recordExpr =
         let fieldList = separatedList ((pos id .>> ws) .>>. (skipChar '=' >>. ws >>. expr)) ';'
         pipe3
-            (pos ((attempt moduleQualifier |>> Choice2Of2) <|> (id |>> Choice1Of2)) .>> ws)
+            (pos (((attempt moduleQualifier |>> Choice2Of2) <|> (id |>> Choice1Of2))) .>> ws)
             (templateApply |> opt .>> ws)
             (betweenChar '{' (ws >>. fieldList .>> ws) '}' |> pos)
             (fun recordTy template fields ->
                 RecordExp {recordTy=recordTy; templateArgs=template; initFields=fields})
     let arrayLiteral = betweenChar '[' (separatedList expr ',') ']' |> pos |>> ArrayLitExp
-    let pref = pstring "ref" >>. ws >>. expr |>> RefExp
+    let pref = pstring "ref" >>. ws >>. (fatalizeAnyError expr) |>> RefExp
     let modQual = moduleQualifier |> pos |>> ModQualifierExp
     let varReference = attempt id |> pos |>> VarExp
     let arrayMake =
         pipe2
-            (skipString "array" >>. ws >>. tyExpr .>> ws)
-            ((skipString "of" >>. ws >>. expr |> opt) .>> ws .>> skipString "end")
+            (skipString "array" >>. ws >>. fatalizeAnyError (tyExpr .>> ws))
+            (fatalizeAnyError ((skipString "of" >>. ws >>. expr |> opt) .>> ws .>> skipString "end"))
             (fun arrTy initializer -> ArrayMakeExp {typ=arrTy; initializer=initializer})
     let inlineCpp' = inlineCpp |>> InlineCode
     let tuple = betweenChar '(' (separatedList1 expr ',') ')' |>> TupleExp
-    let smartpointer = (skipString "smartpointer" >>. ws >>. expr .>> ws .>> skipString "end") |>> Smartpointer
+    let smartpointer = (skipString "smartpointer" >>. ws >>. fatalizeAnyError (expr .>> ws .>> skipString "end")) |>> Smartpointer
     let nullexp = (skipString "null" |> pos |>> NullExp) .>> ws
-    let e = choice (List.map attempt [punit; parens; ptrue; pfalse; nullexp; charlist; str;
-                    pint8; pint16; pint32; pint64'; puint8; puint16; puint32; puint64;
-                    pint; pfloat; pdouble; smartpointer;
-                    fn; quit; tuple; recordExpr; applyTemplateToFunc; seq;
-                    modQual; forLoop; doWhileLoop; whileLoop;
+    let e = choice ([punit; attempt parens; ptrue; pfalse; nullexp; charlist; str;
+                    attempt pfloating; pint; smartpointer;
+                    fn; quit; attempt tuple; attempt recordExpr; attempt applyTemplateToFunc; seq;
+                    attempt modQual; forLoop; doWhileLoop; whileLoop;
                     pLet; pVar; pIf; assign; case;
-                    arrayLiteral; pref;
-                    arrayMake; inlineCpp'; varReference]) .>> ws |> pos
+                    arrayLiteral; pref; arrayMake; inlineCpp'; varReference]) .>> ws |> pos
     opp.TermParser <-
         leftRecurse
             e
@@ -499,7 +533,7 @@ do
                 | ArrayIndex index -> ArrayAccessExp {array=term; index=index}
                 | TypeConstraintType typ -> TypeConstraint {exp=term; typ=typ}
                 | FieldAccessName fieldName -> RecordAccessExp {record=term; fieldName=fieldName}
-                | UnsafeTypeCastType typ -> UnsafeTypeCast {exp=term; typ=typ}) |> attempt
+                | UnsafeTypeCastType typ -> UnsafeTypeCast {exp=term; typ=typ})
 
 // templateApply
 do

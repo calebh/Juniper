@@ -27,9 +27,8 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DocumentationFile>bin\Debug\Juniper.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
-    <StartWorkingDirectory>
-    </StartWorkingDirectory>
-    <StartArguments>-s examples/Blink.jun -o Blink.cpp</StartArguments>
+    <StartWorkingDirectory>C:\Users\caleb\Documents\juniperproject\cwatch\jun\</StartWorkingDirectory>
+    <StartArguments>-s CWatch.jun Gfx.jun Arcada.jun -o main.cpp</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>

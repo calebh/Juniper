@@ -20,6 +20,7 @@ and FunctionRec = { name     : string;
 
 // Record object. Template is optional.
 and RecordRec =   { name     : string
+                    packed   : bool;
                     fields   : (string * TyExpr) list;
                     template : Template option }
 
@@ -76,6 +77,7 @@ and BaseTypes = TyUint8
               | TyUnit
               | TyPointer
               | TyString
+              | TyRawPointer
 and TyCons = BaseTy of BaseTypes
            | ModuleQualifierTy of ModQualifierRec
            | ArrayTy
@@ -138,6 +140,8 @@ and UnaryOpRec =      { op : UnaryOps; exp : TyAdorn<Expr> }
 and RecordAccessRec = { record : TyAdorn<Expr>; fieldName : string }
 and ArrayAccessRec =  { array : TyAdorn<Expr>; index : TyAdorn<Expr> }
 and InternalDeclareVarExpRec = { varName : string; typ : TyExpr; right : TyAdorn<Expr> }
+and InternalUsingRec = { varName : string; typ : TyExpr }
+and InternalUsingCapRec = { varName : string; cap : CapacityExpr }
 and UnsafeTypeCastRec = { exp : TyAdorn<Expr>; typ : TyExpr }
 // Function call/apply
 and CallRec =         { func : TyAdorn<Expr>; args : TyAdorn<Expr> list }
@@ -145,12 +149,16 @@ and CallRec =         { func : TyAdorn<Expr>; args : TyAdorn<Expr> list }
 and TemplateApplyExpRec = { func : Choice<string, ModQualifierRec>; templateArgs : TemplateApply }
 and RecordExprRec =   { recordTy : ModQualifierRec; templateArgs : TemplateApply option; initFields : (string * TyAdorn<Expr>) list }
 and ArrayMakeExpRec = { typ : TyExpr; initializer : TyAdorn<Expr> option }
+and DeclVarExpRec = { varName : string; typ : TyExpr }
 and Expr = SequenceExp of TyAdorn<Expr> list
           | BinaryOpExp of BinaryOpRec
           | IfElseExp of IfElseRec
           | LetExp of LetRec
+          | DeclVarExp of DeclVarExpRec
           | InternalDeclareVar of InternalDeclareVarExpRec // Only used internally for declaring variables
                                                            // that will actually be outputted by the compiler
+          | InternalUsing of InternalUsingRec
+          | InternalUsingCap of InternalUsingCapRec
           | InlineCode of string
           | AssignExp of AssignRec
           | ForLoopExp of ForLoopRec
@@ -187,6 +195,7 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | TupleExp of TyAdorn<Expr> list
           | QuitExp of TyExpr
           | Smartpointer of TyAdorn<Expr>
+          | NullExp
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | BitwiseXor
               | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
               | BitshiftLeft | BitshiftRight
@@ -246,12 +255,9 @@ let rec typeConString con appliedTo capExprs =
         | TyDouble -> "double"
         | TyPointer -> "pointer"
         | TyString -> "string"
+        | TyRawPointer -> "rawpointer"
     | ArrayTy ->
         let [arrTy] = appliedTo
-        if List.length capExprs = 0 then
-            printfn "Hello"
-        else
-            ()
         let size =
             match capExprs with
             | [size] ->
@@ -305,3 +311,4 @@ let floattype = baseTy TyFloat
 let doubletype = baseTy TyDouble
 let pointertype = baseTy TyPointer
 let stringtype = baseTy TyString
+let rawpointertype = baseTy TyRawPointer

@@ -83,6 +83,7 @@ and compileType theta kappa (ty : TyExpr) : string =
             | TyDouble -> output "double"
             | TyPointer -> output "juniper::smartpointer"
             | TyString -> output "const char *"
+            | TyRawPointer -> output "void *"
         | ModuleQualifierTy {module_ = module_; name=name} ->
             output module_ +
             output "::" +
@@ -217,6 +218,8 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
         output (sprintf "((int64_t) %i)" num)
     | UInt64Exp num ->
         output (sprintf "((uint64_t) %i)" num)
+    | NullExp ->
+        output "nullptr"
     | IfElseExp {condition=condition; trueBranch=trueBranch; falseBranch=falseBranch} ->
         output "(" +
         compile topLevel condition +
@@ -257,6 +260,12 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
                         output "return " + compile false (dummyWrap (VarExp (varName, [], []))) + output ";"
                     else
                         output "")
+                | DeclVarExp {varName=varName; typ=typ} ->
+                    output (compileType typ) + output " " + output varName + output ";" + newline() +
+                    (if isLastElem then
+                        output "return " + output varName + output ";"
+                    else    
+                        output "")
                 | _ ->
                     (if isLastElem then
                         output "return "
@@ -279,6 +288,13 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
         output "if (!(" + compile false condition + output ")) {" + newline() + indentId() +
         compile false (getQuitExpr unitTy) + output ";" + newline() + unindentId() +
         output "}" + newline() +
+        output "return " + compile false (dummyWrap (VarExp (varName, [], []))) + output ";" +
+        unindentId() + newline() + output "})())"
+    // Hit a decl var exp not embedded in a sequence
+    // In this case declare the variable but return it immediately
+    | DeclVarExp {varName=varName; typ=typ} ->
+        output ("((" + capture + "() -> ") + compileType typ + output " {" + indentId() + newline() +
+        output (compileType typ) + output " " + output varName + output ";" + newline() +
         output "return " + compile false (dummyWrap (VarExp (varName, [], []))) + output ";" +
         unindentId() + newline() + output "})())"
     | AssignExp {left=(_, _, left); right=right; ref=ref} ->
@@ -330,6 +346,10 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
     | InternalDeclareVar {varName=varName; typ=typ; right=right} ->
         output (compileType typ) + output " " + output varName + output " = " + output (compile topLevel right)
         //output "auto " + output varName + output " = " + output (compile right)
+    | InternalUsing {varName=varName; typ=typ} ->
+        output "using " + output varName + output " = " + output (compileType typ)
+    | InternalUsingCap {varName=varName; cap=cap} ->
+        output "constexpr int32_t " + output varName + output " = " + output (compileCap cap)
     | TemplateApplyExp {func=func; templateArgs=templateArgs} ->
         output (compileDecRef func) + output (compileTemplateApply theta kappa templateArgs)
     | BinaryOpExp {left=left; op=op; right=right} ->
@@ -542,7 +562,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
         unindentId() +
         newline() +
         output "}"
-    | RecordDec {name=name; fields=fields; template=maybeTemplate} ->
+    | RecordDec {name=name; fields=fields; template=maybeTemplate; packed=packed} ->
         (match maybeTemplate with
         | Some template ->
             compileTemplate theta kappa template +
@@ -550,6 +570,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
         | None ->
             output "") +
         output "struct " +
+        (if packed then output "__attribute__((__packed__)) " else "") +
         output name +
         output " {" +
         newline() +

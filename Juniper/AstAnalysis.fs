@@ -214,6 +214,10 @@ let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
                     Set.empty
         | Ast.WhileLoopExp {condition=(_, condition); body=(_, body)} ->
             Set.union (d' condition) (d' body)
+        | Ast.DeclVarExp _ ->
+            Set.empty
+        | Ast.NullExp _ ->
+            Set.empty
     d localVars e
 
 let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.CapacityExpr>) (e : T.TyAdorn<T.Expr>) : (Ast.PosAdorn<string> list) * (Ast.PosAdorn<string> list) =
@@ -324,5 +328,7 @@ let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.Capa
             ffv exp
         | T.WhileLoopExp {condition=condition; body=body} ->
             append2 ([ffv condition; ffv body] |> List.unzip)
+        | T.DeclVarExp {varName=varName; typ=typ} ->
+            freeVarsTyp (T.getPos e) typ
     
     (List.append freeTaus freeTaus', List.append freeCaps freeCaps')

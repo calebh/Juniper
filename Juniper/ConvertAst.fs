@@ -36,7 +36,8 @@ let rec convertType menv tyVarMapping capVarMapping (tau : Ast.TyExpr) : T.TyExp
                             | Ast.TyFloat -> T.TyFloat
                             | Ast.TyPointer -> T.TyPointer
                             | Ast.TyUnit -> T.TyUnit
-                            | Ast.TyString -> T.TyString)
+                            | Ast.TyString -> T.TyString
+                            | Ast.TyRawPointer -> T.TyRawPointer)
     | Ast.FunTy {template=maybeTemplate; args=args; returnType=(_, returnType)} ->
         let returnType' = ct returnType
         let args' = List.map Ast.unwrap args

@@ -8,6 +8,7 @@ open ConvertAst
 open Error
 open AstAnalysis
 open Module
+open TypedAst
 
 let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                (dtenv : Map<string * string, T.DeclarationTy>)
@@ -121,7 +122,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                                     T.ConApp (b, taus', caps')
                             let c = comparisonTau =~= (tau, errStr [posp] "Record pattern did not match expression.")
                             let (pats', c') = checkPatterns pats
-                            ((posp, tau, T.MatchRecCon {typ=modQual; fields=List.zip (List.map (fst >> Ast.unwrap) fields) pats'}), c')
+                            ((posp, tau, T.MatchRecCon {typ=modQual; fields=List.zip (List.map (fst >> Ast.unwrap) fields) pats'}), c &&& c')
                         else
                             let diff = Set.difference fieldNamesInPattern fieldNamesInDec
                             let diffStr = String.concat ", " diff
@@ -467,6 +468,9 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let (left', c2, _, _) = checkPattern left (T.getType right')
             let c' = c1 &&& c2
             adorn posE (T.getType left') (T.LetExp {left=left'; right=right'}) c'
+        | Ast.DeclVarExp {varName=varName; typ=typ} ->
+            let typ' = convertType' (A.unwrap typ)
+            adorn posE typ' (T.DeclVarExp {varName=A.unwrap varName; typ=typ'}) Trivial
         | Ast.ModQualifierExp (posmq, {module_=(pos, module_); name=(posn, name)}) ->
             let (instance, t, c) =
                 match Map.tryFind (module_, name) dtenv with
@@ -583,6 +587,9 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     // The constraints are already included in c1 above
                     let (_, c2, localVars', gamma') = checkPattern left (T.getType exp')
                     (Set.union localVars localVars', gamma', c2)
+                | (_, Ast.DeclVarExp {varName=varName; typ=typ}) ->
+                    let gamma' = Map.add (A.unwrap varName) (true, T.Forall ([], [], T.getType exp')) gamma
+                    (Set.add (A.unwrap varName) localVars, gamma', Trivial)
                 | _ ->
                     (localVars, gamma, Trivial)
 
@@ -672,6 +679,8 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     (T.Deref, c', retTau)
             let c' = c1 &&& c2
             adorn posE tau (T.UnaryOpExp {op=op'; exp=exp'}) c'
+        | Ast.NullExp (posN, ()) ->
+            adorn posN T.rawpointertype T.NullExp Trivial
     ty (posE, e)
 
 let typecheckProgram (program : Ast.Module list) (fnames : string list) =
@@ -904,12 +913,13 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                             (valConName, maybeType'))
                     let ret = (module_, T.UnionDec {name=name; template=Option.map (Ast.unwrap >> convertTemplate) template; valCons=valCons'})
                     ((module_, name), ret)
-                | Ast.RecordDec {name=(_, name); template=template; fields=(_, fields)} ->
+                | Ast.RecordDec {name=(_, name); template=template; fields=(_, fields); packed=packed} ->
                     let (names, types) = List.unzip fields
                     let names' = List.map Ast.unwrap names
                     let types' = List.map (Ast.unwrap >> convertType menv Map.empty Map.empty) types
                     let fields' = List.zip names' types'
-                    let ret = (module_, T.RecordDec {name=name; template=Option.map (Ast.unwrap >> convertTemplate) template; fields=fields'})
+                    let packed' = Option.isSome packed
+                    let ret = (module_, T.RecordDec {name=name; template=Option.map (Ast.unwrap >> convertTemplate) template; packed=packed'; fields=fields'})
                     ((module_, name), ret)) |>
             Map.ofList
         // Put the declarations into dependency order (reverse topological order)
@@ -1032,7 +1042,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                                         let c = List.zip (List.map Ast.unwrap capVars) capVars' |> Map.ofList
                                         let localVars1 = capVars |> List.map Ast.unwrap |> Set.ofList
                                         let templatePos = (tyVars |> List.map Ast.getPos, capVars |> List.map Ast.getPos)
-                                        (t, c, Some (({tyVars=tyVars'Names; capVars=capVars'Names} : T.Template), templatePos, capVars), localVars1)
+                                        (t, c, Some (({tyVars=tyVars'Names; capVars=capVars'Names} : T.Template), templatePos, tyVars, capVars), localVars1)
                                 let localVars = Set.union localArguments localCapacities
                                 // Add the arguments to the type environment (gamma)
                                 let (argTys, tempGamma') =
@@ -1070,7 +1080,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                                 let retTy' = tycapsubst theta kappa retTy
                                 let argTys' = argTys |> List.map (tycapsubst theta kappa)
                                 let arguments' = List.zip argNames argTys'
-                                let (t, c, maybeTemplate'', maybeOriginalCapVars) =
+                                let (t, c, maybeTemplate'', maybeOriginalTyVars, maybeOriginalCapVars) =
                                     match maybeTemplate' with
                                     | None ->
                                         let (freets, freecs) =
@@ -1080,12 +1090,12 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                                                     (Set.union freeT accumFreeT, Set.union freeC accumFreeC))
                                                 (Set.empty, Set.empty)
                                         if Set.isEmpty freets && Set.isEmpty freecs then
-                                            ([], [], None, None)
+                                            ([], [], None, None, None)
                                         else
                                             let tyVars = List.ofSeq freets
                                             let capVars = List.ofSeq freecs
-                                            (tyVars, capVars, Some ({tyVars=tyVars; capVars=capVars} : T.Template), None)
-                                    | Some ({tyVars=tyVars; capVars=capVars}, (tyVarsPos, capVarsPos), originalCapVars) ->
+                                            (tyVars, capVars, Some ({tyVars=tyVars; capVars=capVars} : T.Template), None, None)
+                                    | Some ({tyVars=tyVars; capVars=capVars}, (tyVarsPos, capVarsPos), originalTyVars, originalCapVars) ->
                                         let tyVars' = List.zip tyVars tyVarsPos |> List.map (fun (tyvar, post) ->
                                             match tycapsubst theta kappa (T.TyVar tyvar) with
                                             | T.TyVar tyvar' ->
@@ -1098,20 +1108,31 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                                                 capvar'
                                             | x ->
                                                 raise <| TypeError ((errStr [posc] (sprintf "The capacity parameter was inferred to be equivalent to the non-capacity variable '%s'" (T.capacityString x))).Force()))   
-                                        (tyVars', capVars', Some ({tyVars=tyVars'; capVars=capVars'} : T.Template), Some originalCapVars)
+                                        (tyVars', capVars', Some ({tyVars=tyVars'; capVars=capVars'} : T.Template), Some originalTyVars, Some originalCapVars)
                                 let funScheme = T.Forall (t, c, T.ConApp (T.TyCon T.FunTy, retTy'::argTys', []))
                                 let body'' =
-                                    match maybeOriginalCapVars with
+                                    match maybeOriginalTyVars with
                                     | (None | Some []) ->
                                         body'
-                                    | Some originalCapVars ->
+                                    | Some originalTyVars ->
                                         let (pos, tau, innerBody) = body'
+                                        let saveTyVars =
+                                            List.zip originalTyVars t |> List.map (fun ((post, originalTyVar), newTyVar) ->
+                                                (post, T.unittype, T.InternalUsing {varName = originalTyVar; typ = T.TyVar newTyVar}))
+                                        let innerBody' = T.SequenceExp (saveTyVars @ [body'])
+                                        (pos, tau, innerBody')
+                                let body''' =
+                                    match maybeOriginalCapVars with
+                                    | (None | Some []) ->
+                                        body''
+                                    | Some originalCapVars ->
+                                        let (pos, tau, innerBody) = body''
                                         let saveCapVars =
                                             List.zip originalCapVars c |> List.map (fun ((posc, originalCapVar), newCapVar) ->
-                                                (posc, T.int32type, T.InternalDeclareVar {varName=originalCapVar; typ=T.int32type; right=(posc, T.int32type, T.VarExp (newCapVar, [], []))}))
+                                                (posc, T.int32type, T.InternalUsingCap {varName=originalCapVar; cap=T.CapacityVar newCapVar}))
                                         let innerBody' = T.SequenceExp (saveCapVars @ [body'])
                                         (pos, tau, innerBody')
-                                let funDec' = T.FunctionDec {name=name; template=maybeTemplate''; clause={returnTy=retTy'; arguments=arguments'; body=body''}}
+                                let funDec' = T.FunctionDec {name=name; template=maybeTemplate''; clause={returnTy=retTy'; arguments=arguments'; body=body'''}}
                                 let accumDtenv'' = Map.add modqual (T.FunDecTy funScheme) accumDtenv'
                                 let globalGamma'' = Map.add modqual funScheme accumGlobalGamma'
                                 ((module_, funDec'), (accumDtenv'', globalGamma'')))

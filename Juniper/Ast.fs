@@ -20,6 +20,7 @@ and FunctionRec = { name     : PosAdorn<string>;
 
 // Record object. Template is optional.
 and RecordRec =   { name     : PosAdorn<string>;
+                    packed   : PosAdorn<unit> option
                     fields   : PosAdorn<(PosAdorn<string> * PosAdorn<TyExpr>) list>;
                     template : PosAdorn<Template> option }
 
@@ -81,6 +82,7 @@ and BaseTypes = TyUint8
               | TyUnit
               | TyPointer
               | TyString
+              | TyRawPointer
 and TyExpr = BaseTy of PosAdorn<BaseTypes>
            | ModuleQualifierTy of ModQualifierRec
            | NameTy of PosAdorn<string>
@@ -145,6 +147,7 @@ and RecordExprRec =   { recordTy : PosAdorn<Choice<string, ModQualifierRec>>; te
 and ArrayMakeExpRec = { typ : PosAdorn<TyExpr>; initializer : PosAdorn<Expr> option }
 and TypeConstraintRec = { exp : PosAdorn<Expr>; typ : PosAdorn<TyExpr> }
 and UnsafeTypeCastRec = { exp : PosAdorn<Expr>; typ : PosAdorn<TyExpr> }
+and DeclVarExpRec = { varName : PosAdorn<string>; typ : PosAdorn<TyExpr> }
 and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | BinaryOpExp of BinaryOpRec
           | IfElseExp of IfElseRec
@@ -159,6 +162,7 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | RecordAccessExp of RecordAccessRec
           | ArrayAccessExp of ArrayAccessRec
           | VarExp of PosAdorn<string>
+          | DeclVarExp of DeclVarExpRec
           | UnsafeTypeCast of UnsafeTypeCastRec
           | UnitExp of PosAdorn<unit>
           | TrueExp of PosAdorn<unit>
@@ -188,6 +192,7 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | QuitExp of PosAdorn<TyExpr> option
           | TypeConstraint of TypeConstraintRec
           | Smartpointer of PosAdorn<Expr>
+          | NullExp of PosAdorn<unit>
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | BitwiseXor
               | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
               | BitshiftLeft | BitshiftRight | Pipe

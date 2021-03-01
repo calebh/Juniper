@@ -253,6 +253,7 @@ do
             | "double" -> BaseTy (p, TyDouble)
             | "pointer" -> BaseTy (p, TyPointer)
             | "string" -> BaseTy (p, TyString)
+            | "rawpointer" -> BaseTy (p, TyRawPointer)
             | _ -> NameTy (p, n))
     let mQual = moduleQualifier |>> ModuleQualifierTy
     let fn =
@@ -419,6 +420,12 @@ do
             (expr .>> ws)
             (fun pat expr ->
                 LetExp {left=pat; right=expr})
+    let pVar =
+        pipe2
+            (pstring "var" >>. ws >>. pos id .>> ws)
+            (skipChar ':' >>. ws >>. tyExpr)
+            (fun varName ty ->
+                DeclVarExp { varName = varName; typ = ty} )
     let assign =
         pipe3
             (skipString "set" >>. ws >>. (skipString "ref" |> opt |>> Option.isSome |> pos) .>> ws)
@@ -473,12 +480,13 @@ do
     let inlineCpp' = inlineCpp |>> InlineCode
     let tuple = betweenChar '(' (separatedList1 expr ',') ')' |>> TupleExp
     let smartpointer = (skipString "smartpointer" >>. ws >>. expr .>> ws .>> skipString "end") |>> Smartpointer
-    let e = choice (List.map attempt [punit; parens; ptrue; pfalse; charlist; str;
+    let nullexp = (skipString "null" |> pos |>> NullExp) .>> ws
+    let e = choice (List.map attempt [punit; parens; ptrue; pfalse; nullexp; charlist; str;
                     pint8; pint16; pint32; pint64'; puint8; puint16; puint32; puint64;
                     pint; pfloat; pdouble; smartpointer;
                     fn; quit; tuple; recordExpr; applyTemplateToFunc; seq;
                     modQual; forLoop; doWhileLoop; whileLoop;
-                    pLet; pIf; assign; case;
+                    pLet; pVar; pIf; assign; case;
                     arrayLiteral; pref;
                     arrayMake; inlineCpp'; varReference]) .>> ws |> pos
     opp.TermParser <-
@@ -522,12 +530,13 @@ let functionDec =
 let moduleName = skipString "module" >>. ws >>. pos id .>> ws |>> ModuleNameDec
 
 let recordDec =
-    pipe3
+    pipe4
         (skipString "type" >>. ws >>. pos id .>> ws)
-        (templateDec |> pos |> opt .>> ws .>> skipChar '=' .>> ws .>> skipChar '{' .>> ws)
+        (templateDec |> pos |> opt .>> ws .>> skipChar '=' .>> ws)
+        ((skipString "packed" |> pos |> opt) .>> ws .>> skipChar '{' .>> ws)
         (separatedList ((pos id .>> ws .>> skipChar ':' .>> ws) .>>. tyExpr) ';' |> pos .>> ws .>> skipChar '}' .>> ws)
-        (fun name template fields ->
-            RecordDec {name=name; template=template; fields=fields})
+        (fun name template packed fields ->
+            RecordDec {name=name; template=template; packed=packed; fields=fields})
 
 let unionDec =
     let valueConstructor = pos id .>> ws .>>. (skipString "of" >>. ws >>. tyExpr |> opt .>> ws)

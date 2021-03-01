@@ -47,7 +47,7 @@ let (elifList, elifListRef) = createParserForwardedToRef()
 let (pattern, patternRef) = createParserForwardedToRef()
 
 let opp = new OperatorPrecedenceParser<PosAdorn<Expr>, Position, unit>()
-let expr = attempt opp.ExpressionParser
+let expr = opp.ExpressionParser
 
 let capOpp = new OperatorPrecedenceParser<PosAdorn<CapacityExpr>, Position, unit>()
 let typOpp = new OperatorPrecedenceParser<PosAdorn<TyExpr>, Position, unit>()
@@ -220,7 +220,7 @@ let templateDec =
             {tyVars = tyVars; capVars = capVars})
 
 // capExpr
-let capExpr = attempt capOpp.ExpressionParser
+let capExpr = capOpp.ExpressionParser
 
 do
     let capVar = pos id |>> CapacityNameExpr |> pos
@@ -228,7 +228,7 @@ do
     let capParens = skipChar '(' >>. ws >>. capExpr .>> ws .>> skipChar ')'
     capOpp.TermParser <- (choice [capVar; capConst; capParens]) .>> ws
 
-let tyExpr = attempt typOpp.ExpressionParser
+let tyExpr = typOpp.ExpressionParser
 
 // leftRecursiveTyp
 let leftRecursiveTyp =
@@ -242,7 +242,7 @@ let leftRecursiveTyp =
 // tyExpr
 do
     let varTy =
-        skipChar '\'' >>. id |> pos |>> VarTy
+        skipChar '\'' >>. (fatalizeAnyError id) |> pos |>> VarTy
     let name =
         pos id |>>
         (fun (p, n) ->
@@ -270,7 +270,7 @@ do
             tyExpr
             (fun argTys retTy -> FunTy {template = None; args = argTys; returnType = retTy})
     let parens = skipChar '(' >>. ws >>. tyExpr .>> ws .>> skipChar ')' |>> ParensTy
-    let t = choice (List.map attempt [mQual; varTy; name; fn; parens]) |> pos .>> ws
+    let t = choice ([attempt mQual; varTy; name; attempt fn; parens]) |> pos .>> ws
     typOpp.TermParser <-
         leftRecurse
             t
@@ -280,6 +280,35 @@ do
                 | ArrayTyCap cap -> ArrayTy {valueType=term; capacity=cap}
                 | RefTyRef _ -> RefTy term
                 | ApplyTyTemplate template -> ApplyTy {tyConstructor=term; args=template})
+
+let floatParser =
+    fun stream ->
+        let reply = numberLiteralE NumberLiteralOptions.DefaultFloat (expected "floating-point number") stream
+        if reply.Status = Ok then
+            let result = reply.Result
+            if result.IsInteger then
+                stream.Skip(-result.String.Length)
+                Reply(Error, expected "floating-point number with decimal")
+            else
+                try
+                    let d =
+                        if result.IsDecimal then
+                            System.Double.Parse(result.String, System.Globalization.CultureInfo.InvariantCulture)
+                        elif result.IsHexadecimal then
+                            floatOfHexString result.String
+                        elif result.IsInfinity then
+                            if result.HasMinusSign then System.Double.NegativeInfinity else System.Double.PositiveInfinity
+                        else
+                            System.Double.NaN
+                    Reply(d)
+                with 
+                | :? System.OverflowException ->
+                    Reply(if result.HasMinusSign then System.Double.NegativeInfinity else System.Double.PositiveInfinity)
+                | :? System.FormatException ->
+                    stream.Skip(-result.String.Length)
+                    Reply(FatalError, messageError "The floating-point number has an invalid format (this error is unexpected, please report this error message to fparsec@quanttec.com).")
+        else
+            Reply(reply.Status, reply.Error)
 
 // Pattern
 do
@@ -291,7 +320,7 @@ do
             (fun mut name typ ->
                 MatchVar {varName=name; mutable_=mut; typ=typ}) |> pos
     let intPattern = pint64 |> pos |>> MatchIntVal |> pos
-    let floatPattern = pfloat |> pos |>> MatchFloatVal |> pos
+    let floatPattern = floatParser |> pos |>> MatchFloatVal |> pos
     let truePattern = skipString "true" |> pos |>> MatchTrue |> pos
     let falsePattern = skipString "false" |> pos |>> MatchFalse |> pos
     let valConEnd = opt templateApply .>> ws .>>. (skipChar '(' >>. ws >>. (opt pattern) .>> ws .>> skipChar ')') .>> ws
@@ -324,10 +353,10 @@ do
     let unitPattern = skipString "()" |> pos |>> MatchUnit |> pos
     let parensPattern = betweenChar '(' pattern ')'
     let tuplePattern = betweenChar '(' (separatedList pattern ',') ')' |> pos |>> MatchTuple |> pos
-    patternRef := choice (List.map attempt [intPattern; floatPattern; truePattern;
-                          falsePattern; valConPattern; valConModQualPattern;
-                          underscorePattern; recordPattern; recordModQualPattern; unitPattern;
-                          parensPattern; tuplePattern; varPattern])
+    patternRef := choice ([attempt floatPattern; intPattern; truePattern;
+                          falsePattern; attempt valConPattern; attempt valConModQualPattern;
+                          underscorePattern; attempt recordPattern; attempt recordModQualPattern; unitPattern;
+                          attempt tuplePattern; parensPattern; varPattern])
 
 // leftRecursiveLeftAssign
 let leftRecursiveLeftAssign =
@@ -360,7 +389,7 @@ let leftRecursiveExp =
     let callArgs = betweenChar '(' (separatedList expr ',' |> pos) ')' |>> CallArgs
     let arrayIndex = betweenChar '[' expr ']' |>> ArrayIndex
     let typeConstraint = skipChar ':' >>. ws >>. tyExpr |>> TypeConstraintType
-    let fieldAccessName = skipChar '.' >>. ws >>. attempt id |> pos |>> FieldAccessName
+    let fieldAccessName = skipChar '.' >>. ws >>. id |> pos |>> FieldAccessName
     let unsafeTypeCast = skipString "::::" >>. ws >>. tyExpr |>> UnsafeTypeCastType
     [callArgs; arrayIndex; unsafeTypeCast; typeConstraint; fieldAccessName] |> choice |> pos .>> ws |> many
 
@@ -391,34 +420,6 @@ do
     let parens = betweenChar '(' (expr |>> unwrap) ')'
     let ptrue = skipString "true" |> pos |>> TrueExp
     let pfalse = skipString "false" |> pos |>> FalseExp
-    let floatParser =
-        fun stream ->
-            let reply = numberLiteralE NumberLiteralOptions.DefaultFloat (expected "floating-point number") stream
-            if reply.Status = Ok then
-                let result = reply.Result
-                if result.IsInteger then
-                    stream.Skip(-result.String.Length)
-                    Reply(Error, expected "floating-point number with decimal")
-                else
-                    try
-                        let d =
-                            if result.IsDecimal then
-                                System.Double.Parse(result.String, System.Globalization.CultureInfo.InvariantCulture)
-                            elif result.IsHexadecimal then
-                                floatOfHexString result.String
-                            elif result.IsInfinity then
-                                if result.HasMinusSign then System.Double.NegativeInfinity else System.Double.PositiveInfinity
-                            else
-                                System.Double.NaN
-                        Reply(d)
-                    with 
-                    | :? System.OverflowException ->
-                        Reply(if result.HasMinusSign then System.Double.NegativeInfinity else System.Double.PositiveInfinity)
-                    | :? System.FormatException ->
-                        stream.Skip(-result.String.Length)
-                        Reply(FatalError, messageError "The floating-point number has an invalid format (this error is unexpected, please report this error message to fparsec@quanttec.com).")
-            else
-                Reply(reply.Status, reply.Error)
     
     let pfloating = (floatParser .>>. choice [skipChar 'f' >>. preturn FloatExp; preturn DoubleExp]) |>
                     pos |>>
@@ -539,13 +540,13 @@ do
 do
     templateApplyRef :=
         pipe2
-            (skipChar '<' >>. ws >>. separatedList tyExpr ',' .>> ws |> pos |> attempt)
+            (skipChar '<' >>. ws >>. separatedList tyExpr ',' .>> ws |> pos)
             ((((opt (skipChar ';' >>. ws >>. separatedList (capExpr) ','))) |>>
                 fun x ->
                     match x with
                     | Some x -> x
                     | None -> []
-                |> pos) .>> ws .>> skipChar '>' |> attempt)
+                |> pos) .>> ws .>> skipChar '>')
             (fun tyExprs capExprs ->
                 {tyExprs = tyExprs; capExprs = capExprs}) |> pos
 
@@ -563,12 +564,30 @@ let functionDec =
 
 let moduleName = skipString "module" >>. ws >>. pos id .>> ws |>> ModuleNameDec
 
+let typeDec =
+    let valueConstructor = pos id .>> ws .>>. (skipString "of" >>. ws >>. tyExpr |> opt .>> ws)
+    pipe3
+        (skipString "type" >>. ws >>. pos id .>> ws)
+        (templateDec |> pos |> opt .>> ws .>> skipChar '=' .>> ws)
+        ((pipe2
+            ((skipString "packed" |> pos |> opt) .>> ws .>> skipChar '{' .>> ws)
+            (fatalizeAnyError (separatedList ((pos id .>> ws .>> skipChar ':' .>> ws) .>>. tyExpr) ';' |> pos .>> ws .>> skipChar '}' .>> ws))
+            (fun packed fields -> Choice1Of2 (packed, fields))) <|>
+          (((separatedList valueConstructor '|' |> pos) |>> Choice2Of2)))
+        (fun name template choice -> 
+            match choice with
+            | Choice1Of2 (packed, fields) ->
+                RecordDec {name=name; template=template; packed=packed; fields=fields}
+            | Choice2Of2 valCons ->
+                UnionDec {name=name; template=template; valCons=valCons})
+
+
 let recordDec =
     pipe4
         (skipString "type" >>. ws >>. pos id .>> ws)
         (templateDec |> pos |> opt .>> ws .>> skipChar '=' .>> ws)
         ((skipString "packed" |> pos |> opt) .>> ws .>> skipChar '{' .>> ws)
-        (separatedList ((pos id .>> ws .>> skipChar ':' .>> ws) .>>. tyExpr) ';' |> pos .>> ws .>> skipChar '}' .>> ws)
+        (fatalizeAnyError (separatedList ((pos id .>> ws .>> skipChar ':' .>> ws) .>>. tyExpr) ';' |> pos .>> ws .>> skipChar '}' .>> ws))
         (fun name template packed fields ->
             RecordDec {name=name; template=template; packed=packed; fields=fields})
 
@@ -598,5 +617,5 @@ let includeDec = skipString "include" >>. ws >>. skipChar '(' >>. ws >>. separat
 let inlineCppDec = inlineCpp .>> ws |>> InlineCodeDec
 
 let program =
-    let declarationTypes = [functionDec; moduleName; attempt recordDec; unionDec; letDec; openDec; includeDec; inlineCppDec]
+    let declarationTypes = [functionDec; moduleName; typeDec; letDec; openDec; includeDec; inlineCppDec]
     ws >>. many (choice declarationTypes |> pos .>> ws) .>> eof

@@ -133,7 +133,7 @@ and compilePattern (pattern : TyAdorn<Pattern>) (path : TyAdorn<Expr>) =
             conditions <- check::conditions
         | (_, _, MatchValCon {modQualifier={module_=module_; name=name}; innerPattern=innerPattern; id=index}) ->
             let tag = RecordAccessExp {record=path; fieldName="tag"}
-            let check = BinaryOpExp {op=Equal; left=dummyWrap tag; right=dummyWrap (IntExp <| int64 index)}
+            let check = BinaryOpExp {op=Equal; left=dummyWrap tag; right=wrapWithType (TyCon <| BaseTy TyUint8) (IntExp <| int64 index)}
             let path' = RecordAccessExp {record=path; fieldName=name} |> dummyWrap
             match innerPattern with
             | Some p -> compilePattern' p path' |> ignore

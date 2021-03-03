@@ -33,7 +33,7 @@ fun hsvToRgb(color : hsv) : rgb = (
 
 fun rgbToRgb565(color : rgb) : uint16 = (
     let rgb{r=r; g=g; b=b} = color;
-    ((u8ToU16(r) &&& 0xf8u16) <<< 8) ||| ((u8ToU16(g) &&& 0xfcu16) <<< 3) ||| (u8ToU16(b) >>> 3)
+    ((u8ToU16(r) &&& 0xf8u16) <<< 8u32) ||| ((u8ToU16(g) &&& 0xfcu16) <<< 3u32) ||| (u8ToU16(b) >>> 3u32)
 )
 
 let red : rgb = rgb{r=255u8; g=0; b=0}

@@ -89,7 +89,7 @@ and TyExpr = TyCon of TyCons
                     // v this must be a TyCon
            | ConApp of TyExpr * (TyExpr list) * (CapacityExpr list)
            | TyVar of string
-and ConstraintType = IsNum
+and ConstraintType = IsNum | IsInt | IsReal
                       // v Types       v capacities  v constraints on types
 and TyScheme = Forall of string list * string list * ((TyExpr * ConstraintType) list) * TyExpr
 
@@ -296,6 +296,12 @@ and typeString (ty : TyExpr) : string =
         sprintf "'%s" name
     | _ ->
         failwith "Compiler error in typeString"
+
+and interfaceConstraintString (interfaceConstraint : ConstraintType) =
+    match interfaceConstraint with
+    | IsNum -> "num"
+    | IsInt -> "int"
+    | IsReal -> "real"
 
 let baseTy b = TyCon <| BaseTy b
 let unittype = baseTy TyUnit

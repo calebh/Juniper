@@ -47,7 +47,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             | Ast.MatchTrue _ ->
                 ((posp, tau, T.MatchTrue), T.booltype =~= (tau, errStr [posp] "True pattern does not match the type of the expression."))
             | Ast.MatchFloatVal (_, value) ->
-                ((posp, tau, T.MatchFloatVal value), T.floattype =~= (tau, errStr [posp] "Float pattern does not match the type of the expression."))
+                ((posp, tau, T.MatchFloatVal value), InterfaceConstraint (tau, IsReal, errStr [posp] "Float pattern must satisfy the interface real constraint. Are you sure that you're matching on a real number (float or double)?"))
             | Ast.MatchIntVal (_, value) ->
                 ((posp, tau, T.MatchIntVal value), InterfaceConstraint (tau, IsNum, errStr [posp] "Integer pattern must satisfy the interface num constraint. Are you sure that you're matching on a number?"))
             | Ast.MatchUnderscore _ ->
@@ -246,7 +246,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let arraySize = freshcapvar ()
             let tauArray = T.ConApp (T.TyCon T.ArrayTy, [tauElement], [arraySize])
             let c' = c &&& (tauA =~= (tauArray, errStr [posa] "An array access expression must access a value of an array type")) &&&
-                           (InterfaceConstraint (tauI, IsNum, errStr [posi] "Expected index of array access expression to have integer type"))
+                           (InterfaceConstraint (tauI, IsInt, errStr [posi] "Expected index of array access expression to have integer type"))
             adorn posE tauElement (T.ArrayAccessExp {array=array'; index=index'}) c'
         | Ast.ArrayLitExp (posa, exprs) ->
             let (exprs', c) = typesof exprs dtenv menv localVars gamma
@@ -290,7 +290,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                         let capVar = freshcapvar ()
                         let (array', c1) = checkLeft array
                         let (index', c2) = ty index
-                        let c' = c1 &&& c2 &&& (InterfaceConstraint (T.getType index', IsNum, errStr [posi] "Array mutation type is not numeric")) &&&
+                        let c' = c1 &&& c2 &&& (InterfaceConstraint (T.getType index', IsInt, errStr [posi] "Array index must be an integer type.")) &&&
                                                (T.ConApp (T.TyCon T.ArrayTy, [elementTau], [capVar]) =~= (T.getType array', errStr [posa] "Expected an array type to perform an array mutation upon"))
                         adorn posl elementTau (T.ArrayMutation {array=T.unwrap array'; index=index'}) c'
                     | Ast.RecordMutation {record=(posr, record); fieldName=(posf, fieldName)} ->
@@ -366,7 +366,18 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 let cRight = InterfaceConstraint (T.getType right', IsNum, errStr [posr] "The right hand side must be a number type")
                 let c'' = c' &&& cLeft &&& cRight
                 adorn posE T.booltype b' c''
-            | (Ast.Add | Ast.BitshiftLeft | Ast.BitshiftRight | Ast.BitwiseAnd | Ast.BitwiseOr | Ast.BitwiseXor | Ast.Divide | Ast.Modulo | Ast.Multiply | Ast.Subtract) ->
+            | (Ast.BitshiftLeft | Ast.BitshiftRight) ->
+                let cLeft = InterfaceConstraint (T.getType left', IsInt, errStr [posl] "The left hand side of this bitshift operation must be an integer.")
+                let cRight = InterfaceConstraint (T.getType right', IsInt, errStr [posr] "The right hand side of this bitshift operation must be an integer.")
+                let c'' = c' &&& cLeft &&& cRight
+                adorn posE (T.getType left') b' c''
+            | (Ast.BitwiseAnd | Ast.BitwiseOr | Ast.BitwiseXor) ->
+                let cLeft = InterfaceConstraint (T.getType left', IsInt, errStr [posl] "The left hand side of this bitwise operation must be an integer.")
+                let cRight = InterfaceConstraint (T.getType right', IsInt, errStr [posr] "The right hand side of this bitwise operation must be an integer.")
+                let cEq = ((T.getType left') =~= (T.getType right', errStr [posl; posr] "Left and right hand must be of the same type for this operation"))
+                let c'' = c' &&& cLeft &&& cRight &&& cEq
+                adorn posE (T.getType left') b' c''
+            | (Ast.Add | Ast.Divide | Ast.Modulo | Ast.Multiply | Ast.Subtract) ->
                 let cLeft = InterfaceConstraint (T.getType left', IsNum, errStr [posl] "The left hand side must be a number type")
                 let cRight = InterfaceConstraint (T.getType right', IsNum, errStr [posr] "The right hand side must be a number type")
                 let cEq = ((T.getType left') =~= (T.getType right', errStr [posl; posr] "Left and right hand must be of the same type for this operation"))
@@ -439,7 +450,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let c' = c1 &&& c2 &&& c3 &&& (tauIterator =~= (T.getType start', errStr [posv; poss] "Type of the start expression does not match the type of the iterator")) &&&
                                           (tauIterator =~= (T.getType end_', errStr [posv; pose] "Type of the end expression doesn't match the type of the iterator")) &&&
                                           (T.getType body' =~= (T.unittype, errStr [posb] "Body of do while loop must return type unit")) &&&
-                                          (InterfaceConstraint (tauIterator, IsNum, errStr [posv] "Variable must be of numeric type"))
+                                          (InterfaceConstraint (tauIterator, IsInt, errStr [posv] "Variable must be of integer type"))
             adorn posE T.unittype (T.ForLoopExp {typ=tauIterator; varName=varName; start=start'; end_=end_'; body=body'; direction=direction'}) c'
         | Ast.LambdaExp (posf, {returnTy=maybeReturnTy; arguments=(posargs, arguments); body=(posb, _) as body; interfaceConstraints=(posi, interfaceConstraints)}) ->
             match interfaceConstraints with
@@ -1100,7 +1111,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                                     match maybeTemplate' with
                                     | None ->
                                         let (freets, freecs) =
-                                            argTys' |> List.fold
+                                            retTy'::argTys' |> List.fold
                                                 (fun (accumFreeT, accumFreeC) argTy ->
                                                     let (freeT, freeC) = freeVars argTy
                                                     (Set.union freeT accumFreeT, Set.union freeC accumFreeC))
@@ -1125,12 +1136,32 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                                             | x ->
                                                 raise <| TypeError ((errStr [posc] (sprintf "The capacity parameter was inferred to be equivalent to the non-capacity variable '%s'" (T.capacityString x))).Force()))   
                                         (tyVars', capVars', Some ({tyVars=tyVars'; capVars=capVars'} : T.Template), Some originalTyVars, Some originalCapVars)
+                                // Now check to see if any of the interface constraints contain free variables
+                                // that are not also members of the template. If this is the case, there is
+                                // polymorphism within the function that cannot be reified by inferring either the
+                                // arguments or return types. This is an error
+                                match Set.difference (Map.keys interfaceConstraints) (Set.ofList t) |> List.ofSeq with
+                                | [] -> ()
+                                | badFreeVar::_ ->
+                                    let (_, errMsg) = Map.find badFreeVar interfaceConstraints
+                                    raise <| TypeError (sprintf "Too much polymorphism! A polymorphic interface constraint was detected containing a type variable that would not be reified by fixing either the argument types or return types. Consider adding a type constraint to fix the source of this problem.\n\n%s" (errMsg.Force()))
+                                let (freeTyVarsInBody, freeCapVarsInBody) = AstAnalysis.findFreeVars theta kappa body'
+                                match Set.difference (List.map A.unwrap freeTyVarsInBody |> Set.ofList) (Set.ofList t) |> List.ofSeq with
+                                | [] -> ()
+                                | badFreeVar::_ ->
+                                    let (pos, _) = List.find (fun freeVar -> (A.unwrap freeVar) = badFreeVar) freeTyVarsInBody
+                                    raise <| TypeError ((errStr [pos] "Too much polymorphism! The following expression has a type that was detected to contain a type variable that would not be reified by fixing either the argument types or return types. Consider adding a type constraint to fix the source of this problem").Force())
+                                match Set.difference (List.map A.unwrap freeCapVarsInBody |> Set.ofList) (Set.ofList c) |> List.ofSeq with
+                                | [] -> ()
+                                | badFreeVar::_ ->
+                                    let (pos, _) = List.find (fun freeVar -> (A.unwrap freeVar) = badFreeVar) freeCapVarsInBody
+                                    raise <| TypeError ((errStr [pos] "Too much polymorphism! The following expression has a capacity that was detected to contain a capacity variable that would not be reified by fixing either the argument types or return types. Consider adding a type constraint to fix the source of this problem").Force())
                                 let relevantInterfaceConstraints =
                                     t |>
                                     List.map
                                         (fun tau ->
                                             match Map.tryFind tau interfaceConstraints with
-                                            | Some constTyp -> Some (T.TyVar tau, constTyp)
+                                            | Some (constTyp, _) -> Some (T.TyVar tau, constTyp)
                                             | None -> None) |>
                                         List.filter Option.isSome |>
                                         List.map Option.get

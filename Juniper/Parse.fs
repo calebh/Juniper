@@ -380,7 +380,9 @@ let leftAssign =
 let functionClause delimiter =
     let arguments = betweenChar '(' (separatedList (pos id .>>. opt (ws >>. skipChar ':' >>. ws >>. tyExpr)) ',' |> pos) ')' .>> ws
     let returnTy = opt (skipChar ':' >>. ws >>. tyExpr .>> ws) .>> ws
-    let constraintType = skipString "num" |> pos |>> IsNum
+    let constraintType = choice [(skipString "num" |> pos |>> IsNum);
+                                 (skipString "int" |> pos |>> IsInt);
+                                 (skipString "real" |> pos |>> IsReal)]
     let interfaceConstraints =
         (skipString "where" >>. ws >>. (separatedList (pos (tyExpr .>> ws .>> skipChar ':' .>> ws .>>. pos constraintType) .>> ws) ',') .>> ws) |> opt |>> Option.flattenList |> pos
     let body = skipString delimiter >>. ws >>. expr

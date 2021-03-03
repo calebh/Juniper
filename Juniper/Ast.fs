@@ -13,6 +13,8 @@ type Module = Module of PosAdorn<Declaration> list
 and PosAdorn<'a> = (Position * Position) * 'a
 
 and ConstraintType = IsNum of PosAdorn<unit>
+                   | IsInt of PosAdorn<unit>
+                   | IsReal of PosAdorn<unit>
 
 // Top level declarations
 // Function object. Template is optional.

@@ -1879,3 +1879,23 @@ fun toDouble<'t>(n : 't) : double where 't : num = (
     #ret = (double) n;#;
     ret
 )
+
+(*
+    Function: cast
+
+    Converts a number of one type to a number of another type.
+
+    Type signature:
+    | <'a, 'b>('a) -> 'b where 'a : num, 'b : num
+
+    Parameters:
+        x : 'a - The number to convert
+    
+    Returns:
+        The number with converted type
+*)
+fun cast<'a, 'b>(x : 'a) : 'b where 'a : num, 'b : num = (
+    var ret : 'b;
+    #ret = (b) x;#;
+    ret
+)

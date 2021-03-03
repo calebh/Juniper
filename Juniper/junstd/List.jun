@@ -111,12 +111,12 @@ fun append<'t;aCap,bCap,retCap>(lstA : list<'t;aCap>, lstB : list<'t;bCap>) : li
     let mutable out = list<'t;retCap>{data=array 't[retCap] end;
                                       length=lstA.length + lstB.length};
     for i : uint32 in 0u32 to lstA.length - 1u32 do (
-        set out.data[j] = lstA.data[i];
+        set out.data[j] = (lstA.data[i] : 't);
         set j = j + 1u32;
         ()
     ) end;
     for i : uint32 in 0u32 to lstB.length - 1u32 do (
-        set out.data[j] = lstB.data[i];
+        set out.data[j] = (lstB.data[i] : 't);
         set j = j + 1u32;
         ()
     ) end;
@@ -139,7 +139,7 @@ fun append<'t;aCap,bCap,retCap>(lstA : list<'t;aCap>, lstB : list<'t;bCap>) : li
         The element at position i in the list
 *)
 fun nth<'t;n>(i : uint32, lst : list<'t;n>) : 't =
-    if i < lst.length then (
+    if i < (lst.length : uint32) then (
         let list<'t;n>{data=data} = lst;
         data[i]
     ) else
@@ -165,8 +165,8 @@ fun flattenSafe<'t;m,n>(listOfLists : list<list<'t;m>;n>) : list<'t;m*n> = (
     let mutable ret = array 't[m*n] end;
     let mutable index : uint32 = 0u32;
     for i : uint32 in 0u32 to listOfLists.length - 1u32 do
-        for j : uint32 in 0u32 to listOfLists.data[i].length - 1u32 do (
-            set ret[index] = listOfLists.data[i].data[j];
+        for j : uint32 in 0u32 to (listOfLists.data[i] : list<'t;m>).length - 1u32 do (
+            set ret[index] = (listOfLists.data[i] : list<'t;m>).data[j];
             set index = ((index + 1u32) : uint32);
             ()
         ) end
@@ -276,11 +276,11 @@ fun any<'t;n>(pred : ('t) -> bool, lst : list<'t;n>) : bool = (
         A copy of lst with elem appended to the end
 *)
 fun pushBack<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
-    if lst.length >= n then
+    if (lst.length : uint32) >= n then
         quit<list<'t;n>>()
     else (
         let mutable ret = lst;
-        set ret.data[lst.length] = elem;
+        set ret.data[lst.length : uint32] = elem;
         set ret.length = lst.length + 1u32;
         ret
     ) end
@@ -306,14 +306,14 @@ fun pushBack<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
 fun pushOffFront<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
     let mutable ret = lst;
     for i : int32 in n - 2i32 downto 0i32 do (
-        set ret.data[i + 1i32] = ret.data[i];
+        set ret.data[i + 1i32] = (ret.data[i] : 't);
         ()
     ) end;
-    set ret.data[0] = elem;
+    set ret.data[0u32] = elem;
     if ret.length == n then
         ret
     else
-        (set ret.length = lst.length + 1;
+        (set ret.length = lst.length + 1u32;
         ret)
     end
 )
@@ -336,7 +336,7 @@ fun pushOffFront<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
         A new list where the elem is at index.
 *)
 fun setNth<'t;n>(index : uint32, elem : 't, lst : list<'t;n>) : list<'t;n> =
-    if lst.length <= index then
+    if (lst.length : uint32) <= index then
         quit<list<'t;n>>()
     else
         (let mutable ret = lst;
@@ -484,13 +484,13 @@ fun last<'t;n>(lst : list<'t;n>) : 't = (
     Returns:
         The maximum element of the list
 *)
-fun max_<'t;n>(lst : list<'t;n>) : 't =
+fun max_<'t;n>(lst : list<'t;n>) : 't where 't : num =
     if (lst.length == 0u32) or (n == 0i32) then
         quit<'t>()
     else (
-        let mutable maxVal = lst.data[0u32];
+        let mutable maxVal : 't = lst.data[0u32];
         for i : uint32 in 1u32 to lst.length - 1u32 do
-            if lst.data[i] > maxVal then (
+            if (lst.data[i] : 't) > maxVal then (
                 set maxVal = lst.data[i];
                 ()
             ) else
@@ -520,9 +520,9 @@ fun min_<'t;n>(lst : list<'t;n>) : 't =
     if (lst.length == 0u32) or (n == 0i32) then
         quit<'t>()
     else (
-        let mutable minVal = lst.data[0];
+        let mutable minVal : 't = lst.data[0u32];
         for i : uint32 in 1u32 to lst.length - 1u32 do
-            if lst.data[i] < minVal then (
+            if (lst.data[i] : 't) < minVal then (
                 set minVal = lst.data[i];
                 ()
             ) else
@@ -580,13 +580,13 @@ fun member<'t;n>(elem : 't, lst : list<'t;n>) : bool = (
         The zipped lists.
 *)
 fun zip<'a,'b;n>(lstA : list<'a;n>, lstB : list<'b;n>) : list<'a*'b;n> =
-    if lstA.length == lstB.length then
+    if (lstA.length : uint32) == lstB.length then
         (let mutable ret = list<('a*'b);n> {
             data = array ('a*'b)[n] end;
             length = lstA.length
         };
         for i : uint32 in 0u32 to lstA.length do (
-            set ret.data[i] = (lstA.data[i] :::: 'a, lstB.data[i] :::: 'b);
+            set ret.data[i] = (lstA.data[i] : 'a, lstB.data[i] : 'b);
             ()
         ) end;
         ret)

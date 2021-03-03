@@ -210,7 +210,7 @@ fun baseToInt(b) =
         unit
 *)
 fun printIntBase(n : int32, b : base) : unit = (
-    let bint = baseToInt(b);
+    let bint : int32 = baseToInt(b);
     #Serial.print(n, bint);#
 )
 

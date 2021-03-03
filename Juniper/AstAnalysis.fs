@@ -295,7 +295,8 @@ let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.Capa
             T.InternalDeclareVar _ | T.ModQualifierExp _ |
             T.TrueExp | T.UnitExp | T.VarExp _ | T.DoubleExp _ |
             T.Int16Exp _  | T.UInt16Exp _ | T.Int32Exp _ | T.UInt32Exp _ |
-            T.UInt64Exp _ | T.Int64Exp _ | T.Int8Exp _ | T.UInt8Exp _) ->
+            T.UInt64Exp _ | T.Int64Exp _ | T.Int8Exp _ | T.UInt8Exp _ |
+            T.InternalUsing _ | T.InternalUsingCap _ | T.NullExp | T.StringExp _) ->
             ([], [])
         | T.ForLoopExp {typ=typ; start=start; end_=end_; body=body} ->
             append2 ([freeVarsTyp (T.getPos e) typ; ffv start; ffv end_; ffv body] |> List.unzip)

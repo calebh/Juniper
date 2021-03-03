@@ -100,7 +100,7 @@ fun get<'a;n>(i : uint32, v : vector<'a;n>) : 'a = (
 fun add<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> where 'a : num = (
     let mutable result = v1;
     for i : int32 in 0 to n - 1 do (
-        set result.data[i] = result.data[i] + v2.data[i];
+        set result.data[i] = (result.data[i] : 'a) + (v2.data[i] : 'a);
         ()
     ) end;
     result
@@ -138,7 +138,7 @@ fun zero<'a;n>() : vector<'a;n> where 'a : num =
 fun subtract<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> where 'a : num = (
     let mutable result = v1;
     for i : int32 in 0 to n - 1 do (
-        set result.data[i] = result.data[i] - v2.data[i];
+        set result.data[i] = (result.data[i] : 'a) - (v2.data[i] : 'a);
         ()
     ) end;
     result
@@ -162,7 +162,7 @@ fun subtract<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> where 'a
 fun scale<'a;n>(scalar : 'a, v : vector<'a;n>) : vector<'a;n> where 'a : num = (
     let mutable result = v;
     for i : int32 in 0 to n - 1 do (
-        set result.data[i] = result.data[i] * scalar;
+        set result.data[i] = (result.data[i] : 'a) * scalar;
         ()
     ) end;
     result
@@ -184,7 +184,7 @@ fun scale<'a;n>(scalar : 'a, v : vector<'a;n>) : vector<'a;n> where 'a : num = (
         The result of v1 dot v2
 *)
 fun dot<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : 'a where 'a : num = (
-    let mutable sum : 'a = (0 :::: 'a);
+    let mutable sum : 'a = 0;
     for i : int32 in 0 to n - 1 do (
         set sum = sum + (v1.data[i] * v2.data[i]);
         ()
@@ -250,7 +250,7 @@ fun magnitude<'a;n>(v : vector<'a;n>) : double where 'a : num =
 fun multiply<'a;n>(u : vector<'a;n>, v : vector<'a;n>) : vector<'a;n> where 'a : num = (
     let mutable result = u;
     for i : int32 in 0 to n - 1 do (
-        set result.data[i] = result.data[i] * v.data[i];
+        set result.data[i] = (result.data[i] : 'a) * (v.data[i] : 'a);
         ()
     ) end;
     result
@@ -272,7 +272,7 @@ fun multiply<'a;n>(u : vector<'a;n>, v : vector<'a;n>) : vector<'a;n> where 'a :
 *)
 fun normalize<'a;n>(v : vector<'a;n>) : vector<'a;n> where 'a : num = (
     let mag = magnitude<'a;n>(v);
-    if mag > 0 then (
+    if mag > (0 : 'a) then (
         let mutable result = v;
         for i : int32 in 0 to n - 1 do (
             set result.data[i] = result.data[i] / mag;
@@ -318,9 +318,9 @@ fun angle<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : double where 'a : num =
         The result of u cross v
 *)
 fun cross<'a>(u : vector<'a;3>, v : vector<'a;3>) : vector<'a;3> where 'a : num =
-    vector<'a;3>{data=[(u.data[1]*v.data[2]) - (u.data[2]*v.data[1]),
-                       (u.data[2]*v.data[0]) - (u.data[0]*v.data[2]),
-                       (u.data[0]*v.data[1]) - (u.data[1]*v.data[0])]}
+    vector<'a;3>{data=[(u.data[1u32]*v.data[2u32]) - (u.data[2u32]*v.data[1u32]),
+                       (u.data[2u32]*v.data[0u32]) - (u.data[0u32]*v.data[2u32]),
+                       (u.data[0u32]*v.data[1u32]) - (u.data[1u32]*v.data[0u32])]}
 
 (*
     Function: project

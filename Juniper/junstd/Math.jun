@@ -625,10 +625,10 @@ fun clamp<'a>(x : 'a, min : 'a, max : 'a) : 'a where 'a : num =
     Returns:
         0 if n is zero, 1 if n is greater than zero, otherwise -1
 *)
-fun sign<'a>(n : 'a) : int8 =
-    if n == (0 :::: 'a) then
+fun sign<'a>(n : 'a) : int8 where 'a : num =
+    if n == 0 then
         0
-    elif n > (0 :::: 'a) then
+    elif n > (0 : 'a) then
         1
     else
         -1

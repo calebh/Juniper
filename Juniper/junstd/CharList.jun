@@ -122,12 +122,12 @@ fun concat<;aCap,bCap,retCap>(sA : list<uint8;aCap>, sB : list<uint8;bCap>) : li
     let mutable out = list<uint8;retCap>{data=array uint8[retCap] of 0u8 end;
                                           length=lenA + lenB + 1};
     for i : uint32 in 0 to lenA - 1 do (
-        set out.data[j] = sA.data[i];
+        set out.data[j] = sA.data[i] : uint8;
         set j = j + 1;
         ()
     ) end;
     for i : uint32 in 0 to lenB - 1 do (
-        set out.data[j] = sB.data[i];
+        set out.data[j] = sB.data[i] : uint8;
         set j = j + 1;
         ()
     ) end;

@@ -70,8 +70,8 @@ let consubst theta kappa =
             Equal (tycapsubst theta kappa tau1, tycapsubst theta kappa tau2, err)
         | (And (c1, c2)) -> And (subst c1, subst c2)
         | Trivial -> Trivial
-        | InterfaceConstraint (tau, conType, err) ->
-            InterfaceConstraint (tycapsubst theta kappa tau, conType, err)
+        | InterfaceConstraint (tau, intConType, err) ->
+            InterfaceConstraint (tycapsubst theta kappa tau, intConType, err)
     subst
 
 let consubstCap kappa =
@@ -88,6 +88,28 @@ let isNumericalType t =
     | TyCon (BaseTy b) ->
         match b with
         | (TyUint8 | TyUint16 | TyUint32 | TyUint64 | TyInt8 | TyInt16 | TyInt32 | TyInt64 | TyFloat | TyDouble) ->
+            true
+        | _ ->
+            false
+    | _ ->
+        false
+
+let isIntegerType t =
+    match t with
+    | TyCon (BaseTy b) ->
+        match b with
+        | (TyUint8 | TyUint16 | TyUint32 | TyUint64 | TyInt8 | TyInt16 | TyInt32 | TyInt64) ->
+            true
+        | _ ->
+            false
+    | _ ->
+        false
+
+let isRealType t =
+    match t with
+    | TyCon (BaseTy b) ->
+        match b with
+        | (TyFloat | TyDouble) ->
             true
         | _ ->
             false
@@ -308,7 +330,7 @@ let rec solveCap con : Map<string, CapacityExpr> =
         | _ ->
             raise <| TypeError (failMsg.Force())
 
-let solve con : Map<string, TyExpr> * Map<string, CapacityExpr> * Map<string, ConstraintType> =
+let solve con : Map<string, TyExpr> * Map<string, CapacityExpr> * Map<string, ConstraintType * ErrorMessage> =
     let (thetaSolution, capacityConstraints, interfaceConstraints) =
         let rec solveTheta con =
             match con with
@@ -346,13 +368,17 @@ let solve con : Map<string, TyExpr> * Map<string, CapacityExpr> * Map<string, Co
     let interfaceConstraintsSolution =
         interfaceConstraints |>
         List.map
-            (fun (tau, IsNum, failMsg) ->
+            (fun (tau, constraintType, failMsg) ->
                 let tau' = tycapsubst thetaSolution kappaSolution tau
-                let failMsg' = lazy (sprintf "Interface constraint error: The type %s does not satisfy the num constraint.\n\n%s" (typeString tau') (failMsg.Force()))
+                let failMsg' = lazy (sprintf "Interface constraint error: The type %s does not satisfy the %s constraint.\n\n%s" (typeString tau') (interfaceConstraintString constraintType) (failMsg.Force()))
                 match tau' with
-                | TyVar v -> Some (v, IsNum)
-                | _ when isNumericalType tau' -> None
-                | _ -> raise <| TypeError (failMsg'.Force())) |>
+                | TyVar v -> Some (v, (constraintType, failMsg))
+                | _ ->
+                    match constraintType with
+                    | IsNum when isNumericalType tau' -> None
+                    | IsInt when isIntegerType tau' -> None
+                    | IsReal when isRealType tau' -> None
+                    | _ -> raise <| TypeError (failMsg'.Force())) |>
         List.filter Option.isSome |>
         List.map Option.get |>
         Map.ofList

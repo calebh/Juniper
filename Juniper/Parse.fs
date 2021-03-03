@@ -1,6 +1,7 @@
 ﻿module Parse
 open FParsec
 open Ast
+open Extensions
 
 let fatalizeAnyError (p : Parser<'a, 'u>) : Parser<'a, 'u> =
     fun stream ->
@@ -378,11 +379,14 @@ let leftAssign =
 
 let functionClause delimiter =
     let arguments = betweenChar '(' (separatedList (pos id .>>. opt (ws >>. skipChar ':' >>. ws >>. tyExpr)) ',' |> pos) ')' .>> ws
-    let returnTy = opt (skipChar ':' >>. ws >>. tyExpr .>> ws) .>> skipString delimiter .>> ws
-    let body = expr
-    pipe3 arguments returnTy body
-        (fun a r b ->
-            {returnTy = r; arguments = a; body = b})
+    let returnTy = opt (skipChar ':' >>. ws >>. tyExpr .>> ws) .>> ws
+    let constraintType = skipString "num" |> pos |>> IsNum
+    let interfaceConstraints =
+        (skipString "where" >>. ws >>. (separatedList (pos (tyExpr .>> ws .>> skipChar ':' .>> ws .>>. pos constraintType) .>> ws) ',') .>> ws) |> opt |>> Option.flattenList |> pos
+    let body = skipString delimiter >>. ws >>. expr
+    pipe4 arguments returnTy interfaceConstraints body
+        (fun a r c b ->
+            {returnTy = r; arguments = a; body = b; interfaceConstraints=c})
 
 // leftRecursiveExp
 let leftRecursiveExp =
@@ -427,8 +431,8 @@ do
     let parseInt s t = skipString s >>. preturn t
     let pint = (pint64 .>>.
                     choice [parseInt "i8" Int8Exp; parseInt "i16" Int16Exp; parseInt "i32" Int32Exp;
-                            parseInt "i64" Int64Exp; parseInt "u8" UInt8Exp; parseInt "u16" UInt32Exp;
-                            parseInt "u32" UInt32Exp; parseInt "u64" UInt64Exp; preturn Int32Exp]) |>
+                            parseInt "i64" Int64Exp; parseInt "u8" UInt8Exp; parseInt "u16" UInt16Exp;
+                            parseInt "u32" UInt32Exp; parseInt "u64" UInt64Exp; preturn IntExp]) |>
                pos |>>
                (fun (posN, (num, constructor)) -> constructor (posN, num))
     let charlist = pos (stringLiteral '\'' true) |>> CharListLiteral

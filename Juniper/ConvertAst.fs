@@ -78,3 +78,5 @@ and convertCapacity capVarMapping (cap : Ast.CapacityExpr) : T.CapacityExpr =
                     | Ast.CapNegate -> T.CapNegate
         let term' = convertCapacity term
         T.CapacityUnaryOp {op=op'; term=term'}
+
+let convertInterfaceConstraint (Ast.IsNum _) = T.IsNum

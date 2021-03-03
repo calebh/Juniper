@@ -269,8 +269,8 @@ fun beginSerial(speed : uint32) : unit =
 *)
 fun pinStateToInt(value : pinState) : uint8 =
     case value of
-    | low() => 0
-    | high() => 1
+    | low() => 0u8
+    | high() => 1u8
     end
 
 (*
@@ -288,7 +288,7 @@ fun pinStateToInt(value : pinState) : uint8 =
         <low> for 0 and <high> for anything else
 *)
 fun intToPinState(value : uint8) : pinState =
-    if value == 0 then
+    if value == 0u8 then
         low()
     else
         high()
@@ -335,7 +335,7 @@ fun digWrite(pin : uint16, value : pinState) : unit = (
         <digIn>
 *)
 fun digRead(pin : uint16) : pinState = (
-    let intVal : uint8 = 0;
+    var intVal : uint8;
     #intVal = digitalRead(pin);#;
     intToPinState(intVal)
 )
@@ -401,7 +401,7 @@ fun digOut(pin : uint16, sig : sig<pinState>) : unit =
         https://www.arduino.cc/en/Reference/AnalogRead
 *)
 fun anaRead(pin : uint16) : uint16 = (
-    let value : uint16 = 0;
+    var value : uint16;
     #value = analogRead(pin);#;
     value
 )
@@ -450,17 +450,17 @@ fun anaIn(pin : uint16) : sig<uint16> =
     to the given analog pin.
 
     Type Signature:
-    | (uint16, sig<uint16>) -> unit
+    | (uint16, sig<uint8>) -> unit
 
     Parameters:
         pin : uint16 - The pin to write to
-        sig : sig<uint16> - The analog signal to output to a pin
+        sig : sig<uint8> - The analog signal to output to a pin
 
     Returns:
         Unit
 *)
-fun anaOut(pin : uint16, sig : sig<uint16>) : unit =
-    Signal:sink<uint16>(fn (value : uint16) : unit -> anaWrite(pin, value) end, sig)
+fun anaOut(pin : uint16, sig : sig<uint8>) : unit =
+    Signal:sink<uint8>(fn (value : uint8) : unit -> anaWrite(pin, value) end, sig)
 
 
 (*
@@ -479,9 +479,9 @@ fun anaOut(pin : uint16, sig : sig<uint16>) : unit =
 *)
 fun pinModeToInt(m : mode) : uint8 =
     case m of
-    | input() => 0
-    | output() => 1
-    | inputPullup() => 2
+    | input() => 0u8
+    | output() => 1u8
+    | inputPullup() => 2u8
     end
 
 (*

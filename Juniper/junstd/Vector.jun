@@ -88,7 +88,7 @@ fun get<'a;n>(i : uint32, v : vector<'a;n>) : 'a = (
     Adds two vectors and returns the results.
 
     Type Signature:
-    <'a;n>(vector<'a;n>, vector<'a;n>) -> vector<'a;n>
+    <'a;n>(vector<'a;n>, vector<'a;n>) -> vector<'a;n> where 'a : num
 
     Parameters:
         v1 : vector<'a;n> - The first vector to add
@@ -97,9 +97,9 @@ fun get<'a;n>(i : uint32, v : vector<'a;n>) : 'a = (
     Returns:
         The sum of the two vectors
 *)
-fun add<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> = (
+fun add<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> where 'a : num = (
     let mutable result = v1;
-    for i : uint32 in 0 to n - 1 do (
+    for i : int32 in 0 to n - 1 do (
         set result.data[i] = result.data[i] + v2.data[i];
         ()
     ) end;
@@ -112,12 +112,12 @@ fun add<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> = (
     Returns the zero vector of n dimensions.
 
     Type Signature:
-    <'a;n>() -> vector<'a;n>
+    <'a;n>() -> vector<'a;n> where 'a : num
 
     Returns:
         The zero vector of n dimensions.
 *)
-fun zero<'a;n>() : vector<'a;n> =
+fun zero<'a;n>() : vector<'a;n> where 'a : num =
     vector<'a;n>{ data = array 'a[n] of 0 end }
 
 (*
@@ -130,14 +130,14 @@ fun zero<'a;n>() : vector<'a;n> =
         v2 : vector<'a;n> - The second vector (subtrahend)
 
     Type Signature:
-    | <'a;n>(vector<'a;n>, vector<'a;n>) -> vector<'a;n>
+    | <'a;n>(vector<'a;n>, vector<'a;n>) -> vector<'a;n> where 'a : num
 
     Returns:
         The vector difference v1-v2
 *)
-fun subtract<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> = (
+fun subtract<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> where 'a : num = (
     let mutable result = v1;
-    for i : uint32 in 0 to n - 1 do (
+    for i : int32 in 0 to n - 1 do (
         set result.data[i] = result.data[i] - v2.data[i];
         ()
     ) end;
@@ -150,7 +150,7 @@ fun subtract<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> = (
     Scales the vector by the given scalar value.
 
     Type Signature:
-    | <'a;n>('a, vector<'a;n>) -> vector<'a;n>
+    | <'a;n>('a, vector<'a;n>) -> vector<'a;n> where 'a : num
 
     Parameters:
         scalar : 'a - Scaling value
@@ -159,9 +159,9 @@ fun subtract<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> = (
     Returns:
         The result of scalar*v
 *)
-fun scale<'a;n>(scalar : 'a, v : vector<'a;n>) : vector<'a;n> = (
+fun scale<'a;n>(scalar : 'a, v : vector<'a;n>) : vector<'a;n> where 'a : num = (
     let mutable result = v;
-    for i : uint32 in 0 to n - 1 do (
+    for i : int32 in 0 to n - 1 do (
         set result.data[i] = result.data[i] * scalar;
         ()
     ) end;
@@ -174,7 +174,7 @@ fun scale<'a;n>(scalar : 'a, v : vector<'a;n>) : vector<'a;n> = (
     Gives the dot product of two vectors
 
     Type Signature:
-    | <'a;n>(vector<'a;n>, vector<'a;n>) -> 'a
+    | <'a;n>(vector<'a;n>, vector<'a;n>) -> 'a where 'a : num
 
     Parameters:
         v1 : vector<'a;n> - The first vector
@@ -183,9 +183,9 @@ fun scale<'a;n>(scalar : 'a, v : vector<'a;n>) : vector<'a;n> = (
     Returns:
         The result of v1 dot v2
 *)
-fun dot<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : 'a = (
+fun dot<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : 'a where 'a : num = (
     let mutable sum : 'a = (0 :::: 'a);
-    for i : uint32 in 0 to n - 1 do (
+    for i : int32 in 0 to n - 1 do (
         set sum = sum + (v1.data[i] * v2.data[i]);
         ()
     ) end;
@@ -198,7 +198,7 @@ fun dot<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : 'a = (
     Gives the square magnitude of the vector
 
     Type Signature:
-    | <'a;n>(vector<'a;n>) -> 'a
+    | <'a;n>(vector<'a;n>) -> 'a where 'a : num
 
     Parameters:
         v : vector<'a;n> - The vector to find the magnitude^2 of
@@ -206,9 +206,9 @@ fun dot<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : 'a = (
     Returns:
         The square magnitude of the vector
 *)
-fun magnitude2<'a;n>(v : vector<'a;n>) : 'a = (
-    let mutable sum : 'a = (0 :::: 'a);
-    for i : uint32 in 0 to n - 1 do (
+fun magnitude2<'a;n>(v : vector<'a;n>) : 'a where 'a : num = (
+    let mutable sum : 'a = 0;
+    for i : int32 in 0 to n - 1 do (
         set sum = sum + (v.data[i] * v.data[i]);
         ()
     ) end;
@@ -221,7 +221,7 @@ fun magnitude2<'a;n>(v : vector<'a;n>) : 'a = (
     Gives the magnitude of the vector
 
     Type Signature:
-    | <'a;n>(vector<'a;n>) -> double
+    | <'a;n>(vector<'a;n>) -> double where 'a : num
 
     Parameters:
         v : vector<'a;n> - The vector to find the magnitude of
@@ -229,7 +229,7 @@ fun magnitude2<'a;n>(v : vector<'a;n>) : 'a = (
     Returns:
         The magnitude of the vector
 *)
-fun magnitude<'a;n>(v : vector<'a;n>) : double =
+fun magnitude<'a;n>(v : vector<'a;n>) : double where 'a : num =
     sqrt_(magnitude2<'a;n>(v) :::: double)
 
 (*
@@ -238,7 +238,7 @@ fun magnitude<'a;n>(v : vector<'a;n>) : double =
     Performs elementwise multiplication of two vectors.
 
     Type Signature:
-    | <'a;n>(vector<'a;n>, vector<'a;n>) -> vector<'a;n>
+    | <'a;n>(vector<'a;n>, vector<'a;n>) -> vector<'a;n> where 'a : num
 
     Parameters:
         u : vector<'a;n> - The first vector
@@ -247,9 +247,9 @@ fun magnitude<'a;n>(v : vector<'a;n>) : double =
     Returns:
         The vector formed by elementwise multiplication of the two vectors
 *)
-fun multiply<'a;n>(u : vector<'a;n>, v : vector<'a;n>) : vector<'a;n> = (
+fun multiply<'a;n>(u : vector<'a;n>, v : vector<'a;n>) : vector<'a;n> where 'a : num = (
     let mutable result = u;
-    for i : uint32 in 0 to n - 1 do (
+    for i : int32 in 0 to n - 1 do (
         set result.data[i] = result.data[i] * v.data[i];
         ()
     ) end;
@@ -262,7 +262,7 @@ fun multiply<'a;n>(u : vector<'a;n>, v : vector<'a;n>) : vector<'a;n> = (
     Returns a normalized version of the given vector
 
     Type Signature:
-    | <'a;n>(vector<'a;n>) -> vector<'a;n>
+    | <'a;n>(vector<'a;n>) -> vector<'a;n> where 'a : num
 
     Parameters:
         v : vector<'a;n> - The vector to normalize
@@ -270,11 +270,11 @@ fun multiply<'a;n>(u : vector<'a;n>, v : vector<'a;n>) : vector<'a;n> = (
     Returns:
         The normalized vector
 *)
-fun normalize<'a;n>(v : vector<'a;n>) : vector<'a;n> = (
+fun normalize<'a;n>(v : vector<'a;n>) : vector<'a;n> where 'a : num = (
     let mag = magnitude<'a;n>(v);
     if mag > 0 then (
         let mutable result = v;
-        for i : uint32 in 0 to n - 1 do (
+        for i : int32 in 0 to n - 1 do (
             set result.data[i] = result.data[i] / mag;
             ()
         ) end;
@@ -290,7 +290,7 @@ fun normalize<'a;n>(v : vector<'a;n>) : vector<'a;n> = (
     Gives the angle in radians between the two vectors.
 
     Type Signature:
-    | <'a;n>(vector<'a;n>, vector<'a;n>) -> double
+    | <'a;n>(vector<'a;n>, vector<'a;n>) -> double where 'a : num
 
     Parameters:
         v1 : vector<'a;n> - The first vector
@@ -299,7 +299,7 @@ fun normalize<'a;n>(v : vector<'a;n>) : vector<'a;n> = (
     Returns:
         The angle betweeen the two vectors.
 *)
-fun angle<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : double =
+fun angle<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : double where 'a : num =
     acos_((dot<'a;n>(v1, v2) / (sqrt_((magnitude2<'a;n>(v1) * magnitude2<'a;n>(v2)) :::: double) :::: 'a)) :::: double)
 
 (*
@@ -308,7 +308,7 @@ fun angle<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : double =
     Gives the vector cross product of two vectors.
 
     Type Signature:
-    | <'a>(vector<'a;3>, vector<'a;3>) -> vector<'a;3>
+    | <'a>(vector<'a;3>, vector<'a;3>) -> vector<'a;3> where 'a : num
 
     Parameters:
         u : vector<'a;3> - The first vector
@@ -317,7 +317,7 @@ fun angle<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : double =
     Returns:
         The result of u cross v
 *)
-fun cross<'a>(u : vector<'a;3>, v : vector<'a;3>) : vector<'a;3> =
+fun cross<'a>(u : vector<'a;3>, v : vector<'a;3>) : vector<'a;3> where 'a : num =
     vector<'a;3>{data=[(u.data[1]*v.data[2]) - (u.data[2]*v.data[1]),
                        (u.data[2]*v.data[0]) - (u.data[0]*v.data[2]),
                        (u.data[0]*v.data[1]) - (u.data[1]*v.data[0])]}
@@ -328,7 +328,7 @@ fun cross<'a>(u : vector<'a;3>, v : vector<'a;3>) : vector<'a;3> =
     Projects vector a onto another vector b
 
     Type Signature:
-    | <'z;n>(vector<'z;n>, vector<'z;n>) -> vector<'z;n>
+    | <'z;n>(vector<'z;n>, vector<'z;n>) -> vector<'z;n> where 'z : num
 
     Parameters:
         a : vector<'z;n> - The vector to project
@@ -337,7 +337,7 @@ fun cross<'a>(u : vector<'a;3>, v : vector<'a;3>) : vector<'a;3> =
     Returns:
         The result of projecting vector a onto vector b
 *)
-fun project<'z;n>(a : vector<'z;n>, b : vector<'z;n>) : vector<'z;n> = (
+fun project<'z;n>(a : vector<'z;n>, b : vector<'z;n>) : vector<'z;n> where 'z : num = (
     let bn = normalize<'z;n>(b);
     scale<'z;n>(dot<'z;n>(a, bn), bn)
 )
@@ -348,7 +348,7 @@ fun project<'z;n>(a : vector<'z;n>, b : vector<'z;n>) : vector<'z;n> = (
     Projects a vector onto a plane defined by a normal vector
 
     Type Signature:
-    | <'z;n>(vector<'z;n>, vector<'z;n>) -> vector<'z;n>
+    | <'z;n>(vector<'z;n>, vector<'z;n>) -> vector<'z;n> where 'z : num
 
     Parameters:
         a : vector<'z;n> - The vector to project
@@ -357,5 +357,5 @@ fun project<'z;n>(a : vector<'z;n>, b : vector<'z;n>) : vector<'z;n> = (
     Returns:
         Vector a projected onto the plane defined by m
 *)
-fun projectPlane<'z;n>(a : vector<'z;n>, m : vector<'z;n>) : vector<'z;n> =
+fun projectPlane<'z;n>(a : vector<'z;n>, m : vector<'z;n>) : vector<'z;n> where 'z : num =
     subtract<'z;n>(a, project<'z;n>(a, m))

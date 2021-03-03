@@ -12,6 +12,8 @@ type Module = Module of PosAdorn<Declaration> list
 // Virtually every object in the AST is a PosAdorn wrapping another object.
 and PosAdorn<'a> = (Position * Position) * 'a
 
+and ConstraintType = IsNum of PosAdorn<unit>
+
 // Top level declarations
 // Function object. Template is optional.
 and FunctionRec = { name     : PosAdorn<string>;
@@ -112,7 +114,7 @@ and Pattern = MatchVar of MatchVarRec
             | MatchFalse of PosAdorn<unit>
 
 // Elements of a function clause.
-and FunctionClause = {returnTy : PosAdorn<TyExpr> option; arguments : PosAdorn<(PosAdorn<string> * (PosAdorn<TyExpr> option)) list>; body : PosAdorn<Expr>}
+and FunctionClause = {returnTy : PosAdorn<TyExpr> option; arguments : PosAdorn<(PosAdorn<string> * (PosAdorn<TyExpr> option)) list>; body : PosAdorn<Expr>; interfaceConstraints : PosAdorn<PosAdorn<PosAdorn<TyExpr> * PosAdorn<ConstraintType>> list>}
 
 // Module qualifier.
 and ModQualifierRec = { module_ : PosAdorn<string>; name : PosAdorn<string> }

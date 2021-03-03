@@ -89,8 +89,9 @@ and TyExpr = TyCon of TyCons
                     // v this must be a TyCon
            | ConApp of TyExpr * (TyExpr list) * (CapacityExpr list)
            | TyVar of string
-                      // v Types       v capacities
-and TyScheme = Forall of string list * string list * TyExpr
+and ConstraintType = IsNum
+                      // v Types       v capacities  v constraints on types
+and TyScheme = Forall of string list * string list * ((TyExpr * ConstraintType) list) * TyExpr
 
 and DeclarationTy = FunDecTy of TyScheme
                     //              v Types      v capacities

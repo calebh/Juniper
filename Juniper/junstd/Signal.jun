@@ -115,16 +115,16 @@ fun merge<'a>(sigA : sig<'a>, sigB : sig<'a>) : sig<'a> =
 *)
 fun mergeMany<'a;n>(sigs : list<sig<'a>;n>) : sig<'a> = (
     let mutable ret = nothing<'a>();
-    for i : uint32 in 0 to n - 1 do
+    sigs |>
+    List:iter(fn (sig) ->
         case ret of
-        | nothing<'a>() =>
-            (let signal<'a>(heldValue) = List:nth<sig<'a>;n>(i, sigs);
+        | nothing<'a>() => (
+            let signal<'a>(heldValue) = sig;
             set ret = heldValue;
             ())
-        | _ =>
-            ()
+        | _ => ()
         end
-    end;
+    end);
     signal<'a>(ret))
 
 (*

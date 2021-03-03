@@ -26,12 +26,17 @@ open(Prelude)
 *)
 fun map<'a,'b;n>(f : ('a) -> 'b, lst : list<'a; n>) : list<'b; n> = (
     let mutable ret = array 'b[n] end;
-    for i : uint32 in 0 to lst.length - 1 do (
+    for i : uint32 in 0u32 to lst.length - 1u32 do (
         set ret[i] = f(lst.data[i]);
         ()
     ) end;
     list<'b;n>{data=ret; length=lst.length}
 )
+
+fun iter<'a;n>(f : ('a) -> unit, lst : list<'a; n>) : unit =
+    for i : uint32 in 0u32 to lst.length - 1u32 do
+        f(lst.data[i])
+    end
 
 (*
     Function: foldl
@@ -52,7 +57,7 @@ fun map<'a,'b;n>(f : ('a) -> 'b, lst : list<'a; n>) : list<'b; n> = (
 *)
 fun foldl<'t,'state;n>(f : ('t, 'state) -> 'state, initState : 'state, lst : list<'t; n>) : 'state = (
     let mutable s = initState;
-    for i : uint32 in 0 to lst.length - 1 do (
+    for i : uint32 in 0u32 to lst.length - 1u32 do (
         set s = f(lst.data[i], s);
         ()
     ) end;
@@ -79,7 +84,7 @@ fun foldl<'t,'state;n>(f : ('t, 'state) -> 'state, initState : 'state, lst : lis
 *)
 fun foldr<'t,'state;n>(f : ('t, 'state) -> 'state, initState : 'state, lst : list<'t; n>) : 'state = (
     let mutable s = initState;
-    for i : uint32 in lst.length - 1 downto 0 do (
+    for i : uint32 in lst.length - 1u32 downto 0u32 do (
         set s = f(lst.data[i], s);
         ()
     ) end;
@@ -102,17 +107,17 @@ fun foldr<'t,'state;n>(f : ('t, 'state) -> 'state, initState : 'state, lst : lis
         The two lists appended together.
 *)
 fun append<'t;aCap,bCap,retCap>(lstA : list<'t;aCap>, lstB : list<'t;bCap>) : list<'t;retCap> = (
-    let mutable j : uint32 = 0;
+    let mutable j : uint32 = 0u32;
     let mutable out = list<'t;retCap>{data=array 't[retCap] end;
                                       length=lstA.length + lstB.length};
-    for i : uint32 in 0 to lstA.length - 1 do (
+    for i : uint32 in 0u32 to lstA.length - 1u32 do (
         set out.data[j] = lstA.data[i];
-        set j = j + 1;
+        set j = j + 1u32;
         ()
     ) end;
-    for i : uint32 in 0 to lstB.length - 1 do (
+    for i : uint32 in 0u32 to lstB.length - 1u32 do (
         set out.data[j] = lstB.data[i];
-        set j = j + 1;
+        set j = j + 1u32;
         ()
     ) end;
     out
@@ -158,11 +163,11 @@ fun nth<'t;n>(i : uint32, lst : list<'t;n>) : 't =
 
 fun flattenSafe<'t;m,n>(listOfLists : list<list<'t;m>;n>) : list<'t;m*n> = (
     let mutable ret = array 't[m*n] end;
-    let mutable index : uint32 = 0;
-    for i : uint32 in 0 to listOfLists.length - 1 do
-        for j : uint32 in 0 to listOfLists.data[i].length - 1 do (
+    let mutable index : uint32 = 0u32;
+    for i : uint32 in 0u32 to listOfLists.length - 1u32 do
+        for j : uint32 in 0u32 to listOfLists.data[i].length - 1u32 do (
             set ret[index] = listOfLists.data[i].data[j];
-            set index = ((index + 1) : uint32);
+            set index = ((index + 1u32) : uint32);
             ()
         ) end
     end;
@@ -187,7 +192,7 @@ fun flattenSafe<'t;m,n>(listOfLists : list<list<'t;m>;n>) : list<'t;m*n> = (
 *)
 fun resize<'t;n,m>(lst : list<'t;n>) : list<'t;m> = (
     let mutable ret = array 't[m] end;
-    for i : uint32 in 0 to lst.length - 1 do (
+    for i : uint32 in 0u32 to lst.length - 1u32 do (
         set ret[i] = lst.data[i];
         ()
     ) end;
@@ -213,7 +218,7 @@ fun resize<'t;n,m>(lst : list<'t;n>) : list<'t;m> = (
 *)
 fun all<'t;n>(pred : ('t) -> bool, lst : list<'t;n>) : bool = (
     let mutable satisfied = true;
-    for i : uint32 in 0 to lst.length - 1 do
+    for i : uint32 in 0u32 to lst.length - 1u32 do
         if satisfied then
             (set satisfied = pred(lst.data[i]);
             ())
@@ -243,7 +248,7 @@ fun all<'t;n>(pred : ('t) -> bool, lst : list<'t;n>) : bool = (
 *)
 fun any<'t;n>(pred : ('t) -> bool, lst : list<'t;n>) : bool = (
     let mutable satisfied = false;
-    for i : uint32 in 0 to lst.length - 1 do
+    for i : uint32 in 0u32 to lst.length - 1u32 do
         if not satisfied then
             (set satisfied = pred(lst.data[i]);
             ())
@@ -276,7 +281,7 @@ fun pushBack<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
     else (
         let mutable ret = lst;
         set ret.data[lst.length] = elem;
-        set ret.length = lst.length + 1;
+        set ret.length = lst.length + 1u32;
         ret
     ) end
 )
@@ -300,8 +305,8 @@ fun pushBack<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
 *)
 fun pushOffFront<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
     let mutable ret = lst;
-    for i : int32 in n - 2 downto 0 do (
-        set ret.data[i + 1] = ret.data[i];
+    for i : int32 in n - 2i32 downto 0i32 do (
+        set ret.data[i + 1i32] = ret.data[i];
         ()
     ) end;
     set ret.data[0] = elem;
@@ -374,9 +379,9 @@ fun replicate<'t;n>(numOfElements : uint32, elem : 't) : list<'t;n> =
         A copy of lst with elem removed.
 *)
 fun remove<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
-    let mutable index : uint32 = 0;
+    let mutable index : uint32 = 0u32;
     let mutable found = false;
-    for i : uint32 in 0 to lst.length - 1 do
+    for i : uint32 in 0u32 to lst.length - 1u32 do
         if (not found) and (lst.data[i] == elem) then (
             set index = i;
             set found = true;
@@ -387,9 +392,9 @@ fun remove<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
     end;
     if found then
         (let mutable ret = lst;
-        set ret.length = lst.length - 1;
-        for i : uint32 in index to lst.length - 2 do
-            set ret.data[i] = lst.data[i + 1]
+        set ret.length = lst.length - 1u32;
+        for i : uint32 in index to lst.length - 2u32 do
+            set ret.data[i] = lst.data[i + 1u32]
         end;
         ret)
     else
@@ -413,12 +418,12 @@ fun remove<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
         The list with the last element dropped
 *)
 fun dropLast<'t;n>(lst : list<'t;n>) : list<'t;n> = (
-    if lst.length == 0 then
+    if lst.length == 0u32 then
         quit<list<'t;n>>()
     else
         list<'t;n> {
             data = lst.data;
-            length = lst.length - 1
+            length = lst.length - 1u32
         }
     end
 )
@@ -441,7 +446,7 @@ fun dropLast<'t;n>(lst : list<'t;n>) : list<'t;n> = (
         Unit
 *)
 fun foreach<'t;n>(f : ('t) -> unit, lst : list<'t;n>) : unit =
-    for i : uint32 in 0 to lst.length - 1 do
+    for i : uint32 in 0u32 to lst.length - 1u32 do
         f(lst.data[i])
     end
 
@@ -461,7 +466,7 @@ fun foreach<'t;n>(f : ('t) -> unit, lst : list<'t;n>) : unit =
 *)
 fun last<'t;n>(lst : list<'t;n>) : 't = (
     let list<'t;n>{data=data; length=length} = lst;
-    data[length - 1]
+    data[length - 1u32]
 )
 
 (*
@@ -480,11 +485,11 @@ fun last<'t;n>(lst : list<'t;n>) : 't = (
         The maximum element of the list
 *)
 fun max_<'t;n>(lst : list<'t;n>) : 't =
-    if (lst.length == 0) or (n == 0) then
+    if (lst.length == 0u32) or (n == 0i32) then
         quit<'t>()
     else (
-        let mutable maxVal = lst.data[0];
-        for i : uint32 in 1 to lst.length - 1 do
+        let mutable maxVal = lst.data[0u32];
+        for i : uint32 in 1u32 to lst.length - 1u32 do
             if lst.data[i] > maxVal then (
                 set maxVal = lst.data[i];
                 ()
@@ -512,11 +517,11 @@ fun max_<'t;n>(lst : list<'t;n>) : 't =
         The minimum element of the list
 *)
 fun min_<'t;n>(lst : list<'t;n>) : 't =
-    if (lst.length == 0) or (n == 0) then
+    if (lst.length == 0u32) or (n == 0i32) then
         quit<'t>()
     else (
         let mutable minVal = lst.data[0];
-        for i : uint32 in 1 to lst.length - 1 do
+        for i : uint32 in 1u32 to lst.length - 1u32 do
             if lst.data[i] < minVal then (
                 set minVal = lst.data[i];
                 ()
@@ -545,7 +550,7 @@ fun min_<'t;n>(lst : list<'t;n>) : 't =
 *)
 fun member<'t;n>(elem : 't, lst : list<'t;n>) : bool = (
     let mutable found = false;
-    for i : uint32 in 0 to lst.length - 1 do
+    for i : uint32 in 0u32 to lst.length - 1u32 do
         if (not found) and (lst.data[i] == elem) then (
             set found = true;
             ()
@@ -580,7 +585,7 @@ fun zip<'a,'b;n>(lstA : list<'a;n>, lstB : list<'b;n>) : list<'a*'b;n> =
             data = array ('a*'b)[n] end;
             length = lstA.length
         };
-        for i : uint32 in 0 to lstA.length do (
+        for i : uint32 in 0u32 to lstA.length do (
             set ret.data[i] = (lstA.data[i] :::: 'a, lstB.data[i] :::: 'b);
             ()
         ) end;
@@ -614,7 +619,7 @@ fun unzip<'a,'b;n>(lst : list<'a*'b; n>) : list<'a;n>*list<'b;n> = (
         data = array 'b[n] end;
         length = lst.length
     };
-    for i : uint32 in 0 to lst.length - 1 do
+    for i : uint32 in 0u32 to lst.length - 1u32 do
         #retA.data[i] = lst.data[i].e1;
          retB.data[i] = lst.data[i].e2;#
     end;
@@ -635,8 +640,8 @@ fun unzip<'a,'b;n>(lst : list<'a*'b; n>) : list<'a;n>*list<'b;n> = (
     Returns:
         The sum of the list
 *)
-fun sum<'a; n>(lst : list<'a;n>) : 'a =
-    List:foldl<'a, 'a; n>(add<'a>, 0 :::: 'a, lst)
+fun sum<'a; n>(lst : list<'a;n>) : 'a where 'a : num =
+    List:foldl<'a, 'a; n>(add<'a>, 0, lst)
 
 (*
     Function: average

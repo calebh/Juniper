@@ -602,7 +602,7 @@ fun mapRange(x : double, a1 : double, a2 : double, b1 : double, b2 : double) : d
         min if x is smaller than min, max if x is larger than max otherwise
         returns x.
 *)
-fun clamp<'a>(x : 'a, min : 'a, max : 'a) : 'a =
+fun clamp<'a>(x : 'a, min : 'a, max : 'a) : 'a where 'a : num =
     if min > x then
         min
     elif x > max then

@@ -106,8 +106,8 @@
   <Target Name="BeforeBuild">
   </Target>-->
   <ItemGroup>
-    <Compile Include="Extensions.fs" />
     <Compile Include="Guid.fs" />
+    <Compile Include="Extensions.fs" />
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Error.fs" />
     <None Include="App.config" />

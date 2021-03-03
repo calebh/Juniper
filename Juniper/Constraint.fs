@@ -9,8 +9,12 @@ open Extensions
 exception TypeError of string
 
 type ErrorMessage = Lazy<string>
+
+type InterfaceConstraint = TyExpr * ConstraintType * ErrorMessage
+
 type Constraint = Equal of TyExpr * TyExpr * ErrorMessage
                 | And of Constraint * Constraint
+                | InterfaceConstraint of InterfaceConstraint
                 | Trivial
 
 type ConstraintCap = EqualCap of CapacityExpr * CapacityExpr * ErrorMessage
@@ -66,6 +70,8 @@ let consubst theta kappa =
             Equal (tycapsubst theta kappa tau1, tycapsubst theta kappa tau2, err)
         | (And (c1, c2)) -> And (subst c1, subst c2)
         | Trivial -> Trivial
+        | InterfaceConstraint (tau, conType, err) ->
+            InterfaceConstraint (tycapsubst theta kappa tau, conType, err)
     subst
 
 let consubstCap kappa =
@@ -88,11 +94,7 @@ let isNumericalType t =
     | _ ->
         false
 
-let eqType a b =
-    if isNumericalType a && isNumericalType b then
-        true
-    else
-        a = b
+let eqType = (=)
 
 let eqCap = (=)
 
@@ -196,13 +198,15 @@ let (|-%->) a cap =
             bind a cap emptyEnv
     
 
-let instantiate (Forall (formals, caps, tau)) actuals capActuals =
-    tycapsubst (Map.ofList (List.zip formals actuals)) (Map.ofList (List.zip caps capActuals)) tau
+let instantiate (Forall (formals, caps, constrs, tau)) actuals capActuals =
+    let theta = Map.ofList (List.zip formals actuals)
+    let kappa = Map.ofList (List.zip caps capActuals)
+    (tycapsubst theta kappa tau, constrs |> List.map (fun (tau, conType) -> (tycapsubst theta kappa tau, conType)))
 
-let freshInstance (Forall (bound, caps, tau)) =
+let freshInstance ((Forall (bound, caps, _, _)) as input) =
     let freshTys = List.map freshtyvar bound
     let freshCaps = List.map freshcapvar caps
-    (instantiate (Forall (bound, caps, tau)) freshTys freshCaps, freshTys, freshCaps)
+    (instantiate input freshTys freshCaps, freshTys, freshCaps)
 
 let instantiateRecord (bound, caps, fields) actuals capActuals =
     let substitutions = List.zip bound actuals |> Map.ofList
@@ -238,7 +242,7 @@ let canonicalize (Forall (bound, ty)) =
 
 let generalize tyvars capvars tau =
     let (t, c) = freeVars tau
-    Forall (Set.difference t tyvars |> List.ofSeq, Set.difference c capvars |> List.ofSeq, tau)
+    Forall (Set.difference t tyvars |> List.ofSeq, Set.difference c capvars |> List.ofSeq, [], tau)
 
 let solveTyvarEq a tau =
     if eqType (TyVar a) tau then
@@ -272,11 +276,11 @@ let rec simplifyCap cap =
         | _ -> 
             CapacityOp {left=left'; op=op; right=right'}
     | CapacityConst _ -> cap
-    | CapacityUnaryOp {op=CapacityNegate; term=term} ->
+    | CapacityUnaryOp {op=CapNegate; term=term} ->
         let term' = simplifyCap term
         match term' with
         | CapacityConst n -> CapacityConst (-n)
-        | _ -> term'
+        | _ -> CapacityUnaryOp {op=CapNegate; term=term'}
 
 let rec solveCap con : Map<string, CapacityExpr> =
     match con with
@@ -303,39 +307,53 @@ let rec solveCap con : Map<string, CapacityExpr> =
             solveCap (EqualCap (term, term', err))
         | _ ->
             raise <| TypeError (failMsg.Force())
-            
 
-let solve con : Map<string, TyExpr> * Map<string, CapacityExpr> =
-    let (thetaSolution, capacityConstraints) =
+let solve con : Map<string, TyExpr> * Map<string, CapacityExpr> * Map<string, ConstraintType> =
+    let (thetaSolution, capacityConstraints, interfaceConstraints) =
         let rec solveTheta con =
             match con with
-            | Trivial -> (idSubst, TrivialCap)
+            | Trivial -> (idSubst, TrivialCap, [])
             | And (left, right) ->
-                let (theta1, capCon1) = solveTheta left
-                let (theta2, capCon2) = solveTheta (consubst theta1 Map.empty right)
-                (composeTheta theta2 theta1, AndCap (capCon1, capCon2))
+                let (theta1, capCon1, intConst1) = solveTheta left
+                let (theta2, capCon2, intConst2) = solveTheta (consubst theta1 Map.empty right)
+                (composeTheta theta2 theta1, AndCap (capCon1, capCon2), List.append intConst1 intConst2)
             | Equal (tau, tau', err) ->
                 let failMsg = lazy (sprintf "Type error: The types %s and %s are not equal.\n\n%s" (typeString tau) (typeString tau') (err.Force()))
                 match (tau, tau') with
                 | ((TyVar a, tau) | (tau, TyVar a)) ->
                     match solveTyvarEq a tau with
-                    | Some answer -> (answer, TrivialCap)
+                    | Some answer -> (answer, TrivialCap, [])
                     | None -> raise <| TypeError (failMsg.Force())
                 | (TyCon mu, TyCon mu') ->
                     if eqType tau tau' then
-                        (idSubst, TrivialCap)
+                        (idSubst, TrivialCap, [])
                     else
                         raise <| TypeError (failMsg.Force())
                 | (ConApp (t, ts, cs), ConApp(t', ts', cs')) ->
                     if List.length ts = List.length ts' && List.length cs = List.length cs' then
                         let eqAnd c t t' = And (Equal (t, t', err), c)
                         let eqAndCap accum c c' = AndCap (EqualCap (c, c', err), accum)
-                        let (theta, capCon1) = solveTheta (List.fold2 eqAnd Trivial (t::ts) (t'::ts'))
+                        let (theta, capCon1, intConst) = solveTheta (List.fold2 eqAnd Trivial (t::ts) (t'::ts'))
                         let capCon2 = List.fold2 eqAndCap TrivialCap cs cs'
-                        (theta, AndCap (capCon1, capCon2))
+                        (theta, AndCap (capCon1, capCon2), intConst)
                     else
                         raise <| TypeError (failMsg.Force())
                 | _ -> raise <| TypeError (failMsg.Force())
+            | InterfaceConstraint constr ->
+                (idSubst, TrivialCap, [constr])
         solveTheta con
     let kappaSolution = solveCap capacityConstraints
-    (thetaSolution, kappaSolution)
+    let interfaceConstraintsSolution =
+        interfaceConstraints |>
+        List.map
+            (fun (tau, IsNum, failMsg) ->
+                let tau' = tycapsubst thetaSolution kappaSolution tau
+                let failMsg' = lazy (sprintf "Interface constraint error: The type %s does not satisfy the num constraint.\n\n%s" (typeString tau') (failMsg.Force()))
+                match tau' with
+                | TyVar v -> Some (v, IsNum)
+                | _ when isNumericalType tau' -> None
+                | _ -> raise <| TypeError (failMsg'.Force())) |>
+        List.filter Option.isSome |>
+        List.map Option.get |>
+        Map.ofList
+    (thetaSolution, kappaSolution, interfaceConstraintsSolution)

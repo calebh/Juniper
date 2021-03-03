@@ -197,7 +197,7 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
     | FalseExp _ ->
         output "false"
     | IntExp num ->
-        output (sprintf "%i" num)
+        output "((" + (compileType ty) + output ") " + output (sprintf "%i" num) + output ")"
     | FloatExp num ->
         output (sprintf "%f" num)
     | DoubleExp num ->

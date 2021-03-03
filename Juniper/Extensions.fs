@@ -85,3 +85,9 @@ module String =
         let sb = System.Text.StringBuilder(xs.Length)
         xs |> List.iter (sb.Append >> ignore)
         sb.ToString()
+
+module Option =
+    let flattenList (o : option<list<'a>>) =
+        match o with
+        | None -> []
+        | Some xs -> xs

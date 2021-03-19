@@ -284,9 +284,20 @@ let canonicalize (Forall (bound, ty)) =
     Forall (newBound, tysubst (Map.ofList (List.zip bound (List.map TyVar newBound))) ty)
 *)
 
-let generalize tyvars capvars tau =
+let generalize tyvars capvars (interfaceConstraints : Map<string, ConstraintType list>) tau =
     let (t, c) = freeVars tau
-    Forall (Set.difference t tyvars |> List.ofSeq, Set.difference c capvars |> List.ofSeq, [], tau)
+    let interfaceConstraints' =
+        t |>
+        Set.map
+            (fun tau ->
+                match Map.tryFind tau interfaceConstraints with
+                | Some constraints ->
+                    constraints |>
+                    List.map (fun constTyp -> (TyVar tau, constTyp))
+                | None -> []) |>
+        Seq.concat |>
+        List.ofSeq
+    Forall (Set.difference t tyvars |> List.ofSeq, Set.difference c capvars |> List.ofSeq, interfaceConstraints', tau)
 
 let solveTyvarEq a tau =
     if eqType (TyVar a) tau then

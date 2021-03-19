@@ -304,6 +304,26 @@ and interfaceConstraintString (interfaceConstraint : ConstraintType) =
     | IsNum -> "num"
     | IsInt -> "int"
     | IsReal -> "real"
+    | IsPacked -> "packed"
+    | HasField (fieldName, fieldTau) -> sprintf "{%s : %s}" fieldName (typeString fieldTau)
+    | IsRecord -> "record"
+
+let schemeString (scheme : TyScheme) : string =
+    let s1 =
+        match scheme with
+        | Forall ([], [], _, _) ->
+            ""
+        | Forall (typeVars, [], _, _) ->
+            typeVars |> List.map (fun t -> "'" + t) |> String.concat ", "
+        | Forall (typeVars, capVars, _, _) ->
+            (typeVars |> List.map (fun t -> "'" + t) |> String.concat ", ") + "; " + (capVars |> String.concat ", ")
+    let (Forall (_, _, interfaceConstraints, tau)) = scheme
+    let s2 = sprintf "<%s>%s" s1 (typeString tau)
+    let s3 =
+        match interfaceConstraints with
+        | [] -> ""
+        | _ -> sprintf " where %s" (interfaceConstraints |> List.map (fun (tau, constr) -> sprintf "%s : %s" (typeString tau) (interfaceConstraintString constr)) |> String.concat ", ")
+    s2 + s3
 
 let baseTy b = TyCon <| BaseTy b
 let unittype = baseTy TyUnit

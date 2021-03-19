@@ -512,7 +512,7 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
                                         output retName + output "." + output fieldName + output " = " + compile false fieldExpr + output ";" + newline()) |> String.concat "") +
         output "return " + output retName + output ";" + unindentId() + newline() + output "})())"
     | TupleExp exps ->
-        output "(Prelude::tuple" + output (sprintf "%d" (List.length exps)) + output "<" +
+        output "(juniper::tuple" + output (sprintf "%d" (List.length exps)) + output "<" +
         (exps |> List.map (fun (_, typ, _) -> compileType typ) |> String.concat ",") +
         output ">" + output "{" + (exps |> List.map (compile topLevel) |> String.concat ", ") + output "}" + output ")"
     | RefExp exp ->

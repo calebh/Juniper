@@ -925,9 +925,22 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                         | None ->
                             Trivial
                     let c = c1 &&& c2
-                    let (theta, kappa, _) = solve c
+                    let (theta, kappa, interfaceConstraintMap) = solve c
+                    let interfaceConstraintMap' = interfaceConstraintMap |> Map.map (fun name constrs -> constrs |> List.map fst)
                     let tau = tycapsubst theta kappa (T.getType right')
-                    let elabtau = generalize Set.empty Set.empty tau
+                    let elabtau = generalize Set.empty Set.empty interfaceConstraintMap' tau
+                    match elabtau with
+                    | T.Forall ([], [], _, _) ->
+                        ()
+                    | _ ->
+                        raise <| TypeError ((errStr [posl] (sprintf "Let declaration was inferred to have the following type scheme:\n\n%s\n\nTop level let declarations do not support values of polymorphic type. Once the Arduino IDE turns on C++14 by default this may change (variable templates). In the meantime, consider either removing the polymorphism, add a type annotation, or wrap your variable in a function." (schemeString elabtau))).Force())
+                    match AstAnalysis.findFreeVars theta kappa right' with
+                    | ([], []) ->
+                        ()
+                    | ((badPos, _)::_, _) ->
+                        raise <| TypeError ((errStr [badPos] "Too much polymorphism! The following expression has a type that was detected to contain a type variable. Consider adding a type constraint to fix the source of this problem").Force())
+                    | (_, (badPos, _)::_) ->
+                        raise <| TypeError ((errStr [badPos] "Too much polymorphism! The following expression has a capacity that was detected to contain a capacity variable. Consider adding a type constraint to fix the source of this problem").Force())
                     let globalGamma' = Map.add modqual elabtau globalGamma
                     let dtenv' = Map.add modqual (T.LetDecTy tau) dtenv
                     let let' = T.LetDec {varName=name; typ=tau; right=right'}

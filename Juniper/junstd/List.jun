@@ -30,7 +30,7 @@ fun map<'a,'b;n>(f : ('a) -> 'b, lst : list<'a; n>) : list<'b; n> = (
         set ret[i] = f(lst.data[i]);
         ()
     ) end;
-    list<'b;n>{data=ret; length=lst.length}
+    {data=ret; length=lst.length}
 )
 
 fun iter<'a;n>(f : ('a) -> unit, lst : list<'a; n>) : unit =
@@ -108,8 +108,7 @@ fun foldr<'t,'state;n>(f : ('t, 'state) -> 'state, initState : 'state, lst : lis
 *)
 fun append<'t;aCap,bCap,retCap>(lstA : list<'t;aCap>, lstB : list<'t;bCap>) : list<'t;retCap> = (
     let mutable j : uint32 = 0u32;
-    let mutable out = list<'t;retCap>{data=array 't[retCap] end;
-                                      length=lstA.length + lstB.length};
+    let mutable out = {data=array 't[retCap] end; length=lstA.length + lstB.length};
     for i : uint32 in 0u32 to lstA.length - 1u32 do (
         set out.data[j] = (lstA.data[i] : 't);
         set j = j + 1u32;
@@ -139,10 +138,9 @@ fun append<'t;aCap,bCap,retCap>(lstA : list<'t;aCap>, lstB : list<'t;bCap>) : li
         The element at position i in the list
 *)
 fun nth<'t;n>(i : uint32, lst : list<'t;n>) : 't =
-    if i < (lst.length : uint32) then (
-        let list<'t;n>{data=data} = lst;
-        data[i]
-    ) else
+    if i < (lst.length : uint32) then
+        lst.data[i]
+    else
         quit<'t>()
     end
 
@@ -171,7 +169,7 @@ fun flattenSafe<'t;m,n>(listOfLists : list<list<'t;m>;n>) : list<'t;m*n> = (
             ()
         ) end
     end;
-    list<'t;m*n>{data=ret; length=index}
+    {data=ret; length=index}
 )
 
 
@@ -196,7 +194,7 @@ fun resize<'t;n,m>(lst : list<'t;n>) : list<'t;m> = (
         set ret[i] = lst.data[i];
         ()
     ) end;
-    list<'t;m>{data=ret; length=lst.length}
+    {data=ret; length=lst.length}
 )
 
 (*
@@ -310,7 +308,7 @@ fun pushOffFront<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
         ()
     ) end;
     set ret.data[0u32] = elem;
-    if ret.length == n then
+    if ret.length == i32ToU32(n) then
         ret
     else
         (set ret.length = lst.length + 1u32;
@@ -360,7 +358,7 @@ fun setNth<'t;n>(index : uint32, elem : 't, lst : list<'t;n>) : list<'t;n> =
         A new list with elem at every position in the list.
 *)
 fun replicate<'t;n>(numOfElements : uint32, elem : 't) : list<'t;n> =
-    list<'t;n>{data = array 't[n] of elem end; length = numOfElements}
+    {data = array 't[n] of elem end; length = numOfElements}
 
 (*
     Function: remove
@@ -393,9 +391,10 @@ fun remove<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
     if found then
         (let mutable ret = lst;
         set ret.length = lst.length - 1u32;
-        for i : uint32 in index to lst.length - 2u32 do
-            set ret.data[i] = lst.data[i + 1u32]
-        end;
+        for i : uint32 in index to lst.length - 2u32 do (
+            set ret.data[i] = lst.data[i + 1u32];
+            ()
+        ) end;
         ret)
     else
         lst
@@ -421,7 +420,7 @@ fun dropLast<'t;n>(lst : list<'t;n>) : list<'t;n> = (
     if lst.length == 0u32 then
         quit<list<'t;n>>()
     else
-        list<'t;n> {
+        {
             data = lst.data;
             length = lst.length - 1u32
         }
@@ -464,10 +463,12 @@ fun foreach<'t;n>(f : ('t) -> unit, lst : list<'t;n>) : unit =
     Returns:
         The last element of the list
 *)
-fun last<'t;n>(lst : list<'t;n>) : 't = (
-    let list<'t;n>{data=data; length=length} = lst;
-    data[length - 1u32]
-)
+fun last<'t;n>(lst : list<'t;n>) : 't =
+    if lst.length == 0 then
+        quit<'t>()
+    else
+        lst.data[lst.length - 1u32]
+    end
 
 (*
     Function: max_
@@ -581,7 +582,7 @@ fun member<'t;n>(elem : 't, lst : list<'t;n>) : bool = (
 *)
 fun zip<'a,'b;n>(lstA : list<'a;n>, lstB : list<'b;n>) : list<'a*'b;n> =
     if (lstA.length : uint32) == lstB.length then
-        (let mutable ret = list<('a*'b);n> {
+        (let mutable ret = {
             data = array ('a*'b)[n] end;
             length = lstA.length
         };
@@ -611,18 +612,20 @@ fun zip<'a,'b;n>(lstA : list<'a;n>, lstB : list<'b;n>) : list<'a*'b;n> =
         The two unzipped lists.
 *)
 fun unzip<'a,'b;n>(lst : list<'a*'b; n>) : list<'a;n>*list<'b;n> = (
-    let mutable retA = list<'a;n> {
+    let mutable retA = {
         data = array 'a[n] end;
         length = lst.length
     };
-    let mutable retB = list<'b;n> {
+    let mutable retB = {
         data = array 'b[n] end;
         length = lst.length
     };
-    for i : uint32 in 0u32 to lst.length - 1u32 do
-        #retA.data[i] = lst.data[i].e1;
-         retB.data[i] = lst.data[i].e2;#
-    end;
+    for i : uint32 in 0u32 to lst.length - 1u32 do (
+        let (a, b) = lst.data[i];
+        set retA.data[i] = a;
+        set retB.data[i] = b;
+        ()
+    ) end;
     (retA, retB)
 )
 
@@ -657,5 +660,5 @@ fun sum<'a; n>(lst : list<'a;n>) : 'a where 'a : num =
     Returns:
         The numerical mean of the list
 *)
-fun average<'a; n>(lst : list<'a;n>) : 'a =
-    sum<'a; n>(lst) / lst.length
+fun average<'a; n>(lst : list<'a;n>) : 'a where 'a : num =
+    sum<'a; n>(lst) / cast(lst.length)

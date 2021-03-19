@@ -47,7 +47,7 @@ fun now() : uint32 = (
     Members:
         lastPulse : uint32 - Timestamp of the last pulse
 *)
-type timerState = { lastPulse : uint32 }
+alias timerState = { lastPulse : uint32 }
 
 (*
     Function: state
@@ -61,7 +61,7 @@ type timerState = { lastPulse : uint32 }
         A <timerState> with lastPulse set to 0
 *)
 fun state() : timerState ref =
-    ref timerState { lastPulse = 0 }
+    ref { lastPulse = 0 }
 
 (*
     Function: every
@@ -91,7 +91,7 @@ fun every(interval : uint32, state : timerState ref) : sig<uint32> = (
     if ((!state).lastPulse : uint32) >= lastWindow then
         signal<uint32>(nothing<uint32>())
     else
-        (set ref state = timerState { lastPulse = t };
+        (set ref state = { lastPulse = t };
         signal<uint32>(just<uint32>(t)))
     end
 )

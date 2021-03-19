@@ -27,7 +27,7 @@ include("<Arduino.h>")
     Type Signature:
     | () -> pinState
 *)
-type pinState = high | low
+type pinState = high() | low()
 
 (*
     Type: mode
@@ -57,7 +57,7 @@ type pinState = high | low
     Type Signature:
     | () -> mode
 *)
-type mode = input | output | inputPullup
+type mode = input() | output() | inputPullup()
 
 (*
     Function: toggle
@@ -184,7 +184,7 @@ fun printInt(n : int32) : unit =
     Type Signature:
     | () -> base
 *)
-type base = binary | octal | decimal | hexadecimal
+type base = binary() | octal() | decimal() | hexadecimal()
 
 fun baseToInt(b) =
     case b of

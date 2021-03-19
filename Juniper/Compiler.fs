@@ -29,6 +29,65 @@ let newline () =
     isNewLine <- true
     "\n"
 
+let mutable recordNames : Map<(bool * (string list)), string> = Map.empty
+let mutable recordI = 0
+
+let getRecordName packed fields =
+    match Map.tryFind (packed, fields) recordNames with
+    | Some name -> name
+    | None ->
+        let name = sprintf "recordt_%d" recordI
+        recordI <- recordI + 1
+        recordNames <- Map.add (packed, fields) name recordNames
+        name
+
+let compileRecordEnvironment () =
+    output "namespace juniper::records {" + newline() + indentId() +
+    (
+    recordNames |>
+    Map.toList |>
+    List.map
+        (fun ((isPacked, fieldNames), recordName) ->
+            let tyNames = [1 .. List.length fieldNames] |> List.map (sprintf "T%d")
+            output "template<" +
+            output (tyNames |> List.map (sprintf "typename %s") |> String.concat ",") +
+            output ">" + newline() +
+            output "struct " +
+            (if isPacked then output "__attribute__((__packed__)) " else "") +
+            output recordName +
+            output " {" +
+            newline() +
+            indentId() +
+            ((
+                (List.zip tyNames fieldNames) |>
+                List.map (fun (tyName, fieldName) ->
+                    output tyName + output " " + output fieldName + output ";" +
+                    newline())) |> String.concat "") +
+            output "bool operator==(" +
+            output recordName + output "<" +
+            output (String.concat ", " tyNames) +
+            output ">" +
+            output " rhs) {" + newline() + indentId() +
+            output "return " +
+            (
+                fieldNames |>
+                List.map (fun fieldName ->
+                    output fieldName + output " == rhs." + output fieldName) |>
+                List.cons2 (output "true") |>
+                String.concat " && "
+            ) +
+            output ";" + newline() + unindentId() +
+            output "}" + newline() + newline() +
+            output "bool operator!=(" +
+            output recordName + output "<" +
+            output (String.concat ", " tyNames) +
+            output ">" + output " rhs) {" + newline() + indentId() +
+            output "return !(rhs == *this);" + unindentId() + newline() + output "}" + newline() +
+            unindentId() + output "};" + newline() + newline()) |>
+    String.concat ""
+    ) + newline() + unindentId() +
+    output "}" + newline() + newline()
+
 // In Juniper, quit is a templated function that calls exit(1)
 // They are templated so they can be wrapped in a type so they can have return values consistent in typing
 // with whatever statement or function they may be a part of (for example, a function that returns an int will
@@ -60,7 +119,7 @@ and compileType theta kappa (ty : TyExpr) : string =
             (args |> List.map compileType |> String.concat ",")
             + output ")>"
     | ConApp (TyCon TupleTy, taus, _) ->
-        output (sprintf "Prelude::tuple%d<" (List.length taus)) +
+        output (sprintf "juniper::tuple%d<" (List.length taus)) +
             (taus |> List.map compileType |> String.concat ",") +
             output ">"
     | ConApp (tyCon, taus, caps) ->
@@ -94,6 +153,15 @@ and compileType theta kappa (ty : TyExpr) : string =
             output "juniper::shared_ptr"
         | FunTy ->
             failwith "This should never happen"
+    | RecordTy (packed, fields) ->
+        let fieldOrder =
+            match packed with
+            | Some fieldOrder ->
+                fieldOrder
+            | None ->
+                Map.keys fields |> List.ofSeq |> List.sort
+        let recordName = getRecordName (Option.isSome packed) fieldOrder
+        output "juniper::records::" + recordName + "<" + (fieldOrder |> List.map (((flip Map.find) fields) >> compileType) |> String.concat ", ") + ">"
 
 // Converts left side of a variable assignment to the C++ representation.
 and compileLeftAssign theta kappa topLevel (left : LeftAssign) : string =
@@ -134,13 +202,20 @@ and compilePattern (pattern : TyAdorn<Pattern>) (path : TyAdorn<Expr>) =
         | (_, _, MatchValCon {modQualifier={module_=module_; name=name}; innerPattern=innerPattern; id=index}) ->
             let tag = RecordAccessExp {record=path; fieldName="tag"}
             let check = BinaryOpExp {op=Equal; left=dummyWrap tag; right=wrapWithType (TyCon <| BaseTy TyUint8) (IntExp <| int64 index)}
-            let path' = RecordAccessExp {record=path; fieldName=name} |> dummyWrap
             match innerPattern with
-            | Some p -> compilePattern' p path' |> ignore
-            | None -> ()
+            | [] -> ()
+            | [p] ->
+                let path' = RecordAccessExp {record=path; fieldName=name} |> dummyWrap
+                compilePattern' p path' |> ignore
+            | _ ->
+                innerPattern |>
+                List.iteri
+                    (fun i p ->
+                        let path' = RecordAccessExp { record = (RecordAccessExp {record=path; fieldName=name} |> dummyWrap); fieldName=(sprintf "e%d" (i + 1)) } |> dummyWrap
+                        compilePattern' p path' |> ignore)
             conditions <- check::conditions
         | (_, _, MatchUnderscore) -> ()
-        | (_, _, MatchRecCon {fields=fields}) ->
+        | (_, _, MatchRecCon fields) ->
             fields |> List.iter (fun (fieldName, fieldPattern) ->
                                     let path' = RecordAccessExp {record=path; fieldName=fieldName} |> dummyWrap
                                     compilePattern' fieldPattern path')
@@ -429,12 +504,8 @@ and compile theta kappa (topLevel : bool) ((_, ty, expr) : TyAdorn<Expr>) : stri
         output "})())"
     | ArrayAccessExp {array=array; index=index} ->
         output "(" + compile topLevel array + output ")[" + compile topLevel index + "]"
-    | RecordExp {recordTy=recordTy; templateArgs=templateArgs; initFields=initFields} ->
+    | RecordExp {packed=_; initFields=initFields} ->
         let retName = Guid.string()
-        (*let actualTy =
-            match templateArgs with
-            | None -> unwrap recordTy
-            | Some args -> TyApply {tyConstructor=recordTy; args=args}*)
         output ("((" + capture + "() -> ") + compileType ty + output "{" + newline() + indentId() +
         compileType ty + output " " + output retName + output ";" + newline() +
         (initFields |> List.map (fun (fieldName, fieldExpr) ->
@@ -562,33 +633,6 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
         unindentId() +
         newline() +
         output "}"
-    | RecordDec {name=name; fields=fields; template=maybeTemplate; packed=packed} ->
-        (match maybeTemplate with
-        | Some template ->
-            compileTemplate theta kappa template +
-            newline()
-        | None ->
-            output "") +
-        output "struct " +
-        (if packed then output "__attribute__((__packed__)) " else "") +
-        output name +
-        output " {" +
-        newline() +
-        indentId() +
-        ((fields |> List.map (fun (fieldName, fieldTy) ->
-                                 output (compileType fieldTy) +
-                                 output " " +
-                                 output fieldName +
-                                 output ";" + newline())) |> (String.concat "")) +
-        output "bool operator==(" + output name + output " rhs) {" + newline() + indentId() +
-        output "return " +
-        (fields |> List.map (fun (fieldName, fieldTy) ->
-                                 output fieldName + output " == rhs." + output fieldName) |> List.cons2 (output "true") |> String.concat " && ") +
-        output ";" + newline() + unindentId() +
-        output "}" + newline() + newline() +
-        output "bool operator!=(" + output name + output " rhs) {" + newline() + indentId() +
-        output "return !(rhs == *this);" + unindentId() + newline() + output "}" +  unindentId() + newline() +
-        output "};"
     | LetDec {varName=varName; right=right} ->
         compileType (getType right) +
         output " " +
@@ -623,10 +667,11 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
         output "union {" +
         newline() +
         indentId() +
-        (valCons |> List.map (fun (valConName, maybeTy) ->
-            (match maybeTy with
-                | None -> output "uint8_t"
-                | Some ty -> output (compileType ty)) + output " " + valConName + output ";" + newline()) |> String.concat "") +
+        (valCons |> List.map (fun (valConName, taus) ->
+            (match taus with
+             | [] -> output "uint8_t"
+             | [ty] -> output (compileType ty)
+             | _ -> output (compileType (ConApp (TyCon TupleTy, taus, [])))) + output " " + valConName + output ";" + newline()) |> String.concat "") +
         unindentId() +
         output "};" +
         newline() +
@@ -634,7 +679,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
         output "};" +
         newline() + newline() +
         // Output the function representation of the value constructor
-        (valCons |> List.mapi (fun i (valConName, maybeTy) ->
+        (valCons |> List.mapi (fun i (valConName, taus) ->
             let retType =
                 let m = TyCon <| ModuleQualifierTy {module_=module_; name=name}
                 match maybeTemplate with
@@ -650,18 +695,24 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
             | None ->
                 compileType retType) +
             output " " + output valConName + output "(" +
-            (match maybeTy with
-            | None -> ""
-            | Some ty -> compileType ty + output " data") +
+            (taus |> List.mapi (fun j ty -> compileType ty + output (sprintf " data%d" j)) |> String.concat ", ") +
             output ") {" + newline() + indentId() +
-            output "return (([&]() -> " + compileType retType + output " { " +
-            compileType retType + output " ret; ret.tag = " + (sprintf "%d" i) + output "; " +
-            output "ret." + output valConName + output " = " +
-            (match maybeTy with
-            | None -> output "0"
-            | Some _ -> output "data") +
-            output "; return ret; })());" + newline() +
+            compileType retType + output " ret;" + newline() +
+            output "ret.tag = " + (sprintf "%d" i) + output "; " +
+            (match taus with
+            | [] -> output "ret." + output valConName + output " = " + output "0;" + newline()
+            | [_] -> output "ret." + output valConName + output " = " + output "data0;" + newline()
+            | _ -> taus |> List.mapi (fun j _ -> output "ret." + output valConName + output (sprintf ".e%d = data%d;" (j + 1) j) + newline()) |> String.concat "") +
+            output "return ret;" + newline() +
             unindentId() + output "}" + newline() + newline()) |> String.concat "")
+    | AliasDec {name=name; template=maybeTemplate; typ=typ} ->
+        (match maybeTemplate with
+            | Some template ->
+                compileTemplate theta kappa template +
+                newline()
+            | None ->
+                output "") +
+        output "using " + output name + output " = " + compileType typ + output ";" + newline() + newline()
 
 // Program: includes, types, values
 //                              module names   opens                         v incudes           v mod name  v type dec             v Inline code decs                 v mod    v fun/let dec v scc    v theta              v kappa
@@ -687,36 +738,46 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
         output "namespace " + output module_ + output " {" + newline() + indentId() +
         compileDec module_ theta kappa dec + newline() + unindentId() +
         output "}" + newline() + newline()
-    output "//Compiled on " + DateTime.Now.ToString() + newline() +
-    output "#include <inttypes.h>" + newline() +
-    output "#include <stdbool.h>" + newline() + newline() +
-    junCppStd + newline() +
-    (includes |> List.map (compileDec "" Map.empty Map.empty) |> String.concat "") + newline() +
+    
+    let compiledIncludes =
+        output "//Compiled on " + DateTime.Now.ToString() + newline() +
+        output "#include <inttypes.h>" + newline() +
+        output "#include <stdbool.h>" + newline() + newline() +
+        junCppStd + newline() +
+        (includes |> List.map (compileDec "" Map.empty Map.empty) |> String.concat "") + newline()
     // Introduce all the namespaces
-    (moduleNames |> List.map (fun name -> output "namespace " + output name + output " {}" + newline()) |> String.concat "") +
+    let compiledNamespaces =
+        (moduleNames |> List.map (fun name -> output "namespace " + output name + output " {}" + newline()) |> String.concat "")
     // Now insert all the usings
-    (opens |> List.map (compileNamespace Map.empty Map.empty) |> String.concat "") +
+    let compiledOpens =
+        (opens |> List.map (compileNamespace Map.empty Map.empty) |> String.concat "")
     // Compile all the types
-    (typeDecs |> List.map (compileNamespace Map.empty Map.empty) |> String.concat "") +
+    let compiledTypeDecs =
+        (typeDecs |> List.map (compileNamespace Map.empty Map.empty) |> String.concat "")
     // Compile forward declarations of all functions to enable recursion
-    (valueSccs |> List.map (fun (decs, theta, kappa) ->
-        decs |> 
-        (List.filter (fun (_, dec) ->
-            match dec with
-            | FunctionDec _ -> true
-            | _ -> false)) |>
-        List.map (fun (module_, dec) ->
-            output "namespace " + output module_ + output " {" + newline() + indentId() +
-            compileFunctionSignature theta kappa dec + ";" + newline() + unindentId() +
-            output "}" + newline() + newline()) |>
-        String.concat ""
-    ) |> String.concat "") +
-    // Compile all global inline code
-    (inlineCodeDecs |> List.map (compileNamespace Map.empty Map.empty) |> String.concat "") +
-    // Compile all global variables and functions
-    (valueSccs |> List.map (fun (decs, theta, kappa) ->
-        decs |> List.map (compileNamespace theta kappa) |> String.concat "") |> String.concat "") +
-
+    let compiledFunctionSignatures =
+        (valueSccs |> List.map (fun (decs, theta, kappa) ->
+            decs |> 
+            (List.filter (fun (_, dec) ->
+                match dec with
+                | FunctionDec _ -> true
+                | _ -> false)) |>
+            List.map (fun (module_, dec) ->
+                output "namespace " + output module_ + output " {" + newline() + indentId() +
+                compileFunctionSignature theta kappa dec + ";" + newline() + unindentId() +
+                output "}" + newline() + newline()) |>
+            String.concat ""
+        ) |> String.concat "")
+        // Compile all global inline code
+    let compiledInlineCode =
+        (inlineCodeDecs |> List.map (compileNamespace Map.empty Map.empty) |> String.concat "")
+    let compiledValues =
+        // Compile all global variables and functions
+        (valueSccs |> List.map (fun (decs, theta, kappa) ->
+            decs |> List.map (compileNamespace theta kappa) |> String.concat "") |> String.concat "")
+    let compiledRecordEnvironment = compileRecordEnvironment ()
+    
+    compiledIncludes + compiledNamespaces + compiledOpens + compiledRecordEnvironment + compiledTypeDecs + compiledFunctionSignatures + compiledInlineCode + compiledValues +
     (*
         void setup() {
           Blink::setup();

@@ -2,6 +2,10 @@
 open TypedAst
 open FParsec
 open Extensions
+open FSharpx.DataStructures
+open FSharpx.DataStructures
+open FSharpx.DataStructures
+open FSharpx.DataStructures
 
 // This code is based off of Norman Ramsey's implementation as
 // described in the book Programming Languages: Build, Prove, and Compare
@@ -61,6 +65,7 @@ and tycapsubst theta kappa =
         | (TyVar a) -> varsubst theta kappa a
         | (TyCon c) -> TyCon c
         | (ConApp (tau, taus, caps)) -> ConApp (subst tau, List.map subst taus, List.map (capsubst kappa) caps)
+        | (RecordTy (packed, fields)) -> RecordTy (packed, fields |> Map.map (fun _ fieldTau -> subst fieldTau))
     subst
 
 let consubst theta kappa =
@@ -113,6 +118,20 @@ let isRealType t =
             true
         | _ ->
             false
+    | _ ->
+        false
+
+let isPackedType t =
+    match t with
+    | RecordTy (Some _, _) ->
+        true
+    | _ ->
+        false
+
+let isRecordType t =
+    match t with
+    | RecordTy _ ->
+        true
     | _ ->
         false
 
@@ -196,6 +215,9 @@ let rec freeVars t =
             let (ts, c1) = List.map freeVars (ty::tys) |> List.unzip
             let c2 = List.map freeCapVars caps
             (Set.unionMany ts, Set.union (Set.unionMany c1) (Set.unionMany c2))
+        | RecordTy (_, fields) ->
+            let (ts, cs) = fields |> Map.values |> Seq.map freeVars |> List.ofSeq |> List.unzip
+            (Set.unionMany ts, Set.unionMany cs)
     freeTyVars t
 
 let freeTyVars t =
@@ -330,56 +352,187 @@ let rec solveCap con : Map<string, CapacityExpr> =
         | _ ->
             raise <| TypeError (failMsg.Force())
 
-let solve con : Map<string, TyExpr> * Map<string, CapacityExpr> * Map<string, ConstraintType * ErrorMessage> =
-    let (thetaSolution, capacityConstraints, interfaceConstraints) =
-        let rec solveTheta con =
-            match con with
-            | Trivial -> (idSubst, TrivialCap, [])
-            | And (left, right) ->
-                let (theta1, capCon1, intConst1) = solveTheta left
-                let (theta2, capCon2, intConst2) = solveTheta (consubst theta1 Map.empty right)
-                (composeTheta theta2 theta1, AndCap (capCon1, capCon2), List.append intConst1 intConst2)
-            | Equal (tau, tau', err) ->
-                let failMsg = lazy (sprintf "Type error: The types %s and %s are not equal.\n\n%s" (typeString tau) (typeString tau') (err.Force()))
-                match (tau, tau') with
-                | ((TyVar a, tau) | (tau, TyVar a)) ->
-                    match solveTyvarEq a tau with
-                    | Some answer -> (answer, TrivialCap, [])
-                    | None -> raise <| TypeError (failMsg.Force())
-                | (TyCon mu, TyCon mu') ->
-                    if eqType tau tau' then
-                        (idSubst, TrivialCap, [])
-                    else
-                        raise <| TypeError (failMsg.Force())
-                | (ConApp (t, ts, cs), ConApp(t', ts', cs')) ->
-                    if List.length ts = List.length ts' && List.length cs = List.length cs' then
-                        let eqAnd c t t' = And (Equal (t, t', err), c)
-                        let eqAndCap accum c c' = AndCap (EqualCap (c, c', err), accum)
-                        let (theta, capCon1, intConst) = solveTheta (List.fold2 eqAnd Trivial (t::ts) (t'::ts'))
-                        let capCon2 = List.fold2 eqAndCap TrivialCap cs cs'
-                        (theta, AndCap (capCon1, capCon2), intConst)
-                    else
-                        raise <| TypeError (failMsg.Force())
-                | _ -> raise <| TypeError (failMsg.Force())
-            | InterfaceConstraint constr ->
-                (idSubst, TrivialCap, [constr])
-        solveTheta con
-    let kappaSolution = solveCap capacityConstraints
-    let interfaceConstraintsSolution =
-        interfaceConstraints |>
-        List.map
-            (fun (tau, constraintType, failMsg) ->
-                let tau' = tycapsubst thetaSolution kappaSolution tau
-                let failMsg' = lazy (sprintf "Interface constraint error: The type %s does not satisfy the %s constraint.\n\n%s" (typeString tau') (interfaceConstraintString constraintType) (failMsg.Force()))
-                match tau' with
-                | TyVar v -> Some (v, (constraintType, failMsg))
-                | _ ->
-                    match constraintType with
-                    | IsNum when isNumericalType tau' -> None
-                    | IsInt when isIntegerType tau' -> None
-                    | IsReal when isRealType tau' -> None
-                    | _ -> raise <| TypeError (failMsg'.Force())) |>
-        List.filter Option.isSome |>
-        List.map Option.get |>
-        Map.ofList
-    (thetaSolution, kappaSolution, interfaceConstraintsSolution)
+let rec simplifyConstraint con =
+    match con with
+    | And (Trivial, right) ->
+        simplifyConstraint right
+    | And (left, Trivial) ->
+        simplifyConstraint left
+    | And (left, right) ->
+        match simplifyConstraint left with
+        | Trivial -> simplifyConstraint right
+        | left' ->
+            match simplifyConstraint right with
+            | Trivial -> left'
+            | right' -> And (left', right')
+    | _ ->
+        con
+
+let rec constraintTreeToList con =
+    match simplifyConstraint con with
+    | And (left, right) ->
+        List.append (constraintTreeToList left) (constraintTreeToList right)
+    | con ->
+        [con]
+
+let rec solve con : Map<string, TyExpr> * Map<string, CapacityExpr> * Map<string, (ConstraintType * ErrorMessage) list> =
+    match simplifyConstraint con with
+    | Trivial -> (Map.empty, Map.empty, Map.empty)
+    | con' ->
+        let (thetaSolution, capacityConstraints, interfaceConstraints) =
+            let rec solveTheta con =
+                match con with
+                | Trivial -> (idSubst, TrivialCap, [])
+                | And (left, right) ->
+                    let (theta1, capCon1, intConst1) = solveTheta left
+                    let (theta2, capCon2, intConst2) = solveTheta (consubst theta1 Map.empty right)
+                    (composeTheta theta2 theta1, AndCap (capCon1, capCon2), List.append intConst1 intConst2)
+                | Equal (tau, tau', err) ->
+                    let failMsg = lazy (sprintf "Type error: The types %s and %s are not equal.\n\n%s" (typeString tau) (typeString tau') (err.Force()))
+                    match (tau, tau') with
+                    | ((TyVar a, tau) | (tau, TyVar a)) ->
+                        match solveTyvarEq a tau with
+                        | Some answer -> (answer, TrivialCap, [])
+                        | None -> raise <| TypeError (failMsg.Force())
+                    | (TyCon mu, TyCon mu') ->
+                        if eqType tau tau' then
+                            (idSubst, TrivialCap, [])
+                        else
+                            raise <| TypeError (failMsg.Force())
+                    | (ConApp (t, ts, cs), ConApp(t', ts', cs')) ->
+                        if List.length ts = List.length ts' && List.length cs = List.length cs' then
+                            let eqAnd c t t' = And (Equal (t, t', err), c)
+                            let eqAndCap accum c c' = AndCap (EqualCap (c, c', err), accum)
+                            let (theta, capCon1, intConst) = solveTheta (List.fold2 eqAnd Trivial (t::ts) (t'::ts'))
+                            let capCon2 = List.fold2 eqAndCap TrivialCap cs cs'
+                            (theta, AndCap (capCon1, capCon2), intConst)
+                        else
+                            raise <| TypeError (failMsg.Force())
+                    | (RecordTy (packed, fields), RecordTy (packed', fields')) ->
+                        match (packed, packed') with
+                        | (Some orderedFields, Some orderedFields') ->
+                            if orderedFields = orderedFields' then
+                                ()
+                            else
+                                raise <| TypeError (failMsg.Force())
+                        | (None, None) ->
+                            ()
+                        | _ ->
+                            raise <| TypeError (failMsg.Force())
+                        if Map.keys fields = Map.keys fields' then
+                            let fieldNames = Map.keys fields |> List.ofSeq
+                            let getTaus fs = fieldNames |> List.map (fun fieldName -> Map.find fieldName fs)
+                            let ts = getTaus fields
+                            let ts' = getTaus fields'
+                            let fieldConstraints = List.zip ts ts' |> List.map (fun (tau, tau') -> Equal (tau, tau', err)) |> conjoinConstraints
+                            solveTheta fieldConstraints
+                        else
+                            raise <| TypeError (failMsg.Force())
+                    | _ -> raise <| TypeError (failMsg.Force())
+                | InterfaceConstraint constr ->
+                    (idSubst, TrivialCap, [constr])
+            solveTheta con'
+        let kappaSolution = solveCap capacityConstraints
+        let (interfaceConstraintsSolution, extraInterfaceConstraints) =
+            interfaceConstraints |>
+            List.map
+                (fun (tau, constraintType, failMsg) ->
+                    let tau' = tycapsubst thetaSolution kappaSolution tau
+                    let failMsg' = lazy (sprintf "Interface constraint error: The type %s does not satisfy the %s constraint.\n\n%s" (typeString tau') (interfaceConstraintString constraintType) (failMsg.Force()))
+                    match tau' with
+                    | TyVar v -> (Some (v, (constraintType, failMsg)), None)
+                    | _ ->
+                        match constraintType with
+                        | IsNum when isNumericalType tau' -> (None, None)
+                        | IsInt when isIntegerType tau' -> (None, None)
+                        | IsReal when isRealType tau' -> (None, None)
+                        | IsPacked when isPackedType tau' -> (None, None)
+                        | IsRecord when isRecordType tau' -> (None, None)
+                        | HasField (fieldName, fieldTau) ->
+                            match tau' with
+                            | RecordTy (_, fields) ->
+                                match Map.tryFind fieldName fields with
+                                | Some recordFieldTau ->
+                                    let fieldTau' = tycapsubst thetaSolution kappaSolution fieldTau
+                                    (None, Some (recordFieldTau =~= (fieldTau', lazy (sprintf "Record interface constraint error: The concrete type of the field named %s does not match the type of the constraint.\n\n%s" fieldName (failMsg.Force())))))
+                                | None ->
+                                    raise <| TypeError (sprintf "Record interface constraint error: The concrete record type %s does not contain a field named %s, as required by the record interface constraint.\n\n%s" (typeString tau') fieldName (failMsg.Force()))
+                            | _ ->
+                                raise <| TypeError (sprintf "Record interface constraint error: The concrete type was determined to be %s, which is not a record. However there is a field constraint, requiring that this type has a field with name %s.\n\n%s" (typeString tau') fieldName (failMsg.Force()))
+                        | _ -> raise <| TypeError (failMsg'.Force())) |>
+            List.unzip
+        let extraInterfaceConstraints' = extraInterfaceConstraints |> List.filter Option.isSome |> List.map Option.get |> conjoinConstraints
+        let interfaceConstraintsSolution' = interfaceConstraintsSolution |> List.filter Option.isSome |> List.map Option.get |> Map.ofListDuplicateKeys
+        // We now have constraints for each type variable. The next step is to determine if there are any contradictions in the constraints,
+        // as well as generate additional constraints for fields with the same name
+        let fieldConstraints =
+            interfaceConstraintsSolution' |>
+            Map.toList |>
+            List.map
+                (fun (v, constraints) ->
+                    constraints |>
+                    // Only consider constraints that are HasField
+                    List.mapFilter
+                        (fun (constr, errMsg) ->
+                            match constr with
+                            | HasField (fieldName, fieldTau) -> Some (fieldName, (fieldTau, errMsg))
+                            | _ -> None) |>
+                    // Generate a map where the keys are the field name (in other words group together the constraints by field name)
+                    Map.ofListDuplicateKeys |>
+                    Map.toList |>
+                    List.map
+                        (fun (fieldName, (t, errMsg)::taus) ->
+                            taus |>
+                            List.map
+                                (fun (t', errMsg') ->
+                                    (t =~= (t', lazy (sprintf "Contradictory record field constraint for field name %s\n\n%s\n\n%s" fieldName (errMsg.Force()) (errMsg'.Force()))))))) |>
+            Seq.concat |> // Flatten the constraints generated per type variable
+            Seq.concat |> // Flatten the constraints generated per field
+            List.ofSeq |>
+            conjoinConstraints // Finally conjoin all the constraints together
+    
+        let newConstraintSystem = extraInterfaceConstraints' &&& fieldConstraints |> simplifyConstraint
+
+        // If there are no further constraints to consider, we have reached a fixed point of the solving process.
+        // In this case there is no further information we can gain specifically by considering interface constraints.
+        // On the other hand if there are further constraints to consider, then it is possible that solving those constraints
+        // will lead to the generation of even more constraints, which we then solve recursively
+        match newConstraintSystem with
+        | Trivial ->
+            (thetaSolution, kappaSolution, interfaceConstraintsSolution')
+        | _ ->
+            // Generate new InterfaceConstraints to pass to the next invocation of the solver
+            let interfaceConstraints' =
+                interfaceConstraintsSolution' |>
+                Map.toList |>
+                List.map
+                    (fun (v, constraints) ->
+                        // Only pass one field constraint (the first one we find)
+                        let fieldConstraints =
+                            constraints |>
+                            List.mapFilter
+                                (fun (constr, errMsg) ->
+                                    match constr with
+                                    | HasField (fieldName, fieldTau) -> Some (fieldName, (fieldTau, errMsg))
+                                    | _ -> None) |>
+                            Map.ofListDuplicateKeys |>
+                            Map.toList |>
+                            List.map
+                                (fun (fieldName, (t, errMsg)::_) ->
+                                    InterfaceConstraint (TyVar v, HasField (fieldName, t), errMsg))
+                        // Pass all other constraints in a passthrough manner
+                        let otherConstraints =
+                            constraints |>
+                            List.filter
+                                (fun (constr, _) ->
+                                    match constr with
+                                    | HasField _ -> false
+                                    | _ -> true) |>
+                            List.map
+                                (fun (constr, errMsg) ->
+                                    InterfaceConstraint (TyVar v, constr, errMsg))
+                        (conjoinConstraints fieldConstraints) &&& (conjoinConstraints otherConstraints)) |>
+                    conjoinConstraints
+            let (thetaSolution', kappaSolution', interfaceConstraintsSolution') = solve (newConstraintSystem &&& interfaceConstraints')
+            (composeTheta thetaSolution' thetaSolution, composeKappa kappaSolution' kappaSolution, interfaceConstraintsSolution')
+        

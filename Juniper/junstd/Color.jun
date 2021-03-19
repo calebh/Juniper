@@ -1,13 +1,13 @@
 module Color
 open(Prelude)
 
-type rgb = { r : uint8; g : uint8; b : uint8 }
-type rgba = { r : uint8; g : uint8; b : uint8; a : uint8 }
-type hsv = { h : float; s : float; v : float }
-type hsva = { h : float; s : float; v : float; a : float }
+alias rgb = { r : uint8; g : uint8; b : uint8 }
+alias rgba = { r : uint8; g : uint8; b : uint8; a : uint8 }
+alias hsv = { h : float; s : float; v : float }
+alias hsva = { h : float; s : float; v : float; a : float }
 
 fun hsvToRgb(color : hsv) : rgb = (
-    let hsv{h=h; s=s; v=v} = color;
+    let {h=h; s=s; v=v} = color;
     let c : float = v * s;
     let x : float = c * toFloat(1.0 - Math:fabs_(Math:fmod_((toDouble(h) / 60), 2.0) - 1.0));
     let m : float = v - c;
@@ -28,19 +28,19 @@ fun hsvToRgb(color : hsv) : rgb = (
     let r = (rPrime + m) * 255.0f;
     let g = (gPrime + m) * 255.0f;
     let b = (bPrime + m) * 255.0f;
-    rgb {r=toUInt8(r); g=toUInt8(g); b=toUInt8(b)}
+    {r=toUInt8(r); g=toUInt8(g); b=toUInt8(b)}
 )
 
 fun rgbToRgb565(color : rgb) : uint16 = (
-    let rgb{r=r; g=g; b=b} = color;
+    let {r=r; g=g; b=b} = color;
     ((u8ToU16(r) &&& 0xf8u16) <<< 8u32) ||| ((u8ToU16(g) &&& 0xfcu16) <<< 3u32) ||| (u8ToU16(b) >>> 3u32)
 )
 
-let red : rgb = rgb{r=255u8; g=0; b=0}
-let green : rgb = rgb{r=0; g=255u8; b=0}
-let blue : rgb = rgb{r=0; g=0; b=255u8}
-let black : rgb = rgb{r=0; g=0; b=0}
-let white : rgb = rgb{r=255u8; g=255u8; b=255u8}
-let yellow : rgb = rgb{r=255u8; g=255u8; b=0}
-let magenta : rgb = rgb{r=255u8; g=0; b=255u8}
-let cyan : rgb = rgb{r=0; g=255u8; b=255u8}
+let red : rgb = {r=255u8; g=0; b=0}
+let green : rgb = {r=0; g=255u8; b=0}
+let blue : rgb = {r=0; g=0; b=255u8}
+let black : rgb = {r=0; g=0; b=0}
+let white : rgb = {r=255u8; g=255u8; b=255u8}
+let yellow : rgb = {r=255u8; g=255u8; b=0}
+let magenta : rgb = {r=255u8; g=0; b=255u8}
+let cyan : rgb = {r=0; g=255u8; b=255u8}

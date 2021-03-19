@@ -15,7 +15,7 @@ open(Prelude, List, Math)
     Members:
         data : 'a[n] - The internal data storage of the vector
 *)
-type vector<'a;n> = { data : 'a[n] }
+alias vector<'a;n> = { data : 'a[n] }
 
 (*
     Variable: x
@@ -60,7 +60,7 @@ let z : uint8 = 2
         The vector
 *)
 fun make<'a;n>(d : 'a[n]) : vector<'a;n> =
-    vector<'a;n> { data = d }
+    { data = d }
 
 (*
     Function: get
@@ -77,10 +77,8 @@ fun make<'a;n>(d : 'a[n]) : vector<'a;n> =
     Returns:
         The value at the ith position in the vector.
 *)
-fun get<'a;n>(i : uint32, v : vector<'a;n>) : 'a = (
-    let vector<'a;n>{data=data} = v;
-    data[i]
-)
+fun get<'a;n>(i : uint32, v : vector<'a;n>) : 'a =
+    v.data[i]
 
 (*
     Function: add
@@ -118,7 +116,7 @@ fun add<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> where 'a : nu
         The zero vector of n dimensions.
 *)
 fun zero<'a;n>() : vector<'a;n> where 'a : num =
-    vector<'a;n>{ data = array 'a[n] of 0 end }
+    { data = array 'a[n] of 0 end }
 
 (*
     Function: subtract
@@ -275,7 +273,7 @@ fun normalize<'a;n>(v : vector<'a;n>) : vector<'a;n> where 'a : num = (
     if mag > (0 : 'a) then (
         let mutable result = v;
         for i : int32 in 0 to n - 1 do (
-            set result.data[i] = result.data[i] / mag;
+            set result.data[i] = fromDouble(toDouble(result.data[i]) / mag);
             ()
         ) end;
         result
@@ -318,9 +316,9 @@ fun angle<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : double where 'a : num =
         The result of u cross v
 *)
 fun cross<'a>(u : vector<'a;3>, v : vector<'a;3>) : vector<'a;3> where 'a : num =
-    vector<'a;3>{data=[(u.data[1u32]*v.data[2u32]) - (u.data[2u32]*v.data[1u32]),
-                       (u.data[2u32]*v.data[0u32]) - (u.data[0u32]*v.data[2u32]),
-                       (u.data[0u32]*v.data[1u32]) - (u.data[1u32]*v.data[0u32])]}
+    {data=[(u.data[1u32]*v.data[2u32]) - (u.data[2u32]*v.data[1u32]),
+           (u.data[2u32]*v.data[0u32]) - (u.data[0u32]*v.data[2u32]),
+           (u.data[0u32]*v.data[1u32]) - (u.data[1u32]*v.data[0u32])]}
 
 (*
     Function: project

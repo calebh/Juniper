@@ -48,7 +48,6 @@ fun random_(low : int32, high : int32) : int32 = (
 fun seed(n : uint32) : unit = #randomSeed(n);#
 
 fun choice<'t;n>(lst : list<'t;n>) : 't = (
-    let list<'t;n>{length=length} = lst;
-    let i : int32 = random_(0, u32ToI32(length));
+    let i : int32 = random_(0, u32ToI32(lst.length));
     List:nth(i32ToU32(i), lst)
 )

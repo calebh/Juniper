@@ -34,21 +34,18 @@ let tyRefs (menv : Map<string, string*string>) tyDec =
             taus |> List.map (A.unwrap >> refsInTyExpr) |> Set.unionMany
         | A.VarTy _ ->
             Set.empty
+        | A.RecordTy (_, {fields=(_, fields)}) ->
+            fields |> List.map (snd >> A.unwrap >> refsInTyExpr) |> Set.unionMany
 
     match tyDec with
     | A.UnionDec {valCons=(_, valCons)} ->
         valCons |>
         List.map
-            (fun valueCon ->
-                match valueCon with
-                | (_, Some (_, tyExpr)) -> refsInTyExpr tyExpr
-                | _ -> Set.empty) |>
+            (fun (_, tyExprs) ->
+                List.map (A.unwrap >> refsInTyExpr) tyExprs |> Set.unionMany) |>
         Set.unionMany
-    | A.RecordDec {fields=(_, fields)} ->
-        fields |>
-        List.map (snd >> A.unwrap >> refsInTyExpr) |>
-        Set.unionMany
-    
+    | A.AliasDec {typ=(_, typ)} ->
+        refsInTyExpr typ
 
 // Find all top level function and let declarations (value declarations)
 // that some expression is referring to
@@ -58,12 +55,12 @@ let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
         | (Ast.MatchFalse _ | Ast.MatchFloatVal _ | Ast.MatchIntVal _ | Ast.MatchTrue _ |
             Ast.MatchUnderscore _ | Ast.MatchUnit _) ->
             Set.empty
-        | Ast.MatchRecCon {fields=(_, fields)} ->
+        | Ast.MatchRecCon (_, fields) ->
             Set.unionMany (List.map (snd >> Ast.unwrap >> getVars) fields)
         | Ast.MatchTuple (_, elements) ->
             Set.unionMany (List.map (Ast.unwrap >> getVars) elements)
-        | Ast.MatchValCon {name=(_, name); innerPattern=innerPattern} ->
-            innerPattern |> Option.map (Ast.unwrap >> getVars) |> Option.toList |> Set.unionMany
+        | Ast.MatchValCon {name=(_, name); innerPattern=(_, innerPattern)} ->
+            innerPattern |> List.map (Ast.unwrap >> getVars) |> Set.unionMany
         | Ast.MatchVar {varName=(_, varName)} ->
             Set.singleton varName
 
@@ -257,11 +254,11 @@ let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.Capa
         match pat with
         | T.MatchVar {typ=typ} ->
             freeVarsTyp pos typ
-        | (T.MatchIntVal _ | T.MatchFloatVal _ | T.MatchUnit | T.MatchTrue | T.MatchFalse | T.MatchUnderscore | T.MatchValCon {innerPattern=None}) ->
+        | (T.MatchIntVal _ | T.MatchFloatVal _ | T.MatchUnit | T.MatchTrue | T.MatchFalse | T.MatchUnderscore) ->
             ([], [])
-        | T.MatchValCon {innerPattern=Some innerPattern} ->
-            freeVarsPattern innerPattern
-        | T.MatchRecCon {fields=fields} ->
+        | T.MatchValCon {innerPattern=innerPattern} ->
+            append2 (List.map freeVarsPattern innerPattern |> List.unzip)
+        | T.MatchRecCon fields ->
             append2 (fields |> List.map (snd >> freeVarsPattern) |> List.unzip)
         | T.MatchTuple pats ->
             append2 (List.map freeVarsPattern pats |> List.unzip)
@@ -311,12 +308,8 @@ let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.Capa
             freeVarsTyp (T.getPos e) typ
         | T.RecordAccessExp {record=record} ->
             ffv record
-        | T.RecordExp {templateArgs=None; initFields=initFields} ->
+        | T.RecordExp {initFields=initFields} ->
             append2 (List.map (snd >> ffv) initFields |> List.unzip)
-        | T.RecordExp {templateArgs=Some templateArgs; initFields=initFields} ->
-            let f = append2 (List.map (snd >> ffv) initFields |> List.unzip)
-            let t = freeVarsTemplateApply (T.getPos e) templateArgs
-            append2 ([f; t] |> List.unzip)
         | T.RefExp exp ->
             ffv exp
         | T.SequenceExp exprs ->

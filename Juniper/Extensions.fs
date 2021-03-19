@@ -28,6 +28,8 @@ module Map =
 
     let keys m = m |> Map.toSeq |> Seq.map fst |> Set.ofSeq
 
+    let values m = m |> Map.toSeq |> Seq.map snd
+
     let ofDict dictionary = 
         (dictionary :> seq<_>)
         |> Seq.map (|KeyValue|)
@@ -45,6 +47,12 @@ module Map =
                 Map.add v keys' acc)
             Map.empty
             m
+    
+    let ofListDuplicateKeys lst =
+        lst |>
+        List.fold (fun accum (key, value) -> match Map.tryFind key accum with
+                                             | Some preExistingValues -> Map.add key (value::preExistingValues) accum
+                                             | None -> Map.add key [value] accum) Map.empty
 
 module List =
     let hasDuplicates lst : bool = not (Set.count (Set.ofList lst) = List.length lst)
@@ -60,6 +68,14 @@ module List =
         | (w, x, y, z)::rest ->
             let (ws, xs, ys, zs) = unzip4 rest
             (w::ws, x::xs, y::ys, z::zs)
+    
+    let rec mapFilter f lst =
+        match lst with
+        | [] -> []
+        | x::xs ->
+            match f x with
+            | Some v -> v::(mapFilter f xs)
+            | None-> mapFilter f xs
 
 module Seq =
     let duplicates (xs: _ seq) =

@@ -15,21 +15,23 @@ and PosAdorn<'a> = (Position * Position) * 'a
 and ConstraintType = IsNum of PosAdorn<unit>
                    | IsInt of PosAdorn<unit>
                    | IsReal of PosAdorn<unit>
+                   | HasFields of PosAdorn<RecordRec>
+                   | IsPacked of PosAdorn<unit>
+
+and RecordRec = { packed : PosAdorn<unit> option;
+                  fields : PosAdorn<(PosAdorn<string> * PosAdorn<TyExpr>) list>; }
 
 // Top level declarations
-// Function object. Template is optional.
 and FunctionRec = { name     : PosAdorn<string>;
                     template : PosAdorn<Template> option;
                     clause   : PosAdorn<FunctionClause> }
 
-// Record object. Template is optional.
-and RecordRec =   { name     : PosAdorn<string>;
-                    packed   : PosAdorn<unit> option
-                    fields   : PosAdorn<(PosAdorn<string> * PosAdorn<TyExpr>) list>;
-                    template : PosAdorn<Template> option }
+and AliasRec =   { name     : PosAdorn<string>;
+                   template : PosAdorn<Template> option;
+                   typ : PosAdorn<TyExpr> }
 
-// Value constructor. Type is optional.
-and ValueCon =    PosAdorn<string> * (PosAdorn<TyExpr> option)
+// Value constructor
+and ValueCon =    PosAdorn<string> * (PosAdorn<TyExpr> list)
 
 // Union algrebraic datatype. Template is optional.
 and UnionRec =    { name     : PosAdorn<string>;
@@ -43,8 +45,8 @@ and LetDecRec = { varName : PosAdorn<string>;
 
 // Declaration defined as any of the above.
 and Declaration = FunctionDec   of FunctionRec
-                | RecordDec     of RecordRec
                 | UnionDec      of UnionRec
+                | AliasDec      of AliasRec
                 | LetDec        of LetDecRec
                 | ModuleNameDec of PosAdorn<string>
                 | OpenDec       of PosAdorn<PosAdorn<string> list>
@@ -98,17 +100,17 @@ and TyExpr = BaseTy of PosAdorn<BaseTypes>
            | TupleTy of PosAdorn<TyExpr> list
            // Need this extra type for infix parser combinator matching on tuples
            | ParensTy of PosAdorn<TyExpr>
+           | RecordTy of PosAdorn<RecordRec>
 
 // Pattern matching AST datatypes.
 and MatchVarRec = {varName : PosAdorn<string>; mutable_ : PosAdorn<bool>; typ : PosAdorn<TyExpr> option}
-and MatchValConRec = { name : PosAdorn<Choice<string, ModQualifierRec>>; template : PosAdorn<TemplateApply> option; innerPattern : PosAdorn<Pattern> option }
-and MatchRecConRec = { name : PosAdorn<Choice<string, ModQualifierRec>>; template : PosAdorn<TemplateApply> option; fields : PosAdorn<(PosAdorn<string> * PosAdorn<Pattern>) list>}
+and MatchValConRec = { name : PosAdorn<Choice<string, ModQualifierRec>>; template : PosAdorn<TemplateApply> option; innerPattern : PosAdorn<PosAdorn<Pattern> list> }
 
 and Pattern = MatchVar of MatchVarRec
             | MatchIntVal of PosAdorn<int64>
             | MatchFloatVal of PosAdorn<float>
             | MatchValCon of MatchValConRec
-            | MatchRecCon of MatchRecConRec
+            | MatchRecCon of PosAdorn<(PosAdorn<string> * PosAdorn<Pattern>) list>
             | MatchUnderscore of PosAdorn<unit>
             | MatchTuple of PosAdorn<PosAdorn<Pattern> list>
             | MatchUnit of PosAdorn<unit>
@@ -147,7 +149,7 @@ and InternalTupleAccessRec = { tuple : PosAdorn<Expr>; index : int }
 and CallRec =         { func : PosAdorn<Expr>; args : PosAdorn<PosAdorn<Expr> list> }
 // Applying the template of a function
 and TemplateApplyExpRec = { func : PosAdorn<Choice<string, ModQualifierRec>>; templateArgs : PosAdorn<TemplateApply> }
-and RecordExprRec =   { recordTy : PosAdorn<Choice<string, ModQualifierRec>>; templateArgs : PosAdorn<TemplateApply> option; initFields : PosAdorn<(PosAdorn<string> * PosAdorn<Expr>) list> }
+and RecordExprRec =   { packed : PosAdorn<unit> option; initFields : PosAdorn<(PosAdorn<string> * PosAdorn<Expr>) list> }
 and ArrayMakeExpRec = { typ : PosAdorn<TyExpr>; initializer : PosAdorn<Expr> option }
 and TypeConstraintRec = { exp : PosAdorn<Expr>; typ : PosAdorn<TyExpr> }
 and UnsafeTypeCastRec = { exp : PosAdorn<Expr>; typ : PosAdorn<TyExpr> }

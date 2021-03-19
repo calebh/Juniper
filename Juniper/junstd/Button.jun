@@ -18,7 +18,7 @@ open(Prelude, Io)
             update)
         lastDebounceTime : uint32 - The last debounce time
 *)
-type buttonState = { actualState : pinState; lastState : pinState; lastDebounceTime : uint32 }
+alias buttonState = { actualState : pinState; lastState : pinState; lastDebounceTime : uint32 }
 
 (*
     Function: state
@@ -33,7 +33,7 @@ type buttonState = { actualState : pinState; lastState : pinState; lastDebounceT
         A new <buttonState>
 *)
 fun state() : buttonState ref = (
-    ref buttonState { actualState = Io:low(); lastState = Io:low(); lastDebounceTime = 0 }
+    ref { actualState = Io:low(); lastState = Io:low(); lastDebounceTime = 0 }
 )
 
 (*
@@ -60,23 +60,23 @@ fun state() : buttonState ref = (
 *)
 fun debounceDelay(incoming : sig<pinState>, delay : uint16, buttonState : buttonState ref) : sig<pinState> =
     Signal:map<pinState, pinState>(fn (currentState : pinState) : pinState ->
-        (let buttonState {actualState=actualState;
-                          lastState=lastState;
-                          lastDebounceTime=lastDebounceTime} = !buttonState;
+        (let {actualState=actualState;
+              lastState=lastState;
+              lastDebounceTime=lastDebounceTime} = !buttonState;
         if currentState != lastState then
-            (set ref buttonState = buttonState { actualState = actualState;
-                                                 lastState = currentState;
-                                                 lastDebounceTime = Time:now() };
+            (set ref buttonState = { actualState = actualState;
+                                     lastState = currentState;
+                                     lastDebounceTime = Time:now() };
             actualState)
         elif (currentState != actualState) and ((Time:now() - (!buttonState).lastDebounceTime) > delay) then
-            (set ref buttonState = buttonState { actualState = currentState;
-                                                 lastState = currentState;
-                                                 lastDebounceTime = lastDebounceTime};
+            (set ref buttonState = { actualState = currentState;
+                                     lastState = currentState;
+                                     lastDebounceTime = lastDebounceTime};
             currentState)
         else
-            (set ref buttonState = buttonState { actualState = actualState;
-                                                 lastState = currentState;
-                                                 lastDebounceTime = lastDebounceTime };
+            (set ref buttonState = { actualState = actualState;
+                                     lastState = currentState;
+                                     lastDebounceTime = lastDebounceTime };
             actualState)
         end)
     end, incoming)

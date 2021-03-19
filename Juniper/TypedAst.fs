@@ -1,5 +1,6 @@
 ﻿module TypedAst
 open FParsec
+open FSharpx
 
 // Allows for module type to be used for declaring modules.
 type Module = Module of Declaration list
@@ -13,33 +14,29 @@ type Module = Module of Declaration list
 and TyAdorn<'a> = (Position * Position) * TyExpr * 'a
 
 // Top level declarations
-// Function object. Template is optional.
 and FunctionRec = { name     : string;
                     template : Template option;
                     clause   : FunctionClause }
 
-// Record object. Template is optional.
-and RecordRec =   { name     : string
-                    packed   : bool;
-                    fields   : (string * TyExpr) list;
-                    template : Template option }
+and AliasRec  =   { name     : string
+                    template : Template option;
+                    typ : TyExpr }
 
-// Value constructor. Type is optional.
-and ValueCon =    string * (TyExpr option)
+and ValueCon =    string * (TyExpr list)
 
-// Union algrebraic datatype. Template is optional.
+// Union algrebraic datatype
 and UnionRec =    { name     : string;
                     valCons  : ValueCon list;
                     template : Template option }
 
-// Let statement for functional-style declarations.
+// Let statement
 and LetDecRec = { varName : string;
                   typ     : TyExpr;
-                  right   : TyAdorn<Expr>; }
+                  right   : TyAdorn<Expr> }
 
 // Declaration defined as any of the above.
 and Declaration = FunctionDec   of FunctionRec
-                | RecordDec     of RecordRec
+                | AliasDec      of AliasRec
                 | UnionDec      of UnionRec
                 | LetDec        of LetDecRec
                 | ModuleNameDec of string
@@ -89,26 +86,27 @@ and TyExpr = TyCon of TyCons
                     // v this must be a TyCon
            | ConApp of TyExpr * (TyExpr list) * (CapacityExpr list)
            | TyVar of string
-and ConstraintType = IsNum | IsInt | IsReal
+                          // The (string list) option indicates the ordering for packed records
+           | RecordTy of ((string list) option * Map<string, TyExpr>)
+and ConstraintType = IsNum | IsInt | IsReal | IsPacked | HasField of (string * TyExpr) | IsRecord
                       // v Types       v capacities  v constraints on types
 and TyScheme = Forall of string list * string list * ((TyExpr * ConstraintType) list) * TyExpr
 
 and DeclarationTy = FunDecTy of TyScheme
                     //              v Types      v capacities
-                  | RecordDecTy of string list * string list * Map<string, TyExpr>
+                  | AliasDecTy of string list * string list * TyExpr
                   | LetDecTy of TyExpr
                   | UnionDecTy of string list * string list * ModQualifierRec
 
 // Pattern matching AST datatypes.
 and MatchVarRec = { varName : string; mutable_ : bool; typ : TyExpr }
-and MatchValConRec = { modQualifier : ModQualifierRec; innerPattern : TyAdorn<Pattern> option; id : int }
-and MatchRecConRec = { typ : ModQualifierRec; fields : (string * TyAdorn<Pattern>) list }
+and MatchValConRec = { modQualifier : ModQualifierRec; innerPattern : TyAdorn<Pattern> list; id : int }
 
 and Pattern = MatchVar of MatchVarRec
             | MatchIntVal of int64
             | MatchFloatVal of float
             | MatchValCon of MatchValConRec
-            | MatchRecCon of MatchRecConRec
+            | MatchRecCon of (string * TyAdorn<Pattern>) list
             | MatchUnderscore
             | MatchTuple of TyAdorn<Pattern> list
             | MatchUnit
@@ -148,7 +146,7 @@ and UnsafeTypeCastRec = { exp : TyAdorn<Expr>; typ : TyExpr }
 and CallRec =         { func : TyAdorn<Expr>; args : TyAdorn<Expr> list }
 // Applying the template of a function
 and TemplateApplyExpRec = { func : Choice<string, ModQualifierRec>; templateArgs : TemplateApply }
-and RecordExprRec =   { recordTy : ModQualifierRec; templateArgs : TemplateApply option; initFields : (string * TyAdorn<Expr>) list }
+and RecordExprRec =   { packed : bool; initFields : (string * TyAdorn<Expr>) list }
 and ArrayMakeExpRec = { typ : TyExpr; initializer : TyAdorn<Expr> option }
 and DeclVarExpRec = { varName : string; typ : TyExpr }
 and Expr = SequenceExp of TyAdorn<Expr> list
@@ -294,6 +292,10 @@ and typeString (ty : TyExpr) : string =
         typeConString con args capArgs
     | TyVar name ->
         sprintf "'%s" name
+    | RecordTy (Some packed, fields) ->
+        sprintf "packed {%s}" (packed |> List.map (fun fieldName -> sprintf "%s : %s" fieldName (Map.find fieldName fields |> typeString)) |> String.concat "; ")
+    | RecordTy (None, fields) ->
+        sprintf "{%s}" (fields |> Map.toList |> List.map (fun (fieldName, fieldTau) -> sprintf "%s : %s" fieldName (typeString fieldTau)) |> String.concat "; ")
     | _ ->
         failwith "Compiler error in typeString"
 

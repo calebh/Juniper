@@ -243,6 +243,168 @@ namespace juniper
     T quit() {
         exit(1);
     }
+
+    template<typename a, typename b>
+    struct tuple2 {
+        a e1;
+        b e2;
+
+        bool operator==(tuple2<a,b> rhs) {
+            return e1 == rhs.e1 && e2 == rhs.e2;
+        }
+
+        bool operator!=(tuple2<a,b> rhs) {
+            return !(rhs == *this);
+        }
+    };
+
+    template<typename a, typename b, typename c>
+    struct tuple3 {
+        a e1;
+        b e2;
+        c e3;
+
+        bool operator==(tuple3<a,b,c> rhs) {
+            return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3;
+        }
+
+        bool operator!=(tuple3<a,b,c> rhs) {
+            return !(rhs == *this);
+        }
+    };
+
+    template<typename a, typename b, typename c, typename d>
+    struct tuple4 {
+        a e1;
+        b e2;
+        c e3;
+        d e4;
+
+        bool operator==(tuple4<a,b,c,d> rhs) {
+            return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4;
+        }
+
+        bool operator!=(tuple4<a,b,c,d> rhs) {
+            return !(rhs == *this);
+        }
+    };
+
+    template<typename a, typename b, typename c, typename d, typename e>
+    struct tuple5 {
+        a e1;
+        b e2;
+        c e3;
+        d e4;
+        e e5;
+
+        bool operator==(tuple5<a,b,c,d,e> rhs) {
+            return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4 && e5 == rhs.e5;
+        }
+
+        bool operator!=(tuple5<a,b,c,d,e> rhs) {
+            return !(rhs == *this);
+        }
+    };
+
+    template<typename a, typename b, typename c, typename d, typename e, typename f>
+    struct tuple6 {
+        a e1;
+        b e2;
+        c e3;
+        d e4;
+        e e5;
+        f e6;
+
+        bool operator==(tuple6<a,b,c,d,e,f> rhs) {
+            return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4 && e5 == rhs.e5 && e6 == rhs.e6;
+        }
+
+        bool operator!=(tuple6<a,b,c,d,e,f> rhs) {
+            return !(rhs == *this);
+        }
+    };
+
+    template<typename a, typename b, typename c, typename d, typename e, typename f, typename g>
+    struct tuple7 {
+        a e1;
+        b e2;
+        c e3;
+        d e4;
+        e e5;
+        f e6;
+        g e7;
+
+        bool operator==(tuple7<a,b,c,d,e,f,g> rhs) {
+            return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4 && e5 == rhs.e5 && e6 == rhs.e6 && e7 == rhs.e7;
+        }
+
+        bool operator!=(tuple7<a,b,c,d,e,f,g> rhs) {
+            return !(rhs == *this);
+        }
+    };
+
+    template<typename a, typename b, typename c, typename d, typename e, typename f, typename g, typename h>
+    struct tuple8 {
+        a e1;
+        b e2;
+        c e3;
+        d e4;
+        e e5;
+        f e6;
+        g e7;
+        h e8;
+
+        bool operator==(tuple8<a,b,c,d,e,f,g,h> rhs) {
+            return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4 && e5 == rhs.e5 && e6 == rhs.e6 && e7 == rhs.e7 && e8 == rhs.e8;
+        }
+
+        bool operator!=(tuple8<a,b,c,d,e,f,g,h> rhs) {
+            return !(rhs == *this);
+        }
+    };
+
+    template<typename a, typename b, typename c, typename d, typename e, typename f, typename g, typename h, typename i>
+    struct tuple9 {
+        a e1;
+        b e2;
+        c e3;
+        d e4;
+        e e5;
+        f e6;
+        g e7;
+        h e8;
+        i e9;
+
+        bool operator==(tuple9<a,b,c,d,e,f,g,h,i> rhs) {
+            return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4 && e5 == rhs.e5 && e6 == rhs.e6 && e7 == rhs.e7 && e8 == rhs.e8 && e9 == rhs.e9;
+        }
+
+        bool operator!=(tuple9<a,b,c,d,e,f,g,h,i> rhs) {
+            return !(rhs == *this);
+        }
+    };
+
+    template<typename a, typename b, typename c, typename d, typename e, typename f, typename g, typename h, typename i, typename j>
+    struct tuple10 {
+        a e1;
+        b e2;
+        c e3;
+        d e4;
+        e e5;
+        f e6;
+        g e7;
+        h e8;
+        i e9;
+        j e10;
+
+        bool operator==(tuple10<a,b,c,d,e,f,g,h,i,j> rhs) {
+            return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4 && e5 == rhs.e5 && e6 == rhs.e6 && e7 == rhs.e7 && e8 == rhs.e8 && e9 == rhs.e9 && e10 == rhs.e10;
+        }
+
+        bool operator!=(tuple10<a,b,c,d,e,f,g,h,i,j> rhs) {
+            return !(rhs == *this);
+        }
+    };
 }
 
 #endif

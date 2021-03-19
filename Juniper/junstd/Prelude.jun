@@ -4,17 +4,6 @@ module Prelude
     Interface: Prelude
 *)
 
-(* Internal use only, do not document *)
-type tuple2<'a,'b> = {e1 : 'a; e2 : 'b}
-type tuple3<'a,'b,'c> = {e1 : 'a; e2 : 'b; e3 : 'c}
-type tuple4<'a,'b,'c,'d> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd}
-type tuple5<'a,'b,'c,'d,'e> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e}
-type tuple6<'a,'b,'c,'d,'e,'f> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f}
-type tuple7<'a,'b,'c,'d,'e,'f,'g> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g}
-type tuple8<'a,'b,'c,'d,'e,'f,'g,'h> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h}
-type tuple9<'a,'b,'c,'d,'e,'f,'g,'h,'i> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h; e9 : 'i}
-type tuple10<'a,'b,'c,'d,'e,'f,'g,'h,'i,'j> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : 'd; e5 : 'e; e6 : 'f; e7 : 'g; e8 : 'h; e9 : 'i; e10 : 'j}
-
 (*
     Type: maybe
 
@@ -40,8 +29,8 @@ type tuple10<'a,'b,'c,'d,'e,'f,'g,'h,'i,'j> = {e1 : 'a; e2 : 'b; e3 : 'c; e4 : '
     Type signature:
     | <'a>('a) -> maybe<'a>
 *)
-type maybe<'a> = just of 'a
-               | nothing
+type maybe<'a> = just('a)
+               | nothing()
 
 (*
     Type: either
@@ -67,8 +56,8 @@ type maybe<'a> = just of 'a
     Type signature:
     | <'a,'b>('b) -> either<'a, 'b>
 *)
-type either<'a,'b> = left of 'a
-                   | right of 'b
+type either<'a,'b> = left('a)
+                   | right('b)
 
 (*
     Type: list
@@ -82,7 +71,7 @@ type either<'a,'b> = left of 'a
         data : 'a[n] - The internal array used to store the elements.
         length : uint32 - The length of the list
 *)
-type list<'a; n> = { data : 'a[n]; length : uint32 }
+alias list<'a; n> = { data : 'a[n]; length : uint32 }
 
 (*
     Type: sig
@@ -102,7 +91,7 @@ type list<'a; n> = { data : 'a[n]; length : uint32 }
     Type signature:
     | (maybe<'a>) -> sig<'a>
 *)
-type sig<'a> = signal of maybe<'a>
+type sig<'a> = signal(maybe<'a>)
 
 (*
     Function: compose
@@ -1877,6 +1866,166 @@ fun toFloat<'t>(n : 't) : float where 't : num = (
 fun toDouble<'t>(n : 't) : double where 't : num = (
     var ret : double;
     #ret = (double) n;#;
+    ret
+)
+
+(*
+    Function: fromUInt8
+
+    Converts a uint8 to another number type.
+
+    Type signature:
+    | <'t>(uint8) -> 't where 't : num
+
+    Parameters:
+        n : uint8 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun fromUInt8<'t>(n : uint8) : 't where 't : num = (
+    var ret : 't;
+    #ret = (t) n;#;
+    ret
+)
+
+(*
+    Function: fromInt8
+
+    Converts a int8 to another number type.
+
+    Type signature:
+    | <'t>(int8) -> 't where 't : num
+
+    Parameters:
+        n : int8 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun fromInt8<'t>(n : int8) : 't where 't : num = (
+    var ret : 't;
+    #ret = (t) n;#;
+    ret
+)
+
+(*
+    Function: fromUInt16
+
+    Converts a uint16 to another number type.
+
+    Type signature:
+    | <'t>(uint16) -> 't where 't : num
+
+    Parameters:
+        n : uint16 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun fromUInt16<'t>(n : uint16) : 't where 't : num = (
+    var ret : 't;
+    #ret = (t) n;#;
+    ret
+)
+
+(*
+    Function: fromInt16
+
+    Converts a int16 to another number type.
+
+    Type signature:
+    | <'t>(int16) -> 't where 't : num
+
+    Parameters:
+        n : int16 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun fromInt16<'t>(n : int16) : 't where 't : num = (
+    var ret : 't;
+    #ret = (t) n;#;
+    ret
+)
+
+(*
+    Function: fromUInt32
+
+    Converts a uint32 to another number type.
+
+    Type signature:
+    | <'t>(uint32) -> 't where 't : num
+
+    Parameters:
+        n : uint32 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun fromUInt32<'t>(n : uint32) : 't where 't : num = (
+    var ret : 't;
+    #ret = (t) n;#;
+    ret
+)
+
+(*
+    Function: fromInt32
+
+    Converts a int32 to another number type.
+
+    Type signature:
+    | <'t>(int32) -> 't where 't : num
+
+    Parameters:
+        n : int32 - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun fromInt32<'t>(n : int32) : 't where 't : num = (
+    var ret : 't;
+    #ret = (t) n;#;
+    ret
+)
+
+(*
+    Function: fromFloat
+
+    Converts a float to another number type.
+
+    Type signature:
+    | <'t>(float) -> 't where 't : num
+
+    Parameters:
+        n : float - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun fromFloat<'t>(n : float) : 't where 't : num = (
+    var ret : 't;
+    #ret = (t) n;#;
+    ret
+)
+
+(*
+    Function: fromDouble
+
+    Converts a double to another number type.
+
+    Type signature:
+    | <'t>(double) -> 't where 't : num
+
+    Parameters:
+        n : double - The number to convert
+
+    Returns:
+        The number with converted type
+*)
+fun fromDouble<'t>(n : double) : 't where 't : num = (
+    var ret : 't;
+    #ret = (t) n;#;
     ret
 )
 

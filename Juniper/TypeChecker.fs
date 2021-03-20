@@ -599,9 +599,11 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 | Ast.LogicalNot ->
                     (T.LogicalNot, T.booltype =~= (T.getType exp', errStr [pose] "The type of an expression applied to a logical not operation must be a boolean"), T.booltype)
                 | Ast.BitwiseNot ->
-                    (T.BitwiseNot, Trivial, T.getType exp')
+                    let c3 = InterfaceConstraint (T.getType exp', T.IsInt, errStr [pose] "Bitwise not operator argument must be a of integer type")
+                    (T.BitwiseNot, c3, T.getType exp')
                 | Ast.Negate ->
-                    (T.Negate, Trivial, T.getType exp')
+                    let c3 = InterfaceConstraint (T.getType exp', T.IsNum, errStr [pose] "Negation operator argument must be a number")
+                    (T.Negate, c3, T.getType exp')
                 | Ast.Deref ->
                     let retTau = freshtyvar ()
                     let c' = (T.ConApp (T.TyCon T.RefTy, [retTau], []) =~= (T.getType exp', errStr [pose] "Attempting to dereference an expression with a non-ref type."))

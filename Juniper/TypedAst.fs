@@ -1,6 +1,5 @@
 ﻿module TypedAst
 open FParsec
-open FSharpx
 
 // Allows for module type to be used for declaring modules.
 type Module = Module of Declaration list

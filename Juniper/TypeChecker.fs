@@ -3,7 +3,7 @@ module A = Ast
 module T = TypedAst
 open Constraint
 open Extensions
-open QuickGraph.Algorithms
+open QuikGraph.Algorithms
 open ConvertAst
 open Error
 open AstAnalysis
@@ -726,19 +726,24 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
     ) Map.empty denv)
 
     // Check the dependency graph first to determine what order we need to typecheck in (topological sort)
-    let valueGraph = new QuickGraph.AdjacencyGraph<string*string, QuickGraph.Edge<string*string>>()
+    let valueGraph = new QuikGraph.AdjacencyGraph<string*string, QuikGraph.Edge<string*string>>()
 
     program |> List.iter (fun moduledef ->
-        let (Ast.Module decs) = moduledef
+        let module_ = nameInModule moduledef |> Option.get |> Ast.unwrap
+        // List of all let and function declarations in
+        // the module currently being considered
+        let valueDecs = valueDecsInModule moduledef
+        // Add all the declarations as vertices to the graph
+        valueDecs |> List.iter (fun name ->
+            valueGraph.AddVertex((module_, name)) |> ignore
+        ))
+
+    program |> List.iter (fun moduledef ->
         let module_ = nameInModule moduledef |> Option.get |> Ast.unwrap
         // List of all let and function declarations in
         // the module currently being considered
         let valueDecs = valueDecsInModule moduledef
         let menv = Map.find module_ modNamesToMenvs
-        // Add all the declarations as vertices to the graph
-        valueDecs |> List.iter (fun name ->
-            valueGraph.AddVertex((module_, name)) |> ignore
-        )
         // Find out what declarations this declaration refers to
         valueDecs |> List.iter (fun name ->
             let (pos, dec) = Map.find (module_, name) denv
@@ -758,7 +763,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
             // Add all the edges to the graph
             references |> Set.iter (fun reference ->
                 if Map.containsKey reference denv then
-                    valueGraph.AddEdge(new QuickGraph.Edge<string*string>((module_, name), reference)) |> ignore
+                    valueGraph.AddEdge(new QuikGraph.Edge<string*string>((module_, name), reference)) |> ignore
                 else
                     raise <| TypeError ((errStr [pos] (sprintf "Reference made to %s:%s which could not be found" (fst reference) (snd reference))).Force())
             )
@@ -766,7 +771,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
     )
 
     // Also build a dependency graph for the types
-    let typeGraph = new QuickGraph.AdjacencyGraph<string*string, QuickGraph.Edge<string*string>>()
+    let typeGraph = new QuikGraph.AdjacencyGraph<string*string, QuikGraph.Edge<string*string>>()
 
     program |> List.iter (fun moduledef ->
         let (Ast.Module decs) = moduledef
@@ -783,13 +788,13 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
             references |> Set.iter (fun reference ->
                 // TODO: Better check here
                 if Map.containsKey reference dtenv0 then
-                    typeGraph.AddEdge(new QuickGraph.Edge<string*string>((module_, name), reference)) |> ignore
+                    typeGraph.AddEdge(new QuikGraph.Edge<string*string>((module_, name), reference)) |> ignore
                 else
                     raise <| TypeError ((errStr [pos] (sprintf "Reference made to %s:%s which could not be found" (fst reference) (snd reference))).Force()))))
     
     let typeDependencyOrder =
         // Ensure that there are no circular type dependencies
-        let typeCondensation = typeGraph.CondensateStronglyConnected<_, _, QuickGraph.AdjacencyGraph<_, _>>()
+        let typeCondensation = typeGraph.CondensateStronglyConnected<_, _, QuikGraph.AdjacencyGraph<_, _>>()
         typeCondensation.Vertices |>
         Seq.iter
             (fun scc ->
@@ -860,7 +865,8 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
         List.map (fun (module_, (_, Ast.InlineCodeDec (_, code))) ->
             (module_, T.InlineCodeDec code))
     
-    let (_, connectedComponents) = valueGraph.StronglyConnectedComponents()
+    let connectedComponents = new System.Collections.Generic.Dictionary<string * string, int>()
+    valueGraph.StronglyConnectedComponents(connectedComponents) |> ignore
 
     let sccs = connectedComponents |> Map.ofDict |> Map.invertNonInjective |> Map.toList |> List.map snd
 
@@ -881,7 +887,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                         else
                             ()))
     
-    let condensation = valueGraph.CondensateStronglyConnected<_, _, QuickGraph.AdjacencyGraph<_, _>>()
+    let condensation = valueGraph.CondensateStronglyConnected<_, _, QuikGraph.AdjacencyGraph<_, _>>()
     let dependencyOrder = condensation.TopologicalSort() |> Seq.map (fun scc -> scc.Vertices |> List.ofSeq) |> Seq.rev |> List.ofSeq
 
     let localGamma globalGamma module_ =

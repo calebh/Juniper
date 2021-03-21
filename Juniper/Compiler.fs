@@ -698,7 +698,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
             (taus |> List.mapi (fun j ty -> compileType ty + output (sprintf " data%d" j)) |> String.concat ", ") +
             output ") {" + newline() + indentId() +
             compileType retType + output " ret;" + newline() +
-            output "ret.tag = " + (sprintf "%d" i) + output "; " +
+            output "ret.tag = " + (sprintf "%d" i) + output ";" + newline() +
             (match taus with
             | [] -> output "ret." + output valConName + output " = " + output "0;" + newline()
             | [_] -> output "ret." + output valConName + output " = " + output "data0;" + newline()

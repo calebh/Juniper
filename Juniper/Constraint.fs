@@ -446,7 +446,14 @@ let rec solve con : Map<string, TyExpr> * Map<string, CapacityExpr> * Map<string
                     let tau' = tycapsubst thetaSolution kappaSolution tau
                     let failMsg' = lazy (sprintf "Interface constraint error: The type %s does not satisfy the %s constraint.\n\n%s" (typeString tau') (interfaceConstraintString constraintType) (failMsg.Force()))
                     match tau' with
-                    | TyVar v -> (Some (v, (constraintType, failMsg)), None)
+                    | TyVar v ->
+                        let constraintType' =
+                            match constraintType with
+                            | HasField (fieldName, fieldTau) ->
+                                HasField (fieldName, tycapsubst thetaSolution kappaSolution fieldTau)
+                            | _ ->
+                                constraintType
+                        (Some (v, (constraintType', failMsg)), None)
                     | _ ->
                         match constraintType with
                         | IsNum when isNumericalType tau' -> (None, None)
@@ -497,7 +504,7 @@ let rec solve con : Map<string, TyExpr> * Map<string, CapacityExpr> * Map<string
             List.ofSeq |>
             conjoinConstraints // Finally conjoin all the constraints together
     
-        let newConstraintSystem = extraInterfaceConstraints' &&& fieldConstraints |> simplifyConstraint
+        let newConstraintSystem = (extraInterfaceConstraints' &&& fieldConstraints) |> simplifyConstraint
 
         // If there are no further constraints to consider, we have reached a fixed point of the solving process.
         // In this case there is no further information we can gain specifically by considering interface constraints.

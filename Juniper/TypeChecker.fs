@@ -1062,22 +1062,60 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                                             | x ->
                                                 raise <| TypeError ((errStr [posc] (sprintf "The capacity parameter was inferred to be equivalent to the non-capacity variable '%s'" (T.capacityString x))).Force()))   
                                         (tyVars', capVars', Some ({tyVars=tyVars'; capVars=capVars'} : T.Template), Some originalTyVars, Some originalCapVars)
+                                // Now expand the set of type variables to account for interface field constraints
+                                // this process is roughly equivalent to deriving functional dependency rules for record
+                                // types. The type variables discovered during this process will be used in the next
+                                // step only where we check for too much polymorphism. Example of the logic used here:
+                                // Suppose we have an interface constraint 'a : { myField : 'b }, that is 'a is a type
+                                // variable that is a record with a field named myField of type 'b. When detecting excess
+                                // polymorphism, we would like to take into account that fixing a type for 'a also fixes
+                                // its field type. In functional dependency terms, 'a -> 'b
+
+                                // The return type of expandFunctionalDependency is (Set<string>*Set<string>), where the first
+                                // set is the expanded type variables and the second is capacity variables
+                                let rec expandFunctionalDependency (tyVar: string) : Set<string>*Set<string> =
+                                    match Map.tryFind tyVar interfaceConstraints with
+                                    | Some constraints ->
+                                        let (extraTyVars, extraCapVars) =
+                                            constraints |>
+                                            List.map
+                                                (fun (constraintType, _) ->
+                                                    match constraintType with
+                                                    | HasField (_, tau) ->
+                                                        freeVars tau
+                                                    | _ ->
+                                                        (Set.empty, Set.empty)) |>
+                                            List.unzip
+                                        let (extraTyVars', extraCapVars') =
+                                            extraTyVars |>
+                                            Set.unionMany |>
+                                            List.ofSeq |>
+                                            List.map (expandFunctionalDependency) |>
+                                            List.unzip
+                                        let extraTyVars'' = Set.union (Set.unionMany extraTyVars') (Set.unionMany extraTyVars)
+                                        let extraCapVars'' = Set.union (Set.unionMany extraCapVars') (Set.unionMany extraCapVars)
+                                        (Set.add tyVar extraTyVars'', extraCapVars'')
+                                    | None ->
+                                        (Set.singleton tyVar, Set.empty)
+                                let (funDepsTs, funDepsCs) = t |> List.map expandFunctionalDependency |> List.unzip
+                                let funDepsTs' = Set.unionMany funDepsTs
+                                let funDepsCs' = Set.union (Set.ofList c) (Set.unionMany funDepsCs)
                                 // Now check to see if any of the interface constraints contain free variables
                                 // that are not also members of the template. If this is the case, there is
                                 // polymorphism within the function that cannot be reified by inferring either the
                                 // arguments or return types. This is an error
-                                match Set.difference (Map.keys interfaceConstraints) (Set.ofList t) |> List.ofSeq with
+                                match Set.difference (Map.keys interfaceConstraints) funDepsTs' |> List.ofSeq with
                                 | [] -> ()
                                 | badFreeVar::_ ->
                                     let (_, errMsg)::_ = Map.find badFreeVar interfaceConstraints
                                     raise <| TypeError (sprintf "Too much polymorphism! A polymorphic interface constraint was detected containing a type variable that would not be reified by fixing either the argument types or return types. Consider adding a type constraint to fix the source of this problem.\n\n%s" (errMsg.Force()))
                                 let (freeTyVarsInBody, freeCapVarsInBody) = AstAnalysis.findFreeVars theta kappa body'
-                                match Set.difference (List.map A.unwrap freeTyVarsInBody |> Set.ofList) (Set.ofList t) |> List.ofSeq with
+                                match Set.difference (List.map A.unwrap freeTyVarsInBody |> Set.ofList) funDepsTs' |> List.ofSeq with
                                 | [] -> ()
                                 | badFreeVar::_ ->
                                     let (pos, _) = List.find (fun freeVar -> (A.unwrap freeVar) = badFreeVar) freeTyVarsInBody
                                     raise <| TypeError ((errStr [pos] "Too much polymorphism! The following expression has a type that was detected to contain a type variable that would not be reified by fixing either the argument types or return types. Consider adding a type constraint to fix the source of this problem").Force())
-                                match Set.difference (List.map A.unwrap freeCapVarsInBody |> Set.ofList) (Set.ofList c) |> List.ofSeq with
+                                match Set.difference (List.map A.unwrap freeCapVarsInBody |> Set.ofList) funDepsCs' |> List.ofSeq with
                                 | [] -> ()
                                 | badFreeVar::_ ->
                                     let (pos, _) = List.find (fun freeVar -> (A.unwrap freeVar) = badFreeVar) freeCapVarsInBody

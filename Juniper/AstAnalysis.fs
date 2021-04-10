@@ -140,8 +140,8 @@ let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
                 Set.singleton modqual
             else
                 Set.empty
-        | Ast.Smartpointer (_, destructor) ->
-            d' destructor
+        | Ast.Smartpointer ((_, rawptr), (_, destructor)) ->
+            Set.union (d' rawptr) (d' destructor)
         | Ast.QuitExp _ ->
             Set.empty
         | Ast.RecordAccessExp {record=(_, record)} ->
@@ -286,8 +286,8 @@ let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.Capa
             append2 ([ffv on; pats; exprs] |> List.unzip)
         | T.DoWhileLoopExp {condition=condition; body=body} ->
             append2 ([ffv condition; ffv body] |> List.unzip)
-        | T.Smartpointer expr ->
-            ffv expr
+        | T.Smartpointer (rawPtr, destructor) ->
+            append2 ([ffv rawPtr; ffv destructor] |> List.unzip)
         | (T.FalseExp | T.FloatExp _ | T.InlineCode _ | T.IntExp _ |
             T.InternalDeclareVar _ | T.ModQualifierExp _ |
             T.TrueExp | T.UnitExp | T.VarExp _ | T.DoubleExp _ |
@@ -324,5 +324,33 @@ let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.Capa
             append2 ([ffv condition; ffv body] |> List.unzip)
         | T.DeclVarExp {varName=varName; typ=typ} ->
             freeVarsTyp (T.getPos e) typ
+        | T.FunctionWrapper func ->
+            ffv func
     
     (List.append freeTaus freeTaus', List.append freeCaps freeCaps')
+
+// Finds variables referenced within expr that are not declared within expr
+let closure (expr : T.TyAdorn<T.Expr>) : Set<string> =
+    T.preorderFold
+        (fun gamma accum expr' ->
+            match T.unwrap expr' with
+            | T.VarExp (name, _, _) ->
+                if Map.containsKey name gamma then
+                    accum
+                else
+                    Set.add name accum
+            | _ ->
+                accum)
+        (fun gamma accum leftAssign' ->
+            match leftAssign' with
+            | T.VarMutation name ->
+                if Map.containsKey name gamma then
+                    accum
+                else
+                    Set.add name accum
+            | _ ->
+                accum)
+        (fun _ accum _ -> accum)
+        Map.empty
+        Set.empty
+        expr

@@ -8,6 +8,10 @@ let flip f a b = f b a
 module Map =
     let merge map1 map2 = Map.fold (fun acc key value -> Map.add key value acc) map1 map2
 
+    let mergeMany maps = List.fold merge Map.empty maps
+
+    let singleton k v = Map.add k v Map.empty
+
     // Map find, defaulting to the identity function if the key could
     // not be found in the map
     let findId k m =
@@ -29,6 +33,8 @@ module Map =
     let keys m = m |> Map.toSeq |> Seq.map fst |> Set.ofSeq
 
     let values m = m |> Map.toSeq |> Seq.map snd
+
+    let fromKeys f k = k |> List.ofSeq |> List.map (fun k -> (k, f k)) |> Map.ofList
 
     let ofDict dictionary = 
         (dictionary :> seq<_>)
@@ -107,3 +113,11 @@ module Option =
         match o with
         | None -> []
         | Some xs -> xs
+
+    let mapFold (f : 'state -> 'a -> ('b * 'state)) (accum : 'state) (o : option<'a>) : (option<'b> * 'state) =
+        match o with
+        | None ->
+            (None, accum)
+        | Some x ->
+            let (x', accum') = f accum x
+            (Some x', accum')

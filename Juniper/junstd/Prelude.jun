@@ -99,16 +99,16 @@ type sig<'a> = signal(maybe<'a>)
     Composes two functions together.
 
     Type signature:
-    | <'a,'b,'c>(('b) -> 'c, ('a) -> 'b) -> (('a) -> 'c)
+    | <'a,'b,'c,'closureF,'closureG>(('closureF)('b) -> 'c, ('closureG)('a) -> 'b) -> ((|f : ('closureF)('b) -> 'c; g : ('closureG)('a) -> 'b|)('a) -> 'c)
 
     Parameters:
-        f : ('b) -> 'c - The second function to compose
-        g : ('a) -> 'b - The first function to compose
+        f : ('closureF)('b) -> 'c - The second function to compose
+        g : ('closureG)('a) -> 'b - The first function to compose
 
     Returns:
         A composed function equivalent to f(g(x))
 *)
-fun compose<'a,'b,'c>(f : ('b) -> 'c, g : ('a) -> 'b) : ('a) -> 'c =
+fun compose<'a,'b,'c,'closureF, 'closureG>(f : ('closureF)('b) -> 'c, g : ('closureG)('a) -> 'b) : (|f : ('closureF)('b) -> 'c; g : ('closureG)('a) -> 'b|)('a) -> 'c =
     fn (x : 'a) : 'c -> f(g(x)) end
 
 (*
@@ -117,16 +117,16 @@ fun compose<'a,'b,'c>(f : ('b) -> 'c, g : ('a) -> 'b) : ('a) -> 'c =
     Curries a function with an argument arity of 2.
 
     Type signature:
-    | <'a,'b,'c>(('a, 'b) -> 'c) -> (('a) -> ('b) -> 'c)
+    | <'a,'b,'c,'closure>(('closure)('a, 'b) -> 'c) -> ((|f : ('closure)('a, 'b) -> 'c|)('a) -> (|valueA : 'a; f : ('closure)('a, 'b) -> 'c|)('b) -> 'c)
 
     Parameters:
-        f : ('a, 'b) -> 'c - The function to curry.
+        f : ('closure)('a, 'b) -> 'c - The function to curry.
 
     Returns:
         A curried function
 *)
-fun curry<'a,'b,'c>(f : ('a, 'b) -> 'c) : ('a) -> ('b) -> 'c =
-    fn (valueA : 'a) : ('b) -> 'c ->
+fun curry<'a,'b,'c,'closure>(f : ('closure)('a, 'b) -> 'c) : (|f : ('closure)('a, 'b) -> 'c|)('a) -> (|valueA : 'a; f : ('closure)('a, 'b) -> 'c|)('b) -> 'c =
+    fn (valueA : 'a) ->
         fn (valueB : 'b) : 'c ->
             f(valueA, valueB)
         end
@@ -138,15 +138,15 @@ fun curry<'a,'b,'c>(f : ('a, 'b) -> 'c) : ('a) -> ('b) -> 'c =
     Uncurries a function with an argument arity of 2.
 
     Type signature:
-    | <'a,'b,'c>(('a) -> ('b) -> 'c) -> (('a, 'b) -> 'c)
+    | <'a,'b,'c,'closureA,'closureB>(('closureA)('a) -> ('closureB)('b) -> 'c) -> ((|f : ('closureA)('a) -> ('closureB)('b) -> 'c|)('a, 'b) -> 'c)
 
     Parameters:
-        f : ('a) -> ('b) -> 'c - The function to uncurry.
+        f : ('closureA)('a) -> ('closureB)('b) -> 'c - The function to uncurry.
 
     Returns:
         A uncurried function
 *)
-fun uncurry<'a,'b,'c>(f : ('a) -> ('b) -> 'c) : ('a, 'b) -> 'c =
+fun uncurry<'a,'b,'c,'closureA,'closureB>(f : ('closureA)('a) -> ('closureB)('b) -> 'c) : (|f : ('closureA)('a) -> ('closureB)('b) -> 'c|)('a, 'b) -> 'c =
     fn (valueA, valueB) ->
         f(valueA)(valueB)
     end
@@ -157,18 +157,18 @@ fun uncurry<'a,'b,'c>(f : ('a) -> ('b) -> 'c) : ('a, 'b) -> 'c =
     Curries a function with an argument arity of 3.
 
     Type signature:
-    | <'a,'b,'c,'d>(('a, 'b, 'c) -> 'd) -> (('a) -> ('b) -> ('c) -> 'd)
+    | <'a,'b,'c,'d,'closureF>(('closureF)('a, 'b, 'c) -> 'd) -> ((|f : ('closureF)('a, 'b, 'c) -> 'd|)('a) -> (|f : ('closureF)('a, 'b, 'c) -> 'd; valueA : 'a|)('b) -> (|f : ('closureF)('a, 'b, 'c) -> 'd; valueA : 'a; valueB : 'b|)('c) -> 'd)
 
     Parameters:
-        f : ('a, 'b, 'c) -> 'd - The function to curry.
+        f : ('closureF)('a, 'b, 'c) -> 'd - The function to curry.
 
     Returns:
         A curried function
 *)
-fun curry3<'a,'b,'c,'d>(f : ('a, 'b, 'c) -> 'd) : ('a) -> ('b) -> ('c) -> 'd =
-    fn (valueA : 'a) : ('b) -> ('c) -> 'd ->
-        fn (valueB : 'b) : ('c) -> 'd ->
-            fn (valueC : 'c) : 'd ->
+fun curry3<'a,'b,'c,'d,'closureF>(f : ('closureF)('a, 'b, 'c) -> 'd) : (|f : ('closureF)('a, 'b, 'c) -> 'd|)('a) -> (|f : ('closureF)('a, 'b, 'c) -> 'd; valueA : 'a|)('b) -> (|f : ('closureF)('a, 'b, 'c) -> 'd; valueA : 'a; valueB : 'b|)('c) -> 'd =
+    fn (valueA : 'a) ->
+        fn (valueB : 'b) ->
+            fn (valueC : 'c) ->
                 f(valueA, valueB, valueC)
             end
         end
@@ -180,15 +180,15 @@ fun curry3<'a,'b,'c,'d>(f : ('a, 'b, 'c) -> 'd) : ('a) -> ('b) -> ('c) -> 'd =
     Uncurries a function with an argument arity of 3.
 
     Type signature:
-    | <'a,'b,'c,'d>(('a) -> ('b) -> ('c) -> 'd) -> (('a, 'b, 'c) -> 'd)
+    | <'a,'b,'c,'d,'closureA,'closureB,'closureC>(('closureA)('a) -> ('closureB)('b) -> ('closureC)('c) -> 'd) -> ((|f : ('closureA)('a) -> ('closureB)('b) -> ('closureC)('c) -> 'd|)('a, 'b, 'c) -> 'd)
 
     Parameters:
-        f : ('a) -> ('b) -> ('c) -> 'd - The function to uncurry
+        f : ('closureA)('a) -> ('closureB)('b) -> ('closureC)('c) -> 'd - The function to uncurry
 
     Returns:
         An uncurried function
 *)
-fun uncurry3<'a,'b,'c,'d>(f : ('a) -> ('b) -> ('c) -> 'd) : ('a, 'b, 'c) -> 'd =
+fun uncurry3<'a,'b,'c,'d,'closureA,'closureB,'closureC>(f : ('closureA)('a) -> ('closureB)('b) -> ('closureC)('c) -> 'd) : (|f : ('closureA)('a) -> ('closureB)('b) -> ('closureC)('c) -> 'd|)('a, 'b, 'c) -> 'd =
     fn (valueA, valueB, valueC) ->
         f(valueA)(valueB)(valueC)
     end
@@ -360,16 +360,16 @@ fun orf(x, y) =
     Applies a value to the given function
 
     Type signature:
-    | <'a,'b>(('a) -> 'b, 'a) -> 'b
+    | <'a,'b,'closure>(('closure)('a) -> 'b, 'a) -> 'b
 
     Parameters:
-        f : ('a) -> 'b - The function to apply
+        f : ('closure)('a) -> 'b - The function to apply
         x : 'a - The value to pass to the function
 
     Returns:
         The result of x applied to f
 *)
-fun apply<'a,'b>(f : ('a) -> 'b, x : 'a) : 'b =
+fun apply<'a,'b,'closure>(f : ('closure)('a) -> 'b, x : 'a) : 'b =
     f(x)
 
 (*
@@ -378,16 +378,16 @@ fun apply<'a,'b>(f : ('a) -> 'b, x : 'a) : 'b =
     Applies a tuple of values to the given function
 
     Type signature:
-    | <'a,'b,'c>(('a,'b) -> 'c, 'a*'b) -> 'c
+    | <'a,'b,'c,'closure>(('closure)('a,'b) -> 'c, 'a*'b) -> 'c
 
     Parameters:
-        f : ('a,'b) -> 'c - The function to apply
+        f : ('closure)('a,'b) -> 'c - The function to apply
         tup : 'a*'b - The values to pass to the function
 
     Returns:
         The result of the values held in the tuple applied to f
 *)
-fun apply2<'a,'b,'c>(f : ('a, 'b) -> 'c, tup : 'a*'b) : 'c = (
+fun apply2<'a,'b,'c,'closure>(f : ('closure)('a, 'b) -> 'c, tup : 'a*'b) : 'c = (
     let (a, b) = tup;
     f(a, b)
 )
@@ -398,16 +398,16 @@ fun apply2<'a,'b,'c>(f : ('a, 'b) -> 'c, tup : 'a*'b) : 'c = (
     Applies a tuple of values to the given function
 
     Type signature:
-    | <'a,'b,'c,'d>(('a,'b,'c) -> 'd, 'a*'b*'c) -> 'd
+    | <'a,'b,'c,'d,'closure>(('closure)('a,'b,'c) -> 'd, 'a*'b*'c) -> 'd
 
     Parameters:
-        f : ('a,'b,'c) -> 'd - The function to apply
+        f : ('closure)('a,'b,'c) -> 'd - The function to apply
         tup : 'a*'b*'c - The values to pass to the function
 
     Returns:
         The result of the values held in the tuple applied to f
 *)
-fun apply3<'a,'b,'c,'d>(f : ('a, 'b, 'c) -> 'd, tup : 'a*'b*'c) : 'd = (
+fun apply3<'a,'b,'c,'d,'closure>(f : ('closure)('a, 'b, 'c) -> 'd, tup : 'a*'b*'c) : 'd = (
     let (a, b, c) = tup;
     f(a, b, c)
 )
@@ -418,16 +418,16 @@ fun apply3<'a,'b,'c,'d>(f : ('a, 'b, 'c) -> 'd, tup : 'a*'b*'c) : 'd = (
     Applies a tuple of values to the given function
 
     Type signature:
-    | <'a,'b,'c,'d,'e>(('a,'b,'c,'d) -> 'e, 'a*'b*'c*'d) -> 'e
+    | <'a,'b,'c,'d,'e,'closure>(('closure)('a,'b,'c,'d) -> 'e, 'a*'b*'c*'d) -> 'e
 
     Parameters:
-        f : ('a,'b,'c,'d) -> 'e - The function to apply
+        f : ('closure)('a,'b,'c,'d) -> 'e - The function to apply
         tup : 'a*'b*'c*'d - The values to pass to the function
 
     Returns:
         The result of the values held in the tuple applied to f
 *)
-fun apply4<'a,'b,'c,'d,'e>(f : ('a,'b,'c,'d) -> 'e, tup : 'a*'b*'c*'d) : 'e = (
+fun apply4<'a,'b,'c,'d,'e,'closure>(f : ('closure)('a,'b,'c,'d) -> 'e, tup : 'a*'b*'c*'d) : 'e = (
     let (a, b, c, d) = tup;
     f(a, b, c, d)
 )
@@ -563,14 +563,14 @@ fun swap(tup) = (
     Yields the result of applying f until p holds.
 
     Type signature:
-    | <'a>(('a) -> bool, ('a) -> 'a, 'a) -> 'a
+    | <'a>(('closureP)('a) -> bool, ('closureF)('a) -> 'a, 'a) -> 'a
 
     Parameters:
-        p: ('a) -> bool - The predicate
-        f: ('a) -> 'a - The function to repeatedly apply
+        p: ('closureP)('a) -> bool - The predicate
+        f: ('closureF)('a) -> 'a - The function to repeatedly apply
         a0: 'a - The initial value to supply to the function
 *)
-fun until<'a>(p : ('a) -> bool, f : ('a) -> 'a, a0 : 'a) : 'a = (
+fun until<'a,'closureP,'closureF>(p : ('closureP)('a) -> bool, f : ('closureF)('a) -> 'a, a0 : 'a) : 'a = (
     let mutable a = a0;
     while not p(a) do (
         set a = f(a);

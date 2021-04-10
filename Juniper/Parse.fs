@@ -271,14 +271,16 @@ do
             | "rawpointer" -> BaseTy (p, TyRawPointer)
             | _ -> NameTy (p, n))
     let mQual = moduleQualifier |>> ModuleQualifierTy
+    let closureTy = betweenChar '|' (separatedList ((pos id .>> ws .>> skipChar ':' .>> ws) .>>. tyExpr) ';') '|' |> pos |>> ClosureTy
     let fn =
-        pipe2
+        pipe3
+            ((betweenChar '(' (varTy <|> closureTy) ')') |> pos)
             (skipChar '(' >>. separatedList (ws >>. tyExpr .>> ws) ',' .>> skipChar ')' .>> ws .>> skipString "->" .>> ws)
             tyExpr
-            (fun argTys retTy -> FunTy {template = None; args = argTys; returnType = retTy})
+            (fun closure argTys retTy -> FunTy { closure=closure; args = argTys; returnType = retTy})
     let parens = skipChar '(' >>. ws >>. tyExpr .>> ws .>> skipChar ')' |>> ParensTy
     let recordTy = record |> pos |>> RecordTy
-    let t = choice ([attempt mQual; varTy; attempt recordTy; name; attempt fn; parens]) |> pos .>> ws
+    let t = choice ([attempt mQual; varTy; closureTy; attempt recordTy; name; attempt fn; parens]) |> pos .>> ws
     typOpp.TermParser <-
         leftRecurse
             t
@@ -518,7 +520,7 @@ do
             (fun arrTy initializer -> ArrayMakeExp {typ=arrTy; initializer=initializer})
     let inlineCpp' = inlineCpp |>> InlineCode
     let tuple = betweenChar '(' (separatedList1 expr ',') ')' |>> TupleExp
-    let smartpointer = (skipString "smartpointer" >>. ws >>. fatalizeAnyError (expr .>> ws .>> skipString "end")) |>> Smartpointer
+    let smartpointer = (skipString "smartpointer" >>. ws >>. fatalizeAnyError ((skipChar '(' >>. expr .>> ws .>> skipChar ',' .>> ws) .>>. (expr .>> ws .>> skipChar ')'))) |>> Smartpointer
     let nullexp = (skipString "null" |> pos |>> NullExp) .>> ws
     let e = choice ([punit; attempt parens; ptrue; pfalse; nullexp; charlist; str;
                     attempt pfloating; pint; smartpointer;

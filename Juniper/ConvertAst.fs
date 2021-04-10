@@ -58,6 +58,8 @@ let rec removeAliases (dtenv : Map<string * string, T.DeclarationTy>) (tau : T.T
         T.ConApp (removeAliases' conTau, List.map removeAliases' argsTau, argsCap)
     | T.RecordTy (maybePacked, fields) ->
         T.RecordTy (maybePacked, Map.map (fun _ value -> removeAliases' value) fields)
+    | T.ClosureTy fields ->
+        T.ClosureTy (Map.map (fun _ value -> removeAliases' value) fields)
     | _ ->
         tau
 
@@ -89,9 +91,10 @@ let convertType menv (dtenv : Map<string * string, T.DeclarationTy>) tyVarMappin
                                 | Ast.TyUnit -> T.TyUnit
                                 | Ast.TyString -> T.TyString
                                 | Ast.TyRawPointer -> T.TyRawPointer)
-        | Ast.FunTy {template=maybeTemplate; args=args; returnType=(_, returnType)} ->
+        | Ast.FunTy {closure=(_, closure); args=args; returnType=(_, returnType)} ->
+            let closure' = ct closure
             let returnType' = ct returnType
-            T.ConApp (T.TyCon T.FunTy, returnType'::(List.map (Ast.unwrap >> ct) args), [])
+            T.ConApp (T.TyCon T.FunTy, closure'::returnType'::(List.map (Ast.unwrap >> ct) args), [])
         | Ast.ModuleQualifierTy {module_=(_, module_); name=(_, name)} ->
             T.TyCon <| T.ModuleQualifierTy {module_=module_; name=name}
         | Ast.NameTy (pos, name) ->
@@ -116,6 +119,11 @@ let convertType menv (dtenv : Map<string * string, T.DeclarationTy>) tyVarMappin
                     None
             let fieldMap = List.zip fieldNames fieldTaus |> Map.ofList
             T.RecordTy (fieldOrder, fieldMap)
+        | Ast.ClosureTy (_, fields) ->
+            let fieldNames = fields |> List.map (fst >> Ast.unwrap)
+            let fieldTaus = fields |> List.map (snd >> Ast.unwrap >> ct)
+            let fieldMap = List.zip fieldNames fieldTaus |> Map.ofList
+            T.ClosureTy fieldMap
                 
     let tau' = convertType' tau
     removeAliases dtenv tau'

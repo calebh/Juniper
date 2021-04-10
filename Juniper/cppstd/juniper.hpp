@@ -5,32 +5,64 @@
 
 namespace juniper
 {
-    template <class T>
-    void swap(T& a, T& b) {
-        T c(a);
-        a = b;
-        b = c;
-    }
-
     template <typename contained>
     class shared_ptr {
-    public:
-        shared_ptr() : ptr_(NULL), ref_count_(NULL) { }
+    private:
+        contained* ptr_;
+        int* ref_count_;
 
-        shared_ptr(contained * p)
-            : ptr_(p), ref_count_(new int)
-        {
-            *ref_count_ = 0;
-            inc_ref();
+        void inc_ref() {
+            if (ref_count_ != nullptr) {
+                ++(*ref_count_);
+            }
         }
 
+        void dec_ref() {
+            if (ref_count_ != nullptr) {
+                --(*ref_count_);
+
+                if (*ref_count_ <= 0)
+                {
+                    if (ptr_ != nullptr)
+                    {
+                        delete ptr_;
+                    }
+                    delete ref_count_;
+                }
+            }
+        }
+
+    public:
+        shared_ptr()
+            : ptr_(nullptr), ref_count_(new int(1))
+        {
+        }
+
+        shared_ptr(contained* p)
+            : ptr_(p), ref_count_(new int(1))
+        {
+        }
+
+        // Copy constructor
         shared_ptr(const shared_ptr& rhs)
             : ptr_(rhs.ptr_), ref_count_(rhs.ref_count_)
         {
             inc_ref();
         }
 
-        ~shared_ptr();
+        // Move constructor
+        shared_ptr(shared_ptr&& dyingObj)
+            : ptr_(dyingObj.ptr_), ref_count_(dyingObj.ref_count_) {
+
+            // Clean the dying object
+            dyingObj.ptr_ = nullptr;
+            dyingObj.ref_count_ = nullptr;
+        }
+
+        ~shared_ptr()
+        {
+            dec_ref();
+        }
 
         void set(contained* p) {
             ptr_ = p;
@@ -39,20 +71,37 @@ namespace juniper
         contained* get() { return ptr_; }
         const contained* get() const { return ptr_; }
 
-        void swap(shared_ptr& rhs) {
-            juniper::swap(ptr_, rhs.ptr_);
-            juniper::swap(ref_count_, rhs.ref_count_);
-        }
-
+        // Copy assignment
         shared_ptr& operator=(const shared_ptr& rhs) {
-            shared_ptr tmp(rhs);
-            this->swap(tmp);
+            dec_ref();
+
+            this->ptr_ = rhs.ptr_;
+            this->ref_count_ = rhs.ref_count_;
+            if (rhs.ptr_ != nullptr)
+            {
+                inc_ref();
+            }
+
             return *this;
         }
 
-        //contained& operator*() {
-        //    return *ptr_;
-        //}
+        // Move assignment
+        shared_ptr& operator=(shared_ptr&& dyingObj) {
+            dec_ref();
+
+            this->ptr_ = dyingObj.ptr;
+            this->ref_count_ = dyingObj.refCount;
+
+            // Clean the dying object
+            dyingObj.ptr_ = nullptr;
+            dyingObj.ref_count_ = nullptr;
+
+            return *this;
+        }
+
+        contained& operator*() {
+            return *ptr_;
+        }
 
         contained* operator->() {
             return ptr_;
@@ -62,114 +111,26 @@ namespace juniper
             return ptr_ == rhs.ptr_;
         }
 
-        bool operator!=(shared_ptr& rhs) { return !(rhs == *this); }
-    private:
-        void inc_ref() {
-            if (ref_count_) {
-                ++(*ref_count_);
-            }
+        bool operator!=(shared_ptr& rhs) {
+            return ptr_ != rhs.ptr_;
         }
-
-        int dec_ref() {
-            return --(*ref_count_);
-        }
-
-        contained * ptr_;
-        int * ref_count_;
     };
-
-    template<>
-    shared_ptr<void>::~shared_ptr() {
-        if (ref_count_ && 0 == dec_ref()) {
-            delete ref_count_;
-        }
-    }
-
-    template<typename T>
-    shared_ptr<T>::~shared_ptr() {
-        if (ref_count_ && 0 == dec_ref()) {
-            if (ptr_) {
-                delete ptr_;
-            }
-            delete ref_count_;
-        }
-    }
     
-    template<typename Func>
-    struct func_filter
-    {
-        typedef Func type;
-    };
+    template <typename ClosureType, typename Result, typename ...Args>
+    class function {
+    private:
+        ClosureType Closure;
 
-    template<typename Result, typename ...Args>
-    struct func_filter<Result(Args...)>
-    {
-        typedef Result(*type)(Args...);
-    };
-
-    template<typename Result, typename ...Args>
-    struct abstract_function
-    {
-        virtual Result operator()(Args... args) = 0;
-        virtual ~abstract_function() = default;
-    };
-
-    template<typename Func, typename Result, typename ...Args>
-    class concrete_function : public abstract_function<Result, Args...>
-    {
-        Func f;
     public:
-        concrete_function(const Func &x)
-            : f(x)
-        {}
-        Result operator()(Args... args) override {
-            return f(args...);
-        }
-    };
-
-    template<typename signature>
-    class function;
-
-    template<typename Result, typename ...Args>
-    class function<Result(Args...)>
-    {
-    public:
-        shared_ptr<abstract_function<Result, Args...>> f;
-        function()
-            : f(nullptr) {
-        }
-
-        template<typename Func>
-        function(const Func &x)
-            : f(new concrete_function<typename func_filter<Func>::type, Result, Args...>(x)) {
-        }
-
-        function(const function &rhs)
-            : f(rhs.f) {}
-
-        function &operator=(const function &rhs) {
-            if (&rhs != this) {
-                f = rhs.f;
-            }
-            return *this;
-        }
-
-        template<typename Func>
-        function &operator=(const Func &rhs) {
-            shared_ptr<abstract_function<Result, Args...>> f2(new concrete_function<typename func_filter<Func>::type, Result, Args...>(rhs));
-            f = f2;
-            return *this;
-        }
+        function(ClosureType closure) : Closure(closure) {}
 
         Result operator()(Args... args) {
-            if (f.get() != nullptr) {
-                return (*(f.get()))(args...);
-            }
-            else {
-                return Result{};
-            }
+            return (Closure)(args...);
         }
     };
+
+    template <typename Result, typename ...Args>
+    using emptyclosure_function = function<Result (*)(Args...), Result, Args...>;
 
     template<typename T, size_t N>
     class array {
@@ -211,43 +172,289 @@ namespace juniper
         }
     };
 
-    class smartpointer : public shared_ptr<void> {
+    class rawpointer_container {
+    private:
+        void *data;
+        emptyclosure_function<unit, void*> destructorCallback;
+
     public:
-        function<unit(smartpointer)> destructorCallback;
-
-        smartpointer() : shared_ptr<void>() {}
-        smartpointer(function<unit(smartpointer)> d) : shared_ptr<void>(), destructorCallback(d) {}
-
-        bool operator==(smartpointer& rhs) {
-            return shared_ptr<void>::operator==(rhs);
-        }
+        rawpointer_container(void *initData, emptyclosure_function<unit, void*> callback)
+            : data(initData), destructorCallback(callback) {}
         
-        shared_ptr& operator=(const smartpointer& rhs) {
-            shared_ptr<void>::operator=(rhs);
-            destructorCallback = rhs.destructorCallback;
-            return *this;
-        }
-
-        bool operator!=(shared_ptr& rhs) {
-            return shared_ptr<void>::operator!=(rhs);
-        }
-
-        ~smartpointer() {
-            if (destructorCallback.f.get() != nullptr) {
-                destructorCallback(*this);
-            }
+        ~rawpointer_container() {
+            destructorCallback(data);
         }
     };
+
+    using smartpointer = shared_ptr<rawpointer_container>;
+
+    smartpointer make_smartpointer(void *initData, emptyclosure_function<unit, void*> callback) {
+        return smartpointer(new rawpointer_container(initData, callback));
+    }
 
     template<typename T>
     T quit() {
         exit(1);
     }
 
+    // Equivalent to std::aligned_storage
+    template<unsigned int Len, unsigned int Align>
+    struct aligned_storage {
+        struct type {
+            alignas(Align) unsigned char data[Len];
+        };
+    };
+
+    template <unsigned int arg1, unsigned int ... others>
+    struct static_max;
+
+    template <unsigned int arg>
+    struct static_max<arg>
+    {
+        static const unsigned int value = arg;
+    };
+
+    template <unsigned int arg1, unsigned int arg2, unsigned int ... others>
+    struct static_max<arg1, arg2, others...>
+    {
+        static const unsigned int value = arg1 >= arg2 ? static_max<arg1, others...>::value :
+            static_max<arg2, others...>::value;
+    };
+
+    template<class T> struct remove_reference { typedef T type; };
+    template<class T> struct remove_reference<T&> { typedef T type; };
+    template<class T> struct remove_reference<T&&> { typedef T type; };
+
+    template<unsigned char n, typename... Ts>
+    struct variant_helper_rec;
+
+    template<unsigned char n, typename F, typename... Ts>
+    struct variant_helper_rec<n, F, Ts...> {
+        inline static void destroy(unsigned char id, void* data)
+        {
+            if (n == id) {
+                reinterpret_cast<F*>(data)->~F();
+            } else {
+                variant_helper_rec<n + 1, Ts...>::destroy(id, data);
+            }
+        }
+
+        inline static void move(unsigned char id, void* from, void* to)
+        {
+            if (n == id) {
+                // This static_cast and use of remove_reference is equivalent to the use of std::move
+                new (to) F(static_cast<typename remove_reference<F>::type&&>(*reinterpret_cast<F*>(from)));
+            } else {
+                variant_helper_rec<n + 1, Ts...>::move(id, from, to);
+            }
+        }
+
+        inline static void copy(unsigned char id, const void* from, void* to)
+        {
+            if (n == id) {
+                new (to) F(*reinterpret_cast<const F*>(from));
+            } else {
+                variant_helper_rec<n + 1, Ts...>::copy(id, from, to);
+            }
+        }
+
+        inline static bool equal(unsigned char id, void* lhs, void* rhs)
+        {
+            if (n == id) {
+                return (*reinterpret_cast<F*>(lhs)) == (*reinterpret_cast<F*>(rhs));
+            } else {
+                return variant_helper_rec<n + 1, Ts...>::equal(id, lhs, rhs);
+            }
+        }
+    };
+
+    template<unsigned char n> struct variant_helper_rec<n> {
+        inline static void destroy(unsigned char id, void* data) { }
+        inline static void move(unsigned char old_t, void* from, void* to) { }
+        inline static void copy(unsigned char old_t, const void* from, void* to) { }
+        inline static bool equal(unsigned char id, void* lhs, void* rhs) { return false; }
+    };
+
+    template<typename... Ts>
+    struct variant_helper {
+        inline static void destroy(unsigned char id, void* data) {
+            variant_helper_rec<0, Ts...>::destroy(id, data);
+        }
+
+        inline static void move(unsigned char id, void* from, void* to) {
+            variant_helper_rec<0, Ts...>::move(id, from, to);
+        }
+
+        inline static void copy(unsigned char id, const void* old_v, void* new_v) {
+            variant_helper_rec<0, Ts...>::copy(id, old_v, new_v);
+        }
+
+        inline static bool equal(unsigned char id, void* lhs, void* rhs) {
+            return variant_helper_rec<0, Ts...>::equal(id, lhs, rhs);
+        }
+    };
+
+    template<> struct variant_helper<> {
+        inline static void destroy(unsigned char id, void* data) { }
+        inline static void move(unsigned char old_t, void* old_v, void* new_v) { }
+        inline static void copy(unsigned char old_t, const void* old_v, void* new_v) { }
+    };
+
+    template<typename F>
+    struct variant_helper_static;
+
+    template<typename F>
+    struct variant_helper_static {
+        inline static void move(void* from, void* to) {
+            new (to) F(static_cast<typename remove_reference<F>::type&&>(*reinterpret_cast<F*>(from)));
+        }
+
+        inline static void copy(const void* from, void* to) {
+            new (to) F(*reinterpret_cast<const F*>(from));
+        }
+    };
+
+    // Given a unsigned char i, selects the ith type from the list of item types
+    template<unsigned char i, typename... Items>
+    struct variant_alternative;
+
+    template<typename HeadItem, typename... TailItems>
+    struct variant_alternative<0, HeadItem, TailItems...>
+    {
+        using type = HeadItem;
+    };
+
+    template<unsigned char i, typename HeadItem, typename... TailItems>
+    struct variant_alternative<i, HeadItem, TailItems...>
+    {
+        using type = typename variant_alternative<i - 1, TailItems...>::type;
+    };
+
+    template<typename... Ts>
+    struct variant {
+    private:
+        static const unsigned int data_size = static_max<sizeof(Ts)...>::value;
+        static const unsigned int data_align = static_max<alignof(Ts)...>::value;
+
+        using data_t = typename aligned_storage<data_size, data_align>::type;
+
+        using helper_t = variant_helper<Ts...>;
+
+        template<unsigned char i>
+        using alternative = typename variant_alternative<i, Ts...>::type;
+
+        unsigned char variant_id;
+        data_t data;
+
+        variant(unsigned char id) : variant_id(id) {}
+
+    public:
+        template<unsigned char i>
+        static variant create(alternative<i>& value)
+        {
+            variant ret(i);
+            variant_helper_static<alternative<i>>::copy(&value, &ret.data);
+            return ret;
+        }
+        
+        template<unsigned char i>
+        static variant create(alternative<i>&& value) {
+            variant ret(i);
+            variant_helper_static<alternative<i>>::move(&value, &ret.data);
+            return ret;
+        }
+
+        variant(const variant<Ts...>& from) : variant_id(from.variant_id)
+        {
+            helper_t::copy(from.variant_id, &from.data, &data);
+        }
+
+        variant(variant<Ts...>&& from) : variant_id(from.variant_id)
+        {
+            helper_t::move(from.variant_id, &from.data, &data);
+        }
+
+        variant<Ts...>& operator= (variant<Ts...>& rhs)
+        {
+            helper_t::destroy(variant_id, &data);
+            variant_id = rhs.variant_id;
+            helper_t::copy(rhs.variant_id, &rhs.data, &data);
+            return *this;
+        }
+
+        variant<Ts...>& operator= (variant<Ts...>&& rhs)
+        {
+            helper_t::destroy(variant_id, &data);
+            variant_id = rhs.variant_id;
+            helper_t::move(rhs.variant_id, &rhs.data, &data);
+            return *this;
+        }
+
+        unsigned char id() {
+            return variant_id;
+        }
+
+        template<unsigned char i>
+        void set(alternative<i>& value)
+        {
+            helper_t::destroy(variant_id, &data);
+            variant_id = i;
+            variant_helper_static<alternative<i>>::copy(&value, &data);
+        }
+
+        template<unsigned char i>
+        void set(alternative<i>&& value)
+        {
+            helper_t::destroy(variant_id, &data);
+            variant_id = i;
+            variant_helper_static<alternative<i>>::move(&value, &data);
+        }
+
+        template<unsigned char i>
+        alternative<i>& get()
+        {
+            if (variant_id == i) {
+                return *reinterpret_cast<alternative<i>*>(&data);
+            } else {
+                throw std::bad_cast();
+            }
+        }
+
+        ~variant() {
+            helper_t::destroy(variant_id, &data);
+        }
+
+        bool operator==(variant& rhs) {
+            if (variant_id == rhs.variant_id) {
+                return helper_t::equal(variant_id, &data, &rhs.data);
+            } else {
+                return false;
+            }
+        }
+
+        bool operator==(variant&& rhs) {
+            if (variant_id == rhs.variant_id) {
+                return helper_t::equal(variant_id, &data, &rhs.data);
+            } else {
+                return false;
+            }
+        }
+
+        bool operator!=(variant& rhs) {
+            return !(this->operator==(rhs));
+        }
+
+        bool operator!=(variant&& rhs) {
+            return !(this->operator==(rhs));
+        }
+    };
+
     template<typename a, typename b>
     struct tuple2 {
         a e1;
         b e2;
+
+        tuple2(a initE1, b initE2) : e1(initE1), e2(initE2) {}
 
         bool operator==(tuple2<a,b> rhs) {
             return e1 == rhs.e1 && e2 == rhs.e2;
@@ -264,6 +471,8 @@ namespace juniper
         b e2;
         c e3;
 
+        tuple3(a initE1, b initE2, c initE3) : e1(initE1), e2(initE2), e3(initE3) {}
+
         bool operator==(tuple3<a,b,c> rhs) {
             return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3;
         }
@@ -279,6 +488,8 @@ namespace juniper
         b e2;
         c e3;
         d e4;
+
+        tuple4(a initE1, b initE2, c initE3, d initE4) : e1(initE1), e2(initE2), e3(initE3), e4(initE4) {}
 
         bool operator==(tuple4<a,b,c,d> rhs) {
             return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4;
@@ -297,6 +508,8 @@ namespace juniper
         d e4;
         e e5;
 
+        tuple5(a initE1, b initE2, c initE3, d initE4, e initE5) : e1(initE1), e2(initE2), e3(initE3), e4(initE4), e5(initE5) {}
+
         bool operator==(tuple5<a,b,c,d,e> rhs) {
             return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4 && e5 == rhs.e5;
         }
@@ -314,6 +527,8 @@ namespace juniper
         d e4;
         e e5;
         f e6;
+
+        tuple6(a initE1, b initE2, c initE3, d initE4, e initE5, f initE6) : e1(initE1), e2(initE2), e3(initE3), e4(initE4), e5(initE5), e6(initE6) {}
 
         bool operator==(tuple6<a,b,c,d,e,f> rhs) {
             return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4 && e5 == rhs.e5 && e6 == rhs.e6;
@@ -334,6 +549,8 @@ namespace juniper
         f e6;
         g e7;
 
+        tuple7(a initE1, b initE2, c initE3, d initE4, e initE5, f initE6, g initE7) : e1(initE1), e2(initE2), e3(initE3), e4(initE4), e5(initE5), e6(initE6), e7(initE7) {}
+
         bool operator==(tuple7<a,b,c,d,e,f,g> rhs) {
             return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4 && e5 == rhs.e5 && e6 == rhs.e6 && e7 == rhs.e7;
         }
@@ -353,6 +570,8 @@ namespace juniper
         f e6;
         g e7;
         h e8;
+
+        tuple8(a initE1, b initE2, c initE3, d initE4, e initE5, f initE6, g initE7, h initE8) : e1(initE1), e2(initE2), e3(initE3), e4(initE4), e5(initE5), e6(initE6), e7(initE7), e8(initE8) {}
 
         bool operator==(tuple8<a,b,c,d,e,f,g,h> rhs) {
             return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4 && e5 == rhs.e5 && e6 == rhs.e6 && e7 == rhs.e7 && e8 == rhs.e8;
@@ -375,6 +594,8 @@ namespace juniper
         h e8;
         i e9;
 
+        tuple9(a initE1, b initE2, c initE3, d initE4, e initE5, f initE6, g initE7, h initE8, i initE9) : e1(initE1), e2(initE2), e3(initE3), e4(initE4), e5(initE5), e6(initE6), e7(initE7), e8(initE8), e9(initE9) {}
+
         bool operator==(tuple9<a,b,c,d,e,f,g,h,i> rhs) {
             return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4 && e5 == rhs.e5 && e6 == rhs.e6 && e7 == rhs.e7 && e8 == rhs.e8 && e9 == rhs.e9;
         }
@@ -396,6 +617,8 @@ namespace juniper
         h e8;
         i e9;
         j e10;
+
+        tuple10(a initE1, b initE2, c initE3, d initE4, e initE5, f initE6, g initE7, h initE8, i initE9, j initE10) : e1(initE1), e2(initE2), e3(initE3), e4(initE4), e5(initE5), e6(initE6), e7(initE7), e8(initE8), e9(initE9), e10(initE10) {}
 
         bool operator==(tuple10<a,b,c,d,e,f,g,h,i,j> rhs) {
             return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4 && e5 == rhs.e5 && e6 == rhs.e6 && e7 == rhs.e7 && e8 == rhs.e8 && e9 == rhs.e9 && e10 == rhs.e10;

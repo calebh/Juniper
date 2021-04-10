@@ -73,7 +73,7 @@ and CapacityExpr = CapacityNameExpr of PosAdorn<string>
 // (applying a typed datatype, typed arrays, typed functions definitions, a list of base types).
 and TyApplyRec = { tyConstructor : PosAdorn<TyExpr>; args : PosAdorn<TemplateApply> }
 and ArrayTyRec = { valueType : PosAdorn<TyExpr>; capacity : PosAdorn<CapacityExpr> }
-and FunTyRec = { template : PosAdorn<Template> option; args : PosAdorn<TyExpr> list; returnType : PosAdorn<TyExpr> }
+and FunTyRec = { closure : PosAdorn<TyExpr>; args : PosAdorn<TyExpr> list; returnType : PosAdorn<TyExpr> }
 and BaseTypes = TyUint8
               | TyUint16
               | TyUint32
@@ -101,6 +101,7 @@ and TyExpr = BaseTy of PosAdorn<BaseTypes>
            // Need this extra type for infix parser combinator matching on tuples
            | ParensTy of PosAdorn<TyExpr>
            | RecordTy of PosAdorn<RecordRec>
+           | ClosureTy of PosAdorn<(PosAdorn<string> * PosAdorn<TyExpr>) list>
 
 // Pattern matching AST datatypes.
 and MatchVarRec = {varName : PosAdorn<string>; mutable_ : PosAdorn<bool>; typ : PosAdorn<TyExpr> option}
@@ -197,7 +198,7 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | TupleExp of PosAdorn<Expr> list
           | QuitExp of PosAdorn<TyExpr> option
           | TypeConstraint of TypeConstraintRec
-          | Smartpointer of PosAdorn<Expr>
+          | Smartpointer of PosAdorn<Expr> * PosAdorn<Expr>
           | NullExp of PosAdorn<unit>
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | BitwiseXor
               | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less

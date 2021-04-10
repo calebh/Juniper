@@ -61,6 +61,7 @@ and tycapsubst theta kappa =
         | (TyCon c) -> TyCon c
         | (ConApp (tau, taus, caps)) -> ConApp (subst tau, List.map subst taus, List.map (capsubst kappa) caps)
         | (RecordTy (packed, fields)) -> RecordTy (packed, fields |> Map.map (fun _ fieldTau -> subst fieldTau))
+        | (ClosureTy fields) -> ClosureTy (fields |> Map.map (fun _ fieldTau -> subst fieldTau))
     subst
 
 let consubst theta kappa =
@@ -211,6 +212,9 @@ let rec freeVars t =
             let c2 = List.map freeCapVars caps
             (Set.unionMany ts, Set.union (Set.unionMany c1) (Set.unionMany c2))
         | RecordTy (_, fields) ->
+            let (ts, cs) = fields |> Map.values |> Seq.map freeVars |> List.ofSeq |> List.unzip
+            (Set.unionMany ts, Set.unionMany cs)
+        | ClosureTy fields ->
             let (ts, cs) = fields |> Map.values |> Seq.map freeVars |> List.ofSeq |> List.unzip
             (Set.unionMany ts, Set.unionMany cs)
     freeTyVars t
@@ -425,6 +429,16 @@ let rec solve con : Map<string, TyExpr> * Map<string, CapacityExpr> * Map<string
                             ()
                         | _ ->
                             raise <| TypeError (failMsg.Force())
+                        if Map.keys fields = Map.keys fields' then
+                            let fieldNames = Map.keys fields |> List.ofSeq
+                            let getTaus fs = fieldNames |> List.map (fun fieldName -> Map.find fieldName fs)
+                            let ts = getTaus fields
+                            let ts' = getTaus fields'
+                            let fieldConstraints = List.zip ts ts' |> List.map (fun (tau, tau') -> Equal (tau, tau', err)) |> conjoinConstraints
+                            solveTheta fieldConstraints
+                        else
+                            raise <| TypeError (failMsg.Force())
+                    | (ClosureTy fields, ClosureTy fields') ->
                         if Map.keys fields = Map.keys fields' then
                             let fieldNames = Map.keys fields |> List.ofSeq
                             let getTaus fs = fieldNames |> List.map (fun fieldName -> Map.find fieldName fs)

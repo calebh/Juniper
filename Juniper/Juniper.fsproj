@@ -13,10 +13,10 @@
   	<Compile Include="TypedAst.fs" />
   	<Compile Include="Constraint.fs" />
   	<Compile Include="Ast.fs" />
+  	<Compile Include="AstAnalysis.fs" />
   	<Compile Include="Compiler.fs" />
   	<Compile Include="Parse.fs" />
   	<Compile Include="ConvertAst.fs" />
-  	<Compile Include="AstAnalysis.fs" />
   	<Compile Include="Module.fs" />
   	<Compile Include="TypeChecker.fs" />
     <Compile Include="Program.fs" />

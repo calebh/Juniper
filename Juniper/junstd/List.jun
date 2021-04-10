@@ -15,16 +15,16 @@ open(Prelude)
     Applies f to every element of the list and returns the new list.
 
     Type Signature:
-    | <'a,'b;n>(('a) -> 'b, list<'a; n>) -> list<'b; n>
+    | <'a,'b;n>(('closure)('a) -> 'b, list<'a; n>) -> list<'b; n>
 
     Parameters:
-        f : ('a) -> 'b - The mapping function
+        f : ('closure)('a) -> 'b - The mapping function
         lst : list<'t;n> - The list to map.
 
    Returns:
         The list obtained by applying f to every element of lst.
 *)
-fun map<'a,'b;n>(f : ('a) -> 'b, lst : list<'a; n>) : list<'b; n> = (
+fun map<'a,'b,'closure;n>(f : ('closure)('a) -> 'b, lst : list<'a; n>) : list<'b; n> = (
     let mutable ret = array 'b[n] end;
     for i : uint32 in 0u32 to lst.length - 1u32 do (
         set ret[i] = f(lst.data[i]);
@@ -33,11 +33,6 @@ fun map<'a,'b;n>(f : ('a) -> 'b, lst : list<'a; n>) : list<'b; n> = (
     {data=ret; length=lst.length}
 )
 
-fun iter<'a;n>(f : ('a) -> unit, lst : list<'a; n>) : unit =
-    for i : uint32 in 0u32 to lst.length - 1u32 do
-        f(lst.data[i])
-    end
-
 (*
     Function: foldl
 
@@ -45,17 +40,17 @@ fun iter<'a;n>(f : ('a) -> unit, lst : list<'a; n>) : unit =
     argument through the computation.
 
     Type Signature:
-    | <'t,'state;n>(('t, 'state) -> 'state, 'state, list<'t; n>) -> 'state
+    | <'t,'state,'closure;n>(('closure)('t, 'state) -> 'state, 'state, list<'t; n>) -> 'state
 
     Parameters:
-        f : ('t, 'state) -> 'state - The function to update the state given the input elements.
+        f : ('closure)('t, 'state) -> 'state - The function to update the state given the input elements.
         initState : 'state - The initial state.
         lst : list<'t; n> - The input list.
 
     Returns:
         The final state value.
 *)
-fun foldl<'t,'state;n>(f : ('t, 'state) -> 'state, initState : 'state, lst : list<'t; n>) : 'state = (
+fun foldl<'t,'state,'closure;n>(f : ('closure)('t, 'state) -> 'state, initState : 'state, lst : list<'t; n>) : 'state = (
     let mutable s = initState;
     for i : uint32 in 0u32 to lst.length - 1u32 do (
         set s = f(lst.data[i], s);
@@ -71,10 +66,10 @@ fun foldl<'t,'state;n>(f : ('t, 'state) -> 'state, initState : 'state, lst : lis
     an accumulator argument through the computation.
 
     Type Signature:
-    | <'t,'state;n>(('t, 'state) -> 'state, 'state, list<'t; n>) -> 'state
+    | <'t,'state,'closure;n>(('closure)('t, 'state) -> 'state, 'state, list<'t; n>) -> 'state
 
     Parameters:
-        f : ('t,'state) -> 'state - The function to update the state given the
+        f : ('closure)('t,'state) -> 'state - The function to update the state given the
                                      input elements.
         initState : 'state - The initial state.
         lst : list<'t; n> - The input list.
@@ -82,7 +77,7 @@ fun foldl<'t,'state;n>(f : ('t, 'state) -> 'state, initState : 'state, lst : lis
     Returns:
         The final state value.
 *)
-fun foldr<'t,'state;n>(f : ('t, 'state) -> 'state, initState : 'state, lst : list<'t; n>) : 'state = (
+fun foldr<'t,'state,'closure;n>(f : ('closure)('t, 'state) -> 'state, initState : 'state, lst : list<'t; n>) : 'state = (
     let mutable s = initState;
     for i : uint32 in lst.length - 1u32 downto 0u32 do (
         set s = f(lst.data[i], s);
@@ -204,17 +199,17 @@ fun resize<'t;n,m>(lst : list<'t;n>) : list<'t;m> = (
     otherwise false.
 
     Type Signature:
-    | <'t;n>(('t) -> bool, list<'t;n>) -> bool
+    | <'t,'closure;n>(('closure)('t) -> bool, list<'t;n>) -> bool
 
     Parameters:
-        pred : ('t) -> bool - The predicate which must be satisfied
+        pred : ('closure)('t) -> bool - The predicate which must be satisfied
         lst : list<'t;n> - The list on which the predicate is checked
 
     Returns:
         A boolean value which determines if pred satsified for every element of
         lst.
 *)
-fun all<'t;n>(pred : ('t) -> bool, lst : list<'t;n>) : bool = (
+fun all<'t,'closure;n>(pred : ('closure)('t) -> bool, lst : list<'t;n>) : bool = (
     let mutable satisfied = true;
     for i : uint32 in 0u32 to lst.length - 1u32 do
         if satisfied then
@@ -234,17 +229,17 @@ fun all<'t;n>(pred : ('t) -> bool, lst : list<'t;n>) : bool = (
     lst, otherwise false.
 
     Type Signature:
-    | <'t;n>(('t) -> bool, list<'t;n>) -> bool
+    | <'t,'closure;n>(('closure)('t) -> bool, list<'t;n>) -> bool
 
     Parameters:
-        pred : ('t) -> bool - The predicate which must be satisfied
+        pred : ('closure)('t) -> bool - The predicate which must be satisfied
         lst : list<'t;n> - The list on which the predicate is checked
 
     Returns:
         A boolean value which determines if pred is satsified for some element
         of lst.
 *)
-fun any<'t;n>(pred : ('t) -> bool, lst : list<'t;n>) : bool = (
+fun any<'t,'closure;n>(pred : ('closure)('t) -> bool, lst : list<'t;n>) : bool = (
     let mutable satisfied = false;
     for i : uint32 in 0u32 to lst.length - 1u32 do
         if not satisfied then
@@ -435,16 +430,16 @@ fun dropLast<'t;n>(lst : list<'t;n>) : list<'t;n> = (
     elements in the list.
 
     Type Signature:
-    | <'t;n>(('t) -> unit, list<'t;n>) -> unit
+    | <'t,'closure;n>(('closure)('t) -> unit, list<'t;n>) -> unit
 
     Parameters:
-        f : ('t) -> unit - The function to call
+        f : ('closure)('t) -> unit - The function to call
         lst : list<'t;n> - The list
 
     Returns:
         Unit
 *)
-fun foreach<'t;n>(f : ('t) -> unit, lst : list<'t;n>) : unit =
+fun foreach<'t,'closure;n>(f : ('closure)('t) -> unit, lst : list<'t;n>) : unit =
     for i : uint32 in 0u32 to lst.length - 1u32 do
         f(lst.data[i])
     end
@@ -644,7 +639,7 @@ fun unzip<'a,'b;n>(lst : list<'a*'b; n>) : list<'a;n>*list<'b;n> = (
         The sum of the list
 *)
 fun sum<'a; n>(lst : list<'a;n>) : 'a where 'a : num =
-    List:foldl<'a, 'a; n>(add<'a>, 0, lst)
+    List:foldl<'a, 'a, ||; n>(add<'a>, 0, lst)
 
 (*
     Function: average

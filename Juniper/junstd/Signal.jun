@@ -11,16 +11,16 @@ open(Prelude)
     Applies a function f to the given input signal
 
     Type signature:
-    | <'a,'b>(('a) -> 'b, sig<'a>) -> sig<'b>
+    | <'a,'b,'closure>(('closure)('a) -> 'b, sig<'a>) -> sig<'b>
 
     Parameters:
-        f : ('a) -> 'b - The mapping function
+        f : ('closure)('a) -> 'b - The mapping function
         s : sig<'a> - The input signal
 
     Returns:
         The signal transformed by the mapping function
 *)
-fun map<'a,'b>(f : ('a) -> 'b, s : sig<'a>) : sig<'b> =
+fun map<'a,'b,'closure>(f : ('closure)('a) -> 'b, s : sig<'a>) : sig<'b> =
     case s of
     | signal<'a>(just<'a>(val)) => signal<'b>(just<'b>(f(val)))
     | _                         => signal<'b>(nothing<'b>())
@@ -33,16 +33,16 @@ fun map<'a,'b>(f : ('a) -> 'b, s : sig<'a>) : sig<'b> =
     side effects.
 
     Type signature:
-    | <'a>(('a) -> unit, sig<'a>) -> unit
+    | <'a,'closure>(('closure)('a) -> unit, sig<'a>) -> unit
 
     Parameters:
-        f : ('a) -> unit - The function to call
+        f : ('closure)('a) -> unit - The function to call
         s : sig<'a> - The input signal
 
     Returns:
         Unit
 *)
-fun sink<'a>(f : ('a) -> unit, s : sig<'a>) : unit =
+fun sink<'a,'closure>(f : ('closure)('a) -> unit, s : sig<'a>) : unit =
     case s of
     | signal<'a>(just<'a>(val)) => f(val)
     | _ => ()
@@ -57,16 +57,16 @@ fun sink<'a>(f : ('a) -> unit, s : sig<'a>) : unit =
     will be the same as the input signal.
 
     Type signature:
-    | <'a>(('a') -> bool, sig<'a>) -> sig<'a>
+    | <'a,'closure>(('closure)('a') -> bool, sig<'a>) -> sig<'a>
 
     Parameters:
-        f : ('a) -> bool - The predicate function
+        f : ('closure)('a) -> bool - The predicate function
         s : sig<'a> - The input signal
 
     Returns:
         The filtered output signal.
 *)
-fun filter<'a>(f : ('a) -> bool, s : sig<'a>) : sig<'a> =
+fun filter<'a,'closure>(f : ('closure)('a) -> bool, s : sig<'a>) : sig<'a> =
     case s of
     | signal<'a>(just<'a>(val)) =>
         if f(val) then
@@ -116,7 +116,7 @@ fun merge<'a>(sigA : sig<'a>, sigB : sig<'a>) : sig<'a> =
 fun mergeMany<'a;n>(sigs : list<sig<'a>;n>) : sig<'a> = (
     let mutable ret = nothing<'a>();
     sigs |>
-    List:iter(fn (sig) ->
+    List:foreach(fn (sig) ->
         case ret of
         | nothing<'a>() => (
             let signal<'a>(heldValue) = sig;
@@ -173,7 +173,7 @@ fun join<'a,'b>(sigA : sig<'a>, sigB : sig<'b>) : sig<either<'a,'b>> =
         A signal of units.
 *)
 fun toUnit<'a>(s : sig<'a>) : sig<unit> =
-    map<'a, unit>(fn (x : 'a) : unit -> () end, s)
+    map<'a, unit, ||>(fn (x : 'a) : unit -> () end, s)
 
 (*
     Function: foldP
@@ -184,10 +184,10 @@ fun toUnit<'a>(s : sig<'a>) : sig<unit> =
     is held in a reference. foldP stands for fold over the past.
 
     Type signature:
-    | foldP<'a,'state>(('a,'state)->'state, 'state ref, sig<'a>) -> sig<'state>
+    | foldP<'a,'state,'closure>(('closure)('a,'state)->'state, 'state ref, sig<'a>) -> sig<'state>
 
     Parameters:
-        f : ('a,'state) -> 'state - The folding function
+        f : ('closure)('a,'state) -> 'state - The folding function
         state0 : 'state ref - A reference to the mutable state
         incoming : sig<'a> - The signal of incoming values
 
@@ -195,7 +195,7 @@ fun toUnit<'a>(s : sig<'a>) : sig<unit> =
         A signal containing the state just returned by f, or nothing if
         the input signal contained nothing.
 *)
-fun foldP<'a, 'state>(f : ('a,'state)->'state, state0 : 'state ref, incoming : sig<'a>) : sig<'state> =
+fun foldP<'a, 'state, 'closure>(f : ('closure)('a,'state) -> 'state, state0 : 'state ref, incoming : sig<'a>) : sig<'state> =
     case incoming of
     | signal<'a>(just<'a>(val)) =>
         (let state1 = f(val, !state0);
@@ -222,7 +222,7 @@ fun foldP<'a, 'state>(f : ('a,'state)->'state, state0 : 'state ref, incoming : s
         A filtered signal where two values in a row will not be repeated.
 *)
 fun dropRepeats<'a>(maybePrevValue : maybe<'a> ref, incoming : sig<'a>) : sig<'a> =
-    filter<'a>(
+    filter(
         fn (value : 'a) : bool ->
             (let filtered =
                 case !maybePrevValue of
@@ -273,10 +273,10 @@ fun latch<'a>(prevValue : 'a ref, incoming : sig<'a>) : sig<'a> =
     signals, then the output signal holds no value.
 
     Type Signature:
-    | <'a,'b,'c>(('a,'b)->'c, sig<'a>, sig<'b>, ('a*'b) ref) -> sig<'c>
+    | <'a,'b,'c,'closure>(('closure)('a,'b)->'c, sig<'a>, sig<'b>, ('a*'b) ref) -> sig<'c>
 
     Parameters:
-        f : ('a,'b) -> 'c - The mapping function
+        f : ('closure)('a,'b) -> 'c - The mapping function
         state : ('a * 'b) ref - Holds the last values received from the signals.
         incomingA : sig<'a> - The first signal
         incomingB : sig<'b> - The second signal
@@ -284,10 +284,10 @@ fun latch<'a>(prevValue : 'a ref, incoming : sig<'a>) : sig<'a> =
     Returns:
         The mapped signal
 *)
-fun map2<'a,'b,'c>(f : ('a, 'b) -> 'c,
-                   state : ('a * 'b) ref,
-                   incomingA : sig<'a>,
-                   incomingB : sig<'b>) : sig<'c> = (
+fun map2<'a,'b,'c,'closure>(f : ('closure)('a, 'b) -> 'c,
+                            state : ('a * 'b) ref,
+                            incomingA : sig<'a>,
+                            incomingB : sig<'b>) : sig<'c> = (
     let valA = case incomingA of
                | signal<'a>(just<'a>(val1 : 'a)) => val1
                | _ => fst<'a,'b>(!state)
@@ -319,7 +319,7 @@ fun map2<'a,'b,'c>(f : ('a, 'b) -> 'c,
         A signal holding the list of previous values
 *)
 fun record<'a;n>(pastValues : list<'a;n> ref, incoming : sig<'a>) : sig<list<'a;n>> =
-    foldP<'a,list<'a;n>>(List:pushOffFront<'a;n>, pastValues, incoming)
+    foldP(List:pushOffFront<'a;n>, pastValues, incoming)
 
 (*
     Function: constant
@@ -407,7 +407,7 @@ fun unmeta<'a>(sigA : sig<maybe<'a>>) : sig<'a> =
         A zipped signal.
 *)
 fun zip<'a,'b>(state : ('a * 'b) ref, sigA : sig<'a>, sigB : sig<'b>) : sig<('a * 'b)> =
-    map2<'a,'b,'a*'b>(
+    map2<'a,'b,'a*'b,||>(
         fn (valA : 'a, valB : 'b) : ('a * 'b) ->
             (valA, valB)
         end, state, sigA, sigB)

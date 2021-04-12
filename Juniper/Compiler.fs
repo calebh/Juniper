@@ -41,85 +41,17 @@ let getRecordName packed fields =
         recordNames <- Map.add (packed, fields) name recordNames
         name
 
-let closureNameParent () = "closureparent_" + Guid.string()
-let closureNameChild () = "closurechild_" + Guid.string()
+let mutable closureNames : Map<string list, string> = Map.empty
+let mutable closureI = 0
 
-type ClosureInfo = { variableOrder : string list; template : Template option; parentClosureName : string; childClosures : ModQualifierRec list }
-let mutable closureInfo : Map<TyExpr, ClosureInfo> = Map.empty
-
-let getLambdaInfo module_ funTy =
-    let childName = closureNameChild ()
-    match Map.tryFind funTy closureInfo with
-    | Some {variableOrder=variableOrder; template=template; parentClosureName=parentClosureName; childClosures=childClosures} ->    
-        let info' = {variableOrder=variableOrder; template=template; parentClosureName=parentClosureName; childClosures={module_=module_; name=childName}::childClosures}
-        closureInfo <- Map.add funTy info' closureInfo
-        (childName, info')
+let getClosureName fields =
+    match Map.tryFind fields closureNames with
+    | Some name -> name
     | None ->
-        let (freeVarsTausSet, freeVarsCapsSet) = Constraint.freeVars funTy
-        let freeVarsTaus = freeVarsTausSet |> List.ofSeq
-        let freeVarsCaps = freeVarsCapsSet |> List.ofSeq
-        let template =
-            match (freeVarsTaus, freeVarsCaps) with
-            | ([], []) -> None
-            | _ -> Some {tyVars=freeVarsTaus; capVars=freeVarsCaps}
-        let variableOrder = closureFromFunTy funTy |> Map.keys |> List.ofSeq
-        let info = {variableOrder=variableOrder; template=template; parentClosureName=closureNameParent (); childClosures=[{module_=module_; name=childName}]}
-        closureInfo <- Map.add funTy info closureInfo
-        (childName, info)
-
-type LiftedLambda = { modQual : ModQualifierRec; closureFields: Map<string, TyExpr>; template: Template option; clause : FunctionClause; innerLambdas: LiftedLambda list; typ : TyExpr }
-
-let liftLambdas theta kappa module_ (dec : Declaration) =
-    let rec liftLambdasExpr (gamma0 : Map<string, TyExpr>) (expr : TyAdorn<Expr>) : (TyAdorn<Expr> * LiftedLambda list) =
-        preorderMapFold
-            (fun gamma accum expr' ->
-                match unwrap expr' with
-                | LambdaExp ({returnTy=returnTy'; body=body'; arguments=arguments'} as clause') ->
-                    // Substitute the solution into the type of the lambda
-                    let tau = getType expr'
-                    let tau' = Constraint.tycapsubst theta kappa tau
-                    let closureFields = closureFromFunTy tau'
-                    let (closureChildName, {template=template; parentClosureName=parentClosureName; variableOrder=variableOrder}) = getLambdaInfo module_ tau'
-                    let (appTyVars, appCapVars) =
-                        match template with
-                        | Some {tyVars=tyVars; capVars=capVars} ->
-                            (tyVars |> List.map TyVar, capVars |> List.map CapacityVar)
-                        | None ->
-                            ([], [])
-                    let (clause'', innerLambdas) = liftLambdasClause closureFields clause'
-                    let accum' = ({modQual={module_=module_; name=closureChildName}; closureFields=closureFields; template=template; clause=clause''; innerLambdas=innerLambdas; typ=tau'})::accum
-                    let closureArgs = variableOrder |> List.map (fun varName -> wrapWithType (Map.find varName gamma) (VarExp (varName, [], [])))
-                    let closureConstructor = CallExp {func=dummyWrap (VarExp (closureChildName, appTyVars, appCapVars)); args=closureArgs}
-                    let funcWrapper = FunctionWrapper (wrapLike expr' closureConstructor)
-                    (*let parentClosureType =
-                        match template with
-                        | Some _ -> ConApp (TyCon (ModuleQualifierTy {module_="juniper"; name=parentClosureName}), appTyVars, appCapVars)
-                        | None -> TyCon (ModuleQualifierTy {module_="juniper"; name=parentClosureName})
-                    let funcExpr = (TemplateApplyExp {func=(Choice2Of2 {module_="juniper"; name="function"}); templateArgs={tyExprs=(parentClosureType::returnTy'::(List.map snd arguments')); capExprs=[]}}) |> dummyWrap
-                    let funcWrapper = (CallExp {func=funcExpr; args=[closureConstructor]})
-                    (wrapLike expr' funcWrapper, accum')*)
-                    (wrapLike expr' funcWrapper, accum')
-                | _ ->
-                    (expr', accum))
-            (fun _ accum leftAssign' -> (leftAssign', accum))
-            (fun _ accum pattern' -> (pattern', accum))
-            gamma0
-            []
-            expr
-    and liftLambdasClause (gamma0 : Map<string, TyExpr>) {closureTy=closureTy; returnTy=returnTy; arguments=arguments; body=body} : (FunctionClause * LiftedLambda list) =
-        let gamma1 = Map.merge gamma0 (Map.ofList arguments)
-        let (body', liftedLambdas) = liftLambdasExpr gamma1 body
-        let closureTy' = Constraint.tycapsubst theta kappa closureTy
-        let returnTy' = Constraint.tycapsubst theta kappa returnTy
-        let arguments' = List.zip (List.map fst arguments) (List.map (snd >> Constraint.tycapsubst theta kappa) arguments)
-        ({closureTy=closureTy'; returnTy=returnTy'; arguments=arguments'; body=body'}, liftedLambdas)
-    match dec with
-    | (FunctionDec {name=name; template=maybeTemplate; clause=clause}) ->
-        let (clause''', liftedLambdas) = liftLambdasClause Map.empty clause
-        (FunctionDec {name=name; template=maybeTemplate; clause=clause'''}, liftedLambdas)
-    | (LetDec {varName=varName; typ=typ; right=right}) ->
-        let (right', liftedLambdas) = liftLambdasExpr Map.empty right
-        (LetDec {varName=varName; typ=typ; right=right'}, liftedLambdas)
+        let name = sprintf "closuret_%d" closureI
+        closureI <- closureI + 1
+        closureNames <- Map.add fields name closureNames
+        name
 
 let compileRecordEnvironment () =
     output "namespace juniper::records {" + newline() + indentId() +
@@ -168,6 +100,34 @@ let compileRecordEnvironment () =
     ) + newline() + unindentId() +
     output "}" + newline() + newline()
 
+let compileClosureEnviornment () =
+    output "namespace juniper::closures {" + newline() + indentId() +
+    (
+    closureNames |>
+    Map.toList |>
+    List.map
+        (fun (fieldNames, closureName) ->
+            let tyNames = [1 .. List.length fieldNames] |> List.map (sprintf "T%d")
+            output "template<" +
+            output (tyNames |> List.map (sprintf "typename %s") |> String.concat ",") +
+            output ">" + newline() +
+            output "struct " +
+            output closureName +
+            output " {" +
+            newline() +
+            indentId() +
+            ((
+                (List.zip tyNames fieldNames) |>
+                List.map (fun (tyName, fieldName) ->
+                    output tyName + output " " + output fieldName + output ";" +
+                    newline())) |> String.concat "") + newline() + newline() +
+            output closureName + output "(" + ((List.zip tyNames fieldNames) |> List.map (fun (tyName, fieldName) -> output tyName + output " " + output (sprintf "init_%s" fieldName)) |> String.concat ", ") + output ") :" + newline() + indentId() +
+            (fieldNames |> List.map (fun fieldName -> output fieldName + output "(" + output (sprintf "init_%s" fieldName) + output ")") |> String.concat ", ") + output " {}" + newline() + unindentId() + unindentId() +
+            output "};" + newline() + newline()) |>
+    String.concat ""
+    ) + newline() + unindentId() +
+    output "}" + newline() + newline()
+
 // In Juniper, quit is a templated function that calls exit(1)
 // They are templated so they can be wrapped in a type so they can have return values consistent in typing
 // with whatever statement or function they may be a part of (for example, a function that returns an int will
@@ -181,63 +141,6 @@ let rec getQuitExpr (ty : TyExpr) : TyAdorn<Expr> =
         (CallExp {func = appliedQuit;
                   args = []})
 
-and compileClosureForwardDeclarations () =
-    closureInfo |>
-    Map.toList |>
-    List.map
-        (fun (closureTy, { variableOrder=variableOrder; template=maybeTemplate; parentClosureName=parentClosure; childClosures=childrenClosures }) ->
-            let compiledTemplate () =
-                match maybeTemplate with
-                | Some template ->
-                    compileTemplate Map.empty Map.empty template
-                | None ->
-                    ""
-            let compileForward {module_=module_; name=name} =
-                output "namespace " + output module_ + output " {" + newline() + indentId() +
-                output (compiledTemplate ()) + newline() +
-                output "class " + output name + output ";" + unindentId() + newline() +
-                output "}"
-
-            match childrenClosures with
-            | [{module_=module_; name=name} as modQual] ->
-                // If we only have one child, output a using that sets the parent declaration equal to the single child
-                let applyTemplate () =
-                    match maybeTemplate with
-                    | Some {tyVars=tyVars; capVars=capVars} ->
-                        compileTemplateApply Map.empty Map.empty ({tyExprs=tyVars |> List.map TyVar; capExprs=capVars |> List.map CapacityVar})
-                    | None ->
-                        ""
-                compileForward modQual + newline() + newline() +
-                output "namespace juniper {" + newline() + indentId() +
-                output (compiledTemplate ()) + newline() +
-                output "using " + output parentClosure + output " = " + output module_ + output "::" + output name + output (applyTemplate ()) + output ";" + newline() + unindentId() +
-                output "}" + newline() + newline()
-            | _ ->
-                let retTy = returnFromFunTy closureTy
-                let argsTy = argsFromFunTy closureTy
-                let closureFields = closureFromFunTy closureTy
-                let compileType' = compileType Map.empty Map.empty // Duly note that closureTy should have already had theta and kappa
-                // applied to it, so it's okay to pass Map.empty for those parameters here
-                output "namespace juniper {" + newline() + indentId() +
-                output (compiledTemplate ()) + newline() +
-                output "class " + output parentClosure + output " {" + newline() +
-                output "protected:" + newline() + indentId() +
-                output "typedef " + compileType' retTy + output " (" + output parentClosure + output ":: * MethodPtr)(" + (argsTy |> List.map compileType' |> String.concat ", ") + ");" + newline() + newline() +
-                output ((variableOrder |> List.map (fun varName -> compileType' (Map.find varName closureFields) + output " " + varName + output ";" + newline())) |> String.concat "") + newline() +
-                unindentId() + output "private:" + newline() + indentId() +
-                output "MethodPtr derivedOperator;" + newline() +
-                unindentId() + output "public:" + newline() + indentId() +
-                output parentClosure + output "(MethodPtr method, " + output ((variableOrder |> List.map (fun varName -> compileType' (Map.find varName closureFields) + output " init_" + varName)) |> String.concat ", ") + newline() +
-                indentId() + output ": derivedOperator(method), " + output ((variableOrder |> List.map (fun varName -> output varName + "(" + output "init_" + output varName + output ")")) |> String.concat ", ") + unindentId() + newline() +
-                output "{}" + newline() + newline() +
-                output (compileType' retTy) + output "operator()(" + output (argsTy |> List.mapi (fun argi argTy -> compileType' argTy + output (sprintf " arg%d" argi)) |> String.concat ", ") + output ")" + output "{" + newline() + indentId() +
-                output "return (*this.*derivedOperator)(" + (argsTy |> List.mapi (fun argi _ -> output (sprintf " arg%d" argi)) |> String.concat ", ") + output ");" + newline() + unindentId() +
-                output "}" + newline() + unindentId() +
-                output "};" + newline() + unindentId() +
-                output "}" + newline() + newline() +
-                (childrenClosures |> List.map (fun modQual -> compileForward modQual + newline() + newline()) |> String.concat "")) |>
-    String.concat ""
-
 // Converts type from Juniper representation to C++ representation.
 and compileType theta kappa (ty : TyExpr) : string =
     let compileType = compileType theta kappa
@@ -245,35 +148,14 @@ and compileType theta kappa (ty : TyExpr) : string =
     match ty with
     | TyVar name ->
         match Map.tryFind name theta with
-        | None -> name
+        | None -> output name
         | Some ty' ->
             if ty = ty' then
-                name
+                output name
             else
                 compileType ty'
     | ConApp (TyCon FunTy, closureTy::returnType::args, _) ->
-        match Constraint.tycapsubst theta kappa closureTy with
-        | ClosureTy closure ->
-            if Map.count closure = 0 then
-                output "juniper::emptyclosure_function<" + compileType returnType + output ", " + (args |> List.map compileType |> String.concat ", ") + output ">"
-            else
-                let ty' = Constraint.tycapsubst theta kappa ty
-                match Map.tryFind ty' closureInfo with
-                | Some {template=maybeTemplate; parentClosureName=parentClosureName} ->
-                    let applyTemplate () =
-                        match maybeTemplate with
-                        | Some {tyVars=tyVars; capVars=capVars} ->
-                            compileTemplateApply Map.empty Map.empty ({tyExprs=tyVars |> List.map TyVar; capExprs=capVars |> List.map CapacityVar})
-                        | None ->
-                            ""
-                    output "juniper::function<juniper::"  + output parentClosureName + applyTemplate() + output ", " + compileType returnType + output ", " +
-                    (args |> List.map compileType |> String.concat ", ")
-                    + output ">"
-                | None ->
-                    raise <| TypeError ("Internal compiler error: Unable to find " + typeString ty' + " in closureInfo environment")
-        | closureTy' ->
-            output "juniper::function<" + compileType closureTy' + output ", " + compileType returnType + output ", " + (args |> List.map compileType |> String.concat ", ")
-            + output ">"
+        output "juniper::function<" + compileType closureTy + output ", " + compileType returnType + output "(" + (args |> List.map compileType |> String.concat ", ") + output ")" + output ">"
     | ConApp (TyCon TupleTy, taus, _) ->
         output (sprintf "juniper::tuple%d<" (List.length taus)) +
             (taus |> List.map compileType |> String.concat ",") +
@@ -318,8 +200,13 @@ and compileType theta kappa (ty : TyExpr) : string =
                 Map.keys fields |> List.ofSeq |> List.sort
         let recordName = getRecordName (Option.isSome packed) fieldOrder
         output "juniper::records::" + recordName + "<" + (fieldOrder |> List.map (((flip Map.find) fields) >> compileType) |> String.concat ", ") + ">"
-    | ClosureTy _ ->
-        raise <| TypeError "Internal compiler error: attempting to compile standalone ClosureTy"
+    | ClosureTy fields ->
+        if Map.count fields = 0 then
+            output "void"
+        else
+            let fieldOrder = fields |> Map.keys |> List.ofSeq |> List.sort
+            let closureName = getClosureName fieldOrder
+            output "juniper::closures::" + closureName + "<" + (fieldOrder |> List.map (((flip Map.find) fields) >> compileType) |> String.concat ", ") + ">"
 
 // Converts left side of a variable assignment to the C++ representation.
 and compileLeftAssign theta kappa topLevel (left : LeftAssign) : string =
@@ -607,8 +494,17 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         output "(" + compile topLevel left + output " " + output opStr + output " " + compile topLevel right + output ")"
     | RecordAccessExp { record=record; fieldName=fieldName} ->
         output "(" + compile topLevel record + output ")." + output fieldName
-    | LambdaExp {returnTy=returnTy; arguments=args; body=body} ->
-        raise <| TypeError "Internal compiler error: attempting to compile unlifted lambda."
+    | LambdaExp {closure=closure; returnTy=returnTy; arguments=args; body=body} ->
+        output "juniper::function<" + compileType (ClosureTy closure) + ", " + compileType returnTy + "(" + (args |> List.map (snd >> compileType) |> String.concat ",") + ")>(" +
+        (if Map.count closure = 0 then
+            ""
+        else
+            compileType (ClosureTy closure) + output "(" + (closure |> Map.keys |> List.ofSeq |> List.sort |> String.concat ", ") + output "), ") +
+        output "[](" + (compileType (ClosureTy closure)) + "& junclosure, " + (args |> List.map (fun (name, ty) -> compileType ty + output " " + output name) |> String.concat ", ") +
+        output ") -> " + compileType returnTy + output " { " + newline() + indentId() +
+        (closure |> Map.keys |> List.ofSeq |> List.sort |> List.map (fun varName -> compileType (Map.find varName closure) + output "& " + output varName + output " = junclosure." + output varName + output ";" + newline()) |> String.concat "") +
+        output "return " + compile false body + output ";" + unindentId() + newline() +
+        output " })"
     | ModQualifierExp ({module_=module_; name=name}, [], []) ->
         output module_ + "::" + output name
     | ModQualifierExp ({module_=module_; name=name}, t, c) ->
@@ -807,7 +703,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
             compileTemplate theta kappa template + newline()
         | None ->
             output "") +
-        output "struct" + output name + output " {" + newline() + indentId() +
+        output "struct " + output name + output " {" + newline() + indentId() +
         variantType() + " data;" + newline() + newline() +
         output name + output "(" + variantType() + " initData) : data(initData) {}" + newline() + newline() +
         ((valCons |> List.mapi
@@ -846,7 +742,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
             (match taus with
             | [] -> output "0" 
             | [_] -> output "data0"
-            | _ -> compileTaus taus + "(" + ((taus |> List.mapi (fun j _ -> output (sprintf "data%d" j))) |> String.concat ", ")) + ")" + output "));" +
+            | _ -> compileTaus taus + "(" + ((taus |> List.mapi (fun j _ -> output (sprintf "data%d" j))) |> String.concat ", "))+ output "));" + newline() +
             unindentId() + output "}" + newline() + newline()) |> String.concat "")
     | AliasDec {name=name; template=maybeTemplate; typ=typ} ->
         (match maybeTemplate with
@@ -857,45 +753,9 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
                 output "") +
         output "using " + output name + output " = " + compileType typ + output ";" + newline() + newline()
 
-and compileLiftedLambda theta kappa ({modQual={name=name}; closureFields=closureFields; template=maybeTemplate; clause={arguments=arguments; body=body} : FunctionClause; innerLambdas=innerLambdas; typ=typ} : LiftedLambda) =
-    let compiledInnerLambdas = List.map (fun lambda -> compileLiftedLambda theta kappa lambda + newline() + newline()) innerLambdas |> String.concat ""
-    let {variableOrder=variableOrder; parentClosureName=parentClosureName; childClosures=childClosures} : ClosureInfo = Map.find typ closureInfo
-    compiledInnerLambdas +
-    (match maybeTemplate with
-    | Some template ->
-        output (compileTemplate Map.empty Map.empty template) + newline()
-    | None ->
-        "") +
-    (match childClosures with
-    | [_] ->
-        output "class" + output name + output "{" + newline() +
-        output "private:" + newline() + indentId() +
-        (variableOrder |> List.map (fun varName -> (Map.find varName closureFields |> compileType Map.empty Map.empty) + output " " + output varName + output ";" + newline()) |> String.concat "") + newline() + unindentId() +
-        output "public:" + newline() + indentId() +
-        output name + output "(" + (variableOrder |> List.map (fun varName -> ((Map.find varName closureFields) |> compileType Map.empty Map.empty) + output (" init" + varName)) |> String.concat ", ") + output ") : " + newline() + indentId() + 
-        (variableOrder |> List.map (fun varName -> output varName + output "(" + output ("init" + varName) + output ")") |> String.concat ", ") + output "{ }" + unindentId() + newline() + newline() +
-        compileType theta kappa (returnFromFunTy typ) + output " operator()(" + (arguments |> List.map (fun (argName, argTyp) -> (compileType theta kappa argTyp) + output " " + argName) |> String.concat ", ") + output ") {" + indentId() + newline() +
-        compile theta kappa false body + newline() + unindentId() +
-        output "}" + newline() + unindentId() +
-        output "};" + newline() + newline()
-    | _ ->
-        output "class" + output name + output " : public juniper::" + output parentClosureName +
-        (match maybeTemplate with
-        | Some template ->
-            output (compileTemplateApply Map.empty Map.empty (templateToTemplateApply template))
-        | None ->
-            "") + output " {" + newline() +
-        output "public:" + indentId() + newline() +
-        output name + output "(" + (variableOrder |> List.map (fun varName -> ((Map.find varName closureFields) |> compileType Map.empty Map.empty) + output (" init" + varName)) |> String.concat ", ") + output ") : " + newline() + indentId() +
-        output parentClosureName + output "((MethodPtr)&" + output name + output "::myOperator, " + (variableOrder |> List.map (fun varName -> output ("init" + varName)) |> String.concat ", ") + output ") {}" + newline() + newline() + unindentId() +
-        compileType theta kappa (returnFromFunTy typ) + output " myOperator(" + (arguments |> List.map (fun (argName, argTyp) -> (compileType theta kappa argTyp) + output " " + argName) |> String.concat ", ") + output ") {" + indentId() + newline() +
-        compile theta kappa false body + newline() + unindentId() +
-        output "}" + newline() + unindentId() +
-        output "};" + newline() + newline())
-
 // Program: includes, types, values
-//                              module names   opens                         v incudes           v mod name  v type dec             v Inline code decs                 v mod    v fun/let dec                v scc           v theta              v kappa
-and compileProgram (program : string list * ((string * Declaration) list) * Declaration list * ((string * Declaration) list) * ((string * Declaration) list) * (((string * Declaration * LiftedLambda list) list) * Map<string, TyExpr> * Map<string, CapacityExpr>) list) : string =
+//                              module names   opens                         v incudes           v mod name  v type dec             v Inline code decs                 v mod    v fun/let dec          v theta              v kappa
+and compileProgram (program : string list * ((string * Declaration) list) * Declaration list * ((string * Declaration) list) * ((string * Declaration) list) * (((string * Declaration) list) * Map<string, TyExpr> * Map<string, CapacityExpr>) list) : string =
     let executingDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
     let junCppStdPath = executingDir + "/cppstd/juniper.hpp"
     let junCppStd = System.IO.File.ReadAllText junCppStdPath
@@ -905,7 +765,7 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
     (valueSccs |> List.iter (fun scc ->
         match scc with
         | (decs, _, _) ->
-            decs |> List.iter (fun (module_, dec, _) ->
+            decs |> List.iter (fun (module_, dec) ->
                 match dec with
                 | FunctionDec {name=name} when name = "setup" ->
                     setupModule <- Some module_
@@ -914,9 +774,8 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
                 | _ -> ())
         | _ -> ()))
 
-    let compileNamespace theta kappa (module_, dec, liftedLambdas : LiftedLambda list) =
+    let compileNamespace theta kappa (module_, dec) =
         output "namespace " + output module_ + output " {" + newline() + indentId() +
-        ((liftedLambdas |> List.map (fun lambda -> compileLiftedLambda theta kappa lambda + newline() + newline())) |> String.concat "") +
         compileDec module_ theta kappa dec + newline() + unindentId() +
         output "}" + newline() + newline()
     
@@ -931,19 +790,19 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
         (moduleNames |> List.map (fun name -> output "namespace " + output name + output " {}" + newline()) |> String.concat "")
     // Now insert all the usings
     let compiledOpens =
-        (opens |> List.map (fun (module_, dec) -> compileNamespace Map.empty Map.empty (module_, dec, [])) |> String.concat "")
+        (opens |> List.map (fun (module_, dec) -> compileNamespace Map.empty Map.empty (module_, dec)) |> String.concat "")
     // Compile all the types
     let compiledTypeDecs =
-        (typeDecs |> List.map (fun (module_, dec) -> compileNamespace Map.empty Map.empty (module_, dec, [])) |> String.concat "")
+        (typeDecs |> List.map (fun (module_, dec) -> compileNamespace Map.empty Map.empty (module_, dec)) |> String.concat "")
     // Compile forward declarations of all functions to enable recursion
     let compiledFunctionSignatures =
         (valueSccs |> List.map (fun (decs, theta, kappa) ->
             decs |> 
-            (List.filter (fun (_, dec, _) ->
+            (List.filter (fun (_, dec) ->
                 match dec with
                 | FunctionDec _ -> true
                 | _ -> false)) |>
-            List.map (fun (module_, dec, _) ->
+            List.map (fun (module_, dec) ->
                 output "namespace " + output module_ + output " {" + newline() + indentId() +
                 compileFunctionSignature theta kappa dec + ";" + newline() + unindentId() +
                 output "}" + newline() + newline()) |>
@@ -951,15 +810,15 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
         ) |> String.concat "")
         // Compile all global inline code
     let compiledInlineCode =
-        (inlineCodeDecs |> List.map (fun (module_, dec) -> compileNamespace Map.empty Map.empty (module_, dec, [])) |> String.concat "")
+        (inlineCodeDecs |> List.map (fun (module_, dec) -> compileNamespace Map.empty Map.empty (module_, dec)) |> String.concat "")
     let compiledValues =
         // Compile all global variables and functions
         (valueSccs |> List.map (fun (decs, theta, kappa) ->
             decs |> List.map (compileNamespace theta kappa) |> String.concat "") |> String.concat "")
     let compiledRecordEnvironment = compileRecordEnvironment ()
-    let compiledClosureForwardDeclarations = compileClosureForwardDeclarations ()
+    let compiledClosureEnvironment = compileClosureEnviornment ()
     
-    compiledIncludes + compiledNamespaces + compiledOpens + compiledRecordEnvironment + compiledTypeDecs + compiledFunctionSignatures + compiledClosureForwardDeclarations +
+    compiledIncludes + compiledNamespaces + compiledOpens + compiledRecordEnvironment + compiledClosureEnvironment + compiledTypeDecs + compiledFunctionSignatures +
     compiledInlineCode + compiledValues +
     (*
         void setup() {

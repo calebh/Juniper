@@ -117,20 +117,34 @@ namespace juniper
     };
     
     template <typename ClosureType, typename Result, typename ...Args>
-    class function {
+    class function;
+
+    template <typename Result, typename ...Args>
+    class function<void, Result(Args...)> {
     private:
-        ClosureType Closure;
+        Result(*F)(Args...);
 
     public:
-        function(ClosureType closure) : Closure(closure) {}
+        function(Result(*f)(Args...)) : F(f) {}
 
         Result operator()(Args... args) {
-            return (Closure)(args...);
+            return F(args...);
         }
     };
 
-    template <typename Result, typename ...Args>
-    using emptyclosure_function = function<Result (*)(Args...), Result, Args...>;
+    template <typename ClosureType, typename Result, typename ...Args>
+    class function<ClosureType, Result(Args...)> {
+    private:
+        ClosureType Closure;
+        Result(*F)(ClosureType&, Args...);
+
+    public:
+        function(ClosureType closure, Result(*f)(ClosureType&, Args...)) : Closure(closure), F(f) {}
+
+        Result operator()(Args... args) {
+            return F(Closure, args...);
+        }
+    };
 
     template<typename T, size_t N>
     class array {
@@ -174,13 +188,13 @@ namespace juniper
 
     class rawpointer_container {
     private:
-        void *data;
-        emptyclosure_function<unit, void*> destructorCallback;
+        void* data;
+        function<void, unit(void*)> destructorCallback;
 
     public:
-        rawpointer_container(void *initData, emptyclosure_function<unit, void*> callback)
+        rawpointer_container(void* initData, function<void, unit(void*)> callback)
             : data(initData), destructorCallback(callback) {}
-        
+
         ~rawpointer_container() {
             destructorCallback(data);
         }
@@ -188,7 +202,7 @@ namespace juniper
 
     using smartpointer = shared_ptr<rawpointer_container>;
 
-    smartpointer make_smartpointer(void *initData, emptyclosure_function<unit, void*> callback) {
+    smartpointer make_smartpointer(void *initData, function<void, unit(void*)> callback) {
         return smartpointer(new rawpointer_container(initData, callback));
     }
 

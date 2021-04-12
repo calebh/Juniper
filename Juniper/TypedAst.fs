@@ -115,7 +115,7 @@ and Pattern = MatchVar of MatchVarRec
             | MatchFalse
 
 // Elements of a function clause.
-and FunctionClause = {closureTy : TyExpr; returnTy : TyExpr; arguments : (string * TyExpr) list; body : TyAdorn<Expr>}
+and FunctionClause = {closure : Map<string, TyExpr>; returnTy : TyExpr; arguments : (string * TyExpr) list; body : TyAdorn<Expr>}
 
 // Module qualifier.
 and ModQualifierRec = { module_ : string; name : string }
@@ -491,10 +491,10 @@ and preorderMapFold (exprMapper: Map<string, TyExpr> -> 'accum -> TyAdorn<Expr> 
         (expr', accum')
     | InternalUsingCap _ ->
         (expr', accum')
-    | LambdaExp {closureTy=closureTy; returnTy=returnTy; arguments=arguments; body=body} ->
+    | LambdaExp {closure=closureTy; returnTy=returnTy; arguments=arguments; body=body} ->
         let gamma' = Map.merge gamma (Map.ofList arguments)
         let (body', accum'') = preorderMapFold exprMapper leftAssignMapper patternMapper gamma' accum' body
-        (wrapLike expr' (LambdaExp {closureTy=closureTy; returnTy=returnTy; arguments=arguments; body=body'}), accum'')
+        (wrapLike expr' (LambdaExp {closure=closureTy; returnTy=returnTy; arguments=arguments; body=body'}), accum'')
     | LetExp {left=left; right=right} ->
         let (right', accum'') = preorderMapFold' accum' right
         let (left', accum''') = preorderMapFoldPattern' accum'' left

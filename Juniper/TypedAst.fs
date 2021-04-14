@@ -196,7 +196,7 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | QuitExp of TyExpr
           | Smartpointer of TyAdorn<Expr> * TyAdorn<Expr>
           | NullExp
-          | FunctionWrapper of TyAdorn<Expr>
+          | FunctionWrapperEmptyClosure of TyAdorn<Expr>
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | BitwiseXor
               | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
               | BitshiftLeft | BitshiftRight
@@ -472,9 +472,9 @@ and preorderMapFold (exprMapper: Map<string, TyExpr> -> 'accum -> TyAdorn<Expr> 
         let (end_', accum''') = preorderMapFold exprMapper leftAssignMapper patternMapper gamma' accum'' end_
         let (body', accum'''') = preorderMapFold exprMapper leftAssignMapper patternMapper gamma' accum''' body
         (wrapLike expr' (ForLoopExp {typ=typ; varName=varName; start=start'; direction=direction; end_=end_'; body=body'}), accum'''')
-    | FunctionWrapper inner ->
+    | FunctionWrapperEmptyClosure inner ->
         let (inner', accum'') = preorderMapFold' accum' inner
-        (wrapLike expr' (FunctionWrapper inner'), accum'')
+        (wrapLike expr' (FunctionWrapperEmptyClosure inner'), accum'')
     | IfElseExp {condition=condition; trueBranch=trueBranch; falseBranch=falseBranch} ->
         let (condition', accum'') = preorderMapFold' accum' condition
         let (trueBranch', accum''') = preorderMapFold' accum'' trueBranch

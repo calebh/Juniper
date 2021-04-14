@@ -324,7 +324,7 @@ let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.Capa
             append2 ([ffv condition; ffv body] |> List.unzip)
         | T.DeclVarExp {varName=varName; typ=typ} ->
             freeVarsTyp (T.getPos e) typ
-        | T.FunctionWrapper func ->
+        | T.FunctionWrapperEmptyClosure func ->
             ffv func
     
     (List.append freeTaus freeTaus', List.append freeCaps freeCaps')

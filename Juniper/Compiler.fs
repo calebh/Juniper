@@ -245,18 +245,19 @@ and compilePattern (pattern : TyAdorn<Pattern>) (path : TyAdorn<Expr>) =
             let check = BinaryOpExp {op=Equal; left=path; right=(pos, TyCon <| BaseTy TyFloat, FloatExp floatLit)}
             conditions <- check::conditions
         | (_, _, MatchValCon {modQualifier={module_=module_; name=name}; innerPattern=innerPattern; id=index}) ->
-            let tag = RecordAccessExp {record=path; fieldName="tag"}
+            let tag = CallExp {func=dummyWrap (RecordAccessExp {record=path; fieldName="id"}); args=[]}
             let check = BinaryOpExp {op=Equal; left=dummyWrap tag; right=wrapWithType (TyCon <| BaseTy TyUint8) (IntExp <| int64 index)}
+            let accessExp = CallExp { func=RecordAccessExp {record=path; fieldName=name} |> dummyWrap; args=[] } |> dummyWrap
             match innerPattern with
             | [] -> ()
             | [p] ->
-                let path' = RecordAccessExp {record=path; fieldName=name} |> dummyWrap
+                let path' = accessExp
                 compilePattern' p path' |> ignore
             | _ ->
                 innerPattern |>
                 List.iteri
                     (fun i p ->
-                        let path' = RecordAccessExp { record = (RecordAccessExp {record=path; fieldName=name} |> dummyWrap); fieldName=(sprintf "e%d" (i + 1)) } |> dummyWrap
+                        let path' = RecordAccessExp { record = accessExp; fieldName=(sprintf "e%d" (i + 1)) } |> dummyWrap
                         compilePattern' p path' |> ignore)
             conditions <- check::conditions
         | (_, _, MatchUnderscore) -> ()
@@ -420,15 +421,15 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         output " = " +
         compile topLevel right +
         output ")"
-    | CallExp {func=(_, _, FunctionWrapper func); args=args} ->
+    | CallExp {func=(_, _, FunctionWrapperEmptyClosure func); args=args} ->
         // Optimization: ignore any function wrapper that is embedded in a call
         compile topLevel (pose, ty, CallExp {func=func; args=args})
     | CallExp {func=func; args=args} ->
         compile topLevel func + output "(" +
         (args |> List.map (compile topLevel) |> String.concat ", ") +
         output ")"
-    | FunctionWrapper func ->
-        // Compile to juniper::function<ParentClosure, RetTy, Arg0, ... ArgN>(func)
+    | FunctionWrapperEmptyClosure func ->
+        // Compile to juniper::function<void, RetTy(Arg0, ... ArgN)>(func)
         compileType ty + output "(" + compile topLevel func + output ")"
     | UnitExp _ ->
         output "juniper::unit()"
@@ -742,7 +743,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
             (match taus with
             | [] -> output "0" 
             | [_] -> output "data0"
-            | _ -> compileTaus taus + "(" + ((taus |> List.mapi (fun j _ -> output (sprintf "data%d" j))) |> String.concat ", "))+ output "));" + newline() +
+            | _ -> compileTaus taus + "(" + ((taus |> List.mapi (fun j _ -> output (sprintf "data%d" j))) |> String.concat ", ") + ")") + output "));" + newline() +
             unindentId() + output "}" + newline() + newline()) |> String.concat "")
     | AliasDec {name=name; template=maybeTemplate; typ=typ} ->
         (match maybeTemplate with

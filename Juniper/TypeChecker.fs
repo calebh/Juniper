@@ -193,7 +193,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 else
                     match Map.find (Map.find varName menv) dtenv with
                     | FunDecTy _ ->
-                        adorn posE instance (T.FunctionWrapper (posE, instance, (T.VarExp (varName, t, c)))) interfaceConstraints'
+                        adorn posE instance (T.FunctionWrapperEmptyClosure (posE, instance, (T.VarExp (varName, t, c)))) interfaceConstraints'
                     | _ ->
                         nonfunVar
             | None ->
@@ -605,7 +605,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let (tau, interfaceConstraints) = instantiate scheme templateArgs' templateArgsCaps'
             let err = errStr [post] "The template arguments to the function do not satisfy the interface constraints."
             let interfaceConstraints' = interfaceConstraints |> List.map (fun (conTau, con) -> InterfaceConstraint (conTau, con, err)) |> conjoinConstraints
-            adorn posE tau (T.FunctionWrapper (posE, tau, T.TemplateApplyExp {func=func'; templateArgs={tyExprs=templateArgs'; capExprs=templateArgsCaps'}})) interfaceConstraints'
+            adorn posE tau (T.FunctionWrapperEmptyClosure (posE, tau, T.TemplateApplyExp {func=func'; templateArgs={tyExprs=templateArgs'; capExprs=templateArgsCaps'}})) interfaceConstraints'
         | Ast.TupleExp exprs ->
             let (exprs', c') = typesof exprs dtenv menv localVars gamma
             let subTaus = List.map T.getType exprs'

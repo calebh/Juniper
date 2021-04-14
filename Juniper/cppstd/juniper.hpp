@@ -430,7 +430,7 @@ namespace juniper
             if (variant_id == i) {
                 return *reinterpret_cast<alternative<i>*>(&data);
             } else {
-                throw std::bad_cast();
+                return quit<alternative<i>&>();
             }
         }
 

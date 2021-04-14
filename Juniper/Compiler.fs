@@ -501,7 +501,12 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
             ""
         else
             compileType (ClosureTy closure) + output "(" + (closure |> Map.keys |> List.ofSeq |> List.sort |> String.concat ", ") + output "), ") +
-        output "[](" + (compileType (ClosureTy closure)) + "& junclosure, " + (args |> List.map (fun (name, ty) -> compileType ty + output " " + output name) |> String.concat ", ") +
+        output "[](" +
+        (if Map.count closure = 0 then
+            ""
+        else
+            (compileType (ClosureTy closure)) + "& junclosure, ") +
+        (args |> List.map (fun (name, ty) -> compileType ty + output " " + output name) |> String.concat ", ") +
         output ") -> " + compileType returnTy + output " { " + newline() + indentId() +
         (closure |> Map.keys |> List.ofSeq |> List.sort |> List.map (fun varName -> compileType (Map.find varName closure) + output "& " + output varName + output " = junclosure." + output varName + output ";" + newline()) |> String.concat "") +
         output "return " + compile false body + output ";" + unindentId() + newline() +

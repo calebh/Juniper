@@ -114,18 +114,21 @@ fun merge<'a>(sigA : sig<'a>, sigB : sig<'a>) : sig<'a> =
         sigs : list<sig<'a>;n> - A list of signals to merge together.
 *)
 fun mergeMany<'a;n>(sigs : list<sig<'a>;n>) : sig<'a> = (
-    let mutable ret = nothing<'a>();
-    sigs |>
-    List:foreach(fn (sig) ->
-        case ret of
-        | nothing<'a>() => (
-            let signal<'a>(heldValue) = sig;
-            set ret = heldValue;
-            ())
-        | _ => ()
-        end
-    end);
-    signal<'a>(ret))
+    let ret =
+        sigs |>
+        List:foldl(
+            fn (sig, accum) ->
+                case accum of
+                | nothing<'a>() => (
+                    let signal<'a>(heldValue) = sig;
+                    heldValue)
+                | _ => accum
+                end
+            end,
+            nothing<'a>()
+        );
+    signal<'a>(ret)
+)
 
 (*
     Function: join

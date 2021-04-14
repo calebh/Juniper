@@ -417,6 +417,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             match interfaceConstraints with
             | [] -> ()
             | _ -> raise <| SemanticError ((errStr [posi] "Interface constraints are not supported for lambdas").Force())
+            let gamma' = gamma |> Map.map (fun varName (_, scheme) -> (false, scheme)) // Mark all variables as non-mutable within the lambda
             let (gamma1Lst, c1s, localVars1, arguments') =
                 arguments |>
                 List.map
@@ -431,10 +432,10 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                         let gammaEntry = (argName, (false, T.Forall ([], [], [], tau)))
                         (gammaEntry, argConstraint, argName, (argName, tau))) |>
                 List.unzip4
-            let gamma' = Map.merge gamma (Map.ofList gamma1Lst)
+            let gamma'' = Map.merge gamma' (Map.ofList gamma1Lst)
             let c1 = c1s |> conjoinConstraints            
             let localVars' = Set.union localVars (Set.ofList localVars1)
-            let (body', c2) = typeof body dtenv menv localVars' ienv tyVarMapping capVarMapping gamma'
+            let (body', c2) = typeof body dtenv menv localVars' ienv tyVarMapping capVarMapping gamma''
             let closureVariables = Set.intersect localVars (AstAnalysis.closure body')
             let (closureList, interfaceConstraints) =
                 closureVariables |>

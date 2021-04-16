@@ -74,7 +74,10 @@ let compileRecordEnvironment () =
                 (List.zip tyNames fieldNames) |>
                 List.map (fun (tyName, fieldName) ->
                     output tyName + output " " + output fieldName + output ";" +
-                    newline())) |> String.concat "") +
+                    newline())) |> String.concat "") + newline() +
+            output recordName + output "() {}" + newline() + newline() +
+            output recordName + output "(" + (List.zip tyNames fieldNames |> List.map (fun (tyName, fieldName) -> output tyName + output " " + output ("init_" + fieldName)) |> String.concat ", ") + output ")" + indentId() + newline() +
+            output ": " + (fieldNames |> List.map (fun fieldName -> output fieldName + output "(" + output ("init_" + fieldName) + output ")") |> String.concat ", ") + output " {}" + unindentId() + newline() + newline() +
             output "bool operator==(" +
             output recordName + output "<" +
             output (String.concat ", " tyNames) +
@@ -711,11 +714,12 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
             output "") +
         output "struct " + output name + output " {" + newline() + indentId() +
         variantType() + " data;" + newline() + newline() +
+        output name + output "() {}" + newline() + newline() +
         output name + output "(" + variantType() + " initData) : data(initData) {}" + newline() + newline() +
         ((valCons |> List.mapi
             (fun i (valConName, taus) ->
                 compileTaus taus + output " " + output valConName + output "() {" + newline() + indentId() +
-                output "return data.get<" + output (sprintf "%d" i) + output ">();" + newline() + unindentId() +
+                output "return data.template get<" + output (sprintf "%d" i) + output ">();" + newline() + unindentId() +
                 output "}" + newline() + newline())) |> String.concat "") +
         output "uint8_t id() {" + newline() + indentId() +
         output "return data.id();" + newline() + unindentId() +
@@ -744,7 +748,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
             compileType retType + output " " + output valConName + output "(" +
             (taus |> List.mapi (fun j ty -> compileType ty + output (sprintf " data%d" j)) |> String.concat ", ") +
             output ") {" + newline() + indentId() +
-            output "return " + compileType retType + output "(" + output (variantType ()) + output "::create<" + output (sprintf "%d" i) + output ">(" +
+            output "return " + compileType retType + output "(" + output (variantType ()) + output "::template create<" + output (sprintf "%d" i) + output ">(" +
             (match taus with
             | [] -> output "0" 
             | [_] -> output "data0"

@@ -378,6 +378,8 @@ namespace juniper
             return ret;
         }
 
+        variant() {}
+
         variant(const variant<Ts...>& from) : variant_id(from.variant_id)
         {
             helper_t::copy(from.variant_id, &from.data, &data);

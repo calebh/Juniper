@@ -34,12 +34,20 @@ let rec convertCapacity capVarMapping (cap : Ast.CapacityExpr) : T.CapacityExpr 
         let term' = convertCapacity term
         T.CapacityUnaryOp {op=op'; term=term'}
 
-let rec removeAliases (dtenv : Map<string * string, T.DeclarationTy>) (tau : T.TyExpr) =
-    let removeAliases' = removeAliases dtenv
+let rec removeAliases (dtenv : Map<string * string, T.DeclarationTy>) (pos : FParsec.Position * FParsec.Position) (tau : T.TyExpr) =
+    let removeAliases' = removeAliases dtenv pos
     match tau with
     | T.ConApp (T.TyCon (T.ModuleQualifierTy {module_=module_; name=name}), argsTau, argsCap) ->
         match Map.tryFind (module_, name) dtenv with
         | Some (T.AliasDecTy (tyVars, capVars, aliasTau)) ->
+            if not (List.length tyVars = List.length argsTau) then
+                raise <| TypeError ((errStr [pos] (sprintf "Error when expanding the alias declaration %s:%s. The number of type arguments passed to the alias was %d, but the alias expected %d arguments." module_ name (List.length argsTau) (List.length tyVars))).Force())
+            else
+                ()
+            if not (List.length capVars = List.length argsCap) then
+                raise <| TypeError ((errStr [pos] (sprintf "Error when expanding the alias declaration %s:%s. The number of capacity arguments passed to the alias was %d, but the alias expected %d arguments." module_ name (List.length argsCap) (List.length capVars))).Force())
+            else
+                ()
             let typeBinding = Map.ofList (List.zip tyVars argsTau)
             let capBinding = Map.ofList (List.zip capVars argsCap)
             let tau' = Constraint.tycapsubst typeBinding capBinding aliasTau
@@ -65,7 +73,7 @@ let rec removeAliases (dtenv : Map<string * string, T.DeclarationTy>) (tau : T.T
 
 // The mapping parameter is used to convert explicitly given type variable parameter
 // into a non-conflicting form
-let convertType menv (dtenv : Map<string * string, T.DeclarationTy>) tyVarMapping capVarMapping (tau : Ast.TyExpr) : T.TyExpr =
+let convertType menv (dtenv : Map<string * string, T.DeclarationTy>) tyVarMapping capVarMapping (tau : Ast.PosAdorn<Ast.TyExpr>) : T.TyExpr =
     let rec convertType' (tau : Ast.TyExpr) : T.TyExpr =
         let ct = convertType'
         let convertCapacity = convertCapacity capVarMapping
@@ -125,8 +133,9 @@ let convertType menv (dtenv : Map<string * string, T.DeclarationTy>) tyVarMappin
             let fieldMap = List.zip fieldNames fieldTaus |> Map.ofList
             T.ClosureTy fieldMap
                 
-    let tau' = convertType' tau
-    removeAliases dtenv tau'
+    let tau' = convertType' (Ast.unwrap tau)
+    let (pos, _) = tau
+    removeAliases dtenv pos tau'
 
 let convertInterfaceConstraint menv dtenv interfaceConstraint =
     match interfaceConstraint with
@@ -141,7 +150,7 @@ let convertInterfaceConstraint menv dtenv interfaceConstraint =
         let cs2 =
             fields |>
             List.map
-                (fun ((_, name), (_, tau)) ->
+                (fun ((_, name), tau) ->
                     T.HasField (name, convertType menv dtenv Map.empty Map.empty tau))
         T.IsRecord::(cs1 @ cs2)
     | A.IsPacked _ -> [T.IsPacked]

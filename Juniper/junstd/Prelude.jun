@@ -74,6 +74,21 @@ type either<'a,'b> = left('a)
 alias list<'a; n> = { data : 'a[n]; length : uint32 }
 
 (*
+    Type: alias charlist
+
+    The charlist alias represents a list of extended ASCII characters at most
+    length n (this does not include the final null byte). To get the length
+    of the string not including the null byte, use CharList:length.
+
+    | alias charlist<;n> = list<uint8;n+1>
+
+    Members:
+        data : uint8[n+1]
+        length : uint32
+*)
+alias charlist<;n> = list<uint8;n+1>
+
+(*
     Type: sig
 
     The signal type encapsulates the concept of a signal. At any point in time,

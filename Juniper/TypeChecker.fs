@@ -62,10 +62,10 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     localVars <- Set.add varName localVars
                     let (c', retTau) =
                         match typ with
-                        | Some (post, typ) ->
+                        | Some typ ->
                             let typ' = convertType' typ
                             gamma' <- Map.add varName (mutable_, T.Forall ([], [], [], typ')) gamma'
-                            (tau =~= (typ', errStr [post] "Type constraint in pattern could not be satisfied"), typ')
+                            (tau =~= (typ', errStr [A.getPos typ] "Type constraint in pattern could not be satisfied"), typ')
                         | None ->
                             // NOTICE THAT WE DO NOT GENERALIZE HERE
                             // This is what makes this type system different from
@@ -106,7 +106,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     let (inst, _) =
                         match template with
                         | Some (post, {tyExprs=(posm, tyExprs); capExprs=(posn, capExprs)}) ->
-                            instantiate valueConstructor (List.map (Ast.unwrap >> convertType') tyExprs) (List.map (Ast.unwrap >> convertCapacity') capExprs)
+                            instantiate valueConstructor (List.map convertType' tyExprs) (List.map (Ast.unwrap >> convertCapacity') capExprs)
                         | None ->
                             let (instance, _, _) = freshInstance valueConstructor
                             instance
@@ -214,7 +214,8 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let c' = List.fold (&&&) c (List.map (flip (T.getType >> (=~=)) (tauElement, errStr [posa] "Expected all elements of array to be of the same type")) exprs')
             let tauArray = T.ConApp (T.TyCon T.ArrayTy, [tauElement], [T.CapacityConst <| int64 (List.length exprs)])
             adorn posE tauArray (T.ArrayLitExp exprs') c'
-        | Ast.ArrayMakeExp {typ=(post, typ); initializer=maybeInitializer} ->
+        | Ast.ArrayMakeExp {typ=typ; initializer=maybeInitializer} ->
+            let post = A.getPos typ
             let typ' = convertType' typ
             match typ' with
             | T.ConApp (T.TyCon T.ArrayTy, [tauElement], [cap]) ->
@@ -400,7 +401,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 | Ast.Downto -> T.Downto
             let tauIterator =
                 match maybeTyp with
-                | Some (_, tau) ->
+                | Some tau ->
                     convertType' tau
                 | None ->
                     freshtyvar ()
@@ -425,8 +426,8 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                         let tau = freshtyvar ()
                         let argConstraint =
                             match maybeArgTau with
-                            | Some (post, tauConstraint) ->
-                                convertType' tauConstraint =~= (tau, errStr [post] "Invalid argument type constraint")
+                            | Some tauConstraint ->
+                                convertType' tauConstraint =~= (tau, errStr [A.getPos tauConstraint] "Invalid argument type constraint")
                             | None ->
                                 Trivial
                         let gammaEntry = (argName, (false, T.Forall ([], [], [], tau)))
@@ -451,8 +452,8 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let interfaceConstraints' = interfaceConstraints |> Seq.concat |> Seq.map (fun (conTau, con) -> InterfaceConstraint (conTau, con, err)) |> List.ofSeq |> conjoinConstraints
             let c3 = 
                 match maybeReturnTy with
-                | Some (posr, returnTau) ->
-                    convertType' returnTau =~= (T.getType body', errStr [posr] "Invalid return type constraint")
+                | Some returnTau ->
+                    convertType' returnTau =~= (T.getType body', errStr [A.getPos returnTau] "Invalid return type constraint")
                 | None ->
                     Trivial
             let lambdaTau = T.ConApp ((T.TyCon T.FunTy), (ClosureTy closure)::(T.getType body')::(List.map snd arguments'), [])
@@ -468,7 +469,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let c' = c1 &&& c2
             adorn posE (T.getType left') (T.LetExp {left=left'; right=right'}) c'
         | Ast.DeclVarExp {varName=varName; typ=typ} ->
-            let typ' = convertType' (A.unwrap typ)
+            let typ' = convertType' typ
             adorn posE typ' (T.DeclVarExp {varName=A.unwrap varName; typ=typ'}) Trivial
         | Ast.ModQualifierExp (posmq, {module_=(pos, module_); name=(posn, name)}) ->
             let ((instance, interfaceConstraints), t, c) =
@@ -489,7 +490,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
         | Ast.QuitExp maybeTau ->
             let tau =
                 match maybeTau with
-                | Some (post, tau) ->
+                | Some tau ->
                     convertType' tau
                 | None ->
                     freshtyvar ()
@@ -592,7 +593,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                         raise <| TypeError ((errStr [posf] (sprintf "Found declaration named '%s' in module '%s', but it was not a function declaration." name module_)).Force())
                     | None ->
                         raise <| TypeError ((errStr [posf] (sprintf "Unable to find declaration named '%s' in module '%s'" name module_)).Force())
-            let templateArgs' = List.map (Ast.unwrap >> convertType') tyExprs
+            let templateArgs' = List.map convertType' tyExprs
             let templateArgsCaps' = List.map (Ast.unwrap >> convertCapacity') capExprs
             let (Forall (quantifiedTys, quantifiedCaps, _, _)) = scheme
             if List.length templateArgs' = List.length quantifiedTys then
@@ -612,11 +613,11 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let subTaus = List.map T.getType exprs'
             let tau = T.ConApp ((T.TyCon T.TupleTy), subTaus, [])
             adorn posE tau (T.TupleExp exprs') c'
-        | Ast.TypeConstraint {exp=(pose, _) as exp; typ=(post, typ)} ->
+        | Ast.TypeConstraint {exp=(pose, _) as exp; typ=(post, _) as typ} ->
             let (exp', c1) = ty exp
             let c' = c1 &&& (convertType' typ =~= (T.getType exp', errStr [pose; post] "Type constraint could not be satisfied"))
             adorn posE (T.getType exp') (T.unwrap exp') c'
-        | Ast.UnsafeTypeCast {exp=(pose, _) as exp; typ=(post, typ)} ->
+        | Ast.UnsafeTypeCast {exp=(pose, _) as exp; typ=typ} ->
             let (exp', c) = ty exp
             let typ' = convertType' typ
             adorn pose typ' (T.unwrap exp') c
@@ -735,7 +736,13 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
         match Ast.unwrap d with
         | Ast.AliasDec {template=maybeTemplate; typ=typ} ->
             let (t,c) = extractFromTemplate maybeTemplate
-            let aliasDecTy = T.AliasDecTy (t, c, (convertType menv Map.empty Map.empty Map.empty) (Ast.unwrap typ))
+            let t' = t |> List.map freshtyvar
+            let c' = c |> List.map freshcapvar
+            let tyVarMapping = List.zip t t' |> Map.ofList
+            let capVarMapping = List.zip c c' |> Map.ofList
+            let t'str = t' |> List.map (fun (T.TyVar tyvar) -> tyvar)
+            let c'str = c' |> List.map (fun (T.CapacityVar capvar) -> capvar)
+            let aliasDecTy = T.AliasDecTy (t'str, c'str, (convertType menv Map.empty tyVarMapping capVarMapping) typ)
             Map.add modQual aliasDecTy accumDtenv0
         | Ast.UnionDec {valCons=(_, valCons); template=maybeTemplate} ->
             let (t, c) = extractFromTemplate maybeTemplate
@@ -747,7 +754,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                 | Some _ -> T.ConApp (retTyBase, List.map T.TyVar t, List.map T.CapacityVar c)
             let closureTy = T.ClosureTy Map.empty
             let accumDtenv2 = valCons |> (List.fold (fun accumDtenv1 ((_, valConName), innerTys) ->
-                let paramTy = List.map (Ast.unwrap >> convertType menv Map.empty Map.empty Map.empty) innerTys
+                let paramTy = List.map (convertType menv Map.empty Map.empty Map.empty) innerTys
                 let ts = T.FunDecTy <| T.Forall (t, c, [], T.ConApp (T.TyCon T.FunTy, closureTy::retTy::paramTy, []))
                 Map.add (module_, valConName) ts accumDtenv1
             ) accumDtenv0)
@@ -873,11 +880,11 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                 | Ast.UnionDec {name=(_, name); valCons=(_, valCons); template=template} ->
                     let valCons' =
                         valCons |> List.map (fun ((_, valConName), argTypes) ->
-                            let argTypes' = List.map (Ast.unwrap >> (convertType menv dtenv0 Map.empty Map.empty)) argTypes
+                            let argTypes' = List.map (convertType menv dtenv0 Map.empty Map.empty) argTypes
                             (valConName, argTypes'))
                     let ret = (module_, T.UnionDec {name=name; template=Option.map (Ast.unwrap >> convertTemplate) template; valCons=valCons'})
                     ((module_, name), ret)
-                | Ast.AliasDec {name=(_, name); template=template; typ=(_, typ)} ->
+                | Ast.AliasDec {name=(_, name); template=template; typ=typ} ->
                     let typ' = convertType menv dtenv0 Map.empty Map.empty typ
                     let ret = (module_, T.AliasDec {name=name; template=Option.map (Ast.unwrap >> convertTemplate) template; typ=typ'})
                     ((module_, name), ret))|>
@@ -957,7 +964,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                     let (right', c1) = typeof right dtenv menv localVars ienv Map.empty Map.empty gamma
                     let c2 =
                         match typ with
-                        | Some (post, ty) ->
+                        | Some ((post, _) as ty) ->
                             T.getType right' =~= (convertType menv dtenv Map.empty Map.empty ty, errStr [post; Ast.getPos right] "The type of the right hand side of the let expression violates the given type constraint.")
                         | None ->
                             Trivial
@@ -1027,7 +1034,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                                     List.mapFold
                                         (fun accumTempGamma' ((posn, name), maybeTy) ->
                                             let argTy = match maybeTy with
-                                                        | Some (_, ty) -> convertType menv tempdtenv tyVarMapping capVarMapping ty
+                                                        | Some ty -> convertType menv tempdtenv tyVarMapping capVarMapping ty
                                                         | None -> freshtyvar ()
                                             let argTyScheme = T.Forall ([], [], [], argTy)
                                             (argTy, Map.add name (false, argTyScheme) accumTempGamma'))
@@ -1043,11 +1050,11 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                                 let c3 =
                                     match maybeReturnTy with
                                     | None -> Trivial
-                                    | Some (post, ty) ->
+                                    | Some ((post, _) as ty) ->
                                         (T.getType body') =~= (convertType menv tempdtenv tyVarMapping capVarMapping ty, errStr [posf; post] "The type of the body did not match the type of the return constraint")
                                 let c4s =
                                     interfaceConstraints |>
-                                    List.map (fun (posCon, ((_, tau), (_, con))) ->
+                                    List.map (fun (posCon, (tau, (_, con))) ->
                                         let tau' = convertType menv tempdtenv tyVarMapping capVarMapping tau
                                         convertInterfaceConstraint menv tempdtenv con |>
                                         List.map (fun con' -> InterfaceConstraint (tau', con', errStr [posCon] "The specified type did not meet the interface constraint")) |>

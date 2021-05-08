@@ -2,6 +2,8 @@
 
 let flip f a b = f b a
 
+let inline (!>) (x:^a) : ^b = ((^a or ^b) : (static member op_Implicit : ^a -> ^b) x)
+
 // Merges two maps together
 // map2 overrides the entries in map1 in the case
 // of a duplicate key

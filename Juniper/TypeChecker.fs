@@ -252,7 +252,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                         let (array', c1) = checkLeft array
                         let (index', c2) = ty index
                         let c' = c1 &&& c2 &&& (InterfaceConstraint (T.getType index', IsInt, errStr [posi] "Array index must be an integer type.")) &&&
-                                               (T.ConApp (T.TyCon T.ArrayTy, [elementTau], [capVar]) =~= (T.getType array', errStr [posa] "Expected an array type to perform an array mutation upon"))
+                                               ((T.getType array') =~= (T.ConApp (T.TyCon T.ArrayTy, [elementTau], [capVar]), errStr [posa] "Expected an array type to perform an array mutation upon"))
                         adorn posl elementTau (T.ArrayMutation {array=T.unwrap array'; index=index'}) c'
                     | Ast.RecordMutation {record=(posr, record); fieldName=(posf, fieldName)} ->
                         let (record', c) = checkLeft record
@@ -969,7 +969,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                         | None ->
                             Trivial
                     let c = c1 &&& c2
-                    let (theta, kappa, interfaceConstraintMap) = solve c
+                    let (theta, kappa, interfaceConstraintMap) = solve c []
                     let interfaceConstraintMap' = interfaceConstraintMap |> Map.map (fun name constrs -> constrs |> List.map fst)
                     let tau = tycapsubst theta kappa (T.getType right')
                     let elabtau = generalize Set.empty Set.empty interfaceConstraintMap' tau
@@ -1002,7 +1002,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                         List.fold (fun accumdtenv (modqual, alphaScheme) ->
                             Map.add modqual (T.FunDecTy alphaScheme) accumdtenv
                         ) dtenv (List.zip scc alphaSchemes)
-                    let (funDecsInfo, cs) =
+                    let (funDecsInfo, capVarNames, cs) =
                         List.zip3 scc tempGammas alphas |>
                         List.map
                             (fun ((module_, name) as modqual, tempGamma, alpha) ->
@@ -1013,9 +1013,9 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                                     ()
                                 else
                                     raise <| TypeError ((errStr [posa] "There are duplicate argument names").Force())
-                                let (tyVarMapping, capVarMapping, maybeTemplate', localCapacities) =
+                                let (tyVarMapping, capVarMapping, maybeTemplate', capVarNames, localCapacities) =
                                     match template with
-                                    | None -> (Map.empty, Map.empty, None, Set.empty)
+                                    | None -> (Map.empty, Map.empty, None, [], Set.empty)
                                     | Some (_, {tyVars=(_, tyVars); capVars=maybeCapVars}) ->
                                         let capVars = maybeCapVars |> Option.map Ast.unwrap |> Option.toList |> List.concat
                                         let tyVars' = List.map freshtyvar tyVars
@@ -1026,7 +1026,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                                         let c = List.zip (List.map Ast.unwrap capVars) capVars' |> Map.ofList
                                         let localVars1 = capVars |> List.map Ast.unwrap |> Set.ofList
                                         let templatePos = (tyVars |> List.map Ast.getPos, capVars |> List.map Ast.getPos)
-                                        (t, c, Some (({tyVars=tyVars'Names; capVars=capVars'Names} : T.Template), templatePos, tyVars, capVars), localVars1)
+                                        (t, c, Some (({tyVars=tyVars'Names; capVars=capVars'Names} : T.Template), templatePos, tyVars, capVars), capVars'Names, localVars1)
                                 let localVars = Set.union localArguments localCapacities
                                 // Add the arguments to the type environment (gamma)
                                 let (argTys, tempGamma') =
@@ -1062,10 +1062,11 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                                 let c4 = conjoinConstraints c4s
                                 let c = c1 &&& c2 &&& c3 &&& c4
                                 let argNames = arguments |> List.map (fst >> Ast.unwrap)
-                                ((modqual, maybeTemplate', argNames, argTys, T.getType body', body'), c)) |> List.unzip
+                                ((modqual, maybeTemplate', argNames, argTys, T.getType body', body'), capVarNames, c)) |> List.unzip3
                     let c = conjoinConstraints cs
+                    let capVarNames' = List.concat capVarNames
                     // Solve the entire SCC at once
-                    let (theta, kappa, interfaceConstraints) = solve c
+                    let (theta, kappa, interfaceConstraints) = solve c capVarNames'
                     let (funDecs', (dtenv', globalGamma')) =
                         funDecsInfo |>
                         List.mapFold
@@ -1096,7 +1097,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                                             | x ->
                                                 raise <| TypeError ((errStr [post] (sprintf "The type parameter was inferred to be equivalent to the non-type variable '%s'" (T.typeString x))).Force()))
                                         let capVars' = List.zip capVars capVarsPos |> List.map (fun (capvar, posc) ->
-                                            match capsubst kappa (T.CapacityVar capvar) with
+                                            match simplifyCap (capsubst kappa (T.CapacityVar capvar)) with
                                             | T.CapacityVar capvar' ->
                                                 capvar'
                                             | x ->

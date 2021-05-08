@@ -1,6 +1,11 @@
 ﻿module Constraint
 open TypedAst
 open Extensions
+open Symbolism.EliminateVariable
+open Symbolism.SimplifyEquation
+open Symbolism.IsolateVariable
+open Symbolism.Has
+open Symbolism.SimplifyLogical
 
 // This code is based off of Norman Ramsey's implementation as
 // described in the book Programming Languages: Build, Prove, and Compare
@@ -314,6 +319,7 @@ let solveCapvarEq a cap =
     else
         a |-%-> cap |> Some
 
+(*
 let rec simplifyCap cap =
     match cap with
     | CapacityVar _ -> cap
@@ -335,7 +341,9 @@ let rec simplifyCap cap =
         match term' with
         | CapacityConst n -> CapacityConst (-n)
         | _ -> CapacityUnaryOp {op=CapNegate; term=term'}
+*)
 
+(*
 let rec solveCap con : Map<string, CapacityExpr> =
     match con with
     | TrivialCap -> idSubst
@@ -361,6 +369,208 @@ let rec solveCap con : Map<string, CapacityExpr> =
             solveCap (EqualCap (term, term', err))
         | _ ->
             raise <| TypeError (failMsg.Force())
+*)
+
+exception EquationConversionError of string
+
+let rec constraintCapTreeToList con =
+    match con with
+    | AndCap (left, right) ->
+        List.append (constraintCapTreeToList left) (constraintCapTreeToList right)
+    | TrivialCap ->
+        []
+    | EqualCap _ as con ->
+        [con]
+
+let numDenomToFrac numerator denominator =
+    match (numerator, denominator) with
+    | (_::_, []) ->
+        numerator |> List.reduce (fun accumExpr element -> CapacityOp {left=accumExpr; op=CapMultiply; right=element})
+    | ([], _::_) ->
+        let denominator' = denominator |> List.reduce (fun accumExpr element -> CapacityOp {left=accumExpr; op=CapMultiply; right=element})
+        CapacityOp {left=CapacityConst 1L; op=CapDivide; right=denominator'}
+    | (_::_, _::_) ->
+        let numerator' = numerator |> List.reduce (fun accumExpr element -> CapacityOp {left=accumExpr; op=CapMultiply; right=element})
+        let denominator' = denominator |> List.reduce (fun accumExpr element -> CapacityOp {left=accumExpr; op=CapMultiply; right=element})
+        CapacityOp {left=numerator'; op=CapDivide; right=denominator'}
+    | ([], []) ->
+        CapacityConst 1L
+
+let rec symbolismMathObjToCapExpr (m : Symbolism.MathObject) =
+    match m with
+    | :? Symbolism.Sum as sum ->
+        sum.elts |>
+        List.ofSeq |>
+        List.map symbolismMathObjToCapExpr |>
+        List.reduce
+            (fun accumExpr element -> CapacityOp {left=accumExpr; op=CapAdd; right=element})
+    | :? Symbolism.Product as prd ->
+        let (numerator, denominator) =
+            prd.elts |>
+            List.ofSeq |>
+            Seq.fold
+                (fun (numerator, denominator) element ->
+                    match element with
+                    | :? Symbolism.Power as pwr ->
+                        match symbolismMathObjToCapExpr (pwr.exp) with
+                        | CapacityConst c ->
+                            if c < 0L then
+                                if c = -1L then
+                                    (numerator, (symbolismMathObjToCapExpr pwr.bas)::denominator)
+                                else
+                                    let bas' = symbolismMathObjToCapExpr pwr.bas
+                                    (numerator, List.append (List.replicate (int(-c)) bas') denominator)
+                            else
+                                if c = 1L then
+                                    ((symbolismMathObjToCapExpr pwr.bas)::numerator, denominator)
+                                elif c = 0L then
+                                    (numerator, denominator)
+                                else
+                                    let bas' = symbolismMathObjToCapExpr pwr.bas
+                                    (List.append (List.replicate (int(c)) bas') numerator, denominator)
+                        | _ ->
+                            raise (EquationConversionError("Non-numerical exponent"))
+                    | _ ->
+                        ((symbolismMathObjToCapExpr element)::numerator, denominator))
+                ([], [])
+        numDenomToFrac numerator denominator
+    | :? Symbolism.Fraction as frac ->
+        CapacityOp {left=(symbolismMathObjToCapExpr (frac.Numerator())); op=CapDivide; right=(symbolismMathObjToCapExpr (frac.Denominator()))}
+    | :? Symbolism.Integer as i ->
+        CapacityConst (int64(i.``val``))
+    | :? Symbolism.Symbol as sym ->
+        CapacityVar (sym.name)
+    | :? Symbolism.Power as pwr ->
+        let (numerator, denominator) =
+            match symbolismMathObjToCapExpr (pwr.exp) with
+            | CapacityConst c ->
+                let bas' = symbolismMathObjToCapExpr pwr.bas
+                if c < 0L then
+                    ([], List.replicate (int(-c)) bas')
+                else
+                    (List.replicate (int(c)) bas', [])
+            | _ ->
+                raise (EquationConversionError("Non-numerical exponent"))
+        numDenomToFrac numerator denominator
+    | _ ->
+        raise (EquationConversionError("Unknown or incompatibile Symbolism equation type"))
+
+let rec simplifyCap (cap : CapacityExpr) : CapacityExpr =
+    let varNames = cap |> freeCapVars |> List.ofSeq
+    let varSymbols = varNames |> List.map (fun varName -> new Symbolism.Symbol(varName))
+    let namesToSymbol = List.zip varNames varSymbols |> Map.ofList
+    let rec internalSimplify (cap : CapacityExpr) =
+        match cap with
+        | CapacityVar v ->
+            ((Map.find v namesToSymbol) :> Symbolism.MathObject)
+        | CapacityOp {left=left; op=op; right=right} ->
+            let left' = internalSimplify left
+            let right' = internalSimplify right
+            match op with
+            | CapAdd ->
+                left' + right'
+            | CapSubtract ->
+                left' - right'
+            | CapMultiply ->
+                left' * right'
+            | CapDivide ->
+                left' / right'
+        | CapacityUnaryOp {term=term; op=CapNegate} ->
+            -(internalSimplify term)
+        | CapacityConst a ->
+            (new Symbolism.Integer(int32(a))) :> Symbolism.MathObject
+    let symbolismRepresentation = internalSimplify cap
+    let simplifiedRepresentation = symbolismRepresentation.SimplifyEquation()
+    symbolismMathObjToCapExpr simplifiedRepresentation
+
+let rec capacityExprContainsVar varName expr =
+    match expr with
+    | CapacityVar v ->
+        v = varName
+    | CapacityOp {left=left; right=right} ->
+        (capacityExprContainsVar varName left) || (capacityExprContainsVar varName right)
+    | CapacityUnaryOp {term=term} ->
+        capacityExprContainsVar varName term
+    | CapacityConst _ ->
+        false
+
+let solveCap (con : ConstraintCap) (terminalCaps : string list) : Map<string, CapacityExpr> =
+    let con' = constraintCapTreeToList con
+    let varNamesSet = con' |> List.map (fun (EqualCap (left, right, _)) -> Set.union (freeCapVars left) (freeCapVars right)) |> Set.unionMany
+    let terminalCapsSet = Set.ofList terminalCaps
+    // Convert varNamesSet to a list, such that terminalCaps are at the very end of the list
+    let varNames = List.append (List.ofSeq (Set.difference varNamesSet terminalCapsSet)) (List.ofSeq (Set.intersect varNamesSet terminalCapsSet))
+    let relevantEquations varName = con' |> List.filter (fun (EqualCap (left, right, _)) -> (capacityExprContainsVar varName left) || (capacityExprContainsVar varName right))
+    let varSymbols = varNames |> List.map (fun varName -> new Symbolism.Symbol(varName))
+    let namesToSymbol = List.zip varNames varSymbols |> Map.ofList
+    let rec capExprToSymbolismExpr cap : Symbolism.MathObject =
+        match cap with
+        | CapacityVar v ->
+            ((Map.find v namesToSymbol) :> Symbolism.MathObject)
+        | CapacityOp {left=left; op=op; right=right} ->
+            let left' = capExprToSymbolismExpr left
+            let right' = capExprToSymbolismExpr right
+            match op with
+            | CapAdd ->
+                left' + right'
+            | CapSubtract ->
+                left' - right'
+            | CapMultiply ->
+                left' * right'
+            | CapDivide ->
+                left' / right'
+        | CapacityUnaryOp {term=term; op=CapNegate} ->
+            -(capExprToSymbolismExpr term)
+        | CapacityConst a ->
+            (new Symbolism.Integer(int32(a))) :> Symbolism.MathObject
+    let symbolismSystemOfEq = con' |> List.map (fun (EqualCap (left, right, _)) -> (new Symbolism.Equation((capExprToSymbolismExpr left), (capExprToSymbolismExpr right))) :> Symbolism.MathObject)
+    let dummySymbol = new Symbolism.Symbol("dummy")
+    // The need for this dummy equation is a bit obscure. Basically if the solver eliminates all the variables from the system of equations
+    // using the EliminateVariables method, it throws an exception. This dummy equation will ensure that eliminatedSystem will never
+    // be empty. The equation dummy == dummy will end up being converted to Symbolism.Bool(true) by the SymbolismExt.heuristicSimplify method
+    let dummyEquation = new Symbolism.Equation(dummySymbol, dummySymbol) :> Symbolism.MathObject
+    let symbolismEq = new Symbolism.And((dummyEquation::symbolismSystemOfEq) |> Array.ofList)
+    varSymbols |>
+    List.fold
+        (fun (env, symbolsSolvedSoFar) sym ->
+            let relevantErrors = lazy (relevantEquations sym.name |> List.map (fun (EqualCap (left, right, err)) -> err.Force()) |> String.concat "\n\n")
+            // Todo: try catch for EliminateVariables and IsolateVariable
+            try
+                let eliminatedSystem = symbolismEq.EliminateVariables(symbolsSolvedSoFar |> Array.ofList)
+                match eliminatedSystem with
+                | :? Symbolism.Bool as b ->
+                    if b.``val`` then
+                        (env, symbolsSolvedSoFar)
+                    else
+                        raise <| TypeError (sprintf "Error when solving the system of equations for the solution of %s. The system of equations is insolvable. Relevant capacity constraints which led to this situation are:\n%s\n\nThe system of equations is the following: %s\n\nWhen isolated and solve this resulted in the following system of equations: %s" sym.name (relevantErrors.Force()) (symbolismEq.ToString()) (eliminatedSystem.ToString()))
+                | _ ->
+                    let solvedSystem = eliminatedSystem.IsolateVariable(sym).SimplifyLogical() |> SymbolismExt.heuristicSimplify
+                    match solvedSystem with
+                    | :? Symbolism.Bool as b ->
+                        if b.``val`` then
+                            (env, symbolsSolvedSoFar)
+                        else
+                            raise <| TypeError (sprintf "Error when solving the system of equations for the solution of %s. The system of equations is insolvable. Relevant capacity constraints which led to this situation are:\n%s\n\nThe system of equations is the following: %s\n\nWhen isolated and solve this resulted in the following system of equations: %s" sym.name (relevantErrors.Force()) (symbolismEq.ToString()) (solvedSystem.ToString()))
+                    | _ ->
+                        match SymbolismExt.extractSolution solvedSystem sym with
+                        | Some solution ->
+                            try
+                                let solutionCap = symbolismMathObjToCapExpr solution
+                                let env' = Map.add sym.name solutionCap env
+                                (env', sym::symbolsSolvedSoFar)
+                            with
+                            | :? EquationConversionError ->
+                                raise <| TypeError (sprintf "Error when converting the equation for the solution of %s. The solution could not be written in terms of basic arithmetic operations. Relevant capacity constraints which led to this solution are:\n%s\n\nThe system of equations is the following: %s\n\nWhen isolated and solve this resulted in the following system of equations: %s" sym.name (relevantErrors.Force()) (symbolismEq.ToString()) (solvedSystem.ToString()))
+                        | None ->
+                            if solvedSystem.Has(sym) then
+                                raise <| TypeError (sprintf "Unable to extract solution from the system of equations for %s. Relevant capacity constraints which led to this situation are:\n%s\n\nThe system of equations is the following: %s.\n\nWhen isolated and solve this resulted in the following system of equations: %s" sym.name (relevantErrors.Force()) (symbolismEq.ToString()) (solvedSystem.ToString()))
+                            else
+                                (env, symbolsSolvedSoFar)
+                with
+                | :? System.Exception as exc ->
+                    raise <| TypeError (sprintf "An exception was thrown while eliminating variables or isolating them when running the capacity solver system. The exception was: %s" (exc.ToString())))
+        (Map.empty, []) |>
+    fst
 
 let rec simplifyConstraint con =
     match con with
@@ -385,181 +595,188 @@ let rec constraintTreeToList con =
     | con ->
         [con]
 
-let rec solve con : Map<string, TyExpr> * Map<string, CapacityExpr> * Map<string, (ConstraintType * ErrorMessage) list> =
-    match simplifyConstraint con with
-    | Trivial -> (Map.empty, Map.empty, Map.empty)
-    | con' ->
-        let (thetaSolution, capacityConstraints, interfaceConstraints) =
-            let rec solveTheta con =
-                match con with
-                | Trivial -> (idSubst, TrivialCap, [])
-                | And (left, right) ->
-                    let (theta1, capCon1, intConst1) = solveTheta left
-                    let (theta2, capCon2, intConst2) = solveTheta (consubst theta1 Map.empty right)
-                    (composeTheta theta2 theta1, AndCap (capCon1, capCon2), List.append intConst1 intConst2)
-                | Equal (tau, tau', err) ->
-                    let failMsg = lazy (sprintf "Type error: The types %s and %s are not equal.\n\n%s" (typeString tau) (typeString tau') (err.Force()))
-                    match (tau, tau') with
-                    | ((TyVar a, tau) | (tau, TyVar a)) ->
-                        match solveTyvarEq a tau with
-                        | Some answer -> (answer, TrivialCap, [])
-                        | None -> raise <| TypeError (failMsg.Force())
-                    | (TyCon mu, TyCon mu') ->
-                        if eqType tau tau' then
-                            (idSubst, TrivialCap, [])
-                        else
-                            raise <| TypeError (failMsg.Force())
-                    | (ConApp (t, ts, cs), ConApp(t', ts', cs')) ->
-                        if List.length ts = List.length ts' && List.length cs = List.length cs' then
-                            let eqAnd c t t' = And (Equal (t, t', err), c)
-                            let eqAndCap accum c c' = AndCap (EqualCap (c, c', err), accum)
-                            let (theta, capCon1, intConst) = solveTheta (List.fold2 eqAnd Trivial (t::ts) (t'::ts'))
-                            let capCon2 = List.fold2 eqAndCap TrivialCap cs cs'
-                            (theta, AndCap (capCon1, capCon2), intConst)
-                        else
-                            raise <| TypeError (failMsg.Force())
-                    | (RecordTy (packed, fields), RecordTy (packed', fields')) ->
-                        match (packed, packed') with
-                        | (Some orderedFields, Some orderedFields') ->
-                            if orderedFields = orderedFields' then
-                                ()
+// con is the constraint system we would like to solve. terminalCaps is a bit harder to explain. They are the
+// the capacity variables that we would like the other capacity variables to be written in terms of. Therefore
+// they are the last capacity variables that should be solved for (and therefore eliminated) in the Symbolism
+// equation solving process
+let rec solve (con : Constraint) (terminalCaps : string list) : Map<string, TyExpr> * Map<string, CapacityExpr> * Map<string, (ConstraintType * ErrorMessage) list> =
+    let rec innerSolve (con : Constraint) : Map<string, TyExpr> * ConstraintCap * Map<string, (ConstraintType * ErrorMessage) list> =
+        match simplifyConstraint con with
+        | Trivial -> (Map.empty, TrivialCap, Map.empty)
+        | con' ->
+            let (thetaSolution, capacityConstraints, interfaceConstraints) =
+                let rec solveTheta con =
+                    match con with
+                    | Trivial -> (idSubst, TrivialCap, [])
+                    | And (left, right) ->
+                        let (theta1, capCon1, intConst1) = solveTheta left
+                        let (theta2, capCon2, intConst2) = solveTheta (consubst theta1 Map.empty right)
+                        (composeTheta theta2 theta1, AndCap (capCon1, capCon2), List.append intConst1 intConst2)
+                    | Equal (tau, tau', err) ->
+                        let failMsg = lazy (sprintf "Type error: The types %s and %s are not equal.\n\n%s" (typeString tau) (typeString tau') (err.Force()))
+                        match (tau, tau') with
+                        | ((TyVar a, tau) | (tau, TyVar a)) ->
+                            match solveTyvarEq a tau with
+                            | Some answer -> (answer, TrivialCap, [])
+                            | None -> raise <| TypeError (failMsg.Force())
+                        | (TyCon mu, TyCon mu') ->
+                            if eqType tau tau' then
+                                (idSubst, TrivialCap, [])
                             else
                                 raise <| TypeError (failMsg.Force())
-                        | (None, None) ->
-                            ()
+                        | (ConApp (t, ts, cs), ConApp(t', ts', cs')) ->
+                            if List.length ts = List.length ts' && List.length cs = List.length cs' then
+                                let eqAnd c t t' = And (Equal (t, t', err), c)
+                                let eqAndCap accum c c' = AndCap (EqualCap (c, c', err), accum)
+                                let (theta, capCon1, intConst) = solveTheta (List.fold2 eqAnd Trivial (t::ts) (t'::ts'))
+                                let capCon2 = List.fold2 eqAndCap TrivialCap cs cs'
+                                (theta, AndCap (capCon1, capCon2), intConst)
+                            else
+                                raise <| TypeError (failMsg.Force())
+                        | (RecordTy (packed, fields), RecordTy (packed', fields')) ->
+                            match (packed, packed') with
+                            | (Some orderedFields, Some orderedFields') ->
+                                if orderedFields = orderedFields' then
+                                    ()
+                                else
+                                    raise <| TypeError (failMsg.Force())
+                            | (None, None) ->
+                                ()
+                            | _ ->
+                                raise <| TypeError (failMsg.Force())
+                            if Map.keys fields = Map.keys fields' then
+                                let fieldNames = Map.keys fields |> List.ofSeq
+                                let getTaus fs = fieldNames |> List.map (fun fieldName -> Map.find fieldName fs)
+                                let ts = getTaus fields
+                                let ts' = getTaus fields'
+                                let fieldConstraints = List.zip ts ts' |> List.map (fun (tau, tau') -> Equal (tau, tau', err)) |> conjoinConstraints
+                                solveTheta fieldConstraints
+                            else
+                                raise <| TypeError (failMsg.Force())
+                        | (ClosureTy fields, ClosureTy fields') ->
+                            if Map.keys fields = Map.keys fields' then
+                                let fieldNames = Map.keys fields |> List.ofSeq
+                                let getTaus fs = fieldNames |> List.map (fun fieldName -> Map.find fieldName fs)
+                                let ts = getTaus fields
+                                let ts' = getTaus fields'
+                                let fieldConstraints = List.zip ts ts' |> List.map (fun (tau, tau') -> Equal (tau, tau', err)) |> conjoinConstraints
+                                solveTheta fieldConstraints
+                            else
+                                raise <| TypeError (failMsg.Force())
+                        | _ -> raise <| TypeError (failMsg.Force())
+                    | InterfaceConstraint constr ->
+                        (idSubst, TrivialCap, [constr])
+                solveTheta con'
+            let (interfaceConstraintsSolution, extraInterfaceConstraints) =
+                interfaceConstraints |>
+                List.map
+                    (fun (tau, constraintType, failMsg) ->
+                        let tau' = tycapsubst thetaSolution Map.empty tau
+                        let failMsg' = lazy (sprintf "Interface constraint error: The type %s does not satisfy the %s constraint.\n\n%s" (typeString tau') (interfaceConstraintString constraintType) (failMsg.Force()))
+                        match tau' with
+                        | TyVar v ->
+                            let constraintType' =
+                                match constraintType with
+                                | HasField (fieldName, fieldTau) ->
+                                    HasField (fieldName, tycapsubst thetaSolution Map.empty fieldTau)
+                                | _ ->
+                                    constraintType
+                            (Some (v, (constraintType', failMsg)), None)
                         | _ ->
-                            raise <| TypeError (failMsg.Force())
-                        if Map.keys fields = Map.keys fields' then
-                            let fieldNames = Map.keys fields |> List.ofSeq
-                            let getTaus fs = fieldNames |> List.map (fun fieldName -> Map.find fieldName fs)
-                            let ts = getTaus fields
-                            let ts' = getTaus fields'
-                            let fieldConstraints = List.zip ts ts' |> List.map (fun (tau, tau') -> Equal (tau, tau', err)) |> conjoinConstraints
-                            solveTheta fieldConstraints
-                        else
-                            raise <| TypeError (failMsg.Force())
-                    | (ClosureTy fields, ClosureTy fields') ->
-                        if Map.keys fields = Map.keys fields' then
-                            let fieldNames = Map.keys fields |> List.ofSeq
-                            let getTaus fs = fieldNames |> List.map (fun fieldName -> Map.find fieldName fs)
-                            let ts = getTaus fields
-                            let ts' = getTaus fields'
-                            let fieldConstraints = List.zip ts ts' |> List.map (fun (tau, tau') -> Equal (tau, tau', err)) |> conjoinConstraints
-                            solveTheta fieldConstraints
-                        else
-                            raise <| TypeError (failMsg.Force())
-                    | _ -> raise <| TypeError (failMsg.Force())
-                | InterfaceConstraint constr ->
-                    (idSubst, TrivialCap, [constr])
-            solveTheta con'
-        let kappaSolution = solveCap capacityConstraints
-        let (interfaceConstraintsSolution, extraInterfaceConstraints) =
-            interfaceConstraints |>
-            List.map
-                (fun (tau, constraintType, failMsg) ->
-                    let tau' = tycapsubst thetaSolution kappaSolution tau
-                    let failMsg' = lazy (sprintf "Interface constraint error: The type %s does not satisfy the %s constraint.\n\n%s" (typeString tau') (interfaceConstraintString constraintType) (failMsg.Force()))
-                    match tau' with
-                    | TyVar v ->
-                        let constraintType' =
                             match constraintType with
+                            | IsNum when isNumericalType tau' -> (None, None)
+                            | IsInt when isIntegerType tau' -> (None, None)
+                            | IsReal when isRealType tau' -> (None, None)
+                            | IsPacked when isPackedType tau' -> (None, None)
+                            | IsRecord when isRecordType tau' -> (None, None)
                             | HasField (fieldName, fieldTau) ->
-                                HasField (fieldName, tycapsubst thetaSolution kappaSolution fieldTau)
-                            | _ ->
-                                constraintType
-                        (Some (v, (constraintType', failMsg)), None)
-                    | _ ->
-                        match constraintType with
-                        | IsNum when isNumericalType tau' -> (None, None)
-                        | IsInt when isIntegerType tau' -> (None, None)
-                        | IsReal when isRealType tau' -> (None, None)
-                        | IsPacked when isPackedType tau' -> (None, None)
-                        | IsRecord when isRecordType tau' -> (None, None)
-                        | HasField (fieldName, fieldTau) ->
-                            match tau' with
-                            | RecordTy (_, fields) ->
-                                match Map.tryFind fieldName fields with
-                                | Some recordFieldTau ->
-                                    let fieldTau' = tycapsubst thetaSolution kappaSolution fieldTau
-                                    (None, Some (recordFieldTau =~= (fieldTau', lazy (sprintf "Record interface constraint error: The concrete type of the field named %s does not match the type of the constraint.\n\n%s" fieldName (failMsg.Force())))))
-                                | None ->
-                                    raise <| TypeError (sprintf "Record interface constraint error: The concrete record type %s does not contain a field named %s, as required by the record interface constraint.\n\n%s" (typeString tau') fieldName (failMsg.Force()))
-                            | _ ->
-                                raise <| TypeError (sprintf "Record interface constraint error: The concrete type was determined to be %s, which is not a record. However there is a field constraint, requiring that this type has a field with name %s.\n\n%s" (typeString tau') fieldName (failMsg.Force()))
-                        | _ -> raise <| TypeError (failMsg'.Force())) |>
-            List.unzip
-        let extraInterfaceConstraints' = extraInterfaceConstraints |> List.filter Option.isSome |> List.map Option.get |> conjoinConstraints
-        let interfaceConstraintsSolution' = interfaceConstraintsSolution |> List.filter Option.isSome |> List.map Option.get |> Map.ofListDuplicateKeys
-        // We now have constraints for each type variable. The next step is to determine if there are any contradictions in the constraints,
-        // as well as generate additional constraints for fields with the same name
-        let fieldConstraints =
-            interfaceConstraintsSolution' |>
-            Map.toList |>
-            List.map
-                (fun (v, constraints) ->
-                    constraints |>
-                    // Only consider constraints that are HasField
-                    List.mapFilter
-                        (fun (constr, errMsg) ->
-                            match constr with
-                            | HasField (fieldName, fieldTau) -> Some (fieldName, (fieldTau, errMsg))
-                            | _ -> None) |>
-                    // Generate a map where the keys are the field name (in other words group together the constraints by field name)
-                    Map.ofListDuplicateKeys |>
-                    Map.toList |>
-                    List.map
-                        (fun (fieldName, (t, errMsg)::taus) ->
-                            taus |>
-                            List.map
-                                (fun (t', errMsg') ->
-                                    (t =~= (t', lazy (sprintf "Contradictory record field constraint for field name %s\n\n%s\n\n%s" fieldName (errMsg.Force()) (errMsg'.Force()))))))) |>
-            Seq.concat |> // Flatten the constraints generated per type variable
-            Seq.concat |> // Flatten the constraints generated per field
-            List.ofSeq |>
-            conjoinConstraints // Finally conjoin all the constraints together
-    
-        let newConstraintSystem = (extraInterfaceConstraints' &&& fieldConstraints) |> simplifyConstraint
-
-        // If there are no further constraints to consider, we have reached a fixed point of the solving process.
-        // In this case there is no further information we can gain specifically by considering interface constraints.
-        // On the other hand if there are further constraints to consider, then it is possible that solving those constraints
-        // will lead to the generation of even more constraints, which we then solve recursively
-        match newConstraintSystem with
-        | Trivial ->
-            (thetaSolution, kappaSolution, interfaceConstraintsSolution')
-        | _ ->
-            // Generate new InterfaceConstraints to pass to the next invocation of the solver
-            let interfaceConstraints' =
+                                match tau' with
+                                | RecordTy (_, fields) ->
+                                    match Map.tryFind fieldName fields with
+                                    | Some recordFieldTau ->
+                                        let fieldTau' = tycapsubst thetaSolution Map.empty fieldTau
+                                        (None, Some (recordFieldTau =~= (fieldTau', lazy (sprintf "Record interface constraint error: The concrete type of the field named %s does not match the type of the constraint.\n\n%s" fieldName (failMsg.Force())))))
+                                    | None ->
+                                        raise <| TypeError (sprintf "Record interface constraint error: The concrete record type %s does not contain a field named %s, as required by the record interface constraint.\n\n%s" (typeString tau') fieldName (failMsg.Force()))
+                                | _ ->
+                                    raise <| TypeError (sprintf "Record interface constraint error: The concrete type was determined to be %s, which is not a record. However there is a field constraint, requiring that this type has a field with name %s.\n\n%s" (typeString tau') fieldName (failMsg.Force()))
+                            | _ -> raise <| TypeError (failMsg'.Force())) |>
+                List.unzip
+            let extraInterfaceConstraints' = extraInterfaceConstraints |> List.filter Option.isSome |> List.map Option.get |> conjoinConstraints
+            let interfaceConstraintsSolution' = interfaceConstraintsSolution |> List.filter Option.isSome |> List.map Option.get |> Map.ofListDuplicateKeys
+            // We now have constraints for each type variable. The next step is to determine if there are any contradictions in the constraints,
+            // as well as generate additional constraints for fields with the same name
+            let fieldConstraints =
                 interfaceConstraintsSolution' |>
                 Map.toList |>
                 List.map
                     (fun (v, constraints) ->
-                        // Only pass one field constraint (the first one we find)
-                        let fieldConstraints =
-                            constraints |>
-                            List.mapFilter
-                                (fun (constr, errMsg) ->
-                                    match constr with
-                                    | HasField (fieldName, fieldTau) -> Some (fieldName, (fieldTau, errMsg))
-                                    | _ -> None) |>
-                            Map.ofListDuplicateKeys |>
-                            Map.toList |>
-                            List.map
-                                (fun (fieldName, (t, errMsg)::_) ->
-                                    InterfaceConstraint (TyVar v, HasField (fieldName, t), errMsg))
-                        // Pass all other constraints in a passthrough manner
-                        let otherConstraints =
-                            constraints |>
-                            List.filter
-                                (fun (constr, _) ->
-                                    match constr with
-                                    | HasField _ -> false
-                                    | _ -> true) |>
-                            List.map
-                                (fun (constr, errMsg) ->
-                                    InterfaceConstraint (TyVar v, constr, errMsg))
-                        (conjoinConstraints fieldConstraints) &&& (conjoinConstraints otherConstraints)) |>
-                    conjoinConstraints
-            let (thetaSolution', kappaSolution', interfaceConstraintsSolution') = solve (newConstraintSystem &&& interfaceConstraints')
-            (composeTheta thetaSolution' thetaSolution, composeKappa kappaSolution' kappaSolution, interfaceConstraintsSolution')
+                        constraints |>
+                        // Only consider constraints that are HasField
+                        List.mapFilter
+                            (fun (constr, errMsg) ->
+                                match constr with
+                                | HasField (fieldName, fieldTau) -> Some (fieldName, (fieldTau, errMsg))
+                                | _ -> None) |>
+                        // Generate a map where the keys are the field name (in other words group together the constraints by field name)
+                        Map.ofListDuplicateKeys |>
+                        Map.toList |>
+                        List.map
+                            (fun (fieldName, (t, errMsg)::taus) ->
+                                taus |>
+                                List.map
+                                    (fun (t', errMsg') ->
+                                        (t =~= (t', lazy (sprintf "Contradictory record field constraint for field name %s\n\n%s\n\n%s" fieldName (errMsg.Force()) (errMsg'.Force()))))))) |>
+                Seq.concat |> // Flatten the constraints generated per type variable
+                Seq.concat |> // Flatten the constraints generated per field
+                List.ofSeq |>
+                conjoinConstraints // Finally conjoin all the constraints together
+    
+            let newConstraintSystem = (extraInterfaceConstraints' &&& fieldConstraints) |> simplifyConstraint
+
+            // If there are no further constraints to consider, we have reached a fixed point of the solving process.
+            // In this case there is no further information we can gain specifically by considering interface constraints.
+            // On the other hand if there are further constraints to consider, then it is possible that solving those constraints
+            // will lead to the generation of even more constraints, which we then solve recursively
+            match newConstraintSystem with
+            | Trivial ->
+                (thetaSolution, capacityConstraints, interfaceConstraintsSolution')
+            | _ ->
+                // Generate new InterfaceConstraints to pass to the next invocation of the solver
+                let interfaceConstraints' =
+                    interfaceConstraintsSolution' |>
+                    Map.toList |>
+                    List.map
+                        (fun (v, constraints) ->
+                            // Only pass one field constraint (the first one we find)
+                            let fieldConstraints =
+                                constraints |>
+                                List.mapFilter
+                                    (fun (constr, errMsg) ->
+                                        match constr with
+                                        | HasField (fieldName, fieldTau) -> Some (fieldName, (fieldTau, errMsg))
+                                        | _ -> None) |>
+                                Map.ofListDuplicateKeys |>
+                                Map.toList |>
+                                List.map
+                                    (fun (fieldName, (t, errMsg)::_) ->
+                                        InterfaceConstraint (TyVar v, HasField (fieldName, t), errMsg))
+                            // Pass all other constraints in a passthrough manner
+                            let otherConstraints =
+                                constraints |>
+                                List.filter
+                                    (fun (constr, _) ->
+                                        match constr with
+                                        | HasField _ -> false
+                                        | _ -> true) |>
+                                List.map
+                                    (fun (constr, errMsg) ->
+                                        InterfaceConstraint (TyVar v, constr, errMsg))
+                            (conjoinConstraints fieldConstraints) &&& (conjoinConstraints otherConstraints)) |>
+                        conjoinConstraints
+                let (thetaSolution', capacityConstraints', interfaceConstraintsSolution') = innerSolve (newConstraintSystem &&& interfaceConstraints')
+                (composeTheta thetaSolution' thetaSolution, AndCap (capacityConstraints, capacityConstraints'), interfaceConstraintsSolution')
+    let (thetaSolution, capacityConstraints, interfaceConstraintsSolution) = innerSolve con
+    let kappaSolution = solveCap capacityConstraints terminalCaps
+    (thetaSolution, kappaSolution, interfaceConstraintsSolution)
         

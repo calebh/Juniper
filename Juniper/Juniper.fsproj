@@ -10,6 +10,7 @@
   	<Compile Include="Guid.fs" />
   	<Compile Include="Extensions.fs" />
   	<Compile Include="Error.fs" />
+  	<Compile Include="SymbolismExt.fs" />
   	<Compile Include="TypedAst.fs" />
   	<Compile Include="Constraint.fs" />
   	<Compile Include="Ast.fs" />
@@ -25,6 +26,11 @@
   <ItemGroup>
     <PackageReference Include="FParsec" Version="1.1.1" />
     <PackageReference Include="QuikGraph" Version="2.3.0" />
+    <PackageReference Include="Symbolism" Version="1.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="5.0.1" />
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">

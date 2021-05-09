@@ -1,27 +1,32 @@
 <module>            ::= "module" <id> [<declaration> {, <declaration>}];
 <declaration>       ::= <open>
-                     |  <export>
-                     |  <record>
                      |  <algebraic-type>
                      |  <function>
-                     |  <let>;
+                     |  <let>
+                     |  <alias>
+                     |  "#" <inline-cpp> "#";
 <open>              ::= "open" "(" [<id> {"," <id>}] ")";
-<export>            ::= "export" "(" [<id> {"," <id>}] ")";
 <template-dec>      ::= "<" ["'" <id> {"," "'" <id>}] [";" <id> {"," <id>}] ">";
 <template-apply>    ::= <ty-expr> {"," <ty-expr>} [";" <capacity-expr> {"," <capacity-expr>}];
-<record>            ::= "type" <id> [<template-dec>] "=" "{" [<id> ":" <ty-expr> {";" <id> ":" <ty-expr>}] "}";
 <algebraic-type>    ::= "type" <id> [<template-dec>] "=" <value-constructor> {"|" <value-constructor>};
-<value-constructor> ::= <id> "of" <ty-expr>
-                     |  <id>;
+<alias>             ::= "alias" <id> [<template-dec>] "=" <ty-expr>;
+<value-constructor> ::= <id> "(" [<ty-expr> {"," <ty-expr>}] ")";
 <let>               ::= "let" <id> [":" <ty-expr>] "=" <expr>;
-<function>          ::= "fun" <id> [<template-dec>] "(" [<id> [":" <ty-expr>] {"," <id> [":" <ty-expr>]}] ")" [":" <ty-expr>] "=" <expr>;
+<function>          ::= "fun" <id> [<template-dec>] "(" [<id> [":" <ty-expr>] {"," <id> [":" <ty-expr>]}] ")" [":" <ty-expr>] ["where" <ty-expr> ":" <constraint> {"," <ty-expr> ":" <constraint>}] "=" <expr>;
+<constraint>        ::= "num"
+                     |  "int"
+                     |  "real"
+                     |  "packed"
+                     |  "{" [<id> ":" <ty-expr> {";" <id> ":" <ty-expr>}] "}"
 <declaration-ref>   ::= <id> | <module-qualifier>;
 <ty-expr>           ::= <declaration-ref> ["<" <template-apply> ">"]
-                     |  "(" [<ty-expr> {"," <ty-expr>}] ")" "->" <ty-expr>
+                     |  "(" <ty-expr> ")" "(" [<ty-expr> {"," <ty-expr>}] ")" "->" <ty-expr>
                      |  <ty-expr> "[" <capacity-expr> "]"
                      |  <ty-expr> "ref"
                      |  <ty-expr> "*" <ty-expr> [{"*" <ty-expr>}];
                      |  "(" <ty-expr> ")"
+                     |  "|" [<id> ":" <ty-expr> {";" <id> ":" <ty-expr>}] "|"
+                     |  ["packed"] "{" [<id> ":" <ty-expr> {";" <id> ":" <ty-expr>}] "}";
 <capacity-expr>     ::= <capacity-expr> <capacity-op> <capacity-expr>
                      |  <id>
                      |  <natural-number>;
@@ -41,6 +46,7 @@
                      |  <expr> <binary-op> <expr>
                      |  "if" <expr> "then" <expr> [{"elif" <expr> "then" <expr>}] "else" <expr> "end"
                      |  "let" <pattern> "=" <expr>
+                     |  "var" <id> ":" <ty-expr>
                      |  "set" <left-assign> "=" <expr>
                      |  "set" "ref" <left-assign> "=" <expr>
                      |  "for" <id> [":" <ty-expr>] "in" <expr> "to" <expr> "do" <expr> "end"
@@ -54,7 +60,7 @@
                      |  <expr> "." <id>
                      |  "fn" "(" [<id> [":" <ty-expr>] {"," <id> [":" <ty-expr>]}] ")" [":" <ty-expr>] "->" <expr> "end"
                      |  "case" <expr> "of" "|" <case-clause> {"|" <case-clause>} "end"
-                     |  <declaration-ref> ["<" <template-apply> ">"] "{" [<field-assign-list>] "}"
+                     |  ["packed"] "{" [<field-assign-list>] "}"
                      |  "[" <expr-list> "]"
                      |  "ref" <expr>
                      |  "!" <expr>
@@ -62,7 +68,6 @@
                      |  "array" <ty-expr> "end"
                      |  "#" <inline-cpp> "#";
                      |  <expr> ":" <ty-expr>
-                     |  <expr> "::::" <ty-expr>
                      |  "'" <extended-ascii-string> "'"
                      |  "\"" <extended-ascii-string> "\""
 <binary-op>         ::= "+" | "-" | "*" | "/" | "mod" | "and" | "or" | "&&&"
@@ -76,7 +81,9 @@
 <pattern>           ::= ["mutable"] <id> [":" <ty-expr>]
                      |  <integer>
                      |  <float>
+                     |  "true"
+                     |  "false"
                      |  "_"
                      |  <declaration-ref> ["<" <ty-expr> {"," <ty-expr>} ">"] "(" <pattern> ")"
-                     |  <ty-expr> "{" [<id> "=" <pattern> {"," <id> "=" <pattern>}] "}"
+                     |  "{" [<id> "=" <pattern> {";" <id> "=" <pattern>}] "}"
                      |  "(" <pattern> "," <pattern> {"," <pattern>} ")";

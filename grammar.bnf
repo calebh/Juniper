@@ -26,7 +26,10 @@
                      |  <ty-expr> "*" <ty-expr> [{"*" <ty-expr>}];
                      |  "(" <ty-expr> ")"
                      |  "|" [<id> ":" <ty-expr> {";" <id> ":" <ty-expr>}] "|"
-                     |  ["packed"] "{" [<id> ":" <ty-expr> {";" <id> ":" <ty-expr>}] "}";
+                     |  ["packed"] "{" [<id> ":" <ty-expr> {";" <id> ":" <ty-expr>}] "}"
+                     |  "uint8" | "uint16" | "uint32" | "uint64" | "int8" | "int16"
+                     |  "int32" | "int64" | "bool" | "unit" | "float" | "double"
+                     |  "pointer" | "string" | "rawpointer";
 <capacity-expr>     ::= <capacity-expr> <capacity-op> <capacity-expr>
                      |  <id>
                      |  <natural-number>;
@@ -34,7 +37,7 @@
 <module-qualifier>  ::= <id> ":" <id>;
 <expr-list>         ::= <expr> {"," <expr>};
 <field-assign-list> ::= <id> "=" <expr> {";" <id> "=" <expr>};
-<expr>              ::= "()" | "true" | "false" | <integer> | <float>"f" | <double>
+<expr>              ::= "()" | "true" | "false" | "null" | <integer> | <float>"f" | <double>
                      | <integer>"i8" | <unsigned-integer>"u8" | <integer>"i16"
                      | <unsigned-integer>"u16" | <integer>"i32" | <unsigned-integer>"u32"
                      | <integer>"i64" | <unsigned-integer>"u64"
@@ -70,6 +73,7 @@
                      |  <expr> ":" <ty-expr>
                      |  "'" <extended-ascii-string> "'"
                      |  "\"" <extended-ascii-string> "\""
+                     |  "smartpointer(" <expr> "," <expr> ")"
 <binary-op>         ::= "+" | "-" | "*" | "/" | "mod" | "and" | "or" | "&&&"
                      |  "|||" | ">=" | "<=" | ">" | "<" | "==" | "!=" | "<<<"
                      |  ">>>" | "|>";

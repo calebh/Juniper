@@ -56,7 +56,7 @@ fun get<'a>(maybeVal : maybe<'a>) : 'a =
         maybeVal : maybe<'a> - The maybe value
 
     Returns:
-        True if the maybe value is not nothing, false otherwise
+        true if the maybe value is not nothing, false otherwise
 *)
 fun isJust<'a>(maybeVal : maybe<'a>) : bool =
     case maybeVal of
@@ -76,7 +76,7 @@ fun isJust<'a>(maybeVal : maybe<'a>) : bool =
         maybeVal : maybe<'a> - The maybe value
 
     Returns:
-        True if the maybe evalue is nothing, false otherwise.
+        true if the maybe value is nothing, false otherwise.
 *)
 fun isNothing<'a>(maybeVal : maybe<'a>) : bool =
     not isJust<'a>(maybeVal)

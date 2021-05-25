@@ -526,16 +526,16 @@ fun round_(x : double) : double =
     Returns the smaller of the two numbers.
 
     Type Signature:
-    | (double, double) -> double
+    | <'a>('a, 'a) -> 'a where 'a : num
 
     Parameters:
-        x : double - The first number
-        y : double - The second number
+        x : 'a - The first number
+        y : 'a - The second number
 
     Returns:
         The smaller of x and y
 *)
-fun min_(x : double, y : double) : double =
+fun min_<'a>(x : 'a, y : 'a) : 'a where 'a : num =
     if x > y then
         y
     else
@@ -548,16 +548,16 @@ fun min_(x : double, y : double) : double =
     Returns the larger of the two numbers.
 
     Type Signature:
-    | (double, double) -> double
+    | <'a>('a, 'a) -> 'a where 'a : num
 
     Parameters:
-        x : double - The first number
-        y : double - The second number
+        x : 'a - The first number
+        y : 'a - The second number
 
     Returns:
         The larger of x and y
 *)
-fun max_(x : double, y : double) : double =
+fun max_(x : 'a, y : 'a) : 'a where 'a : num =
     if x > y then
         x
     else
@@ -591,7 +591,7 @@ fun mapRange(x : double, a1 : double, a2 : double, b1 : double, b2 : double) : d
     Clamps a numerical value to fall in the interval [min,max]
 
     Type Signature:
-    | <'a>('a, 'a, 'a) -> 'a
+    | <'a>('a, 'a, 'a) -> 'a where 'a : num
 
     Parameters:
         x : 'a - The value to clamp
@@ -617,7 +617,7 @@ fun clamp<'a>(x : 'a, min : 'a, max : 'a) : 'a where 'a : num =
     Returns the sign of the given numerial value.
 
     Type Signature:
-    | <'a>('a) -> int8
+    | <'a>('a) -> int8 where 'a : num
 
     Parameters:
         n : 'a - The number to find the sign of

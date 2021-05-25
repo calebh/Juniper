@@ -38,11 +38,11 @@ fun now() : uint32 = (
 )
 
 (*
-    Type: timerState
+    Type: alias timerState
 
     Holds the state for the every functions
 
-    | timerState
+    | alias timerState = { lastPulse : uint32 }
 
     Members:
         lastPulse : uint32 - Timestamp of the last pulse

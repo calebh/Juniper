@@ -11,7 +11,7 @@ open(Prelude)
     Converts characters in a character list from lower case to upper case
 
     Type Signature:
-    | (list<uint8; n>) -> list<uint8; n>
+    | <;n>(list<uint8; n>) -> list<uint8; n>
 
     Parameters:
         str : list<uint8; n> - The string to convert to upper case
@@ -35,7 +35,7 @@ fun toUpper(str) =
     Converts characters in a character list from upper case to lower case
 
     Type Signature:
-    | (list<uint8; n>) -> list<uint8; n>
+    | <;n>(list<uint8; n>) -> list<uint8; n>
 
     Parameters:
         str : list<uint8; n> - The string to convert to lower case

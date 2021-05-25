@@ -6,11 +6,11 @@ open(Prelude, List, Math)
 *)
 
 (*
-    Type: vector
+    Type: alias vector
 
     Represents a mathematical vector
 
-    | vector<'a;n>
+    | alias vector<'a;n> = { data : 'a[n] }
 
     Members:
         data : 'a[n] - The internal data storage of the vector
@@ -86,7 +86,7 @@ fun get<'a;n>(i : uint32, v : vector<'a;n>) : 'a =
     Adds two vectors and returns the results.
 
     Type Signature:
-    <'a;n>(vector<'a;n>, vector<'a;n>) -> vector<'a;n> where 'a : num
+    | <'a;n>(vector<'a;n>, vector<'a;n>) -> vector<'a;n> where 'a : num
 
     Parameters:
         v1 : vector<'a;n> - The first vector to add
@@ -107,10 +107,10 @@ fun add<'a;n>(v1 : vector<'a;n>, v2 : vector<'a;n>) : vector<'a;n> where 'a : nu
 (*
     Function: zero
 
-    Returns the zero vector of n dimensions.
-
     Type Signature:
-    <'a;n>() -> vector<'a;n> where 'a : num
+    | <'a;n>() -> vector<'a;n> where 'a : num
+
+    Returns the zero vector of n dimensions.
 
     Returns:
         The zero vector of n dimensions.
@@ -228,7 +228,7 @@ fun magnitude2<'a;n>(v : vector<'a;n>) : 'a where 'a : num = (
         The magnitude of the vector
 *)
 fun magnitude<'a;n>(v : vector<'a;n>) : double where 'a : num =
-    sqrt_(magnitude2<'a;n>(v) :::: double)
+    sqrt_(toDouble(magnitude2<'a;n>(v)))
 
 (*
     Function: multiply

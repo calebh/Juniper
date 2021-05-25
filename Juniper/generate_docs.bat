@@ -1,1 +1,1 @@
-NaturalDocs.bat -i junstd -o HTML docs -p naturaldocs
+"C:\Program Files (x86)\Natural Docs\NaturalDocs.exe" -i junstd -o HTML docs -p naturaldocs

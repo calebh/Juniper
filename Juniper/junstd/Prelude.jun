@@ -60,12 +60,12 @@ type either<'a,'b> = left('a)
                    | right('b)
 
 (*
-    Type: list
+    Type: alias list
 
     The list record type represents an ordered series of elements of a given
     length.
 
-    | list<'a; n>
+    | alias list<'a; n> = { data : 'a[n]; length : uint32 }
 
     Members:
         data : 'a[n] - The internal array used to store the elements.
@@ -250,7 +250,7 @@ fun neq(x, y) =
     A function representation of the greater than operator
 
     Type signature:
-    | <'a>('a, 'a) -> bool
+    | <'a, 'b>('a, 'b) -> bool where 'a : num, 'b : num
 
     Parameters:
         x : 'a - The first value to compare
@@ -268,7 +268,7 @@ fun gt(x, y) =
     A function representation of the greater than or equal operator
 
     Type signature:
-    | <'a>('a, 'a) -> bool
+    | <'a, 'b>('a, 'b) -> bool where 'a : num, 'b : num
 
     Parameters:
         x : 'a - The first value to compare
@@ -286,7 +286,7 @@ fun geq(x, y) =
     A function representation of the less than operator
 
     Type signature:
-    | <'a>('a, 'a) -> bool
+    | <'a, 'b>('a, 'b) -> bool where 'a : num, 'b : num
 
     Parameters:
         x : 'a - The first value to compare
@@ -304,7 +304,7 @@ fun lt(x, y) =
     A function representation of the less than or equal operator
 
     Type signature:
-    | <'a>('a, 'a) -> bool
+    | <'a, 'b>('a, 'b) -> bool where 'a : num, 'b : num
 
     Parameters:
         x : 'a - The first value to compare
@@ -491,7 +491,7 @@ fun snd<'a,'b>(tup : ('a * 'b)) : 'b =
     Adds the two arguments together.
 
     Type signature:
-    | <'a>('a, 'a) -> 'a
+    | <'a>('a, 'a) -> 'a where 'a : num
 
     Parameters:
         numA : 'a - The first number
@@ -508,7 +508,7 @@ fun add<'a>(numA : 'a, numB : 'a) : 'a where 'a : num = numA + numB
      Subtracts the two arguments
 
     Type signature:
-    | <'a>('a, 'a) -> 'a
+    | <'a>('a, 'a) -> 'a where 'a : num
 
     Parameters:
         numA : 'a - The first number
@@ -525,7 +525,7 @@ fun sub<'a>(numA : 'a, numB : 'a) : 'a where 'a : num = numA - numB
     Multiplies the two arguments together.
 
     Type signature:
-    | <'a>('a, 'a) -> 'a
+    | <'a>('a, 'a) -> 'a where 'a : num
 
     Parameters:
         numA : 'a - The first number
@@ -542,7 +542,7 @@ fun mul<'a>(numA : 'a, numB : 'a) : 'a where 'a : num = numA * numB
     Divides one number by the other.
 
     Type signature:
-    | <'a>('a, 'a) -> 'a
+    | <'a>('a, 'a) -> 'a where 'a : num
 
     Parameters:
         numA : 'a - The numerator

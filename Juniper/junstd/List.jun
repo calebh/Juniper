@@ -15,7 +15,7 @@ open(Prelude)
     Applies f to every element of the list and returns the new list.
 
     Type Signature:
-    | <'a,'b;n>(('closure)('a) -> 'b, list<'a; n>) -> list<'b; n>
+    | <'a,'b,'closure;n>(('closure)('a) -> 'b, list<'a; n>) -> list<'b; n>
 
     Parameters:
         f : ('closure)('a) -> 'b - The mapping function
@@ -472,7 +472,7 @@ fun last<'t;n>(lst : list<'t;n>) : 't =
     no elements.
 
     Type Signature:
-    | <'t;n>(list<'t;n>) -> 't
+    | <'t;n>(list<'t;n>) -> 't where 't : num
 
     Parameters:
         lst : list<'t;n> - The list
@@ -504,7 +504,7 @@ fun max_<'t;n>(lst : list<'t;n>) : 't where 't : num =
     no elements.
 
     Type Signature:
-    | <'t;n>(list<'t;n>) -> 't
+    | <'t;n>(list<'t;n>) -> 't where 't : num
 
     Parameters:
         lst : list<'t;n> - The list
@@ -630,7 +630,7 @@ fun unzip<'a,'b;n>(lst : list<'a*'b; n>) : list<'a;n>*list<'b;n> = (
     Computes the sum of a list of numbers
 
     Type Signature:
-    | <'a;n>(list<'a;n>) -> 'a
+    | <'a;n>(list<'a;n>) -> 'a where 'a : num
 
     Parameters:
         lst : list<'a;n> - The list to sum
@@ -647,7 +647,7 @@ fun sum<'a; n>(lst : list<'a;n>) : 'a where 'a : num =
     Computes the average (mean) of a list of numbers
 
     Type Signature:
-    | <'a;n>(list<'a;n>) -> 'a
+    | <'a;n>(list<'a;n>) -> 'a where 'a : num
 
     Parameters:
         lst : list<'a;n> - The list to average

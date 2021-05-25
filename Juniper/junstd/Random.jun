@@ -47,6 +47,21 @@ fun random_(low : int32, high : int32) : int32 = (
 *)
 fun seed(n : uint32) : unit = #randomSeed(n);#
 
+(*
+    Function: choice
+
+    Randomly chooses an element from a list, where every element is equally 
+    probable to be selected.
+
+    Type Signature:
+    | <'t;n>(list<'t;n>) -> 't
+
+    Parameters:
+        lst : list<'t;n> - The list to randomly select from
+
+    Returns:
+        A random element from the list
+*)
 fun choice<'t;n>(lst : list<'t;n>) : 't = (
     let i : int32 = random_(0, u32ToI32(lst.length));
     List:nth(i32ToU32(i), lst)

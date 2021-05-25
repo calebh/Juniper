@@ -6,11 +6,11 @@ open(Prelude, Io)
 *)
 
 (*
-    Type: buttonState
+    Type: alias buttonState
 
     The buttonState type is used by the debounce functions to store state.
 
-    | buttonState
+    | alias buttonState = { actualState : pinState; lastState : pinState; lastDebounceTime : uint32 }
 
     Members:
         actualState : Io:pinState - The actual state of the button

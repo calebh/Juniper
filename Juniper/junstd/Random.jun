@@ -12,7 +12,7 @@ include("<Arduino.h>")
     The random_ function generates pseudo-random numbers.
 
     Type Signature:
-    | (int32, int32) -> int32
+    | (||)(int32, int32) -> int32
 
     Parameters:
         low : int32 - Lower bound of the random value, inclusive
@@ -37,7 +37,7 @@ fun random_(low : int32, high : int32) : int32 = (
     value returned by anaRead on an unconnected pin.
 
     Type Signature:
-    | (uint32) -> unit
+    | (||)(uint32) -> unit
 
     Parameters:
         n : uint32 - The seed value for the random number generator
@@ -54,7 +54,7 @@ fun seed(n : uint32) : unit = #randomSeed(n);#
     probable to be selected.
 
     Type Signature:
-    | <'t;n>(list<'t;n>) -> 't
+    | <'t;n>(||)(list<'t;n>) -> 't
 
     Parameters:
         lst : list<'t;n> - The list to randomly select from

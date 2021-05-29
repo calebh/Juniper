@@ -12,20 +12,20 @@ include("<Arduino.h>")
     | pinState
 
     Constructors:
-        - <high>
-        - <low>
+        - <high> ()
+        - <low> ()
 *)
 (*
     Function: high
 
     Type Signature:
-    | () -> pinState
+    | (||)() -> pinState
 *)
 (*
     Function: low
 
     Type Signature:
-    | () -> pinState
+    | (||)() -> pinState
 *)
 type pinState = high() | low()
 
@@ -35,27 +35,27 @@ type pinState = high() | low()
     | mode
 
     Constructors:
-        - <input>
-        - <output>
-        - <inputPullup>
+        - <input> ()
+        - <output> ()
+        - <inputPullup> ()
 *)
 (*
     Function: input
 
     Type Signature:
-    | () -> mode
+    | (||)() -> mode
 *)
 (*
     Function: output
 
     Type Signature:
-    | () -> mode
+    | (||)() -> mode
 *)
 (*
     Function: inputPullup
 
     Type Signature:
-    | () -> mode
+    | (||)() -> mode
 *)
 type mode = input() | output() | inputPullup()
 
@@ -66,7 +66,7 @@ type mode = input() | output() | inputPullup()
     value.
 
     Type Signature:
-    | (pinState) -> pinState
+    | (||)(pinState) -> pinState
 
     Parameters:
         p : pinState - The <pinState> which you would like to find the opposite
@@ -87,7 +87,7 @@ fun toggle(p : pinState) : pinState =
     Writes a string to the serial output.
 
     Type Signature:
-    | (string) -> unit
+    | (||)(string) -> unit
 
     Parameters:
         str : string - The string to write
@@ -104,7 +104,7 @@ fun printStr(str : string) : unit =
     Writes a character list to the serial output.
 
     Type Signature:
-    | <;n>(list<uint8;n>) -> unit
+    | <;n>(||)(list<uint8;n>) -> unit
 
     Parameters:
         cl : list<uint8;n> - The character list to print
@@ -121,7 +121,7 @@ fun printCharList<;n>(cl : list<uint8; n>) : unit =
     Writes a float to the serial output.
 
     Type Signature:
-    | (float) -> unit
+    | (||)(float) -> unit
 
     Parameters:
         f : float - The number to write
@@ -138,7 +138,7 @@ fun printFloat(f : float) : unit =
     Writes an integer to the serial output.
 
     Type Signature:
-    | (int32) -> unit
+    | (||)(int32) -> unit
 
     Parameters:
         n : int32 - The number to write
@@ -155,37 +155,50 @@ fun printInt(n : int32) : unit =
     | base
 
     Constructors:
-        - <binary>
-        - <octal>
-        - <decimal>
-        - <hexadecimal>
+        - <binary> ()
+        - <octal> ()
+        - <decimal> ()
+        - <hexadecimal> ()
 *)
 (*
     Function: binary
 
     Type Signature:
-    | () -> base
+    | (||)() -> base
 *)
 (*
     Function: octal
 
     Type Signature:
-    | () -> base
+    | (||)() -> base
 *)
 (*
     Function: decimal
 
     Type Signature:
-    | () -> base
+    | (||)() -> base
 *)
 (*
     Function: hexadecimal
 
     Type Signature:
-    | () -> base
+    | (||)() -> base
 *)
 type base = binary() | octal() | decimal() | hexadecimal()
 
+(*
+    Function: baseToInt
+
+    Converts a base to the numerical integer base it represents.
+
+    Type Signature:
+    | <'t>(||)(base) -> 't where 't : int
+
+    Parameters:
+        b : base - The base value
+
+    Returns 2 in the case of binary, 8 for octal, 10 for decimal and 16 for hexadecimal
+*)
 fun baseToInt(b) =
     case b of
     | binary() => 2
@@ -200,7 +213,7 @@ fun baseToInt(b) =
     Writes an integer in the given base to the serial output.
 
     Type Signature:
-    | (int32, base) -> unit
+    | (||)(int32, base) -> unit
 
     Parameters:
         n : int32 - The number to write
@@ -220,7 +233,7 @@ fun printIntBase(n : int32, b : base) : unit = (
     Writes a float with the given number of decimal places to the serial output.
 
     Type Signature:
-    | (float, int32) -> unit
+    | (||)(float, int32) -> unit
 
     Parameters:
         f : float - The number to write
@@ -238,7 +251,7 @@ fun printFloatPlaces(f : float, numPlaces : int32) : unit =
     Sets up serial ouput
 
     Type Signature:
-    | (uint32) -> unit
+    | (||)(uint32) -> unit
 
     Parameters:
         speed : uint32 - Sets the data rate in bits per second (baud) for serial
@@ -259,7 +272,7 @@ fun beginSerial(speed : uint32) : unit =
     Converts a <pinState> to an integer representation.
 
     Type Signature:
-    | (pinState) -> uint8
+    | (||)(pinState) -> uint8
 
     Parameters:
         value : pinState - The pinState to Converts
@@ -279,7 +292,7 @@ fun pinStateToInt(value : pinState) : uint8 =
     Converts an integer to a <pinState> representation.
 
     Type Signature:
-    | (uint8) -> pinState
+    | (||)(uint8) -> pinState
 
     Parameters:
         value : uint8 - The integer value to convert
@@ -300,7 +313,7 @@ fun intToPinState(value : uint8) : pinState =
     Writes a value directly to a pin.
 
     Type Signature:
-    | (uint16, pinState) -> unit
+    | (||)(uint16, pinState) -> unit
 
     Parameters:
         pin : uint16 - The pin to write to.
@@ -323,7 +336,7 @@ fun digWrite(pin : uint16, value : pinState) : unit = (
     Reads a value direction from a pin.
 
     Type Signature:
-    | (uint16) -> pinState
+    | (||)(uint16) -> pinState
 
     Parameters:
         pin : uint16 - The pin to read from.
@@ -346,7 +359,7 @@ fun digRead(pin : uint16) : pinState = (
     Creates an input signal given some pin identifier.
 
     Type Signature:
-    | (uint16) -> sig<pinState>
+    | (||)(uint16) -> sig<pinState>
 
     Parameters:
         pin : uint16 - The pin to read from
@@ -367,7 +380,7 @@ fun digIn(pin : uint16) : sig<pinState> =
     given pin.
 
     Type Signature:
-    | (uint16, sig<pinState>) -> unit
+    | (||)(uint16, sig<pinState>) -> unit
 
     Parameters:
         pin : uint16 - The pin to write to
@@ -388,7 +401,7 @@ fun digOut(pin : uint16, sig : sig<pinState>) : unit =
     Reads a value directly from an analog pin.
 
     Type Signature:
-    | (uint16) -> uint16
+    | (||)(uint16) -> uint16
 
     Parameters:
         pin : uint16 - The pin to read from
@@ -412,7 +425,7 @@ fun anaRead(pin : uint16) : uint16 = (
     Writes an analog (PWM) value directly to an analog pin.
 
     Type Signature:
-    | (uint16, uint8) -> unit
+    | (||)(uint16, uint8) -> unit
 
     Parameters:
         pin : uint16 - The pin to write to
@@ -432,7 +445,7 @@ fun anaWrite(pin : uint16, value : uint8) : unit =
     Creates an analog input signal given some pin identifier.
 
     Type Signature:
-    | (uint16) -> sig<uint16>
+    | (||)(uint16) -> sig<uint16>
 
     Parameters:
         pin : uint16 - The pin to read from
@@ -450,7 +463,7 @@ fun anaIn(pin : uint16) : sig<uint16> =
     to the given analog pin.
 
     Type Signature:
-    | (uint16, sig<uint8>) -> unit
+    | (||)(uint16, sig<uint8>) -> unit
 
     Parameters:
         pin : uint16 - The pin to write to
@@ -469,7 +482,7 @@ fun anaOut(pin : uint16, sig : sig<uint8>) : unit =
     Converts a pinMode to an integer representation.
 
     Type Signature:
-    | (mode) -> uint8
+    | (||)(mode) -> uint8
 
     Parameters:
         m : mode - The mode to convert
@@ -490,7 +503,7 @@ fun pinModeToInt(m : mode) : uint8 =
     Converts an integer representation to a pinMode
 
     Type Signature:
-    | (uint8) -> mode
+    | (||)(uint8) -> mode
 
     Parameters:
     | m : uint8 - The mode to convert
@@ -511,7 +524,7 @@ fun intToPinMode(m : uint8) : mode =
     Sets the <mode> of a specified pin
 
     Type Signature:
-    | (uint16, mode) -> unit
+    | (||)(uint16, mode) -> unit
 
     Returns:
         Unit
@@ -528,7 +541,7 @@ fun setPinMode(pin : uint16, m : mode) : unit = (
     when the input signal transitions from <low> to <high>.
 
     Type Signature:
-    | (sig<pinState>, pinState ref) -> sig<unit>
+    | (||)(sig<pinState>, pinState ref) -> sig<unit>
 
     Parameters:
         sig : sig<pinState> - The digital input signal
@@ -555,7 +568,7 @@ fun risingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
     when the input signal transitions from <high> to <low>.
 
     Type Signature:
-    | (sig<pinState>, pinState ref) -> sig<unit>
+    | (||)(sig<pinState>, pinState ref) -> sig<unit>
 
     Parameters:
         sig : sig<pinState> - The digital input signal
@@ -582,7 +595,7 @@ fun fallingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
     when the input transitions from <high> to <low> or <low> to <high>
 
     Type Signature:
-    | (sig<pinState>, pinState ref) -> sig<pinState>
+    | (||)(sig<pinState>, pinState ref) -> sig<pinState>
 
     Parameters:
         sig : sig<pinState> - The digital input signal

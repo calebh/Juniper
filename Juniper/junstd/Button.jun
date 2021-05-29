@@ -27,7 +27,7 @@ alias buttonState = { actualState : pinState; lastState : pinState; lastDebounce
     lastState to Io:low() and lastDebounceTime to 0
 
     Type Signature:
-    | () -> buttonState ref
+    | (||)() -> buttonState ref
 
     Returns:
         A new <buttonState>
@@ -43,7 +43,7 @@ fun state() : buttonState ref = (
     period of time to make sure the pushbutton is definitely pressed.
 
     Type Signature:
-    | (sig<pinState>, uint16, buttonState ref) -> sig<pinState>
+    | (||)(sig<pinState>, uint16, buttonState ref) -> sig<pinState>
 
     Parameters:
         incoming : sig<pinState> - The incoming signal
@@ -88,7 +88,7 @@ fun debounceDelay(incoming : sig<pinState>, delay : uint16, buttonState : button
     sure the pushbutton is definitely pressed.
 
     Type Signature:
-    | (sig<pinState>, buttonState ref) -> sig<pinState>
+    | (||)(sig<pinState>, buttonState ref) -> sig<pinState>
 
     Parameters:
         incoming : sig<pinState> - The incoming signal

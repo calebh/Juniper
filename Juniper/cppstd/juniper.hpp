@@ -198,6 +198,8 @@ namespace juniper
         ~rawpointer_container() {
             destructorCallback(data);
         }
+
+        void *get() { return data; }
     };
 
     using smartpointer = shared_ptr<rawpointer_container>;

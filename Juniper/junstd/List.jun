@@ -15,7 +15,7 @@ open(Prelude)
     Applies f to every element of the list and returns the new list.
 
     Type Signature:
-    | <'a,'b,'closure;n>(('closure)('a) -> 'b, list<'a; n>) -> list<'b; n>
+    | <'a,'b,'closure;n>(||)(('closure)('a) -> 'b, list<'a; n>) -> list<'b; n>
 
     Parameters:
         f : ('closure)('a) -> 'b - The mapping function
@@ -40,7 +40,7 @@ fun map<'a,'b,'closure;n>(f : ('closure)('a) -> 'b, lst : list<'a; n>) : list<'b
     argument through the computation.
 
     Type Signature:
-    | <'t,'state,'closure;n>(('closure)('t, 'state) -> 'state, 'state, list<'t; n>) -> 'state
+    | <'t,'state,'closure;n>(||)(('closure)('t, 'state) -> 'state, 'state, list<'t; n>) -> 'state
 
     Parameters:
         f : ('closure)('t, 'state) -> 'state - The function to update the state given the input elements.
@@ -66,7 +66,7 @@ fun foldl<'t,'state,'closure;n>(f : ('closure)('t, 'state) -> 'state, initState 
     an accumulator argument through the computation.
 
     Type Signature:
-    | <'t,'state,'closure;n>(('closure)('t, 'state) -> 'state, 'state, list<'t; n>) -> 'state
+    | <'t,'state,'closure;n>(||)(('closure)('t, 'state) -> 'state, 'state, list<'t; n>) -> 'state
 
     Parameters:
         f : ('closure)('t,'state) -> 'state - The function to update the state given the
@@ -92,7 +92,7 @@ fun foldr<'t,'state,'closure;n>(f : ('closure)('t, 'state) -> 'state, initState 
     Appends two lists.
 
     Type Signature:
-    | <'t;aCap,bCap,retCap>(list<'t;aCap>, list<'t;bCap>) -> list<'t;retCap>
+    | <'t;aCap,bCap,retCap>(||)(list<'t;aCap>, list<'t;bCap>) -> list<'t;retCap>
 
     Parameters:
         lstA : list<'t;aCap> - The first list.
@@ -123,7 +123,7 @@ fun append<'t;aCap,bCap,retCap>(lstA : list<'t;aCap>, lstB : list<'t;bCap>) : li
     Returns the nth element of the given list
 
     Type Signature:
-    | <'t;n>(uint32, list<'t;n>) -> 't
+    | <'t;n>(||)(uint32, list<'t;n>) -> 't
 
     Parameters:
         i : uint32 - The index of the element to be retrieved
@@ -145,7 +145,7 @@ fun nth<'t;n>(i : uint32, lst : list<'t;n>) : 't =
     Flattens a list of lists into a single list.
 
     Type Signature:
-    | <'t;m,n>(list<list<'t;m>;n>) -> list<'t;m*n>
+    | <'t;m,n>(||)(list<list<'t;m>;n>) -> list<'t;m*n>
 
     Parameters:
         listOfLists : list<list<'t;m>;n> - The list of lists
@@ -175,7 +175,7 @@ fun flattenSafe<'t;m,n>(listOfLists : list<list<'t;m>;n>) : list<'t;m*n> = (
     length of the list remained unchanged.
 
     Type Signature:
-    | <'t;n,m>(list<'t;n>) -> list<'t;m>
+    | <'t;n,m>(||)(list<'t;n>) -> list<'t;m>
 
     Parameters:
         lst : list<'t;n> - The list to resize
@@ -199,7 +199,7 @@ fun resize<'t;n,m>(lst : list<'t;n>) : list<'t;m> = (
     otherwise false.
 
     Type Signature:
-    | <'t,'closure;n>(('closure)('t) -> bool, list<'t;n>) -> bool
+    | <'t,'closure;n>(||)(('closure)('t) -> bool, list<'t;n>) -> bool
 
     Parameters:
         pred : ('closure)('t) -> bool - The predicate which must be satisfied
@@ -229,7 +229,7 @@ fun all<'t,'closure;n>(pred : ('closure)('t) -> bool, lst : list<'t;n>) : bool =
     lst, otherwise false.
 
     Type Signature:
-    | <'t,'closure;n>(('closure)('t) -> bool, list<'t;n>) -> bool
+    | <'t,'closure;n>(||)(('closure)('t) -> bool, list<'t;n>) -> bool
 
     Parameters:
         pred : ('closure)('t) -> bool - The predicate which must be satisfied
@@ -259,7 +259,7 @@ fun any<'t,'closure;n>(pred : ('closure)('t) -> bool, lst : list<'t;n>) : bool =
     If the element will not fit in the list, the program crashes.
 
     Type Signature:
-    | <'t;n>('t, list<'t;n>) -> list<'t;n>
+    | <'t;n>(||)('t, list<'t;n>) -> list<'t;n>
 
     Parameters:
         elem : 't - The element to add to the end of the list
@@ -287,7 +287,7 @@ fun pushBack<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
     from the back of the list.
 
     Type Signature:
-    | <'t;n>('t, list<'t;n>) -> list<'t;n>
+    | <'t;n>(||)('t, list<'t;n>) -> list<'t;n>
 
     Parameters:
         elem : 't - The element to add to the front of the list
@@ -318,7 +318,7 @@ fun pushOffFront<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
     is the given element.
 
     Type Signature:
-    | <'t;n>(uint32, 't, list<'t;n>) -> list<'t;n>
+    | <'t;n>(||)(uint32, 't, list<'t;n>) -> list<'t;n>
 
     Parameters:
         index : uint32 - The index to set
@@ -343,7 +343,7 @@ fun setNth<'t;n>(index : uint32, elem : 't, lst : list<'t;n>) : list<'t;n> =
     Initializes a new list of a given length using the given element.
 
     Type Signature:
-    | <'t;n>(uint32, 't) -> list<'t;n>
+    | <'t;n>(||)(uint32, 't) -> list<'t;n>
 
     Parameters:
         numOfElements : uint32 - The length of the new list
@@ -362,7 +362,7 @@ fun replicate<'t;n>(numOfElements : uint32, elem : 't) : list<'t;n> =
     deleted, if there is such an element.
 
     Type Signature:
-    | <'t;n>('t, list<'t;n>) -> list<'t;n>
+    | <'t;n>(||)('t, list<'t;n>) -> list<'t;n>
 
     Parameters:
         elem : 't - The element to remove from the list
@@ -403,7 +403,7 @@ fun remove<'t;n>(elem : 't, lst : list<'t;n>) : list<'t;n> = (
     the program will exit.
 
     Type Signature:
-    | <'t;n>(list<'t;n>) -> list<'t;n>
+    | <'t;n>(||)(list<'t;n>) -> list<'t;n>
 
     Parameters:
         lst : list<'t;n> - The list
@@ -430,7 +430,7 @@ fun dropLast<'t;n>(lst : list<'t;n>) : list<'t;n> = (
     elements in the list.
 
     Type Signature:
-    | <'t,'closure;n>(('closure)('t) -> unit, list<'t;n>) -> unit
+    | <'t,'closure;n>(||)(('closure)('t) -> unit, list<'t;n>) -> unit
 
     Parameters:
         f : ('closure)('t) -> unit - The function to call
@@ -450,7 +450,7 @@ fun foreach<'t,'closure;n>(f : ('closure)('t) -> unit, lst : list<'t;n>) : unit 
     Returns the last element of the lst.
 
     Type Signature:
-    | <'t;n>(list<'t;n>) -> 't
+    | <'t;n>(||)(list<'t;n>) -> 't
 
     Parameters:
         lst : list<'t;n> - The list
@@ -472,7 +472,7 @@ fun last<'t;n>(lst : list<'t;n>) : 't =
     no elements.
 
     Type Signature:
-    | <'t;n>(list<'t;n>) -> 't where 't : num
+    | <'t;n>(||)(list<'t;n>) -> 't where 't : num
 
     Parameters:
         lst : list<'t;n> - The list
@@ -504,7 +504,7 @@ fun max_<'t;n>(lst : list<'t;n>) : 't where 't : num =
     no elements.
 
     Type Signature:
-    | <'t;n>(list<'t;n>) -> 't where 't : num
+    | <'t;n>(||)(list<'t;n>) -> 't where 't : num
 
     Parameters:
         lst : list<'t;n> - The list
@@ -535,7 +535,7 @@ fun min_<'t;n>(lst : list<'t;n>) : 't =
     Returns true if elem is a member of lst, otherwise false.
 
     Type Signature:
-    | <'t;n>('t, list<'t;n>) -> bool
+    | <'t;n>(||)('t, list<'t;n>) -> bool
 
     Parameters:
         elem : 't - The element to match
@@ -566,7 +566,7 @@ fun member<'t;n>(elem : 't, lst : list<'t;n>) : bool = (
     of equal length, the program exits.
 
     Type Signature:
-    | <'a,'b;n>(list<'a;n>, list<'b;n>) -> list<('a*'b);n>
+    | <'a,'b;n>(||)(list<'a;n>, list<'b;n>) -> list<('a*'b);n>
 
     Parameters:
         lstA : list<'a;n> - The first list to zip
@@ -598,7 +598,7 @@ fun zip<'a,'b;n>(lstA : list<'a;n>, lstB : list<'b;n>) : list<'a*'b;n> =
     element of each tuple.
 
     Type Signature:
-    | <'a,'b;n>(list<('a*'b);n>) -> (list<'a;n>*list<'b;n>)
+    | <'a,'b;n>(||)(list<('a*'b);n>) -> (list<'a;n>*list<'b;n>)
 
     Parameters:
         lst : list<('a*'b);n> - The list to unzip
@@ -630,7 +630,7 @@ fun unzip<'a,'b;n>(lst : list<'a*'b; n>) : list<'a;n>*list<'b;n> = (
     Computes the sum of a list of numbers
 
     Type Signature:
-    | <'a;n>(list<'a;n>) -> 'a where 'a : num
+    | <'a;n>(||)(list<'a;n>) -> 'a where 'a : num
 
     Parameters:
         lst : list<'a;n> - The list to sum
@@ -647,7 +647,7 @@ fun sum<'a; n>(lst : list<'a;n>) : 'a where 'a : num =
     Computes the average (mean) of a list of numbers
 
     Type Signature:
-    | <'a;n>(list<'a;n>) -> 'a where 'a : num
+    | <'a;n>(||)(list<'a;n>) -> 'a where 'a : num
 
     Parameters:
         lst : list<'a;n> - The list to average

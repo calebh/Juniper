@@ -11,7 +11,7 @@ open(Prelude)
     Converts characters in a character list from lower case to upper case
 
     Type Signature:
-    | <;n>(list<uint8; n>) -> list<uint8; n>
+    | <;n>(||)(list<uint8; n>) -> list<uint8; n>
 
     Parameters:
         str : list<uint8; n> - The string to convert to upper case
@@ -35,7 +35,7 @@ fun toUpper(str) =
     Converts characters in a character list from upper case to lower case
 
     Type Signature:
-    | <;n>(list<uint8; n>) -> list<uint8; n>
+    | <;n>(||)(list<uint8; n>) -> list<uint8; n>
 
     Parameters:
         str : list<uint8; n> - The string to convert to lower case
@@ -61,7 +61,7 @@ fun toLower(str) =
     at most length n.
 
     Type Signature:
-    | <;n>(int32) -> charlist<;n>
+    | <;n>(||)(int32) -> charlist<;n>
 
     Parameters:
         m : int32 - The number to convert
@@ -85,7 +85,7 @@ fun i32ToCharList<;n>(m : int32) : charlist<;n> = (
     (takes into account the null byte at the end of the character list)
 
     Type Signature:
-    | <;n>(list<uint8; n>) -> uint32
+    | <;n>(||)(list<uint8; n>) -> uint32
 
     Parameters:
         s : list<uint8; n> - The character list to find the length of
@@ -103,7 +103,7 @@ fun length<;n>(s : list<uint8; n>) : uint32 =
     due to the null bytes at the end of character lists.
 
     Type Signature:
-    | <;aCap,bCap,retCap>(list<uint8;aCap>, list<uint8;bCap>) -> list<uint8;retCap>
+    | <;aCap,bCap,retCap>(||)(list<uint8;aCap>, list<uint8;bCap>) -> list<uint8;retCap>
 
     Parameters:
         sA : list<uint8;aCap> - The first character list.
@@ -138,7 +138,7 @@ fun concat<;aCap,bCap,retCap>(sA : charlist<;aCap>, sB : charlist<;bCap>) : char
     by the input capacities, less type annotations than normal concat are necessary.
 
     Type Signature:
-    | <;aCap,bCap>(charlist<;aCap>, charlist<;bCap>) -> charlist<;aCap+bCap>
+    | <;aCap,bCap>(||)(charlist<;aCap>, charlist<;bCap>) -> charlist<;aCap+bCap>
 
     Parameters:
         sA : charlist<;aCap> - The first character list.

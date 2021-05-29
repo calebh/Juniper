@@ -11,7 +11,7 @@ open(Prelude)
     Applies a function f to the given input signal
 
     Type signature:
-    | <'a,'b,'closure>(('closure)('a) -> 'b, sig<'a>) -> sig<'b>
+    | <'a,'b,'closure>(||)(('closure)('a) -> 'b, sig<'a>) -> sig<'b>
 
     Parameters:
         f : ('closure)('a) -> 'b - The mapping function
@@ -33,7 +33,7 @@ fun map<'a,'b,'closure>(f : ('closure)('a) -> 'b, s : sig<'a>) : sig<'b> =
     side effects.
 
     Type signature:
-    | <'a,'closure>(('closure)('a) -> unit, sig<'a>) -> unit
+    | <'a,'closure>(||)(('closure)('a) -> unit, sig<'a>) -> unit
 
     Parameters:
         f : ('closure)('a) -> unit - The function to call
@@ -57,7 +57,7 @@ fun sink<'a,'closure>(f : ('closure)('a) -> unit, s : sig<'a>) : unit =
     will be the same as the input signal.
 
     Type signature:
-    | <'a,'closure>(('closure)('a') -> bool, sig<'a>) -> sig<'a>
+    | <'a,'closure>(||)(('closure)('a') -> bool, sig<'a>) -> sig<'a>
 
     Parameters:
         f : ('closure)('a) -> bool - The predicate function
@@ -85,7 +85,7 @@ fun filter<'a,'closure>(f : ('closure)('a) -> bool, s : sig<'a>) : sig<'a> =
     sigA is returned. Otherwise sigB is returned.
 
     Type signature:
-    | merge<'a>(sig<'a>, sig<'a>) -> sig<'a>
+    | merge<'a>(||)(sig<'a>, sig<'a>) -> sig<'a>
 
     Parameters:
         sigA : sig<'a> - The first signal to merge
@@ -108,7 +108,7 @@ fun merge<'a>(sigA : sig<'a>, sigB : sig<'a>) : sig<'a> =
     holds a value, then the return stream will hold nothing.
 
     Type signature:
-    | <'a;n>(list<sig<'a>;n>) -> sig<'a>
+    | <'a;n>(||)(list<sig<'a>;n>) -> sig<'a>
 
     Parameters:
         sigs : list<sig<'a>;n> - A list of signals to merge together.
@@ -140,7 +140,7 @@ fun mergeMany<'a;n>(sigs : list<sig<'a>;n>) : sig<'a> = (
     also holds no value.
 
     Type signature:
-    | <'a,'b>(sig<'a>, sig<'b>) -> sig<either<'a,'b>>
+    | <'a,'b>(||)(sig<'a>, sig<'b>) -> sig<either<'a,'b>>
 
     Parameters:
         sigA : sig<'a> - The first signal to join
@@ -167,7 +167,7 @@ fun join<'a,'b>(sigA : sig<'a>, sigB : sig<'b>) : sig<either<'a,'b>> =
     nothing.
 
     Type signature:
-    | <'a>(sig<'a>) -> sig<unit>
+    | <'a>(||)(sig<'a>) -> sig<unit>
 
     Parameters:
         s : sig<'a> - The signal to convert to a unit signal
@@ -187,7 +187,7 @@ fun toUnit<'a>(s : sig<'a>) : sig<unit> =
     is held in a reference. foldP stands for fold over the past.
 
     Type signature:
-    | foldP<'a,'state,'closure>(('closure)('a,'state)->'state, 'state ref, sig<'a>) -> sig<'state>
+    | foldP<'a,'state,'closure>(||)(('closure)('a,'state)->'state, 'state ref, sig<'a>) -> sig<'state>
 
     Parameters:
         f : ('closure)('a,'state) -> 'state - The folding function
@@ -214,7 +214,7 @@ fun foldP<'a, 'state, 'closure>(f : ('closure)('a,'state) -> 'state, state0 : 's
     Drop values that have been repeated on the given signal.
 
     Type signature:
-    | <'a>(sig<'a>, maybe<'a> ref) -> sig<'a>
+    | <'a>(||)(sig<'a>, maybe<'a> ref) -> sig<'a>
 
     Parameters:
         maybePrevValue : maybe<'a> ref - A reference holding the previous value
@@ -249,7 +249,7 @@ fun dropRepeats<'a>(maybePrevValue : maybe<'a> ref, incoming : sig<'a>) : sig<'a
     is updated if it receives a value on the incoming signal.
 
     Type Signature:
-    | <'a>(sig<'a>, 'a ref) -> sig<'a>
+    | <'a>(||)(sig<'a>, 'a ref) -> sig<'a>
 
     Parameters:
         prevValue : 'a ref - Holds the previous values that the latch received
@@ -276,7 +276,7 @@ fun latch<'a>(prevValue : 'a ref, incoming : sig<'a>) : sig<'a> =
     signals, then the output signal holds no value.
 
     Type Signature:
-    | <'a,'b,'c,'closure>(('closure)('a,'b)->'c, sig<'a>, sig<'b>, ('a*'b) ref) -> sig<'c>
+    | <'a,'b,'c,'closure>(||)(('closure)('a,'b)->'c, sig<'a>, sig<'b>, ('a*'b) ref) -> sig<'c>
 
     Parameters:
         f : ('closure)('a,'b) -> 'c - The mapping function
@@ -312,7 +312,7 @@ fun map2<'a,'b,'c,'closure>(f : ('closure)('a, 'b) -> 'c,
     Records values in a list as they come in through the incoming signal.
 
     Type Signature:
-    | <'a;n>(sig<'a>, list<'a;n> ref) -> sig<list<'a;n>>
+    | <'a;n>(||)(sig<'a>, list<'a;n> ref) -> sig<list<'a;n>>
 
     Parameters:
         pastValues : list<'a;n> ref - Previous values recorded from the signal
@@ -330,7 +330,7 @@ fun record<'a;n>(pastValues : list<'a;n> ref, incoming : sig<'a>) : sig<list<'a;
     Gives a signal holding a specific value.
 
     Type Signature:
-    | <'a>('a) -> sig<'a>
+    | <'a>(||)('a) -> sig<'a>
 
     Parameters:
         val : 'a - The value that will be held within the signal
@@ -352,7 +352,7 @@ fun constant<'a>(val : 'a) : sig<'a> =
     for many applications.
 
     Type Signature:
-    | <'a>(sig<'a>) -> sig<maybe<'a>>
+    | <'a>(||)(sig<'a>) -> sig<maybe<'a>>
 
     Parameters:
         sigA : sig<'a> - The signal on which the meta analysis will be performed
@@ -373,7 +373,7 @@ fun meta<'a>(sigA : sig<'a>) : sig<maybe<'a>> = (
     holds just a value, then the output signal will hold that value.
 
     Type Signature:
-    | <'a>(sig<maybe<'a>>) -> sig<'a>
+    | <'a>(||)(sig<maybe<'a>>) -> sig<'a>
 
     Parameters:
         sigA : sig<maybe<'a>> - The signal to "make concrete"
@@ -399,7 +399,7 @@ fun unmeta<'a>(sigA : sig<maybe<'a>>) : sig<'a> =
     signal holds no value.
 
     Type Signature:
-    | <'a,'b>(sig<'a>, sig<'b>, ('a * 'b) ref) -> sig<'a * 'b>
+    | <'a,'b>(||)(sig<'a>, sig<'b>, ('a * 'b) ref) -> sig<'a * 'b>
 
     Parameters:
         state : ('a * 'b) ref - The state holding the past values of the signals
@@ -422,7 +422,7 @@ fun zip<'a,'b>(state : ('a * 'b) ref, sigA : sig<'a>, sigB : sig<'b>) : sig<('a 
     into two signals.
 
     Type Signature:
-    | <'a,'b>(sig<'a * 'b>) -> (sig<'a> * sig<'b>)
+    | <'a,'b>(||)(sig<'a * 'b>) -> (sig<'a> * sig<'b>)
 
     Parameters:
         incoming : sig<'a> - The signal to unzip
@@ -445,7 +445,7 @@ fun unzip<'a,'b>(incoming : sig<'a*'b>) : sig<'a>*sig<'b> =
     incoming signal, then no value is outputted on the return signal.
 
     Type Signature:
-    | <'a,'b>('a, 'a, 'a ref, sig<'b>) -> sig<'a>
+    | <'a,'b>(||)('a, 'a, 'a ref, sig<'b>) -> sig<'a>
 
     Parameters:
         val1 : 'a - The first value to toggle between

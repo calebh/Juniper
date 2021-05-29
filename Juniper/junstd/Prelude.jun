@@ -14,20 +14,20 @@ module Prelude
     | maybe<'a>
 
     Constructors:
-        - <just> of 'a
-        - <nothing>
+        - <just> ('a)
+        - <nothing> ()
 *)
 (*
     Function: just
 
     Type Signature:
-    | <'a>('a) -> maybe<'a>
+    | <'a>(||)('a) -> maybe<'a>
 *)
 (*
     Function: nothing
 
     Type signature:
-    | <'a>('a) -> maybe<'a>
+    | <'a>(||)() -> maybe<'a>
 *)
 type maybe<'a> = just('a)
                | nothing()
@@ -41,8 +41,8 @@ type maybe<'a> = just('a)
     | either<'a,'b>
 
     Constructors:
-        - <left> of 'a
-        - <right> of 'b
+        - <left> ('a)
+        - <right> ('b)
 *)
 (*
     Function: left
@@ -54,7 +54,7 @@ type maybe<'a> = just('a)
     Function: right
 
     Type signature:
-    | <'a,'b>('b) -> either<'a, 'b>
+    | <'a,'b>(||)('b) -> either<'a, 'b>
 *)
 type either<'a,'b> = left('a)
                    | right('b)
@@ -98,15 +98,35 @@ alias charlist<;n> = list<uint8;n+1>
     | sig<'a>
 
     Constructors:
-        - <signal> of maybe<'a>
+        - <signal> (maybe<'a>)
 *)
 (*
     Function: signal
 
     Type signature:
-    | (maybe<'a>) -> sig<'a>
+    | (||)(maybe<'a>) -> sig<'a>
 *)
 type sig<'a> = signal(maybe<'a>)
+
+(*
+    Function: extractptr
+
+    Extracts the contained rawpointer from a pointer.
+
+    Type signature:
+    | (||)(pointer) -> rawpointer
+
+    Parameters:
+        p : pointer - The pointer to extract the rawpointer from
+    
+    Returns:
+        The extracted rawpointer
+*)
+fun extractptr(p : pointer) : rawpointer = (
+    var ret : rawpointer;
+    #ret = p.get()->get();#;
+    ret
+)
 
 (*
     Function: compose
@@ -114,7 +134,7 @@ type sig<'a> = signal(maybe<'a>)
     Composes two functions together.
 
     Type signature:
-    | <'a,'b,'c,'closureF,'closureG>(('closureF)('b) -> 'c, ('closureG)('a) -> 'b) -> ((|f : ('closureF)('b) -> 'c; g : ('closureG)('a) -> 'b|)('a) -> 'c)
+    | <'a,'b,'c,'closureF,'closureG>(||)(('closureF)('b) -> 'c, ('closureG)('a) -> 'b) -> ((|f : ('closureF)('b) -> 'c; g : ('closureG)('a) -> 'b|)('a) -> 'c)
 
     Parameters:
         f : ('closureF)('b) -> 'c - The second function to compose
@@ -132,7 +152,7 @@ fun compose<'a,'b,'c,'closureF, 'closureG>(f : ('closureF)('b) -> 'c, g : ('clos
     Curries a function with an argument arity of 2.
 
     Type signature:
-    | <'a,'b,'c,'closure>(('closure)('a, 'b) -> 'c) -> ((|f : ('closure)('a, 'b) -> 'c|)('a) -> (|valueA : 'a; f : ('closure)('a, 'b) -> 'c|)('b) -> 'c)
+    | <'a,'b,'c,'closure>(||)(('closure)('a, 'b) -> 'c) -> ((|f : ('closure)('a, 'b) -> 'c|)('a) -> (|valueA : 'a; f : ('closure)('a, 'b) -> 'c|)('b) -> 'c)
 
     Parameters:
         f : ('closure)('a, 'b) -> 'c - The function to curry.
@@ -153,7 +173,7 @@ fun curry<'a,'b,'c,'closure>(f : ('closure)('a, 'b) -> 'c) : (|f : ('closure)('a
     Uncurries a function with an argument arity of 2.
 
     Type signature:
-    | <'a,'b,'c,'closureA,'closureB>(('closureA)('a) -> ('closureB)('b) -> 'c) -> ((|f : ('closureA)('a) -> ('closureB)('b) -> 'c|)('a, 'b) -> 'c)
+    | <'a,'b,'c,'closureA,'closureB>(||)(('closureA)('a) -> ('closureB)('b) -> 'c) -> ((|f : ('closureA)('a) -> ('closureB)('b) -> 'c|)('a, 'b) -> 'c)
 
     Parameters:
         f : ('closureA)('a) -> ('closureB)('b) -> 'c - The function to uncurry.
@@ -172,7 +192,7 @@ fun uncurry<'a,'b,'c,'closureA,'closureB>(f : ('closureA)('a) -> ('closureB)('b)
     Curries a function with an argument arity of 3.
 
     Type signature:
-    | <'a,'b,'c,'d,'closureF>(('closureF)('a, 'b, 'c) -> 'd) -> ((|f : ('closureF)('a, 'b, 'c) -> 'd|)('a) -> (|f : ('closureF)('a, 'b, 'c) -> 'd; valueA : 'a|)('b) -> (|f : ('closureF)('a, 'b, 'c) -> 'd; valueA : 'a; valueB : 'b|)('c) -> 'd)
+    | <'a,'b,'c,'d,'closureF>(||)(('closureF)('a, 'b, 'c) -> 'd) -> ((|f : ('closureF)('a, 'b, 'c) -> 'd|)('a) -> (|f : ('closureF)('a, 'b, 'c) -> 'd; valueA : 'a|)('b) -> (|f : ('closureF)('a, 'b, 'c) -> 'd; valueA : 'a; valueB : 'b|)('c) -> 'd)
 
     Parameters:
         f : ('closureF)('a, 'b, 'c) -> 'd - The function to curry.
@@ -195,7 +215,7 @@ fun curry3<'a,'b,'c,'d,'closureF>(f : ('closureF)('a, 'b, 'c) -> 'd) : (|f : ('c
     Uncurries a function with an argument arity of 3.
 
     Type signature:
-    | <'a,'b,'c,'d,'closureA,'closureB,'closureC>(('closureA)('a) -> ('closureB)('b) -> ('closureC)('c) -> 'd) -> ((|f : ('closureA)('a) -> ('closureB)('b) -> ('closureC)('c) -> 'd|)('a, 'b, 'c) -> 'd)
+    | <'a,'b,'c,'d,'closureA,'closureB,'closureC>(||)(('closureA)('a) -> ('closureB)('b) -> ('closureC)('c) -> 'd) -> ((|f : ('closureA)('a) -> ('closureB)('b) -> ('closureC)('c) -> 'd|)('a, 'b, 'c) -> 'd)
 
     Parameters:
         f : ('closureA)('a) -> ('closureB)('b) -> ('closureC)('c) -> 'd - The function to uncurry
@@ -214,7 +234,7 @@ fun uncurry3<'a,'b,'c,'d,'closureA,'closureB,'closureC>(f : ('closureA)('a) -> (
     A function representation of the equality operator
 
     Type signature:
-    | <'a>('a, 'a) -> bool
+    | <'a>(||)('a, 'a) -> bool
 
     Parameters:
         x : 'a - The first value to compare
@@ -232,7 +252,7 @@ fun eq<'a>(x : 'a, y : 'a) : bool =
     A function representation of the inequality operator
 
     Type signature:
-    | <'a>('a, 'a) -> bool
+    | <'a>(||)('a, 'a) -> bool
 
     Parameters:
         x : 'a - The first value to compare
@@ -250,7 +270,7 @@ fun neq(x, y) =
     A function representation of the greater than operator
 
     Type signature:
-    | <'a, 'b>('a, 'b) -> bool where 'a : num, 'b : num
+    | <'a, 'b>(||)('a, 'b) -> bool where 'a : num, 'b : num
 
     Parameters:
         x : 'a - The first value to compare
@@ -268,7 +288,7 @@ fun gt(x, y) =
     A function representation of the greater than or equal operator
 
     Type signature:
-    | <'a, 'b>('a, 'b) -> bool where 'a : num, 'b : num
+    | <'a, 'b>(||)('a, 'b) -> bool where 'a : num, 'b : num
 
     Parameters:
         x : 'a - The first value to compare
@@ -286,7 +306,7 @@ fun geq(x, y) =
     A function representation of the less than operator
 
     Type signature:
-    | <'a, 'b>('a, 'b) -> bool where 'a : num, 'b : num
+    | <'a, 'b>(||)('a, 'b) -> bool where 'a : num, 'b : num
 
     Parameters:
         x : 'a - The first value to compare
@@ -304,7 +324,7 @@ fun lt(x, y) =
     A function representation of the less than or equal operator
 
     Type signature:
-    | <'a, 'b>('a, 'b) -> bool where 'a : num, 'b : num
+    | <'a, 'b>(||)('a, 'b) -> bool where 'a : num, 'b : num
 
     Parameters:
         x : 'a - The first value to compare
@@ -322,7 +342,7 @@ fun leq(x, y) =
     A function representation of the not operator
 
     Type signature:
-    | (bool) -> bool
+    | (||)(bool) -> bool
 
     Parameters:
         x : bool - The value to take the logical inverse of
@@ -339,7 +359,7 @@ fun notf(x) =
     A function representation of the and operator
 
     Type signature:
-    | (bool, bool) -> bool
+    | (||)(bool, bool) -> bool
 
     Parameters:
         x : bool - The first boolean value
@@ -357,7 +377,7 @@ fun andf(x, y) =
     A function representation of the or operator
 
     Type signature:
-    | (bool, bool) -> bool
+    | (||)(bool, bool) -> bool
 
     Parameters:
         x : bool - The first boolean value
@@ -375,7 +395,7 @@ fun orf(x, y) =
     Applies a value to the given function
 
     Type signature:
-    | <'a,'b,'closure>(('closure)('a) -> 'b, 'a) -> 'b
+    | <'a,'b,'closure>(||)(('closure)('a) -> 'b, 'a) -> 'b
 
     Parameters:
         f : ('closure)('a) -> 'b - The function to apply
@@ -393,7 +413,7 @@ fun apply<'a,'b,'closure>(f : ('closure)('a) -> 'b, x : 'a) : 'b =
     Applies a tuple of values to the given function
 
     Type signature:
-    | <'a,'b,'c,'closure>(('closure)('a,'b) -> 'c, 'a*'b) -> 'c
+    | <'a,'b,'c,'closure>(||)(('closure)('a,'b) -> 'c, 'a*'b) -> 'c
 
     Parameters:
         f : ('closure)('a,'b) -> 'c - The function to apply
@@ -413,7 +433,7 @@ fun apply2<'a,'b,'c,'closure>(f : ('closure)('a, 'b) -> 'c, tup : 'a*'b) : 'c = 
     Applies a tuple of values to the given function
 
     Type signature:
-    | <'a,'b,'c,'d,'closure>(('closure)('a,'b,'c) -> 'd, 'a*'b*'c) -> 'd
+    | <'a,'b,'c,'d,'closure>(||)(('closure)('a,'b,'c) -> 'd, 'a*'b*'c) -> 'd
 
     Parameters:
         f : ('closure)('a,'b,'c) -> 'd - The function to apply
@@ -433,7 +453,7 @@ fun apply3<'a,'b,'c,'d,'closure>(f : ('closure)('a, 'b, 'c) -> 'd, tup : 'a*'b*'
     Applies a tuple of values to the given function
 
     Type signature:
-    | <'a,'b,'c,'d,'e,'closure>(('closure)('a,'b,'c,'d) -> 'e, 'a*'b*'c*'d) -> 'e
+    | <'a,'b,'c,'d,'e,'closure>(||)(('closure)('a,'b,'c,'d) -> 'e, 'a*'b*'c*'d) -> 'e
 
     Parameters:
         f : ('closure)('a,'b,'c,'d) -> 'e - The function to apply
@@ -453,7 +473,7 @@ fun apply4<'a,'b,'c,'d,'e,'closure>(f : ('closure)('a,'b,'c,'d) -> 'e, tup : 'a*
     Gives the first element of a two element tuple.
 
     Type signature:
-    | <'a, 'b>(('a * 'b)) -> 'a
+    | <'a, 'b>(||)(('a * 'b)) -> 'a
 
     Parameters:
         tup : ('a * 'b) - The tuple to extract the first element from
@@ -472,7 +492,7 @@ fun fst<'a,'b>(tup : ('a * 'b)) : 'a =
     Gives the second element of a two element tuple.
 
     Type signature:
-    | <'a, 'b>(('a * 'b)) -> 'b
+    | <'a, 'b>(||)(('a * 'b)) -> 'b
 
     Parameters:
         tup : ('a * 'b) - The tuple to extract the second element from
@@ -491,7 +511,7 @@ fun snd<'a,'b>(tup : ('a * 'b)) : 'b =
     Adds the two arguments together.
 
     Type signature:
-    | <'a>('a, 'a) -> 'a where 'a : num
+    | <'a>(||)('a, 'a) -> 'a where 'a : num
 
     Parameters:
         numA : 'a - The first number
@@ -503,12 +523,12 @@ fun snd<'a,'b>(tup : ('a * 'b)) : 'b =
 fun add<'a>(numA : 'a, numB : 'a) : 'a where 'a : num = numA + numB
 
 (*
-    Function: mul
+    Function: sub
 
      Subtracts the two arguments
 
     Type signature:
-    | <'a>('a, 'a) -> 'a where 'a : num
+    | <'a>(||)('a, 'a) -> 'a where 'a : num
 
     Parameters:
         numA : 'a - The first number
@@ -525,7 +545,7 @@ fun sub<'a>(numA : 'a, numB : 'a) : 'a where 'a : num = numA - numB
     Multiplies the two arguments together.
 
     Type signature:
-    | <'a>('a, 'a) -> 'a where 'a : num
+    | <'a>(||)('a, 'a) -> 'a where 'a : num
 
     Parameters:
         numA : 'a - The first number
@@ -542,7 +562,7 @@ fun mul<'a>(numA : 'a, numB : 'a) : 'a where 'a : num = numA * numB
     Divides one number by the other.
 
     Type signature:
-    | <'a>('a, 'a) -> 'a where 'a : num
+    | <'a>(||)('a, 'a) -> 'a where 'a : num
 
     Parameters:
         numA : 'a - The numerator
@@ -559,7 +579,7 @@ fun div<'a>(numA : 'a, numB : 'a) : 'a where 'a : num = numA / numB
     Swaps the two elements of a tuple
 
     Type signature:
-    | <'a,'b>('a*'b) -> ('b*'a)
+    | <'a,'b>(||)('a*'b) -> ('b*'a)
 
     Parameters:
         tup : 'a*'b - The tuple to swap
@@ -578,7 +598,7 @@ fun swap(tup) = (
     Yields the result of applying f until p holds.
 
     Type signature:
-    | <'a>(('closureP)('a) -> bool, ('closureF)('a) -> 'a, 'a) -> 'a
+    | <'a>(||)(('closureP)('a) -> bool, ('closureF)('a) -> 'a, 'a) -> 'a
 
     Parameters:
         p: ('closureP)('a) -> bool - The predicate
@@ -600,7 +620,7 @@ fun until<'a,'closureP,'closureF>(p : ('closureP)('a) -> bool, f : ('closureF)('
     Takes a value as a parameter and ignores it.
 
     Type signature:
-    | <'a>('a) -> unit
+    | <'a>(||)('a) -> unit
 *)
 fun ignore<'a>(val : 'a) = ()
 
@@ -610,7 +630,7 @@ fun ignore<'a>(val : 'a) = ()
     Converts a uint8 to a uint16.
 
     Type signature:
-    | (uint8) ->uint16
+    | (||)(uint8) ->uint16
 
     Parameters:
         n : uint8 - The number to convert
@@ -630,7 +650,7 @@ fun u8ToU16(n : uint8) : uint16 = (
     Converts a uint8 to a uint32.
 
     Type signature:
-    | (uint8) ->uint32
+    | (||)(uint8) ->uint32
 
     Parameters:
         n : uint8 - The number to convert
@@ -650,7 +670,7 @@ fun u8ToU32(n : uint8) : uint32 = (
     Converts a uint8 to a int8.
 
     Type signature:
-    | (uint8) ->int8
+    | (||)(uint8) ->int8
 
     Parameters:
         n : uint8 - The number to convert
@@ -670,7 +690,7 @@ fun u8ToI8(n : uint8) : int8 = (
     Converts a uint8 to a int16.
 
     Type signature:
-    | (uint8) ->int16
+    | (||)(uint8) ->int16
 
     Parameters:
         n : uint8 - The number to convert
@@ -690,7 +710,7 @@ fun u8ToI16(n : uint8) : int16 = (
     Converts a uint8 to a int32.
 
     Type signature:
-    | (uint8) ->int32
+    | (||)(uint8) ->int32
 
     Parameters:
         n : uint8 - The number to convert
@@ -710,7 +730,7 @@ fun u8ToI32(n : uint8) : int32 = (
     Converts a uint8 to a float.
 
     Type signature:
-    | (uint8) ->float
+    | (||)(uint8) ->float
 
     Parameters:
         n : uint8 - The number to convert
@@ -730,7 +750,7 @@ fun u8ToFloat(n : uint8) : float = (
     Converts a uint8 to a double.
 
     Type signature:
-    | (uint8) ->double
+    | (||)(uint8) ->double
 
     Parameters:
         n : uint8 - The number to convert
@@ -750,7 +770,7 @@ fun u8ToDouble(n : uint8) : double = (
     Converts a uint16 to a uint8.
 
     Type signature:
-    | (uint16) ->uint8
+    | (||)(uint16) ->uint8
 
     Parameters:
         n : uint16 - The number to convert
@@ -770,7 +790,7 @@ fun u16ToU8(n : uint16) : uint8 = (
     Converts a uint16 to a uint32.
 
     Type signature:
-    | (uint16) ->uint32
+    | (||)(uint16) ->uint32
 
     Parameters:
         n : uint16 - The number to convert
@@ -790,7 +810,7 @@ fun u16ToU32(n : uint16) : uint32 = (
     Converts a uint16 to a int8.
 
     Type signature:
-    | (uint16) ->int8
+    | (||)(uint16) ->int8
 
     Parameters:
         n : uint16 - The number to convert
@@ -810,7 +830,7 @@ fun u16ToI8(n : uint16) : int8 = (
     Converts a uint16 to a int16.
 
     Type signature:
-    | (uint16) ->int16
+    | (||)(uint16) ->int16
 
     Parameters:
         n : uint16 - The number to convert
@@ -830,7 +850,7 @@ fun u16ToI16(n : uint16) : int16 = (
     Converts a uint16 to a int32.
 
     Type signature:
-    | (uint16) ->int32
+    | (||)(uint16) ->int32
 
     Parameters:
         n : uint16 - The number to convert
@@ -850,7 +870,7 @@ fun u16ToI32(n : uint16) : int32 = (
     Converts a uint16 to a float.
 
     Type signature:
-    | (uint16) ->float
+    | (||)(uint16) ->float
 
     Parameters:
         n : uint16 - The number to convert
@@ -870,7 +890,7 @@ fun u16ToFloat(n : uint16) : float = (
     Converts a uint16 to a double.
 
     Type signature:
-    | (uint16) ->double
+    | (||)(uint16) ->double
 
     Parameters:
         n : uint16 - The number to convert
@@ -890,7 +910,7 @@ fun u16ToDouble(n : uint16) : double = (
     Converts a uint32 to a uint8.
 
     Type signature:
-    | (uint32) ->uint8
+    | (||)(uint32) ->uint8
 
     Parameters:
         n : uint32 - The number to convert
@@ -910,7 +930,7 @@ fun u32ToU8(n : uint32) : uint8 = (
     Converts a uint32 to a uint16.
 
     Type signature:
-    | (uint32) ->uint16
+    | (||)(uint32) ->uint16
 
     Parameters:
         n : uint32 - The number to convert
@@ -930,7 +950,7 @@ fun u32ToU16(n : uint32) : uint16 = (
     Converts a uint32 to a int8.
 
     Type signature:
-    | (uint32) ->int8
+    | (||)(uint32) ->int8
 
     Parameters:
         n : uint32 - The number to convert
@@ -950,7 +970,7 @@ fun u32ToI8(n : uint32) : int8 = (
     Converts a uint32 to a int16.
 
     Type signature:
-    | (uint32) ->int16
+    | (||)(uint32) ->int16
 
     Parameters:
         n : uint32 - The number to convert
@@ -970,7 +990,7 @@ fun u32ToI16(n : uint32) : int16 = (
     Converts a uint32 to a int32.
 
     Type signature:
-    | (uint32) ->int32
+    | (||)(uint32) ->int32
 
     Parameters:
         n : uint32 - The number to convert
@@ -990,7 +1010,7 @@ fun u32ToI32(n : uint32) : int32 = (
     Converts a uint32 to a float.
 
     Type signature:
-    | (uint32) ->float
+    | (||)(uint32) ->float
 
     Parameters:
         n : uint32 - The number to convert
@@ -1010,7 +1030,7 @@ fun u32ToFloat(n : uint32) : float = (
     Converts a uint32 to a double.
 
     Type signature:
-    | (uint32) ->double
+    | (||)(uint32) ->double
 
     Parameters:
         n : uint32 - The number to convert
@@ -1030,7 +1050,7 @@ fun u32ToDouble(n : uint32) : double = (
     Converts a int8 to a uint8.
 
     Type signature:
-    | (int8) ->uint8
+    | (||)(int8) ->uint8
 
     Parameters:
         n : int8 - The number to convert
@@ -1050,7 +1070,7 @@ fun i8ToU8(n : int8) : uint8 = (
     Converts a int8 to a uint16.
 
     Type signature:
-    | (int8) ->uint16
+    | (||)(int8) ->uint16
 
     Parameters:
         n : int8 - The number to convert
@@ -1070,7 +1090,7 @@ fun i8ToU16(n : int8) : uint16 = (
     Converts a int8 to a uint32.
 
     Type signature:
-    | (int8) ->uint32
+    | (||)(int8) ->uint32
 
     Parameters:
         n : int8 - The number to convert
@@ -1090,7 +1110,7 @@ fun i8ToU32(n : int8) : uint32 = (
     Converts a int8 to a int16.
 
     Type signature:
-    | (int8) ->int16
+    | (||)(int8) ->int16
 
     Parameters:
         n : int8 - The number to convert
@@ -1110,7 +1130,7 @@ fun i8ToI16(n : int8) : int16 = (
     Converts a int8 to a int32.
 
     Type signature:
-    | (int8) ->int32
+    | (||)(int8) ->int32
 
     Parameters:
         n : int8 - The number to convert
@@ -1130,7 +1150,7 @@ fun i8ToI32(n : int8) : int32 = (
     Converts a int8 to a float.
 
     Type signature:
-    | (int8) ->float
+    | (||)(int8) ->float
 
     Parameters:
         n : int8 - The number to convert
@@ -1150,7 +1170,7 @@ fun i8ToFloat(n : int8) : float = (
     Converts a int8 to a double.
 
     Type signature:
-    | (int8) ->double
+    | (||)(int8) ->double
 
     Parameters:
         n : int8 - The number to convert
@@ -1170,7 +1190,7 @@ fun i8ToDouble(n : int8) : double = (
     Converts a int16 to a uint8.
 
     Type signature:
-    | (int16) ->uint8
+    | (||)(int16) ->uint8
 
     Parameters:
         n : int16 - The number to convert
@@ -1190,7 +1210,7 @@ fun i16ToU8(n : int16) : uint8 = (
     Converts a int16 to a uint16.
 
     Type signature:
-    | (int16) ->uint16
+    | (||)(int16) ->uint16
 
     Parameters:
         n : int16 - The number to convert
@@ -1210,7 +1230,7 @@ fun i16ToU16(n : int16) : uint16 = (
     Converts a int16 to a uint32.
 
     Type signature:
-    | (int16) ->uint32
+    | (||)(int16) ->uint32
 
     Parameters:
         n : int16 - The number to convert
@@ -1230,7 +1250,7 @@ fun i16ToU32(n : int16) : uint32 = (
     Converts a int16 to a int8.
 
     Type signature:
-    | (int16) ->int8
+    | (||)(int16) ->int8
 
     Parameters:
         n : int16 - The number to convert
@@ -1250,7 +1270,7 @@ fun i16ToI8(n : int16) : int8 = (
     Converts a int16 to a int32.
 
     Type signature:
-    | (int16) ->int32
+    | (||)(int16) ->int32
 
     Parameters:
         n : int16 - The number to convert
@@ -1270,7 +1290,7 @@ fun i16ToI32(n : int16) : int32 = (
     Converts a int16 to a float.
 
     Type signature:
-    | (int16) ->float
+    | (||)(int16) ->float
 
     Parameters:
         n : int16 - The number to convert
@@ -1290,7 +1310,7 @@ fun i16ToFloat(n : int16) : float = (
     Converts a int16 to a double.
 
     Type signature:
-    | (int16) ->double
+    | (||)(int16) ->double
 
     Parameters:
         n : int16 - The number to convert
@@ -1310,7 +1330,7 @@ fun i16ToDouble(n : int16) : double = (
     Converts a int32 to a uint8.
 
     Type signature:
-    | (int32) ->uint8
+    | (||)(int32) ->uint8
 
     Parameters:
         n : int32 - The number to convert
@@ -1330,7 +1350,7 @@ fun i32ToU8(n : int32) : uint8 = (
     Converts a int32 to a uint16.
 
     Type signature:
-    | (int32) ->uint16
+    | (||)(int32) ->uint16
 
     Parameters:
         n : int32 - The number to convert
@@ -1350,7 +1370,7 @@ fun i32ToU16(n : int32) : uint16 = (
     Converts a int32 to a uint32.
 
     Type signature:
-    | (int32) ->uint32
+    | (||)(int32) ->uint32
 
     Parameters:
         n : int32 - The number to convert
@@ -1370,7 +1390,7 @@ fun i32ToU32(n : int32) : uint32 = (
     Converts a int32 to a int8.
 
     Type signature:
-    | (int32) ->int8
+    | (||)(int32) ->int8
 
     Parameters:
         n : int32 - The number to convert
@@ -1390,7 +1410,7 @@ fun i32ToI8(n : int32) : int8 = (
     Converts a int32 to a int16.
 
     Type signature:
-    | (int32) ->int16
+    | (||)(int32) ->int16
 
     Parameters:
         n : int32 - The number to convert
@@ -1410,7 +1430,7 @@ fun i32ToI16(n : int32) : int16 = (
     Converts a int32 to a float.
 
     Type signature:
-    | (int32) ->float
+    | (||)(int32) ->float
 
     Parameters:
         n : int32 - The number to convert
@@ -1430,7 +1450,7 @@ fun i32ToFloat(n : int32) : float = (
     Converts a int32 to a double.
 
     Type signature:
-    | (int32) ->double
+    | (||)(int32) ->double
 
     Parameters:
         n : int32 - The number to convert
@@ -1450,7 +1470,7 @@ fun i32ToDouble(n : int32) : double = (
     Converts a float to a uint8.
 
     Type signature:
-    | (float) ->uint8
+    | (||)(float) ->uint8
 
     Parameters:
         n : float - The number to convert
@@ -1470,7 +1490,7 @@ fun floatToU8(n : float) : uint8 = (
     Converts a float to a uint16.
 
     Type signature:
-    | (float) ->uint16
+    | (||)(float) ->uint16
 
     Parameters:
         n : float - The number to convert
@@ -1490,7 +1510,7 @@ fun floatToU16(n : float) : uint16 = (
     Converts a float to a uint32.
 
     Type signature:
-    | (float) ->uint32
+    | (||)(float) ->uint32
 
     Parameters:
         n : float - The number to convert
@@ -1510,7 +1530,7 @@ fun floatToU32(n : float) : uint32 = (
     Converts a float to a int8.
 
     Type signature:
-    | (float) ->int8
+    | (||)(float) -> int8
 
     Parameters:
         n : float - The number to convert
@@ -1530,7 +1550,7 @@ fun floatToI8(n : float) : int8 = (
     Converts a float to a int16.
 
     Type signature:
-    | (float) ->int16
+    | (||)(float) -> int16
 
     Parameters:
         n : float - The number to convert
@@ -1550,7 +1570,7 @@ fun floatToI16(n : float) : int16 = (
     Converts a float to a int32.
 
     Type signature:
-    | (float) ->int32
+    | (||)(float) ->int32
 
     Parameters:
         n : float - The number to convert
@@ -1570,7 +1590,7 @@ fun floatToI32(n : float) : int32 = (
     Converts a float to a double.
 
     Type signature:
-    | (float) ->double
+    | (||)(float) ->double
 
     Parameters:
         n : float - The number to convert
@@ -1590,7 +1610,7 @@ fun floatToDouble(n : float) : double = (
     Converts a double to a uint8.
 
     Type signature:
-    | (double) ->uint8
+    | (||)(double) ->uint8
 
     Parameters:
         n : double - The number to convert
@@ -1610,7 +1630,7 @@ fun doubleToU8(n : double) : uint8 = (
     Converts a double to a uint16.
 
     Type signature:
-    | (double) ->uint16
+    | (||)(double) -> uint16
 
     Parameters:
         n : double - The number to convert
@@ -1630,7 +1650,7 @@ fun doubleToU16(n : double) : uint16 = (
     Converts a double to a uint32.
 
     Type signature:
-    | (double) ->uint32
+    | (||)(double) -> uint32
 
     Parameters:
         n : double - The number to convert
@@ -1650,7 +1670,7 @@ fun doubleToU32(n : double) : uint32 = (
     Converts a double to a int8.
 
     Type signature:
-    | (double) ->int8
+    | (||)(double) -> int8
 
     Parameters:
         n : double - The number to convert
@@ -1670,7 +1690,7 @@ fun doubleToI8(n : double) : int8 = (
     Converts a double to a int16.
 
     Type signature:
-    | (double) ->int16
+    | (||)(double) -> int16
 
     Parameters:
         n : double - The number to convert
@@ -1690,7 +1710,7 @@ fun doubleToI16(n : double) : int16 = (
     Converts a double to a int32.
 
     Type signature:
-    | (double) ->int32
+    | (||)(double) -> int32
 
     Parameters:
         n : double - The number to convert
@@ -1710,7 +1730,7 @@ fun doubleToI32(n : double) : int32 = (
     Converts a double to a float.
 
     Type signature:
-    | (double) -> float
+    | (||)(double) -> float
 
     Parameters:
         n : double - The number to convert
@@ -1730,7 +1750,7 @@ fun doubleToFloat(n : double) : float = (
     Converts a number to a uint8.
 
     Type signature:
-    | <'t>('t) -> uint8 where 't : num
+    | <'t>(||)('t) -> uint8 where 't : num
 
     Parameters:
         n : 't - The number to convert
@@ -1750,7 +1770,7 @@ fun toUInt8<'t>(n : 't) : uint8 where 't : num = (
     Converts a number to a int8.
 
     Type signature:
-    | <'t>('t) -> int8 where 't : num
+    | <'t>(||)('t) -> int8 where 't : num
 
     Parameters:
         n : 't - The number to convert
@@ -1770,7 +1790,7 @@ fun toInt8<'t>(n : 't) : int8 where 't : num = (
     Converts a number to a uint16.
 
     Type signature:
-    | <'t>('t) -> uint16 where 't : num
+    | <'t>(||)('t) -> uint16 where 't : num
 
     Parameters:
         n : 't - The number to convert
@@ -1790,7 +1810,7 @@ fun toUInt16<'t>(n : 't) : uint16 where 't : num = (
     Converts a number to a uint16.
 
     Type signature:
-    | <'t>('t) -> uint16 where 't : num
+    | <'t>(||)('t) -> uint16 where 't : num
 
     Parameters:
         n : 't - The number to convert
@@ -1810,7 +1830,7 @@ fun toInt16<'t>(n : 't) : int16 where 't : num = (
     Converts a number to a uint32.
 
     Type signature:
-    | <'t>('t) -> uint32 where 't : num
+    | <'t>(||)('t) -> uint32 where 't : num
 
     Parameters:
         n : 't - The number to convert
@@ -1830,7 +1850,7 @@ fun toUInt32<'t>(n : 't) : uint32 where 't : num = (
     Converts a number to a int32.
 
     Type signature:
-    | <'t>('t) -> int32 where 't : num
+    | <'t>(||)('t) -> int32 where 't : num
 
     Parameters:
         n : 't - The number to convert
@@ -1850,7 +1870,7 @@ fun toInt32<'t>(n : 't) : int32 where 't : num = (
     Converts a number to a float.
 
     Type signature:
-    | <'t>('t) -> float where 't : num
+    | <'t>(||)('t) -> float where 't : num
 
     Parameters:
         n : 't - The number to convert
@@ -1870,7 +1890,7 @@ fun toFloat<'t>(n : 't) : float where 't : num = (
     Converts a number to a double.
 
     Type signature:
-    | <'t>('t) -> double where 't : num
+    | <'t>(||)('t) -> double where 't : num
 
     Parameters:
         n : 't - The number to convert
@@ -1890,7 +1910,7 @@ fun toDouble<'t>(n : 't) : double where 't : num = (
     Converts a uint8 to another number type.
 
     Type signature:
-    | <'t>(uint8) -> 't where 't : num
+    | <'t>(||)(uint8) -> 't where 't : num
 
     Parameters:
         n : uint8 - The number to convert
@@ -1910,7 +1930,7 @@ fun fromUInt8<'t>(n : uint8) : 't where 't : num = (
     Converts a int8 to another number type.
 
     Type signature:
-    | <'t>(int8) -> 't where 't : num
+    | <'t>(||)(int8) -> 't where 't : num
 
     Parameters:
         n : int8 - The number to convert
@@ -1930,7 +1950,7 @@ fun fromInt8<'t>(n : int8) : 't where 't : num = (
     Converts a uint16 to another number type.
 
     Type signature:
-    | <'t>(uint16) -> 't where 't : num
+    | <'t>(||)(uint16) -> 't where 't : num
 
     Parameters:
         n : uint16 - The number to convert
@@ -1950,7 +1970,7 @@ fun fromUInt16<'t>(n : uint16) : 't where 't : num = (
     Converts a int16 to another number type.
 
     Type signature:
-    | <'t>(int16) -> 't where 't : num
+    | <'t>(||)(int16) -> 't where 't : num
 
     Parameters:
         n : int16 - The number to convert
@@ -1970,7 +1990,7 @@ fun fromInt16<'t>(n : int16) : 't where 't : num = (
     Converts a uint32 to another number type.
 
     Type signature:
-    | <'t>(uint32) -> 't where 't : num
+    | <'t>(||)(uint32) -> 't where 't : num
 
     Parameters:
         n : uint32 - The number to convert
@@ -1990,7 +2010,7 @@ fun fromUInt32<'t>(n : uint32) : 't where 't : num = (
     Converts a int32 to another number type.
 
     Type signature:
-    | <'t>(int32) -> 't where 't : num
+    | <'t>(||)(int32) -> 't where 't : num
 
     Parameters:
         n : int32 - The number to convert
@@ -2010,7 +2030,7 @@ fun fromInt32<'t>(n : int32) : 't where 't : num = (
     Converts a float to another number type.
 
     Type signature:
-    | <'t>(float) -> 't where 't : num
+    | <'t>(||)(float) -> 't where 't : num
 
     Parameters:
         n : float - The number to convert
@@ -2030,7 +2050,7 @@ fun fromFloat<'t>(n : float) : 't where 't : num = (
     Converts a double to another number type.
 
     Type signature:
-    | <'t>(double) -> 't where 't : num
+    | <'t>(||)(double) -> 't where 't : num
 
     Parameters:
         n : double - The number to convert
@@ -2050,7 +2070,7 @@ fun fromDouble<'t>(n : double) : 't where 't : num = (
     Converts a number of one type to a number of another type.
 
     Type signature:
-    | <'a, 'b>('a) -> 'b where 'a : num, 'b : num
+    | <'a, 'b>(||)('a) -> 'b where 'a : num, 'b : num
 
     Parameters:
         x : 'a - The number to convert

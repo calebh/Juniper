@@ -65,7 +65,7 @@ alias hsva = { h : float; s : float; v : float; a : float }
     Converts a hsv color to a rgb color
 
     Type signature:
-    | (hsv) -> rgb
+    | (||)(hsv) -> rgb
     
     Parameters:
         color : hsv - The hsv color to convert
@@ -104,7 +104,7 @@ fun hsvToRgb(color : hsv) : rgb = (
     Converts a rgb color to a rgb 565 color
 
     Type signature:
-    | (rgb) -> uint16
+    | (||)(rgb) -> uint16
     
     Parameters:
         color : rgb - The color to convert

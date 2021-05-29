@@ -55,7 +55,7 @@ alias timerState = { lastPulse : uint32 }
     Creates a new <timerState>
 
     Type Signature:
-    | () -> timerState ref
+    | (||)() -> timerState ref
 
     Returns:
         A <timerState> with lastPulse set to 0
@@ -70,7 +70,7 @@ fun state() : timerState ref =
     of the given interval.
 
     Type Signature:
-    | (uint32, timerState ref) -> sig<uint32>
+    | (||)(uint32, timerState ref) -> sig<uint32>
 
     Parameters:
         interval : uint32 - The interval between values firing

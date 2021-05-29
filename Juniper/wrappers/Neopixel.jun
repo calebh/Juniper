@@ -2,62 +2,70 @@ module Neopixel
 open(Prelude)
 include("<Adafruit_NeoPixel.h>")
 
-type neoPixelStrip = { ptr : pointer }
+type neoPixelStrip = neoStrip(pointer)
 
-type color = { r : uint8; g : uint8; b : uint8; w : uint8 }
+alias color = { r : uint8; g : uint8; b : uint8; w : uint8 }
 
 fun make(numPixels : uint16, pinNumber : uint8, neoPixelType : uint16) : neoPixelStrip = (
-    let p = null;
-    #p.set((void*) new Adafruit_NeoPixel(numPixels, pinNumber, neoPixelType));#;
-    neoPixelStrip { ptr = p }
+    let mutable p = null;
+    #p = (void *) new Adafruit_NeoPixel(numPixels, pinNumber, neoPixelType));#;
+    neoStrip(smartpointer(p, fn (stripToDestroy : rawpointer) -> #delete ((Adafruit_NeoPixel *) stripToDestroy);# end))
 )
 
 fun setPixelColor(n : uint16, c : color, strip : neoPixelStrip) : unit = (
-    let p = strip.ptr;
+    let neoStrip(p) = strip;
+    let rawP = extractptr(p);
     let r = c.r;
     let g = c.g;
     let b = c.b;
     let w = c.w;
-    #((Adafruit_NeoPixel*) p.get())->setPixelColor(n, r, g, b, w);#
+    #((Adafruit_NeoPixel*) rawP)->setPixelColor(n, r, g, b, w);#
 )
 
 fun makeColor(r : uint8, g : uint8, b : uint8) : color =
-    color {r = r; g = g; b = b; w = 0}
+    {r = r; g = g; b = b; w = 0u8}
 
 fun getPixelColor(n : uint16, strip : neoPixelStrip) : color = (
-    let numRep : uint32 = 0;
-    let p = strip.ptr;
-    #numRep = ((Adafruit_NeoPixel*) p.get())->getPixelColor(n);#;
-    color { r = numRep >>> 16; g = numRep >>> 8; b = numRep; w = 0 }
+    let neoStrip(p) = strip;
+    let rawP = extractptr(p);
+    let mutable numRep : uint32 = 0;
+    #numRep = ((Adafruit_NeoPixel*) rawP)->getPixelColor(n);#;
+    { r = toUInt8(numRep >>> 16); g = toUInt8(numRep >>> 8); b = toUInt8(numRep); w = 0u8 }
 )
 
 fun setBrightness(level : uint8, strip : neoPixelStrip) : unit = (
-    let p = strip.ptr;
-    #((Adafruit_NeoPixel*) p.get())->setBrightness(level);#)
+    let neoStrip(p) = strip;
+    let rawP = extractptr(p);
+    #((Adafruit_NeoPixel*) rawP)->setBrightness(level);#)
 
 fun getBrightness(strip : neoPixelStrip) : uint8 = (
-    let ret : uint8 = 0;
-    let p = strip.ptr;
-    #ret = ((Adafruit_NeoPixel*) p.get())->getBrightness();#;
+    let mutable ret : uint8 = 0;
+    let neoStrip(p) = strip;
+    let rawP = extractptr(p);
+    #ret = ((Adafruit_NeoPixel*) rawP)->getBrightness();#;
     ret
 )
 
 fun begin(strip : neoPixelStrip) : unit = (
-    let p = strip.ptr;
-    #((Adafruit_NeoPixel*) p.get())->begin();#)
+    let neoStrip(p) = strip;
+    let rawP = extractptr(p);
+    #((Adafruit_NeoPixel*) rawP)->begin();#)
 
 fun show(strip : neoPixelStrip) : unit = (
-    let p = strip.ptr;
-    #((Adafruit_NeoPixel*) p.get())->show();#)
+    let neoStrip(p) = strip;
+    let rawP = extractptr(p);
+    #((Adafruit_NeoPixel*) rawP)->show();#)
 
 fun clear(strip : neoPixelStrip) : unit = (
-    let p = strip.ptr;
-    #((Adafruit_NeoPixel*) p.get())->clear();#)
+    let neoStrip(p) = strip;
+    let rawP = extractptr(p);
+    #((Adafruit_NeoPixel*) rawP)->clear();#)
 
 fun canShow(strip : neoPixelStrip) : bool = (
-    let p = strip.ptr;
-    let ret = false;
-    #ret = ((Adafruit_NeoPixel*) p.get())->canShow();#;
+    let neoStrip(p) = strip;
+    let rawP = extractptr(p);
+    let mutable ret = false;
+    #ret = ((Adafruit_NeoPixel*) rawP)->canShow();#;
     ret
 )
 

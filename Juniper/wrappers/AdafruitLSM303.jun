@@ -2,39 +2,39 @@ module AdafruitLSM303
 open(Prelude, Time, Vector)
 include("\"Adafruit_LSM303.h\"")
 
-type accMag = { ptr : pointer; offset : vector<float;3>; scale : vector<float;3> }
-type accMagState = { timeState  : timerState ref;
+alias accMag = { ptr : pointer; offset : vector<float;3>; scale : vector<float;3> }
+alias accMagState = { timeState  : timerState ref;
                      latchState : (vector<float;3>*vector<float;3>) ref }
 
 fun make(minX : float, minY : float, minZ : float,
          maxX : float, maxY : float, maxZ : float) : accMag = (
     let offset = Vector:make<float;3>([(minX + maxX)/-2.0, (minY + maxY)/-2.0, (minZ + maxZ)/-2.0]);
     let scale = Vector:make<float;3>([2.0/(maxX - minX), 2.0/(maxY - minY), 2.0/(maxZ - minZ)]);
-    let p = null;
-    #p.set((void*) new Adafruit_LSM303());#;
-    accMag { ptr = p; offset = offset; scale = scale }
+    let mutable p = null;
+    #p = (void*) new Adafruit_LSM303();#;
+    { ptr = smartpointer(p, fn (lsm303ToDestroy) -> #delete ((Adafruit_LSM303 *) lsm303ToDestroy);# end); offset = offset; scale = scale }
 )
 
 fun state() : accMagState ref = (
     let z = Vector:zero<float;3>();
-    ref accMagState { timeState = Time:state();
-                      latchState = ref (z,z) }
+    ref { timeState = Time:state();
+          latchState = ref (z,z) }
 )
 
 fun begin(am : accMag) : unit = (
-    let p = am.ptr;
-    #((Adafruit_LSM303*) p.get())->begin();#
+    let p = extractptr(am.ptr);
+    #((Adafruit_LSM303*) p)->begin();#
 )
 
 fun read(am : accMag) : (vector<float;3> * vector<float;3>) = (
-    let p = am.ptr;
+    let p = extractptr(am.ptr);
     let mutable accX : float = 0.0;
     let mutable accY : float = 0.0;
     let mutable accZ : float = 0.0;
     let mutable magX : float = 0.0;
     let mutable magY : float = 0.0;
     let mutable magZ : float = 0.0;
-    #auto ptr = (Adafruit_LSM303*) p.get();
+    #auto ptr = (Adafruit_LSM303*) p;
     ptr->read();
     accX = ptr->accelData.x;
     accY = ptr->accelData.y;
@@ -42,8 +42,8 @@ fun read(am : accMag) : (vector<float;3> * vector<float;3>) = (
     magX = ptr->magData.x;
     magY = ptr->magData.y;
     magZ = ptr->magData.z;#;
-    (Vector:make<float;3>([accX, accY, accZ]),
-     Vector:multiply<float;3>(am.scale, Vector:add<float;3>(am.offset, Vector:make<float;3>([magX, magY, magZ]))))
+    (Vector:make([accX, accY, accZ]),
+     Vector:multiply(am.scale, Vector:add(am.offset, Vector:make([magX, magY, magZ]))))
 )
 
 fun getSignal(updateInterval : uint32,
@@ -51,9 +51,10 @@ fun getSignal(updateInterval : uint32,
               state          : accMagState ref) : sig<(vector<float;3>*vector<float;3>)> = (
     let tickSig = Time:every(updateInterval, (!state).timeState);
     let accelComUpdateSig =
-        Signal:map<uint32, (vector<float;3>*vector<float;3>)>(
-            fn (t : uint32) : (vector<float;3>*vector<float;3>) ->
-                read(accMag),
+        Signal:map(
+            fn (t) ->
+                read(accMag)
+            end,
             tickSig);
-    Signal:latch<(vector<float;3>*vector<float;3>)>(accelComUpdateSig, (!state).latchState)
+    Signal:latch(accelComUpdateSig, (!state).latchState)
 )

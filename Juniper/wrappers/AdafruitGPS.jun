@@ -2,9 +2,9 @@ module AdafruitGPS
 open(Prelude)
 include("<Adafruit_GPS.h>")
 
-type gps = { ptr : pointer }
+type gpst = gps(pointer)
 
-type fixData = {
+alias fixData = {
     latitude : float;
     longitude : float;
     speed : float;
@@ -13,7 +13,7 @@ type fixData = {
     satellites : uint8
 }
 
-type gpsData = {
+alias gpsData = {
     hour : uint8;
     minute : uint8;
     seconds : uint8;
@@ -26,22 +26,24 @@ type gpsData = {
     maybeFixData : maybe<fixData>
 }
 
-fun make() : gps = (
-    let p = null;
-    #p.set((void*) new Adafruit_GPS(&Serial1));#;
-    gps { ptr = p }
+fun make() : gpst = (
+    let mutable p = null;
+    #p = (void*) new Adafruit_GPS(&Serial1);#;
+    gps(smartpointer(p, fn (gpsToDelete) -> #delete ((Adafruit_GPS *) gpsToDelete);# end))
 )
 
-fun begin(g : gps) : unit = (
-    let p = g.ptr;
-    #((Adafruit_GPS*) p.get())->begin(9600);#;
-    #((Adafruit_GPS*) p.get())->sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);#;
-    #((Adafruit_GPS*) p.get())->sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);#;
-    #((Adafruit_GPS*) p.get())->sendCommand(PGCMD_ANTENNA);#
+fun begin(g : gpst) : unit = (
+    let gps(p) = g;
+    let rawP = extractptr(p);
+    #((Adafruit_GPS*) rawP)->begin(9600);#;
+    #((Adafruit_GPS*) rawP)->sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);#;
+    #((Adafruit_GPS*) rawP)->sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);#;
+    #((Adafruit_GPS*) rawP)->sendCommand(PGCMD_ANTENNA);#
 )
 
-fun read(g : gps) : gpsData = (
-    let p = g.ptr;
+fun read(g : gpst) : gpsData = (
+    let gps(p) = g;
+    let rawP = extractptr(p);
     let mutable hour : uint8 = 0;
     let mutable minute : uint8 = 0;
     let mutable seconds : uint8 = 0;
@@ -58,7 +60,7 @@ fun read(g : gps) : gpsData = (
     let mutable altitude : float = 0.0;
     let mutable satellites : uint8 = 0;
     #
-    auto thisGPS = (Adafruit_GPS*) p.get();
+    auto thisGPS = (Adafruit_GPS*) rawP;
     thisGPS->read();
     if (thisGPS->newNMEAreceived()) {
         thisGPS->parse(thisGPS->lastNMEA());
@@ -79,7 +81,7 @@ fun read(g : gps) : gpsData = (
     altitude = thisGPS->altitude;
     satellites = thisGPS->satellites;
     #;
-    gpsData {
+    {
         hour = hour;
         minute = minute;
         seconds = seconds;
@@ -89,22 +91,23 @@ fun read(g : gps) : gpsData = (
         milliseconds = milliseconds;
         hasFix = hasFix;
         fixQuality = fixQuality;
-        maybeFixData = if hasFix then
-                           just<fixData>(
-                               fixData {
-                                   latitude = latitude;
-                                   longitude = longitude;
-                                   speed = speed;
-                                   angle = angle;
-                                   altitude = altitude;
-                                   satellites = satellites
-                               }
-                           )
-                       else
-                           nothing<fixData>()
-                       end
+        maybeFixData =
+            if hasFix then
+                just(
+                    {
+                        latitude = latitude;
+                        longitude = longitude;
+                        speed = speed;
+                        angle = angle;
+                        altitude = altitude;
+                        satellites = satellites
+                    }
+                )
+            else
+                nothing()
+            end
     }
 )
 
-fun getSignal(g : gps) : sig<gpsData> =
-    signal<gpsData>(just<gpsData>(read(g)))
+fun getSignal(g : gpst) : sig<gpsData> =
+    signal(just(read(g)))

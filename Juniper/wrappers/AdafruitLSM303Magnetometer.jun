@@ -1,9 +1,9 @@
 module AdafruitLSM303Magnetometer
 open(Prelude, Vector, Time)
 
-type magnetometer = { ptr : pointer; offset : vector<float;3>; scale : vector<float;3> }
-type magnetometerState = { timeState : timerState ref;
-                           latchState : vector<float;3> ref }
+alias magnetometer = { ptr : pointer; offset : vector<float;3>; scale : vector<float;3> }
+alias magnetometerState = { timeState : timerState ref;
+                            latchState : vector<float;3> ref }
 
 fun state() : magnetometerState ref =
     ref magnetometerState { timeState = Time:state();
@@ -18,28 +18,28 @@ fun make(minVals : vector<float;3>, maxVals : vector<float;3>) : magnetometer = 
     let maxZ = Vector:get<float;3>(Vector:z, maxVals);
     let offset = Vector:make<float;3>([(minX + maxX)/-2.0, (minY + maxY)/-2.0, (minZ + maxZ)/-2.0]);
     let scale = Vector:make<float;3>([2.0/(maxX - minX), 2.0/(maxY - minY), 2.0/(maxZ - minZ)]);
-    let p = null;
-    #p.set((void*) new Adafruit_LSM303_Mag_Unified(12345));#;
-    magnetometer { ptr = p; offset = offset; scale = scale }
+    let mutable p = null;
+    #p = (void*) new Adafruit_LSM303_Mag_Unified(12345);#;
+    { ptr = smartpointer(p, fn (magToDelete) -> #delete ((Adafruit_LSM303_Mag_Unified *) magToDelete);# end); offset = offset; scale = scale }
 )
 
 fun makeCustomTransform(offset : vector<float;3>, scale : vector<float;3>) : magnetometer = (
-    let p = null;
-    #p.set((void*) new Adafruit_LSM303_Mag_Unified(12345));#;
-    magnetometer { ptr = p; offset = offset; scale = scale }
+    let mutable p = null;
+    #p = (void*) new Adafruit_LSM303_Mag_Unified(12345);#;
+    { ptr = smartpointer(p, fn (magToDelete) -> #delete ((Adafruit_LSM303_Mag_Unified *) magToDelete);# end); offset = offset; scale = scale }
 )
 
 fun begin(mag : magnetometer) : unit = (
-    let p = mag.ptr;
-    #((Adafruit_LSM303_Mag_Unified*) p.get())->begin();#
+    let p = extractptr(mag.ptr);
+    #((Adafruit_LSM303_Mag_Unified*) p)->begin();#
 )
 
 fun read(mag : magnetometer) : vector<float;3> = (
-    let p = mag.ptr;
+    let p = extractptr(mag.ptr);
     let x : float = 0.0;
     let y : float = 0.0;
     let z : float = 0.0;
-    #sensors_event_t event; ((Adafruit_LSM303_Mag_Unified*) p.get())->getEvent(&event); x = event.magnetic.x; y = event.magnetic.y; z = event.magnetic.z;#;
+    #sensors_event_t event; ((Adafruit_LSM303_Mag_Unified*) p)->getEvent(&event); x = event.magnetic.x; y = event.magnetic.y; z = event.magnetic.z;#;
     Vector:multiply<float;3>(mag.scale, Vector:add<float;3>(Vector:make<float;3>([x, y, z]), mag.offset))
 )
 

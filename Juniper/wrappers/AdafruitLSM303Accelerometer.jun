@@ -1,32 +1,34 @@
 module AdafruitLSM303Accelerometer
 open(Prelude, Vector, Time)
 
-type accelerometer = { ptr : pointer }
-type accelerometerState = { timeState : timerState ref;
-                            latchState : vector<float;3> ref }
+type accelerometert = accelerometer(pointer)
+alias accelerometerState = { timeState : timerState ref;
+                             latchState : vector<float;3> ref }
 
 fun state() : accelerometerState ref =
     ref accelerometerState { timeState = Time:state();
                             latchState = ref Vector:zero<float;3>() }
 
-fun make() : accelerometer = (
-    let p = null;
-    #p.set((void*) new Adafruit_LSM303_Accel_Unified(54321));#;
-    accelerometer { ptr = p }
+fun make() : accelerometert = (
+    let mutable p = null;
+    #p = (void*) new Adafruit_LSM303_Accel_Unified(54321);#;
+    accelerometer(smartpointer(p, fn (accelerometerToDelete) -> #delete ((Adafruit_LSM303_Accel_Unified *) accelerometerToDelete);# end))
 )
 
-fun begin(mag : accelerometer) : unit = (
-    let p = mag.ptr;
-    #((Adafruit_LSM303_Accel_Unified*) p.get())->begin();#
+fun begin(accel : accelerometert) : unit = (
+    let accelerometer(p) = accel;
+    let rawP = extractptr(p);
+    #((Adafruit_LSM303_Accel_Unified*) rawP)->begin();#
 )
 
-fun read(mag : accelerometer) : vector<float;3> = (
-    let p = mag.ptr;
+fun read(accel : accelerometer) : vector<float;3> = (
+    let accelerometer(p) = accel;
+    let rawP = extractptr(p);
     let x : float = 0.0;
     let y : float = 0.0;
     let z : float = 0.0;
-    #sensors_event_t event; ((Adafruit_LSM303_Mag_Unified*) p.get())->getEvent(&event); x = event.acceleration.x; y = event.acceleration.y; z = event.acceleration.z;#;
-    Vector:make<float;3>([x, y, z])
+    #sensors_event_t event; ((Adafruit_LSM303_Accel_Unified*) rawP)->getEvent(&event); x = event.acceleration.x; y = event.acceleration.y; z = event.acceleration.z;#;
+    Vector:make([x, y, z])
 )
 
 fun getSignal(updateInterval : uint32,

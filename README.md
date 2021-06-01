@@ -32,7 +32,6 @@ The purpose of Juniper is to provide a functional reactive programming platform 
 
 - Contains the code used for the compiler
 
-
 ## Building and Running the Juniper Compiler
 
 To get started using Juniper, you'll first need to build the compiler using the source in this repository.
@@ -51,10 +50,18 @@ To get started using Juniper, you'll first need to build the compiler using the 
 
 ### For Linux machines:
 
-1. Follow [these instructions](http://fsharp.org/use/linux/) for F# installation on Linux. Choose the option that works best for you.
-2. Open the Juniper.sln solution file. Check the references, and refresh them if necessary. Verify that FParsec and QuickGraph work. Update NuGet packages.
-3. If the target framework version is not supported, open Juniper.fsproj, and change the TargetFrameworkVersion tag to v4.8.
-4. Build the Juniper project.
+Juniper is now on .NET 5! Juniper has been tested to work with Visual Studio Code, and probably works with Jetbrains Rider as well.
+
+1. Install .NET 5 and Visual Studio Code on your Linux system
+2. Install the Ionide extension for Visual Studio Code
+3. Build using Ionide
+4. Ensure that the `junstd/`, `cppstd/`, `examples/`, `wrappers/` and the `juniper` Linux run script are copied to the directory containing the build.
+
+To build for Linux on Windows for distribution:
+
+1. Enter the directory containing Juniper.sln from the terminal. Then run `dotnet publish -r linux-x64 --self-contained true`
+2. Ensure that all the required directories and files got copied over into the built Linux folder. The folders to look for are: `junstd/`, `cppstd/`, `examples/`, `wrappers/` and the `juniper` Linux run script.
+3. Move the build to a Linux system for testing/packaging.
 
 ### For MacOS machines:
 
@@ -63,13 +70,9 @@ To get started using Juniper, you'll first need to build the compiler using the 
 3. If the target framework version is not supported, open Juniper.fsproj, and change the TargetFrameworkVersion tag to v4.8.
 4. Build the Juniper project.
 
-#### For running the compiler with Mono
-5. Install [Mono](https://www.mono-project.com/docs/getting-started/install/mac/).
-6. Run Juniper using Mono: `mono Juniper.exe -s examples/Blink.jun -o Blink.cpp`.
-
 ### For writing Juniper files:
 
-You can write Juniper files in any text editor, but the Atom text editor supports a plugin for Juniper text highlighting, which is very useful for code readability. Install Atom, and install the package "language-juniper" from inside the editor.
+You can write Juniper files in any text editor, but the Visual Studio Code text editor supports a plugin for Juniper text highlighting, which is very useful for code readability. Install Atom, and install the package juniper language package from within the editor.
 
 ### For running the compiler:
 

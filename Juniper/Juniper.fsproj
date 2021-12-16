@@ -34,7 +34,7 @@
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="xcopy /e/i/y &quot;$(ProjectDir)junstd&quot; &quot;$(OutDir)junstd&quot;&#xD;&#xA;xcopy /e/i/y &quot;$(ProjectDir)cppstd&quot; &quot;$(OutDir)cppstd&quot;&#xD;&#xA;xcopy /e/i/y &quot;$(ProjectDir)examples&quot; &quot;$(OutDir)examples&quot;&#xD;&#xA;xcopy /e/i/y &quot;$(ProjectDir)wrappers&quot; &quot;$(OutDir)wrappers&quot;&#xD;&#xA;echo F|xcopy /y &quot;$(ProjectDir)juniper&quot; &quot;$(OutDir)juniper&quot;" />
+    <Exec Command="xcopy /e/i/y &quot;$(ProjectDir)junstd&quot; &quot;$(OutDir)junstd&quot;&#xD;&#xA;xcopy /e/i/y &quot;$(ProjectDir)cppstd&quot; &quot;$(OutDir)cppstd&quot;&#xD;&#xA;xcopy /e/i/y &quot;$(ProjectDir)examples&quot; &quot;$(OutDir)examples&quot;&#xD;&#xA;xcopy /e/i/y &quot;$(ProjectDir)wrappers&quot; &quot;$(OutDir)wrappers&quot;" />
   </Target>
 
 </Project>

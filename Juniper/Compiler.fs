@@ -54,7 +54,8 @@ let getClosureName fields =
         name
 
 let compileRecordEnvironment () =
-    output "namespace juniper::records {" + newline() + indentId() +
+    output "namespace juniper {" + newline() + indentId() +
+    output "namespace records {" + newline() + indentId() +
     (
     recordNames |>
     Map.toList |>
@@ -101,10 +102,12 @@ let compileRecordEnvironment () =
             unindentId() + output "};" + newline() + newline()) |>
     String.concat ""
     ) + newline() + unindentId() +
+    output "}" + unindentId() + newline() +
     output "}" + newline() + newline()
 
 let compileClosureEnviornment () =
-    output "namespace juniper::closures {" + newline() + indentId() +
+    output "namespace juniper {" + newline() + indentId() + 
+    output "namespace closures {" + newline() + indentId() +
     (
     closureNames |>
     Map.toList |>
@@ -129,6 +132,7 @@ let compileClosureEnviornment () =
             output "};" + newline() + newline()) |>
     String.concat ""
     ) + newline() + unindentId() +
+    output "}" + newline() + unindentId() +
     output "}" + newline() + newline()
 
 // In Juniper, quit is a templated function that calls exit(1)
@@ -792,7 +796,8 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
     let compiledIncludes =
         output "//Compiled on " + DateTime.Now.ToString() + newline() +
         output "#include <inttypes.h>" + newline() +
-        output "#include <stdbool.h>" + newline() + newline() +
+        output "#include <stdbool.h>" + newline() +
+        output "#include <new>" + newline() + newline() +
         junCppStd + newline() +
         (includes |> List.map (compileDec "" Map.empty Map.empty) |> String.concat "") + newline()
     // Introduce all the namespaces

@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.31112.23
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31912.275
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Juniper", "Juniper\Juniper.fsproj", "{FD162836-9EC2-4379-8D9E-F17B3158C5BC}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Juniper", "Juniper\Juniper.fsproj", "{5889A703-6FEC-475D-96C1-B40B980F26EA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,15 +11,15 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{FD162836-9EC2-4379-8D9E-F17B3158C5BC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{FD162836-9EC2-4379-8D9E-F17B3158C5BC}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{FD162836-9EC2-4379-8D9E-F17B3158C5BC}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{FD162836-9EC2-4379-8D9E-F17B3158C5BC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5889A703-6FEC-475D-96C1-B40B980F26EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5889A703-6FEC-475D-96C1-B40B980F26EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5889A703-6FEC-475D-96C1-B40B980F26EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5889A703-6FEC-475D-96C1-B40B980F26EA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {B92374CE-D816-44D3-8E4F-35FA12663CF2}
+		SolutionGuid = {9EE3159C-C572-4074-8C53-0B7A76DE1FB4}
 	EndGlobalSection
 EndGlobal

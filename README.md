@@ -40,10 +40,10 @@ To get started using Juniper, you'll first need to build the compiler using the 
 
 #### For building:
 
-1. If you do not have it already, download and install Microsoft Visual Studio, 2015 edition or later.
+1. If you do not have it already, download and install Microsoft Visual Studio 2022.
 2. Clone this repository to your local machine.
 3. Open /Juniper.sln in Visual Studio.
-4. When the solution opens, go to the Solution Explorer and find the "References" tab underneath the "Juniper" project. Right click on "References", and select "Manage NuGet Packages." Verify that FParsec and QuickGraph are installed as part of your solution.
+4. When the solution opens, go to the Solution Explorer and find the "References" tab underneath the "Juniper" project. Right click on "References", and select "Manage NuGet Packages." Verify that FParsec and QuikGraph are installed as part of your solution.
 5. Build the Juniper project (either in Debug mode or Build mode).
 6. The result should be a built .exe file called "Juniper.exe".
 7. (Optional) Add Juniper.exe to PATH variables so that it can be run from any directory.

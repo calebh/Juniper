@@ -50,9 +50,9 @@ To get started using Juniper, you'll first need to build the compiler using the 
 
 ### For Linux machines:
 
-Juniper is now on .NET 5! Juniper has been tested to work with Visual Studio Code, and probably works with Jetbrains Rider as well.
+Juniper is now on .NET 6! Juniper has been tested to work with Visual Studio Code, and probably works with Jetbrains Rider as well.
 
-1. Install .NET 5 and Visual Studio Code on your Linux system
+1. Install .NET 6 and Visual Studio Code on your Linux system
 2. Install the Ionide extension for Visual Studio Code
 3. Build using Ionide
 4. Ensure that the `junstd/`, `cppstd/`, `examples/`, `wrappers/` and the `juniper` Linux run script are copied to the directory containing the build.
@@ -66,13 +66,12 @@ To build for Linux on Windows for distribution:
 ### For MacOS machines:
 
 1. Follow [these instructions](http://fsharp.org/use/mac/) (Option 3: Install Visual Studio for Mac) is tested, but choose the option that works best for you. The package manager is NuGet and has not been updated to paket.
-2. Open the Juniper solution. Check the references, and refresh them if necessary. Verify that FParsec, FParsecCS and QuickGraph work. Update Nuget packages.
-3. If the target framework version is not supported, open Juniper.fsproj, and change the TargetFrameworkVersion tag to v4.8.
-4. Build the Juniper project.
+2. Open the Juniper solution. Check the references, and refresh them if necessary. Verify that FParsec, Symbolism and QuikGraph work. Update Nuget packages.
+3. Build the Juniper project.
 
 ### For writing Juniper files:
 
-You can write Juniper files in any text editor, but the Visual Studio Code text editor supports a plugin for Juniper text highlighting, which is very useful for code readability. Install Atom, and install the package juniper language package from within the editor.
+You can write Juniper files in any text editor, but the Visual Studio Code text editor supports a plugin for Juniper text highlighting, which is very useful for code readability. Install Visual Studio Code, and install the juniper language package from within the editor.
 
 ### For running the compiler:
 

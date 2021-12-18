@@ -1,8 +1,8 @@
 module ButtonDebounce
 open(Prelude, Button, Io)
 
-let buttonPin = 2
-let ledPin = 13
+let buttonPin : uint16 = 2
+let ledPin : uint16 = 13
 
 let bState = Button:state()
 let edgeState = ref Io:low()

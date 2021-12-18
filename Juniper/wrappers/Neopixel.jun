@@ -30,7 +30,7 @@ fun getPixelColor(n : uint16, strip : neoPixelStrip) : color = (
     let rawP = extractptr(p);
     let mutable numRep : uint32 = 0;
     #numRep = ((Adafruit_NeoPixel*) rawP)->getPixelColor(n);#;
-    { r = toUInt8(numRep >>> 16); g = toUInt8(numRep >>> 8); b = toUInt8(numRep); w = 0u8 }
+    { r = toUInt8(numRep >>> 16u32); g = toUInt8(numRep >>> 8u32); b = toUInt8(numRep); w = 0u8 }
 )
 
 fun setBrightness(level : uint8, strip : neoPixelStrip) : unit = (

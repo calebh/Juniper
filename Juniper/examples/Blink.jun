@@ -1,7 +1,7 @@
 module Blink
 open(Prelude, Io, Time)
 
-let boardLed = 13
+let boardLed : uint16 = 13
 
 let tState = Time:state()
 let ledState = ref low()

@@ -1,12 +1,12 @@
 module NeopixelRing
 open(Prelude)
 
-let ringPin = 9
-let ringSize = 16
+let ringPin : uint16 = 9
+let ringSize : uint16 = 16
 let ringType = Neopixel:GRB + Neopixel:KHZ800
 let ringStrip = Neopixel:make(ringSize, ringPin, ringType)
 
-let buttonPin = 10
+let buttonPin : uint16 = 10
 let buttonState = Button:state()
 let edgeState = ref Io:low()
 

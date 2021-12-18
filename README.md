@@ -1,6 +1,6 @@
 # Juniper
 
-Juniper is a functional reactive programming language currently being developed at Tufts University by Caleb Helbling and Louis Ades.
+Juniper is a functional reactive programming language currently being developed by Caleb Helbling (currently at Purdue University). Louis Ades was a former developer at Tufts University.
 
 The grammar in EBNF (extended Backus-Naur Form) is available in grammer.bnf
 

@@ -3,6 +3,13 @@
 
 #include <stdlib.h>
 
+#ifdef JUN_CUSTOM_PLACEMENT_NEW
+void* operator new(size_t size, void* ptr)
+{
+    return ptr;
+}
+#endif
+
 namespace juniper
 {
     template <typename contained>

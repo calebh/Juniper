@@ -33,12 +33,14 @@ let isWindows = System.Environment.OSVersion.Platform = System.PlatformID.Win32N
 
 let helpText =
     let runTimeName = if isWindows then "Juniper.exe" else "juniper"
-    ["Juniper 3.1";
+    ["Juniper 3.1.1";
      "usage: " + runTimeName + " -s s1.jun s2.jun ... sn.jun -o main.cpp";
      "  options:";
      "    -s, --source: The .jun Juniper source files to compile";
      "    -o, --output: The file in which the compiled C++ is written";
-     "    -h, --help: View this help message"] |> String.concat "\n"
+     "    -h, --help: View this help message";
+     "    --custom-placement-new: Output a custom implemenation of placement new, for use in Arduino board packages that give compilation errors related to #include <new>";
+     "    --c-linkage: setup and loop functions should have C linkage instead of C++. For Arduino board packages that give compilation error related to setup() and loop() linkage issues"] |> String.concat "\n"
 
 [<EntryPoint>]
 let main argv =
@@ -46,6 +48,8 @@ let main argv =
     let maybeSourceFiles = getArg ["-s"; "--source"] argMap
     let maybeOutputFile = getArg ["-o"; "--output"] argMap
     let maybeHelp = getArg ["-h"; "--help"] argMap
+    let maybeCustomPlacementNew = getArg ["--custom-placement-new"] argMap
+    let maybeCLinkage = getArg ["--c-linkage"] argMap
     match (maybeSourceFiles, maybeOutputFile, maybeHelp) with
         | ((_, _, Some _) | (None, _, _) | (_, None, _)) | (_, Some [], _) ->
             printfn "%s" helpText
@@ -77,7 +81,7 @@ let main argv =
                 // Typecheck the ASTs
                 let typeCheckedOutput = TypeChecker.typecheckProgram asts fnames
                 // Compile to C++ the typechecked (and typed) ASTs
-                let compiledProgram = Compiler.compileProgram typeCheckedOutput
+                let compiledProgram = Compiler.compileProgram typeCheckedOutput (Option.isSome maybeCustomPlacementNew) (Option.isSome maybeCLinkage)
                 System.IO.File.WriteAllText (outputFile, compiledProgram)
                 0
             with

@@ -769,7 +769,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
 
 // Program: includes, types, values
 //                              module names   opens                         v incudes           v mod name  v type dec             v Inline code decs                 v mod    v fun/let dec          v theta              v kappa
-and compileProgram (program : string list * ((string * Declaration) list) * Declaration list * ((string * Declaration) list) * ((string * Declaration) list) * (((string * Declaration) list) * Map<string, TyExpr> * Map<string, CapacityExpr>) list) : string =
+and compileProgram (program : string list * ((string * Declaration) list) * Declaration list * ((string * Declaration) list) * ((string * Declaration) list) * (((string * Declaration) list) * Map<string, TyExpr> * Map<string, CapacityExpr>) list) (customPlacementNew : bool) (cLinkage : bool) : string =
     let executingDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
     let junCppStdPath = executingDir + "/cppstd/juniper.hpp"
     let junCppStd = System.IO.File.ReadAllText junCppStdPath
@@ -797,7 +797,10 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
         output "//Compiled on " + DateTime.Now.ToString() + newline() +
         output "#include <inttypes.h>" + newline() +
         output "#include <stdbool.h>" + newline() +
-        output "#include <new>" + newline() + newline() +
+        (if customPlacementNew then
+            output "#define JUN_CUSTOM_PLACEMENT_NEW"
+        else
+            output "#include <new>") + newline() + newline() +
         junCppStd + newline() +
         (includes |> List.map (compileDec "" Map.empty Map.empty) |> String.concat "") + newline()
     // Introduce all the namespaces
@@ -844,9 +847,21 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
         | None ->
             raise <| SemanticError "Unable to find program entry point. Please create a function called setup.\n fun setup() = ()"
         | Some module_ ->
+            (if cLinkage then
+                output "#ifdef __cplusplus" + newline() +
+                output "extern \"C\" {" + newline() +
+                output "#endif" + newline()
+            else
+                "") +
             output "void setup() {" + newline() +
             indentId() + output module_ + output "::" + output "setup();" + newline() + unindentId() +
             "}" + newline()) +
+            (if cLinkage then
+                output "#ifdef __cplusplus" + newline() +
+                output "}" + newline() +
+                output "#endif" + newline() + newline()
+            else
+                "") +
 
     (*
         void loop() {
@@ -857,6 +872,18 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
         | None ->
             raise <| SemanticError "Unable to find program entry point. Please create a function called loop.\n fun loop() = ()."
         | Some module_ ->
+            (if cLinkage then
+                output "#ifdef __cplusplus" + newline() +
+                output "extern \"C\" {" + newline() +
+                output "#endif" + newline()
+            else
+                "") +
             output "void loop() {" + newline() +
             indentId() + output module_ + output "::" + output "loop();" + newline() + unindentId()
-            + "}")
+            + "}") + newline() +
+            (if cLinkage then
+                output "#ifdef __cplusplus" + newline() +
+                output "}" + newline() +
+                output "#endif"
+            else
+                "")

@@ -39,7 +39,7 @@ let helpText =
      "    -s, --source: The .jun Juniper source files to compile";
      "    -o, --output: The file in which the compiled C++ is written";
      "    -h, --help: View this help message";
-     "    --custom-placement-new: Output a custom implemenation of placement new, for use in Arduino board packages that give compilation errors related to #include <new>";
+     "    --custom-placement-new: Output a custom implementation of placement new, for use in Arduino board packages that give compilation errors related to #include <new>";
      "    --c-linkage: setup and loop functions should have C linkage instead of C++. For Arduino board packages that give compilation error related to setup() and loop() linkage issues"] |> String.concat "\n"
 
 [<EntryPoint>]

@@ -1,79 +1,79 @@
 module Prelude
 
-(*
+/*
     Interface: Prelude
-*)
+*/
 
-(*
+/*
     Type: maybe
 
     The maybe type encapsulates an optional value. A value of type
-    maybe<'a> either contains a value of type 'a (represented as just<'a>),
-    or it is empty (represented as nothing<'a>).
+    maybe<a> either contains a value of type a (represented as just<a>),
+    or it is empty (represented as nothing<a>).
 
-    | maybe<'a>
+    | maybe<a>
 
     Constructors:
-        - <just> ('a)
+        - <just> (a)
         - <nothing> ()
-*)
-(*
+*/
+/*
     Function: just
 
     Type Signature:
-    | <'a>(||)('a) -> maybe<'a>
-*)
-(*
+    | (||)(a) -> maybe<a>
+*/
+/*
     Function: nothing
 
     Type signature:
-    | <'a>(||)() -> maybe<'a>
-*)
-type maybe<'a> = just('a)
-               | nothing()
+    | (||)() -> maybe<a>
+*/
+type maybe<a> = just(a)
+              | nothing()
 
-(*
+/*
     Type: either
 
     The either type represents values with two possibilities. A value of type
-    A value of type either<'a,'b> is either left a or right b.
+    A value of type either<a,b> is either left a or right b.
 
-    | either<'a,'b>
+    | either<a,b>
 
     Constructors:
-        - <left> ('a)
-        - <right> ('b)
-*)
-(*
+        - <left> (a)
+        - <right> (b)
+*/
+/*
     Function: left
 
     Type signature:
-    | <'a,'b>('a) -> either<'a,'b>
-*)
-(*
+    | (a) -> either<a,b>
+*/
+/*
     Function: right
 
     Type signature:
-    | <'a,'b>(||)('b) -> either<'a, 'b>
-*)
-type either<'a,'b> = left('a)
-                   | right('b)
+    | (||)(b) -> either<a, b>
+*/
+type either<a,b> = left(a)
+                 | right(b)
 
-(*
+/*
     Type: alias list
 
     The list record type represents an ordered series of elements of a given
     length.
 
-    | alias list<'a; n> = { data : 'a[n]; length : uint32 }
+    | alias list<a; n> = { data : a[n]; length : uint32 }
 
     Members:
-        data : 'a[n] - The internal array used to store the elements.
+        data : a[n] - The internal array used to store the elements.
         length : uint32 - The length of the list
-*)
-alias list<'a; n> = { data : 'a[n]; length : uint32 }
+*/
+alias list<a; n> = { data : a[n]; length : uint32 }
 
-(*
+/*
     Type: alias charlist
 
     The charlist alias represents a list of extended ASCII characters at most
@@ -85,30 +85,30 @@ alias list<'a; n> = { data : 'a[n]; length : uint32 }
     Members:
         data : uint8[n+1]
         length : uint32
-*)
+*/
 alias charlist<;n> = list<uint8;n+1>
 
-(*
+/*
     Type: sig
 
     The signal type encapsulates the concept of a signal. At any point in time,
     a signal may having nothing travelling through it, or something travelling
     through it.
 
-    | sig<'a>
+    | sig<a>
 
     Constructors:
-        - <signal> (maybe<'a>)
-*)
-(*
+        - <signal> (maybe<a>)
+*/
+/*
     Function: signal
 
     Type signature:
-    | (||)(maybe<'a>) -> sig<'a>
-*)
-type sig<'a> = signal(maybe<'a>)
+    | (||)(maybe<a>) -> sig<a>
+*/
+type sig<a> = signal(maybe<a>)
 
-(*
+/*
     Function: extractptr
 
     Extracts the contained rawpointer from a pointer.
@@ -121,222 +121,222 @@ type sig<'a> = signal(maybe<'a>)
     
     Returns:
         The extracted rawpointer
-*)
+*/
 fun extractptr(p : pointer) : rawpointer = (
     var ret : rawpointer;
     #ret = p.get()->get();#;
     ret
 )
 
-(*
+/*
     Function: compose
 
     Composes two functions together.
 
     Type signature:
-    | <'a,'b,'c,'closureF,'closureG>(||)(('closureF)('b) -> 'c, ('closureG)('a) -> 'b) -> ((|f : ('closureF)('b) -> 'c; g : ('closureG)('a) -> 'b|)('a) -> 'c)
+    | (||)((closureF)(b) -> c, (closureG)(a) -> b) -> ((|f : (closureF)(b) -> c; g : (closureG)(a) -> b|)(a) -> c)
 
     Parameters:
-        f : ('closureF)('b) -> 'c - The second function to compose
-        g : ('closureG)('a) -> 'b - The first function to compose
+        f : (closureF)(b) -> c - The second function to compose
+        g : (closureG)(a) -> b - The first function to compose
 
     Returns:
         A composed function equivalent to f(g(x))
-*)
-fun compose<'a,'b,'c,'closureF, 'closureG>(f : ('closureF)('b) -> 'c, g : ('closureG)('a) -> 'b) : (|f : ('closureF)('b) -> 'c; g : ('closureG)('a) -> 'b|)('a) -> 'c =
-    fn (x : 'a) : 'c -> f(g(x)) end
+*/
+fun compose(f : (closureF)(b) -> c, g : (closureG)(a) -> b) : (|f : (closureF)(b) -> c; g : (closureG)(a) -> b|)(a) -> c =
+    fn (x : a) : c -> f(g(x)) end
 
-(*
+/*
     Function: curry
 
     Curries a function with an argument arity of 2.
 
     Type signature:
-    | <'a,'b,'c,'closure>(||)(('closure)('a, 'b) -> 'c) -> ((|f : ('closure)('a, 'b) -> 'c|)('a) -> (|valueA : 'a; f : ('closure)('a, 'b) -> 'c|)('b) -> 'c)
+    | (||)((closure)(a, b) -> c) -> ((|f : (closure)(a, b) -> c|)(a) -> (|valueA : a; f : (closure)(a, b) -> c|)(b) -> c)
 
     Parameters:
-        f : ('closure)('a, 'b) -> 'c - The function to curry.
+        f : (closure)(a, b) -> c - The function to curry.
 
     Returns:
         A curried function
-*)
-fun curry<'a,'b,'c,'closure>(f : ('closure)('a, 'b) -> 'c) : (|f : ('closure)('a, 'b) -> 'c|)('a) -> (|valueA : 'a; f : ('closure)('a, 'b) -> 'c|)('b) -> 'c =
-    fn (valueA : 'a) ->
-        fn (valueB : 'b) : 'c ->
+*/
+fun curry(f : (closure)(a, b) -> c) : (|f : (closure)(a, b) -> c|)(a) -> (|valueA : a; f : (closure)(a, b) -> c|)(b) -> c =
+    fn (valueA : a) ->
+        fn (valueB : b) : c ->
             f(valueA, valueB)
         end
     end
 
-(*
+/*
     Function: uncurrcy
 
     Uncurries a function with an argument arity of 2.
 
     Type signature:
-    | <'a,'b,'c,'closureA,'closureB>(||)(('closureA)('a) -> ('closureB)('b) -> 'c) -> ((|f : ('closureA)('a) -> ('closureB)('b) -> 'c|)('a, 'b) -> 'c)
+    | (||)((closureA)(a) -> (closureB)(b) -> c) -> ((|f : (closureA)(a) -> (closureB)(b) -> c|)(a, b) -> c)
 
     Parameters:
-        f : ('closureA)('a) -> ('closureB)('b) -> 'c - The function to uncurry.
+        f : (closureA)(a) -> (closureB)(b) -> c - The function to uncurry.
 
     Returns:
         A uncurried function
-*)
-fun uncurry<'a,'b,'c,'closureA,'closureB>(f : ('closureA)('a) -> ('closureB)('b) -> 'c) : (|f : ('closureA)('a) -> ('closureB)('b) -> 'c|)('a, 'b) -> 'c =
+*/
+fun uncurry(f : (closureA)(a) -> (closureB)(b) -> c) : (|f : (closureA)(a) -> (closureB)(b) -> c|)(a, b) -> c =
     fn (valueA, valueB) ->
         f(valueA)(valueB)
     end
 
-(*
+/*
     Function: curry3
 
     Curries a function with an argument arity of 3.
 
     Type signature:
-    | <'a,'b,'c,'d,'closureF>(||)(('closureF)('a, 'b, 'c) -> 'd) -> ((|f : ('closureF)('a, 'b, 'c) -> 'd|)('a) -> (|f : ('closureF)('a, 'b, 'c) -> 'd; valueA : 'a|)('b) -> (|f : ('closureF)('a, 'b, 'c) -> 'd; valueA : 'a; valueB : 'b|)('c) -> 'd)
+    | (||)((closureF)(a, b, c) -> d) -> ((|f : (closureF)(a, b, c) -> d|)(a) -> (|f : (closureF)(a, b, c) -> d; valueA : a|)(b) -> (|f : (closureF)(a, b, c) -> d; valueA : a; valueB : b|)(c) -> d)
 
     Parameters:
-        f : ('closureF)('a, 'b, 'c) -> 'd - The function to curry.
+        f : (closureF)(a, b, c) -> d - The function to curry.
 
     Returns:
         A curried function
-*)
-fun curry3<'a,'b,'c,'d,'closureF>(f : ('closureF)('a, 'b, 'c) -> 'd) : (|f : ('closureF)('a, 'b, 'c) -> 'd|)('a) -> (|f : ('closureF)('a, 'b, 'c) -> 'd; valueA : 'a|)('b) -> (|f : ('closureF)('a, 'b, 'c) -> 'd; valueA : 'a; valueB : 'b|)('c) -> 'd =
-    fn (valueA : 'a) ->
-        fn (valueB : 'b) ->
-            fn (valueC : 'c) ->
+*/
+fun curry3(f : (closureF)(a, b, c) -> d) : (|f : (closureF)(a, b, c) -> d|)(a) -> (|f : (closureF)(a, b, c) -> d; valueA : a|)(b) -> (|f : (closureF)(a, b, c) -> d; valueA : a; valueB : b|)(c) -> d =
+    fn (valueA : a) ->
+        fn (valueB : b) ->
+            fn (valueC : c) ->
                 f(valueA, valueB, valueC)
             end
         end
     end
 
-(*
+/*
     Function: uncurry3
 
     Uncurries a function with an argument arity of 3.
 
     Type signature:
-    | <'a,'b,'c,'d,'closureA,'closureB,'closureC>(||)(('closureA)('a) -> ('closureB)('b) -> ('closureC)('c) -> 'd) -> ((|f : ('closureA)('a) -> ('closureB)('b) -> ('closureC)('c) -> 'd|)('a, 'b, 'c) -> 'd)
+    | (||)((closureA)(a) -> (closureB)(b) -> (closureC)(c) -> d) -> ((|f : (closureA)(a) -> (closureB)(b) -> (closureC)(c) -> d|)(a, b, c) -> d)
 
     Parameters:
-        f : ('closureA)('a) -> ('closureB)('b) -> ('closureC)('c) -> 'd - The function to uncurry
+        f : (closureA)(a) -> (closureB)(b) -> (closureC)(c) -> d - The function to uncurry
 
     Returns:
         An uncurried function
-*)
-fun uncurry3<'a,'b,'c,'d,'closureA,'closureB,'closureC>(f : ('closureA)('a) -> ('closureB)('b) -> ('closureC)('c) -> 'd) : (|f : ('closureA)('a) -> ('closureB)('b) -> ('closureC)('c) -> 'd|)('a, 'b, 'c) -> 'd =
+*/
+fun uncurry3(f : (closureA)(a) -> (closureB)(b) -> (closureC)(c) -> d) : (|f : (closureA)(a) -> (closureB)(b) -> (closureC)(c) -> d|)(a, b, c) -> d =
     fn (valueA, valueB, valueC) ->
         f(valueA)(valueB)(valueC)
     end
 
-(*
+/*
     Function: eq
 
     A function representation of the equality operator
 
     Type signature:
-    | <'a>(||)('a, 'a) -> bool
+    | (||)(a, a) -> bool
 
     Parameters:
-        x : 'a - The first value to compare
-        y : 'b - The second value to compare
+        x : a - The first value to compare
+        y : b - The second value to compare
 
     Returns:
         True if the values are equivalent, false otherwise.
-*)
-fun eq<'a>(x : 'a, y : 'a) : bool =
+*/
+fun eq(x : a, y : a) : bool =
     x == y
 
-(*
+/*
     Function: neq
 
     A function representation of the inequality operator
 
     Type signature:
-    | <'a>(||)('a, 'a) -> bool
+    | (||)(a, a) -> bool
 
     Parameters:
-        x : 'a - The first value to compare
-        y : 'b - The second value to compare
+        x : a - The first value to compare
+        y : b - The second value to compare
 
     Returns:
         False if the values are equivalent, true otherwise.
-*)
+*/
 fun neq(x, y) =
     x != y
 
-(*
+/*
     Function: gt
 
     A function representation of the greater than operator
 
     Type signature:
-    | <'a, 'b>(||)('a, 'b) -> bool where 'a : num, 'b : num
+    | (||)(a, b) -> bool where a : num, b : num
 
     Parameters:
-        x : 'a - The first value to compare
-        y : 'b - The second value to compare
+        x : a - The first value to compare
+        y : b - The second value to compare
 
     Returns:
         True if x > y, false otherwise.
-*)
+*/
 fun gt(x, y) =
     x > y
 
-(*
+/*
     Function: geq
 
     A function representation of the greater than or equal operator
 
     Type signature:
-    | <'a, 'b>(||)('a, 'b) -> bool where 'a : num, 'b : num
+    | (||)(a, b) -> bool where a : num, b : num
 
     Parameters:
-        x : 'a - The first value to compare
-        y : 'b - The second value to compare
+        x : a - The first value to compare
+        y : b - The second value to compare
 
     Returns:
         True if x >= y, false otherwise.
-*)
+*/
 fun geq(x, y) =
     x >= y
 
-(*
+/*
     Function: lt
 
     A function representation of the less than operator
 
     Type signature:
-    | <'a, 'b>(||)('a, 'b) -> bool where 'a : num, 'b : num
+    | (||)(a, b) -> bool where a : num, b : num
 
     Parameters:
-        x : 'a - The first value to compare
-        y : 'b - The second value to compare
+        x : a - The first value to compare
+        y : b - The second value to compare
 
     Returns:
         True if x < y, false otherwise.
-*)
+*/
 fun lt(x, y) =
     x < y
 
-(*
+/*
     Function: leq
 
     A function representation of the less than or equal operator
 
     Type signature:
-    | <'a, 'b>(||)('a, 'b) -> bool where 'a : num, 'b : num
+    | (||)(a, b) -> bool where a : num, b : num
 
     Parameters:
-        x : 'a - The first value to compare
-        y : 'b - The second value to compare
+        x : a - The first value to compare
+        y : b - The second value to compare
 
     Returns:
         True if x <= y, false otherwise.
-*)
+*/
 fun leq(x, y) =
     x <= y
 
-(*
+/*
     Function: notf
 
     A function representation of the not operator
@@ -349,14 +349,14 @@ fun leq(x, y) =
 
     Returns:
         The logical inverse of x
-*)
+*/
 fun notf(x) =
-    not x
+    !x
 
-(*
+/*
     Function: andf
 
-    A function representation of the and operator
+    A function representation of the && operator
 
     Type signature:
     | (||)(bool, bool) -> bool
@@ -366,12 +366,12 @@ fun notf(x) =
         y : bool - The second boolean value
 
     Returns:
-        x and y
-*)
+        x && y
+*/
 fun andf(x, y) =
-    x and y
+    x && y
 
-(*
+/*
     Function: orf
 
     A function representation of the or operator
@@ -385,246 +385,246 @@ fun andf(x, y) =
 
     Returns:
         x or y
-*)
+*/
 fun orf(x, y) =
-    x or y
+    x || y
 
-(*
+/*
     FunctionL apply
 
     Applies a value to the given function
 
     Type signature:
-    | <'a,'b,'closure>(||)(('closure)('a) -> 'b, 'a) -> 'b
+    | (||)((closure)(a) -> b, a) -> b
 
     Parameters:
-        f : ('closure)('a) -> 'b - The function to apply
-        x : 'a - The value to pass to the function
+        f : (closure)(a) -> b - The function to apply
+        x : a - The value to pass to the function
 
     Returns:
         The result of x applied to f
-*)
-fun apply<'a,'b,'closure>(f : ('closure)('a) -> 'b, x : 'a) : 'b =
+*/
+fun apply(f : (closure)(a) -> b, x : a) : b =
     f(x)
 
-(*
+/*
     Function: apply2
 
     Applies a tuple of values to the given function
 
     Type signature:
-    | <'a,'b,'c,'closure>(||)(('closure)('a,'b) -> 'c, 'a*'b) -> 'c
+    | (||)((closure)(a,b) -> c, a*b) -> c
 
     Parameters:
-        f : ('closure)('a,'b) -> 'c - The function to apply
-        tup : 'a*'b - The values to pass to the function
+        f : (closure)(a,b) -> c - The function to apply
+        tup : a*b - The values to pass to the function
 
     Returns:
         The result of the values held in the tuple applied to f
-*)
-fun apply2<'a,'b,'c,'closure>(f : ('closure)('a, 'b) -> 'c, tup : 'a*'b) : 'c = (
+*/
+fun apply2(f : (closure)(a, b) -> c, tup : a*b) : c = (
     let (a, b) = tup;
     f(a, b)
 )
 
-(*
+/*
     Function: apply3
 
     Applies a tuple of values to the given function
 
     Type signature:
-    | <'a,'b,'c,'d,'closure>(||)(('closure)('a,'b,'c) -> 'd, 'a*'b*'c) -> 'd
+    | (||)((closure)(a,b,c) -> d, a*b*c) -> d
 
     Parameters:
-        f : ('closure)('a,'b,'c) -> 'd - The function to apply
-        tup : 'a*'b*'c - The values to pass to the function
+        f : (closure)(a,b,c) -> d - The function to apply
+        tup : a*b*c - The values to pass to the function
 
     Returns:
         The result of the values held in the tuple applied to f
-*)
-fun apply3<'a,'b,'c,'d,'closure>(f : ('closure)('a, 'b, 'c) -> 'd, tup : 'a*'b*'c) : 'd = (
+*/
+fun apply3(f : (closure)(a, b, c) -> d, tup : a*b*c) : d = (
     let (a, b, c) = tup;
     f(a, b, c)
 )
 
-(*
+/*
     Function: apply4
 
     Applies a tuple of values to the given function
 
     Type signature:
-    | <'a,'b,'c,'d,'e,'closure>(||)(('closure)('a,'b,'c,'d) -> 'e, 'a*'b*'c*'d) -> 'e
+    | (||)((closure)(a,b,c,d) -> e, a*b*c*d) -> e
 
     Parameters:
-        f : ('closure)('a,'b,'c,'d) -> 'e - The function to apply
-        tup : 'a*'b*'c*'d - The values to pass to the function
+        f : (closure)(a,b,c,d) -> e - The function to apply
+        tup : a*b*c*d - The values to pass to the function
 
     Returns:
         The result of the values held in the tuple applied to f
-*)
-fun apply4<'a,'b,'c,'d,'e,'closure>(f : ('closure)('a,'b,'c,'d) -> 'e, tup : 'a*'b*'c*'d) : 'e = (
+*/
+fun apply4(f : (closure)(a,b,c,d) -> e, tup : a*b*c*d) : e = (
     let (a, b, c, d) = tup;
     f(a, b, c, d)
 )
 
-(*
+/*
     Function: fst
 
     Gives the first element of a two element tuple.
 
     Type signature:
-    | <'a, 'b>(||)(('a * 'b)) -> 'a
+    | (||)((a * b)) -> a
 
     Parameters:
-        tup : ('a * 'b) - The tuple to extract the first element from
+        tup : (a * b) - The tuple to extract the first element from
 
     Returns:
         The first element of the two element tuple.
-*)
-fun fst<'a,'b>(tup : ('a * 'b)) : 'a =
-    case tup of
-    | (x, _) => x
-    end
+*/
+fun fst(tup : (a * b)) : a =
+    match tup {
+        (x, _) => x
+    }
 
-(*
+/*
     Function: snd
 
     Gives the second element of a two element tuple.
 
     Type signature:
-    | <'a, 'b>(||)(('a * 'b)) -> 'b
+    | (||)((a * b)) -> b
 
     Parameters:
-        tup : ('a * 'b) - The tuple to extract the second element from
+        tup : (a * b) - The tuple to extract the second element from
 
     Returns:
         The second element of the two element tuple.
-*)
-fun snd<'a,'b>(tup : ('a * 'b)) : 'b =
-    case tup of
-    | (_, x) => x
-    end
+*/
+fun snd(tup : (a * b)) : b =
+    match tup {
+        (_, x) => x
+    }
 
-(*
+/*
     Function: add
 
     Adds the two arguments together.
 
     Type signature:
-    | <'a>(||)('a, 'a) -> 'a where 'a : num
+    | (||)(a, a) -> a where a : num
 
     Parameters:
-        numA : 'a - The first number
-        numB : 'a - The second number
+        numA : a - The first number
+        numB : a - The second number
 
     Returns:
         The sum of the two numbers
-*)
-fun add<'a>(numA : 'a, numB : 'a) : 'a where 'a : num = numA + numB
+*/
+fun add(numA : a, numB : a) : a where a : num = numA + numB
 
-(*
+/*
     Function: sub
 
      Subtracts the two arguments
 
     Type signature:
-    | <'a>(||)('a, 'a) -> 'a where 'a : num
+    | (||)(a, a) -> a where a : num
 
     Parameters:
-        numA : 'a - The first number
-        numB : 'a - The second number
+        numA : a - The first number
+        numB : a - The second number
 
     Returns:
         The difference of the two numbers
-*)
-fun sub<'a>(numA : 'a, numB : 'a) : 'a where 'a : num = numA - numB
+*/
+fun sub(numA : a, numB : a) : a where a : num = numA - numB
 
-(*
+/*
     Function: mul
 
     Multiplies the two arguments together.
 
     Type signature:
-    | <'a>(||)('a, 'a) -> 'a where 'a : num
+    | (||)(a, a) -> a where a : num
 
     Parameters:
-        numA : 'a - The first number
-        numB : 'a - The second number
+        numA : a - The first number
+        numB : a - The second number
 
     Returns:
         The product of the two numbers
-*)
-fun mul<'a>(numA : 'a, numB : 'a) : 'a where 'a : num = numA * numB
+*/
+fun mul(numA : a, numB : a) : a where a : num = numA * numB
 
-(*
+/*
     Function: div
 
     Divides one number by the other.
 
     Type signature:
-    | <'a>(||)('a, 'a) -> 'a where 'a : num
+    | (||)(a, a) -> a where a : num
 
     Parameters:
-        numA : 'a - The numerator
-        numB : 'a - The denominator
+        numA : a - The numerator
+        numB : a - The denominator
 
     Returns:
         The difference of the two numbers
-*)
-fun div<'a>(numA : 'a, numB : 'a) : 'a where 'a : num = numA / numB
+*/
+fun div(numA : a, numB : a) : a where a : num = numA / numB
 
-(*
+/*
     Function: swap
 
     Swaps the two elements of a tuple
 
     Type signature:
-    | <'a,'b>(||)('a*'b) -> ('b*'a)
+    | (||)(a*b) -> (b*a)
 
     Parameters:
-        tup : 'a*'b - The tuple to swap
+        tup : a*b - The tuple to swap
 
     Returns:
         The tuple with swapped elements
-*)
+*/
 fun swap(tup) = (
     let (alpha, beta) = tup;
     (beta, alpha)
 )
 
-(*
+/*
     Function: until
 
     Yields the result of applying f until p holds.
 
     Type signature:
-    | <'a>(||)(('closureP)('a) -> bool, ('closureF)('a) -> 'a, 'a) -> 'a
+    | (||)((closureP)(a) -> bool, (closureF)(a) -> a, a) -> a
 
     Parameters:
-        p: ('closureP)('a) -> bool - The predicate
-        f: ('closureF)('a) -> 'a - The function to repeatedly apply
-        a0: 'a - The initial value to supply to the function
-*)
-fun until<'a,'closureP,'closureF>(p : ('closureP)('a) -> bool, f : ('closureF)('a) -> 'a, a0 : 'a) : 'a = (
+        p: (closureP)(a) -> bool - The predicate
+        f: (closureF)(a) -> a - The function to repeatedly apply
+        a0: a - The initial value to supply to the function
+*/
+fun until(p : (closureP)(a) -> bool, f : (closureF)(a) -> a, a0 : a) : a = (
     let mutable a = a0;
-    while not p(a) do (
+    while !p(a) do (
         set a = f(a);
         ()
     ) end;
     a
 )
 
-(*
+/*
     Function: ignore
 
     Takes a value as a parameter and ignores it.
 
     Type signature:
-    | <'a>(||)('a) -> unit
-*)
-fun ignore<'a>(val : 'a) = ()
+    | (||)(a) -> unit
+*/
+fun ignore(val : a) = ()
 
-(*
+/*
     Function: u8ToU16
 
     Converts a uint8 to a uint16.
@@ -637,14 +637,14 @@ fun ignore<'a>(val : 'a) = ()
 
     Returns:
         The number with converted type
-*)
+*/
 fun u8ToU16(n : uint8) : uint16 = (
     var ret : uint16;
     #ret = (uint16_t) n;#;
     ret
 )
 
-(*
+/*
     Function: u8ToU32
 
     Converts a uint8 to a uint32.
@@ -657,14 +657,14 @@ fun u8ToU16(n : uint8) : uint16 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u8ToU32(n : uint8) : uint32 = (
     var ret : uint32;
     #ret = (uint32_t) n;#;
     ret
 )
 
-(*
+/*
     Function: u8ToI8
 
     Converts a uint8 to a int8.
@@ -677,14 +677,14 @@ fun u8ToU32(n : uint8) : uint32 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u8ToI8(n : uint8) : int8 = (
     var ret : int8;
     #ret = (int8_t) n;#;
     ret
 )
 
-(*
+/*
     Function: u8ToI16
 
     Converts a uint8 to a int16.
@@ -697,14 +697,14 @@ fun u8ToI8(n : uint8) : int8 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u8ToI16(n : uint8) : int16 = (
     var ret : int16;
     #ret = (int16_t) n;#;
     ret
 )
 
-(*
+/*
     Function: u8ToI32
 
     Converts a uint8 to a int32.
@@ -717,14 +717,14 @@ fun u8ToI16(n : uint8) : int16 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u8ToI32(n : uint8) : int32 = (
     var ret : int32;
     #ret = (int32_t) n;#;
     ret
 )
 
-(*
+/*
     Function: u8ToFloat
 
     Converts a uint8 to a float.
@@ -737,14 +737,14 @@ fun u8ToI32(n : uint8) : int32 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u8ToFloat(n : uint8) : float = (
     var ret : float;
     #ret = (float) n;#;
     ret
 )
 
-(*
+/*
     Function: u8ToDouble
 
     Converts a uint8 to a double.
@@ -757,14 +757,14 @@ fun u8ToFloat(n : uint8) : float = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u8ToDouble(n : uint8) : double = (
     var ret : double;
     #ret = (double) n;#;
     ret
 )
 
-(*
+/*
     Function: u16ToU8
 
     Converts a uint16 to a uint8.
@@ -777,14 +777,14 @@ fun u8ToDouble(n : uint8) : double = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u16ToU8(n : uint16) : uint8 = (
     var ret : uint8;
     #ret = (uint8_t) n;#;
     ret
 )
 
-(*
+/*
     Function: u16ToU32
 
     Converts a uint16 to a uint32.
@@ -797,14 +797,14 @@ fun u16ToU8(n : uint16) : uint8 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u16ToU32(n : uint16) : uint32 = (
     var ret : uint32;
     #ret = (uint32_t) n;#;
     ret
 )
 
-(*
+/*
     Function: u16ToI8
 
     Converts a uint16 to a int8.
@@ -817,14 +817,14 @@ fun u16ToU32(n : uint16) : uint32 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u16ToI8(n : uint16) : int8 = (
     var ret : int8;
     #ret = (int8_t) n;#;
     ret
 )
 
-(*
+/*
     Function: u16ToI16
 
     Converts a uint16 to a int16.
@@ -837,14 +837,14 @@ fun u16ToI8(n : uint16) : int8 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u16ToI16(n : uint16) : int16 = (
     var ret : int16;
     #ret = (int16_t) n;#;
     ret
 )
 
-(*
+/*
     Function: u16ToI32
 
     Converts a uint16 to a int32.
@@ -857,14 +857,14 @@ fun u16ToI16(n : uint16) : int16 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u16ToI32(n : uint16) : int32 = (
     var ret : int32;
     #ret = (int32_t) n;#;
     ret
 )
 
-(*
+/*
     Function: u16ToFloat
 
     Converts a uint16 to a float.
@@ -877,14 +877,14 @@ fun u16ToI32(n : uint16) : int32 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u16ToFloat(n : uint16) : float = (
     var ret : float;
     #ret = (float) n;#;
     ret
 )
 
-(*
+/*
     Function: u16ToDouble
 
     Converts a uint16 to a double.
@@ -897,14 +897,14 @@ fun u16ToFloat(n : uint16) : float = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u16ToDouble(n : uint16) : double = (
     var ret : double;
     #ret = (double) n;#;
     ret
 )
 
-(*
+/*
     Function: u32ToU8
 
     Converts a uint32 to a uint8.
@@ -917,14 +917,14 @@ fun u16ToDouble(n : uint16) : double = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u32ToU8(n : uint32) : uint8 = (
     var ret : uint8;
     #ret = (uint8_t) n;#;
     ret
 )
 
-(*
+/*
     Function: u32ToU16
 
     Converts a uint32 to a uint16.
@@ -937,14 +937,14 @@ fun u32ToU8(n : uint32) : uint8 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u32ToU16(n : uint32) : uint16 = (
     var ret : uint16;
     #ret = (uint16_t) n;#;
     ret
 )
 
-(*
+/*
     Function: u32ToI8
 
     Converts a uint32 to a int8.
@@ -957,14 +957,14 @@ fun u32ToU16(n : uint32) : uint16 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u32ToI8(n : uint32) : int8 = (
     var ret : int8;
     #ret = (int8_t) n;#;
     ret
 )
 
-(*
+/*
     Function: u32ToI16
 
     Converts a uint32 to a int16.
@@ -977,14 +977,14 @@ fun u32ToI8(n : uint32) : int8 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u32ToI16(n : uint32) : int16 = (
     var ret : int16;
     #ret = (int16_t) n;#;
     ret
 )
 
-(*
+/*
     Function: u32ToI32
 
     Converts a uint32 to a int32.
@@ -997,14 +997,14 @@ fun u32ToI16(n : uint32) : int16 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u32ToI32(n : uint32) : int32 = (
     var ret : int32;
     #ret = (int32_t) n;#;
     ret
 )
 
-(*
+/*
     Function: u32ToFloat
 
     Converts a uint32 to a float.
@@ -1017,14 +1017,14 @@ fun u32ToI32(n : uint32) : int32 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u32ToFloat(n : uint32) : float = (
     var ret : float;
     #ret = (float) n;#;
     ret
 )
 
-(*
+/*
     Function: u32ToDouble
 
     Converts a uint32 to a double.
@@ -1037,14 +1037,14 @@ fun u32ToFloat(n : uint32) : float = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun u32ToDouble(n : uint32) : double = (
     var ret : double;
     #ret = (double) n;#;
     ret
 )
 
-(*
+/*
     Function: i8ToU8
 
     Converts a int8 to a uint8.
@@ -1057,14 +1057,14 @@ fun u32ToDouble(n : uint32) : double = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i8ToU8(n : int8) : uint8 = (
     var ret : uint8;
     #ret = (uint8_t) n;#;
     ret
 )
 
-(*
+/*
     Function: i8ToU16
 
     Converts a int8 to a uint16.
@@ -1077,14 +1077,14 @@ fun i8ToU8(n : int8) : uint8 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i8ToU16(n : int8) : uint16 = (
     var ret : uint16;
     #ret = (uint16_t) n;#;
     ret
 )
 
-(*
+/*
     Function: i8ToU32
 
     Converts a int8 to a uint32.
@@ -1097,14 +1097,14 @@ fun i8ToU16(n : int8) : uint16 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i8ToU32(n : int8) : uint32 = (
     var ret : uint32;
     #ret = (uint32_t) n;#;
     ret
 )
 
-(*
+/*
     Function: i8ToI16
 
     Converts a int8 to a int16.
@@ -1117,14 +1117,14 @@ fun i8ToU32(n : int8) : uint32 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i8ToI16(n : int8) : int16 = (
     var ret : int16;
     #ret = (int16_t) n;#;
     ret
 )
 
-(*
+/*
     Function: i8ToI32
 
     Converts a int8 to a int32.
@@ -1137,14 +1137,14 @@ fun i8ToI16(n : int8) : int16 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i8ToI32(n : int8) : int32 = (
     var ret : int32;
     #ret = (int32_t) n;#;
     ret
 )
 
-(*
+/*
     Function: i8ToFloat
 
     Converts a int8 to a float.
@@ -1157,14 +1157,14 @@ fun i8ToI32(n : int8) : int32 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i8ToFloat(n : int8) : float = (
     var ret : float;
     #ret = (float) n;#;
     ret
 )
 
-(*
+/*
     Function: i8ToDouble
 
     Converts a int8 to a double.
@@ -1177,14 +1177,14 @@ fun i8ToFloat(n : int8) : float = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i8ToDouble(n : int8) : double = (
     var ret : double;
     #ret = (double) n;#;
     ret
 )
 
-(*
+/*
     Function: i16ToU8
 
     Converts a int16 to a uint8.
@@ -1197,14 +1197,14 @@ fun i8ToDouble(n : int8) : double = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i16ToU8(n : int16) : uint8 = (
     var ret : uint8;
     #ret = (uint8_t) n;#;
     ret
 )
 
-(*
+/*
     Function: i16ToU16
 
     Converts a int16 to a uint16.
@@ -1217,14 +1217,14 @@ fun i16ToU8(n : int16) : uint8 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i16ToU16(n : int16) : uint16 = (
     var ret : uint16;
     #ret = (uint16_t) n;#;
     ret
 )
 
-(*
+/*
     Function: i16ToU32
 
     Converts a int16 to a uint32.
@@ -1237,14 +1237,14 @@ fun i16ToU16(n : int16) : uint16 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i16ToU32(n : int16) : uint32 = (
     var ret : uint32;
     #ret = (uint32_t) n;#;
     ret
 )
 
-(*
+/*
     Function: i16ToI8
 
     Converts a int16 to a int8.
@@ -1257,14 +1257,14 @@ fun i16ToU32(n : int16) : uint32 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i16ToI8(n : int16) : int8 = (
     var ret : int8;
     #ret = (int8_t) n;#;
     ret
 )
 
-(*
+/*
     Function: i16ToI32
 
     Converts a int16 to a int32.
@@ -1277,14 +1277,14 @@ fun i16ToI8(n : int16) : int8 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i16ToI32(n : int16) : int32 = (
     var ret : int32;
     #ret = (int32_t) n;#;
     ret
 )
 
-(*
+/*
     Function: i16ToFloat
 
     Converts a int16 to a float.
@@ -1297,14 +1297,14 @@ fun i16ToI32(n : int16) : int32 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i16ToFloat(n : int16) : float = (
     var ret : float;
     #ret = (float) n;#;
     ret
 )
 
-(*
+/*
     Function: i16ToDouble
 
     Converts a int16 to a double.
@@ -1317,14 +1317,14 @@ fun i16ToFloat(n : int16) : float = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i16ToDouble(n : int16) : double = (
     var ret : double;
     #ret = (double) n;#;
     ret
 )
 
-(*
+/*
     Function: i32ToU8
 
     Converts a int32 to a uint8.
@@ -1337,14 +1337,14 @@ fun i16ToDouble(n : int16) : double = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i32ToU8(n : int32) : uint8 = (
     var ret : uint8;
     #ret = (uint8_t) n;#;
     ret
 )
 
-(*
+/*
     Function: i32ToU16
 
     Converts a int32 to a uint16.
@@ -1357,14 +1357,14 @@ fun i32ToU8(n : int32) : uint8 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i32ToU16(n : int32) : uint16 = (
     var ret : uint16;
     #ret = (uint16_t) n;#;
     ret
 )
 
-(*
+/*
     Function: i32ToU32
 
     Converts a int32 to a uint32.
@@ -1377,14 +1377,14 @@ fun i32ToU16(n : int32) : uint16 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i32ToU32(n : int32) : uint32 = (
     var ret : uint32;
     #ret = (uint32_t) n;#;
     ret
 )
 
-(*
+/*
     Function: i32ToI8
 
     Converts a int32 to a int8.
@@ -1397,14 +1397,14 @@ fun i32ToU32(n : int32) : uint32 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i32ToI8(n : int32) : int8 = (
     var ret : int8;
     #ret = (int8_t) n;#;
     ret
 )
 
-(*
+/*
     Function: i32ToI16
 
     Converts a int32 to a int16.
@@ -1417,14 +1417,14 @@ fun i32ToI8(n : int32) : int8 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i32ToI16(n : int32) : int16 = (
     var ret : int16;
     #ret = (int16_t) n;#;
     ret
 )
 
-(*
+/*
     Function: i32ToFloat
 
     Converts a int32 to a float.
@@ -1437,14 +1437,14 @@ fun i32ToI16(n : int32) : int16 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i32ToFloat(n : int32) : float = (
     var ret : float;
     #ret = (float) n;#;
     ret
 )
 
-(*
+/*
     Function: i32ToDouble
 
     Converts a int32 to a double.
@@ -1457,14 +1457,14 @@ fun i32ToFloat(n : int32) : float = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun i32ToDouble(n : int32) : double = (
     var ret : double;
     #ret = (double) n;#;
     ret
 )
 
-(*
+/*
     Function: floatToU8
 
     Converts a float to a uint8.
@@ -1477,14 +1477,14 @@ fun i32ToDouble(n : int32) : double = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun floatToU8(n : float) : uint8 = (
     var ret : uint8;
     #ret = (uint8_t) n;#;
     ret
 )
 
-(*
+/*
     Function: floatToU16
 
     Converts a float to a uint16.
@@ -1497,14 +1497,14 @@ fun floatToU8(n : float) : uint8 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun floatToU16(n : float) : uint16 = (
     var ret : uint16;
     #ret = (uint16_t) n;#;
     ret
 )
 
-(*
+/*
     Function: floatToU32
 
     Converts a float to a uint32.
@@ -1517,14 +1517,14 @@ fun floatToU16(n : float) : uint16 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun floatToU32(n : float) : uint32 = (
     var ret : uint32;
     #ret = (uint32_t) n;#;
     ret
 )
 
-(*
+/*
     Function: floatToI8
 
     Converts a float to a int8.
@@ -1537,14 +1537,14 @@ fun floatToU32(n : float) : uint32 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun floatToI8(n : float) : int8 = (
     var ret : int8;
     #ret = (int8_t) n;#;
     ret
 )
 
-(*
+/*
     Function: floatToI16
 
     Converts a float to a int16.
@@ -1557,14 +1557,14 @@ fun floatToI8(n : float) : int8 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun floatToI16(n : float) : int16 = (
     var ret : int16;
     #ret = (int16_t) n;#;
     ret
 )
 
-(*
+/*
     Function: floatToI32
 
     Converts a float to a int32.
@@ -1577,14 +1577,14 @@ fun floatToI16(n : float) : int16 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun floatToI32(n : float) : int32 = (
     var ret : int32;
     #ret = (int32_t) n;#;
     ret
 )
 
-(*
+/*
     Function: floatToDouble
 
     Converts a float to a double.
@@ -1597,14 +1597,14 @@ fun floatToI32(n : float) : int32 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun floatToDouble(n : float) : double = (
     var ret : double;
     #ret = (double) n;#;
     ret
 )
 
-(*
+/*
     Function: doubleToU8
 
     Converts a double to a uint8.
@@ -1617,14 +1617,14 @@ fun floatToDouble(n : float) : double = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun doubleToU8(n : double) : uint8 = (
     var ret : uint8;
     #ret = (uint8_t) n;#;
     ret
 )
 
-(*
+/*
     Function: doubleToU16
 
     Converts a double to a uint16.
@@ -1637,14 +1637,14 @@ fun doubleToU8(n : double) : uint8 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun doubleToU16(n : double) : uint16 = (
     var ret : uint16;
     #ret = (int16_t) n;#;
     ret
 )
 
-(*
+/*
     Function: doubleToU32
 
     Converts a double to a uint32.
@@ -1657,14 +1657,14 @@ fun doubleToU16(n : double) : uint16 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun doubleToU32(n : double) : uint32 = (
     var ret : uint32;
     #ret = (uint32_t) n;#;
     ret
 )
 
-(*
+/*
     Function: doubleToI8
 
     Converts a double to a int8.
@@ -1677,14 +1677,14 @@ fun doubleToU32(n : double) : uint32 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun doubleToI8(n : double) : int8 = (
     var ret : int8;
     #ret = (int8_t) n;#;
     ret
 )
 
-(*
+/*
     Function: doubleToI16
 
     Converts a double to a int16.
@@ -1697,14 +1697,14 @@ fun doubleToI8(n : double) : int8 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun doubleToI16(n : double) : int16 = (
     var ret : int16;
     #ret = (int16_t) n;#;
     ret
 )
 
-(*
+/*
     Function: doubleToI32
 
     Converts a double to a int32.
@@ -1717,14 +1717,14 @@ fun doubleToI16(n : double) : int16 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun doubleToI32(n : double) : int32 = (
     var ret : int32;
     #ret = (int32_t) n;#;
     ret
 )
 
-(*
+/*
     Function: doubleToFloat
 
     Converts a double to a float.
@@ -1737,349 +1737,349 @@ fun doubleToI32(n : double) : int32 = (
 
     Returns:
         The number with converted type
-*)
+*/
 fun doubleToFloat(n : double) : float = (
     var ret : float;
     #ret = (float) n;#;
     ret
 )
 
-(*
+/*
     Function: toUInt8
 
     Converts a number to a uint8.
 
     Type signature:
-    | <'t>(||)('t) -> uint8 where 't : num
+    | (||)(t) -> uint8 where t : num
 
     Parameters:
-        n : 't - The number to convert
+        n : t - The number to convert
 
     Returns:
         The number with converted type
-*)
-fun toUInt8<'t>(n : 't) : uint8 where 't : num = (
+*/
+fun toUInt8(n : t) : uint8 where t : num = (
     var ret : uint8;
     #ret = (uint8_t) n;#;
     ret
 )
 
-(*
+/*
     Function: toInt8
 
     Converts a number to a int8.
 
     Type signature:
-    | <'t>(||)('t) -> int8 where 't : num
+    | (||)(t) -> int8 where t : num
 
     Parameters:
-        n : 't - The number to convert
+        n : t - The number to convert
 
     Returns:
         The number with converted type
-*)
-fun toInt8<'t>(n : 't) : int8 where 't : num = (
+*/
+fun toInt8(n : t) : int8 where t : num = (
     var ret : int8;
     #ret = (int8_t) n;#;
     ret
 )
 
-(*
+/*
     Function: toUInt16
 
     Converts a number to a uint16.
 
     Type signature:
-    | <'t>(||)('t) -> uint16 where 't : num
+    | (||)(t) -> uint16 where t : num
 
     Parameters:
-        n : 't - The number to convert
+        n : t - The number to convert
 
     Returns:
         The number with converted type
-*)
-fun toUInt16<'t>(n : 't) : uint16 where 't : num = (
+*/
+fun toUInt16(n : t) : uint16 where t : num = (
     var ret : uint16;
     #ret = (uint16_t) n;#;
     ret
 )
 
-(*
+/*
     Function: toInt16
 
     Converts a number to a uint16.
 
     Type signature:
-    | <'t>(||)('t) -> uint16 where 't : num
+    | (||)(t) -> uint16 where t : num
 
     Parameters:
-        n : 't - The number to convert
+        n : t - The number to convert
 
     Returns:
         The number with converted type
-*)
-fun toInt16<'t>(n : 't) : int16 where 't : num = (
+*/
+fun toInt16(n : t) : int16 where t : num = (
     var ret : int16;
     #ret = (int16_t) n;#;
     ret
 )
 
-(*
+/*
     Function: toUInt32
 
     Converts a number to a uint32.
 
     Type signature:
-    | <'t>(||)('t) -> uint32 where 't : num
+    | (||)(t) -> uint32 where t : num
 
     Parameters:
-        n : 't - The number to convert
+        n : t - The number to convert
 
     Returns:
         The number with converted type
-*)
-fun toUInt32<'t>(n : 't) : uint32 where 't : num = (
+*/
+fun toUInt32(n : t) : uint32 where t : num = (
     var ret : uint32;
     #ret = (uint32_t) n;#;
     ret
 )
 
-(*
+/*
     Function: toInt32
 
     Converts a number to a int32.
 
     Type signature:
-    | <'t>(||)('t) -> int32 where 't : num
+    | (||)(t) -> int32 where t : num
 
     Parameters:
-        n : 't - The number to convert
+        n : t - The number to convert
 
     Returns:
         The number with converted type
-*)
-fun toInt32<'t>(n : 't) : int32 where 't : num = (
+*/
+fun toInt32(n : t) : int32 where t : num = (
     var ret : int32;
     #ret = (int32_t) n;#;
     ret
 )
 
-(*
+/*
     Function: toFloat
 
     Converts a number to a float.
 
     Type signature:
-    | <'t>(||)('t) -> float where 't : num
+    | (||)(t) -> float where t : num
 
     Parameters:
-        n : 't - The number to convert
+        n : t - The number to convert
 
     Returns:
         The number with converted type
-*)
-fun toFloat<'t>(n : 't) : float where 't : num = (
+*/
+fun toFloat(n : t) : float where t : num = (
     var ret : float;
     #ret = (float) n;#;
     ret
 )
 
-(*
+/*
     Function: toDouble
 
     Converts a number to a double.
 
     Type signature:
-    | <'t>(||)('t) -> double where 't : num
+    | (||)(t) -> double where t : num
 
     Parameters:
-        n : 't - The number to convert
+        n : t - The number to convert
 
     Returns:
         The number with converted type
-*)
-fun toDouble<'t>(n : 't) : double where 't : num = (
+*/
+fun toDouble(n : t) : double where t : num = (
     var ret : double;
     #ret = (double) n;#;
     ret
 )
 
-(*
+/*
     Function: fromUInt8
 
     Converts a uint8 to another number type.
 
     Type signature:
-    | <'t>(||)(uint8) -> 't where 't : num
+    | (||)(uint8) -> t where t : num
 
     Parameters:
         n : uint8 - The number to convert
 
     Returns:
         The number with converted type
-*)
-fun fromUInt8<'t>(n : uint8) : 't where 't : num = (
-    var ret : 't;
+*/
+fun fromUInt8(n : uint8) : t where t : num = (
+    var ret : t;
     #ret = (t) n;#;
     ret
 )
 
-(*
+/*
     Function: fromInt8
 
     Converts a int8 to another number type.
 
     Type signature:
-    | <'t>(||)(int8) -> 't where 't : num
+    | (||)(int8) -> t where t : num
 
     Parameters:
         n : int8 - The number to convert
 
     Returns:
         The number with converted type
-*)
-fun fromInt8<'t>(n : int8) : 't where 't : num = (
-    var ret : 't;
+*/
+fun fromInt8(n : int8) : t where t : num = (
+    var ret : t;
     #ret = (t) n;#;
     ret
 )
 
-(*
+/*
     Function: fromUInt16
 
     Converts a uint16 to another number type.
 
     Type signature:
-    | <'t>(||)(uint16) -> 't where 't : num
+    | (||)(uint16) -> t where t : num
 
     Parameters:
         n : uint16 - The number to convert
 
     Returns:
         The number with converted type
-*)
-fun fromUInt16<'t>(n : uint16) : 't where 't : num = (
-    var ret : 't;
+*/
+fun fromUInt16(n : uint16) : t where t : num = (
+    var ret : t;
     #ret = (t) n;#;
     ret
 )
 
-(*
+/*
     Function: fromInt16
 
     Converts a int16 to another number type.
 
     Type signature:
-    | <'t>(||)(int16) -> 't where 't : num
+    | (||)(int16) -> t where t : num
 
     Parameters:
         n : int16 - The number to convert
 
     Returns:
         The number with converted type
-*)
-fun fromInt16<'t>(n : int16) : 't where 't : num = (
-    var ret : 't;
+*/
+fun fromInt16(n : int16) : t where t : num = (
+    var ret : t;
     #ret = (t) n;#;
     ret
 )
 
-(*
+/*
     Function: fromUInt32
 
     Converts a uint32 to another number type.
 
     Type signature:
-    | <'t>(||)(uint32) -> 't where 't : num
+    | (||)(uint32) -> t where t : num
 
     Parameters:
         n : uint32 - The number to convert
 
     Returns:
         The number with converted type
-*)
-fun fromUInt32<'t>(n : uint32) : 't where 't : num = (
-    var ret : 't;
+*/
+fun fromUInt32(n : uint32) : t where t : num = (
+    var ret : t;
     #ret = (t) n;#;
     ret
 )
 
-(*
+/*
     Function: fromInt32
 
     Converts a int32 to another number type.
 
     Type signature:
-    | <'t>(||)(int32) -> 't where 't : num
+    | (||)(int32) -> t where t : num
 
     Parameters:
         n : int32 - The number to convert
 
     Returns:
         The number with converted type
-*)
-fun fromInt32<'t>(n : int32) : 't where 't : num = (
-    var ret : 't;
+*/
+fun fromInt32(n : int32) : t where t : num = (
+    var ret : t;
     #ret = (t) n;#;
     ret
 )
 
-(*
+/*
     Function: fromFloat
 
     Converts a float to another number type.
 
     Type signature:
-    | <'t>(||)(float) -> 't where 't : num
+    | (||)(float) -> t where t : num
 
     Parameters:
         n : float - The number to convert
 
     Returns:
         The number with converted type
-*)
-fun fromFloat<'t>(n : float) : 't where 't : num = (
-    var ret : 't;
+*/
+fun fromFloat(n : float) : t where t : num = (
+    var ret : t;
     #ret = (t) n;#;
     ret
 )
 
-(*
+/*
     Function: fromDouble
 
     Converts a double to another number type.
 
     Type signature:
-    | <'t>(||)(double) -> 't where 't : num
+    | (||)(double) -> t where t : num
 
     Parameters:
         n : double - The number to convert
 
     Returns:
         The number with converted type
-*)
-fun fromDouble<'t>(n : double) : 't where 't : num = (
-    var ret : 't;
+*/
+fun fromDouble(n : double) : t where t : num = (
+    var ret : t;
     #ret = (t) n;#;
     ret
 )
 
-(*
+/*
     Function: cast
 
     Converts a number of one type to a number of another type.
 
     Type signature:
-    | <'a, 'b>(||)('a) -> 'b where 'a : num, 'b : num
+    | (||)(a) -> b where a : num, b : num
 
     Parameters:
-        x : 'a - The number to convert
+        x : a - The number to convert
     
     Returns:
         The number with converted type
-*)
-fun cast<'a, 'b>(x : 'a) : 'b where 'a : num, 'b : num = (
-    var ret : 'b;
+*/
+fun cast(x : a) : b where a : num, b : num = (
+    var ret : b;
     #ret = (b) x;#;
     ret
 )

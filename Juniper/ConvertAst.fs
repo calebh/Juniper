@@ -73,7 +73,7 @@ let rec removeAliases (dtenv : Map<string * string, T.DeclarationTy>) (pos : FPa
 
 // The mapping parameter is used to convert explicitly given type variable parameter
 // into a non-conflicting form
-let convertType menv (dtenv : Map<string * string, T.DeclarationTy>) tyVarMapping capVarMapping (tau : Ast.PosAdorn<Ast.TyExpr>) : T.TyExpr =
+let convertType menv denv (dtenv : Map<string * string, T.DeclarationTy>) tyVarMapping capVarMapping (tau : Ast.PosAdorn<Ast.TyExpr>) : T.TyExpr =
     let rec convertType' (tau : Ast.TyExpr) : T.TyExpr =
         let ct = convertType'
         let convertCapacity = convertCapacity capVarMapping
@@ -106,17 +106,15 @@ let convertType menv (dtenv : Map<string * string, T.DeclarationTy>) tyVarMappin
         | Ast.ModuleQualifierTy {module_=(_, module_); name=(_, name)} ->
             T.TyCon <| T.ModuleQualifierTy {module_=module_; name=name}
         | Ast.NameTy (pos, name) ->
-            match Map.tryFind name menv with
+            match AstAnalysis.resolveUserTyName menv denv name with
             | Some (module_, name) -> T.TyCon <| T.ModuleQualifierTy {module_=module_; name=name}
-            | None -> raise (SemanticError ((errStr [pos] ("Unable to find type named " + name + " in the module environment")).Force()))
+            | None -> Map.findDefault name (T.TyVar name) tyVarMapping
         | Ast.ParensTy (_, tau) ->
             ct tau
         | Ast.RefTy (_, tau) ->
             T.ConApp (T.TyCon T.RefTy, [ct tau], [])
         | Ast.TupleTy taus ->
             T.ConApp (T.TyCon T.TupleTy, List.map (Ast.unwrap >> ct) taus, [])
-        | Ast.VarTy (_, name) ->
-            Map.findDefault name (T.TyVar name) tyVarMapping
         | Ast.RecordTy (_, {packed=packed; fields=(_, fields)}) ->
             let fieldNames = fields |> List.map (fst >> Ast.unwrap)
             let fieldTaus = fields |> List.map (snd >> Ast.unwrap >> ct)
@@ -132,12 +130,14 @@ let convertType menv (dtenv : Map<string * string, T.DeclarationTy>) tyVarMappin
             let fieldTaus = fields |> List.map (snd >> Ast.unwrap >> ct)
             let fieldMap = List.zip fieldNames fieldTaus |> Map.ofList
             T.ClosureTy fieldMap
+        | Ast.UnderscoreTy _ ->
+            freshtyvar ()
                 
     let tau' = convertType' (Ast.unwrap tau)
     let (pos, _) = tau
     removeAliases dtenv pos tau'
 
-let convertInterfaceConstraint menv dtenv interfaceConstraint =
+let convertInterfaceConstraint menv denv dtenv interfaceConstraint =
     match interfaceConstraint with
     | A.IsNum _ -> [T.IsNum]
     | A.IsInt _ -> [T.IsInt]
@@ -151,6 +151,6 @@ let convertInterfaceConstraint menv dtenv interfaceConstraint =
             fields |>
             List.map
                 (fun ((_, name), tau) ->
-                    T.HasField (name, convertType menv dtenv Map.empty Map.empty tau))
+                    T.HasField (name, convertType menv denv dtenv Map.empty Map.empty tau))
         T.IsRecord::(cs1 @ cs2)
     | A.IsPacked _ -> [T.IsPacked]

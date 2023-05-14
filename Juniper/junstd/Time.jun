@@ -1,10 +1,10 @@
 module Time
 open(Prelude)
 
-(*
+/*
     Interface: Time
-*)
-(*
+*/
+/*
     Function: wait
 
     Pauses the program for the amount of time (in milliseconds) given as the
@@ -15,11 +15,11 @@ open(Prelude)
 
     Parameters:
         time : uint32 - The amount of time to sleep
-*)
+*/
 fun wait(time : uint32) : unit =
     #delay(time);#
 
-(*
+/*
     Function: now
 
     Gives the number of milliseconds that has passed since the program
@@ -30,14 +30,14 @@ fun wait(time : uint32) : unit =
 
     Returns:
         The time elapsed
-*)
+*/
 fun now() : uint32 = (
     let ret : uint32 = 0u32;
     #ret = millis();#;
     ret
 )
 
-(*
+/*
     Type: alias timerState
 
     Holds the state for the every functions
@@ -46,10 +46,10 @@ fun now() : uint32 = (
 
     Members:
         lastPulse : uint32 - Timestamp of the last pulse
-*)
+*/
 alias timerState = { lastPulse : uint32 }
 
-(*
+/*
     Function: state
 
     Creates a new <timerState>
@@ -59,11 +59,11 @@ alias timerState = { lastPulse : uint32 }
 
     Returns:
         A <timerState> with lastPulse set to 0
-*)
+*/
 fun state() : timerState ref =
     ref { lastPulse = 0 }
 
-(*
+/*
     Function: every
 
     Produces a signal of millisecond time stamps which fires in a time delay
@@ -79,7 +79,7 @@ fun state() : timerState ref =
     Returns:
         A signal of timestamps which carries a value every interval
         milliseconds.
-*)
+*/
 fun every(interval : uint32, state : timerState ref) : sig<uint32> = (
     let t = now();
     let lastWindow =
@@ -88,10 +88,10 @@ fun every(interval : uint32, state : timerState ref) : sig<uint32> = (
         else
             (t / interval) * interval
         end;
-    if ((!state).lastPulse : uint32) >= lastWindow then
-        signal<uint32>(nothing<uint32>())
+    if ((*state).lastPulse : uint32) >= lastWindow then
+        signal(nothing())
     else
-        (set ref state = { lastPulse = t };
-        signal<uint32>(just<uint32>(t)))
+        (set *state = { lastPulse = t };
+        signal(just(t)))
     end
 )

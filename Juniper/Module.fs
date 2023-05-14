@@ -47,9 +47,9 @@ let typesInModule (Ast.Module decs) =
                                            | (_, Ast.UnionDec _ ) -> true
                                            | _ -> false) decs
     List.map ((fun dec -> match dec with
-                         | (_, Ast.AliasDec {name=name}) -> name
-                         | (_, Ast.UnionDec {name=name}) -> name
-                         | _ -> failwith "This should never happen") >> Ast.unwrap) typeDecs
+                          | (_, Ast.AliasDec {name=name}) -> name
+                          | (_, Ast.UnionDec {name=name}) -> name
+                          | _ -> failwith "This should never happen") >> Ast.unwrap) typeDecs
 
 let opensInModule (Ast.Module decs) =
     let opens = List.filter (fun dec -> match Ast.unwrap dec with

@@ -1,54 +1,54 @@
 module Signal
 open(Prelude)
 
-(*
+/*
     Interface: Signal
-*)
+*/
 
-(*
+/*
     Function: map
 
     Applies a function f to the given input signal
 
     Type signature:
-    | <'a,'b,'closure>(||)(('closure)('a) -> 'b, sig<'a>) -> sig<'b>
+    | (||)((closure)(a) -> b, sig<a>) -> sig<b>
 
     Parameters:
-        f : ('closure)('a) -> 'b - The mapping function
-        s : sig<'a> - The input signal
+        f : (closure)(a) -> b - The mapping function
+        s : sig<a> - The input signal
 
     Returns:
         The signal transformed by the mapping function
-*)
-fun map<'a,'b,'closure>(f : ('closure)('a) -> 'b, s : sig<'a>) : sig<'b> =
-    case s of
-    | signal<'a>(just<'a>(val)) => signal<'b>(just<'b>(f(val)))
-    | _                         => signal<'b>(nothing<'b>())
-    end
+*/
+fun map(f : (closure)(a) -> b, s : sig<a>) : sig<b> =
+    match s {
+        signal(just(val)) => signal(just(f(val))),
+        _                 => signal(nothing())
+    }
 
-(*
+/*
     Function: sink
 
     Applies the function on the given signal for the purpose of performing
     side effects.
 
     Type signature:
-    | <'a,'closure>(||)(('closure)('a) -> unit, sig<'a>) -> unit
+    | (||)((closure)(a) -> unit, sig<a>) -> unit
 
     Parameters:
-        f : ('closure)('a) -> unit - The function to call
-        s : sig<'a> - The input signal
+        f : (closure)(a) -> unit - The function to call
+        s : sig<a> - The input signal
 
     Returns:
         Unit
-*)
-fun sink<'a,'closure>(f : ('closure)('a) -> unit, s : sig<'a>) : unit =
-    case s of
-    | signal<'a>(just<'a>(val)) => f(val)
-    | _ => ()
-    end
+*/
+fun sink(f : (closure)(a) -> unit, s : sig<a>) : unit =
+    match s {
+        signal(just(val)) => f(val),
+        _ => ()
+    }
 
-(*
+/*
     Function: filter
 
     Filters a signal using the given predicate function. If the function returns
@@ -57,50 +57,50 @@ fun sink<'a,'closure>(f : ('closure)('a) -> unit, s : sig<'a>) : unit =
     will be the same as the input signal.
 
     Type signature:
-    | <'a,'closure>(||)(('closure)('a') -> bool, sig<'a>) -> sig<'a>
+    | (||)((closure)(a') -> bool, sig<a>) -> sig<a>
 
     Parameters:
-        f : ('closure)('a) -> bool - The predicate function
-        s : sig<'a> - The input signal
+        f : (closure)(a) -> bool - The predicate function
+        s : sig<a> - The input signal
 
     Returns:
         The filtered output signal.
-*)
-fun filter<'a,'closure>(f : ('closure)('a) -> bool, s : sig<'a>) : sig<'a> =
-    case s of
-    | signal<'a>(just<'a>(val)) =>
-        if f(val) then
-            signal<'a>(nothing<'a>())
-        else
-            s
-        end
-    | _ =>
-        signal<'a>(nothing<'a>())
-    end
+*/
+fun filter(f : (closure)(a) -> bool, s : sig<a>) : sig<a> =
+    match s {
+        signal(just(val)) =>
+            if f(val) then
+                signal(nothing())
+            else
+                s
+            end,
+        _ =>
+            signal(nothing())
+    }
 
-(*
+/*
     Function: merge
 
     Merges streams of the same type together. If sigA has a value, then
     sigA is returned. Otherwise sigB is returned.
 
     Type signature:
-    | merge<'a>(||)(sig<'a>, sig<'a>) -> sig<'a>
+    | merge<a>(||)(sig<a>, sig<a>) -> sig<a>
 
     Parameters:
-        sigA : sig<'a> - The first signal to merge
-        sigB : sig<'b> - The second signal to merge
+        sigA : sig<a> - The first signal to merge
+        sigB : sig<b> - The second signal to merge
 
     Returns:
         A signal of the two merged streams
-*)
-fun merge<'a>(sigA : sig<'a>, sigB : sig<'a>) : sig<'a> =
-    case sigA of
-    | signal<'a>(just<'a>(_)) => sigA
-    | _                       => sigB
-    end
+*/
+fun merge(sigA : sig<a>, sigB : sig<a>) : sig<a> =
+    match sigA {
+        signal(just(_)) => sigA,
+        _               => sigB
+    }
 
-(*
+/*
     Function: mergeMany
 
     Merges multiple signals together. The leftmost stream holding a value
@@ -108,29 +108,29 @@ fun merge<'a>(sigA : sig<'a>, sigB : sig<'a>) : sig<'a> =
     holds a value, then the return stream will hold nothing.
 
     Type signature:
-    | <'a;n>(||)(list<sig<'a>;n>) -> sig<'a>
+    | (||)(list<sig<a>;n>) -> sig<a>
 
     Parameters:
-        sigs : list<sig<'a>;n> - A list of signals to merge together.
-*)
-fun mergeMany<'a;n>(sigs : list<sig<'a>;n>) : sig<'a> = (
+        sigs : list<sig<a>;n> - A list of signals to merge together.
+*/
+fun mergeMany(sigs : list<sig<a>;n>) : sig<a> = (
     let ret =
         sigs |>
         List:foldl(
             fn (sig, accum) ->
-                case accum of
-                | nothing<'a>() => (
-                    let signal<'a>(heldValue) = sig;
-                    heldValue)
-                | _ => accum
-                end
+                match accum {
+                    nothing() => (
+                        let signal(heldValue) = sig;
+                        heldValue),
+                    _ => accum
+                }
             end,
-            nothing<'a>()
+            nothing()
         );
-    signal<'a>(ret)
+    signal(ret)
 )
 
-(*
+/*
     Function: join
 
     Joins streams of two types together. If sigA has a value, then
@@ -140,26 +140,26 @@ fun mergeMany<'a;n>(sigs : list<sig<'a>;n>) : sig<'a> = (
     also holds no value.
 
     Type signature:
-    | <'a,'b>(||)(sig<'a>, sig<'b>) -> sig<either<'a,'b>>
+    | (||)(sig<a>, sig<b>) -> sig<either<a,b>>
 
     Parameters:
-        sigA : sig<'a> - The first signal to join
-        sigB : sig<'b> - The second signal to join
+        sigA : sig<a> - The first signal to join
+        sigB : sig<b> - The second signal to join
 
     Returns:
         A signal of the two joined streams.
-*)
-fun join<'a,'b>(sigA : sig<'a>, sigB : sig<'b>) : sig<either<'a,'b>> =
-    case (sigA, sigB) of
-    | (signal<'a>(just<'a>(value)), _) =>
-        signal<either<'a,'b>>(just<either<'a,'b>>(left<'a,'b>(value)))
-    | (_, signal<'b>(just<'b>(value))) =>
-        signal<either<'a,'b>>(just<either<'a,'b>>(right<'a,'b>(value)))
-    | _ =>
-        signal<either<'a,'b>>(nothing<either<'a,'b>>())
-    end
+*/
+fun join(sigA : sig<a>, sigB : sig<b>) : sig<either<a,b>> =
+    match (sigA, sigB) {
+        (signal(just(value)), _) =>
+            signal(just(left(value))),
+        (_, signal(just(value))) =>
+            signal(just(right(value))),
+        _ =>
+            signal(nothing())
+    }
 
-(*
+/*
     Function: toUnit
 
     Maps a signal of some type to a signal of units. If sig holds a value,
@@ -167,18 +167,18 @@ fun join<'a,'b>(sigA : sig<'a>, sigB : sig<'b>) : sig<either<'a,'b>> =
     nothing.
 
     Type signature:
-    | <'a>(||)(sig<'a>) -> sig<unit>
+    | (||)(sig<a>) -> sig<unit>
 
     Parameters:
-        s : sig<'a> - The signal to convert to a unit signal
+        s : sig<a> - The signal to convert to a unit signal
 
     Returns:
         A signal of units.
-*)
-fun toUnit<'a>(s : sig<'a>) : sig<unit> =
-    map<'a, unit, ||>(fn (x : 'a) : unit -> () end, s)
+*/
+fun toUnit(s : sig<a>) : sig<unit> =
+    map(fn (x : a) : unit -> () end, s)
 
-(*
+/*
     Function: foldP
 
     Creates a past dependent signal. If the incoming signal contains a
@@ -187,53 +187,53 @@ fun toUnit<'a>(s : sig<'a>) : sig<unit> =
     is held in a reference. foldP stands for fold over the past.
 
     Type signature:
-    | foldP<'a,'state,'closure>(||)(('closure)('a,'state)->'state, 'state ref, sig<'a>) -> sig<'state>
+    | foldP<a,state,closure>(||)((closure)(a,state)->state, state ref, sig<a>) -> sig<state>
 
     Parameters:
-        f : ('closure)('a,'state) -> 'state - The folding function
-        state0 : 'state ref - A reference to the mutable state
-        incoming : sig<'a> - The signal of incoming values
+        f : (closure)(a,state) -> state - The folding function
+        state0 : state ref - A reference to the mutable state
+        incoming : sig<a> - The signal of incoming values
 
     Returns:
         A signal containing the state just returned by f, or nothing if
         the input signal contained nothing.
-*)
-fun foldP<'a, 'state, 'closure>(f : ('closure)('a,'state) -> 'state, state0 : 'state ref, incoming : sig<'a>) : sig<'state> =
-    case incoming of
-    | signal<'a>(just<'a>(val)) =>
-        (let state1 = f(val, !state0);
-        set ref state0 = state1;
-        signal<'state>(just<'state>(state1)))
-    | _ =>
-        signal<'state>(nothing<'state>())
-    end
+*/
+fun foldP(f : (closure)(a,state) -> state, state0 : state ref, incoming : sig<a>) : sig<state> =
+    match incoming {
+        signal(just(val)) =>
+            (let state1 = f(val, *state0);
+            set *state0 = state1;
+            signal(just(state1))),
+        _ =>
+            signal(nothing())
+    }
 
-(*
+/*
     Function: dropRepeats
 
     Drop values that have been repeated on the given signal.
 
     Type signature:
-    | <'a>(||)(sig<'a>, maybe<'a> ref) -> sig<'a>
+    | (||)(sig<a>, maybe<a> ref) -> sig<a>
 
     Parameters:
-        maybePrevValue : maybe<'a> ref - A reference holding the previous value
-            or none if there hasn't been a previous value yet
-        incoming : sig<'a> - The incoming signal
+        maybePrevValue : maybe<a> ref - A reference holding the previous value
+            or none if there hasnt been a previous value yet
+        incoming : sig<a> - The incoming signal
 
     Returns:
         A filtered signal where two values in a row will not be repeated.
-*)
-fun dropRepeats<'a>(maybePrevValue : maybe<'a> ref, incoming : sig<'a>) : sig<'a> =
+*/
+fun dropRepeats(maybePrevValue : maybe<a> ref, incoming : sig<a>) : sig<a> =
     filter(
-        fn (value : 'a) : bool ->
+        fn (value : a) : bool ->
             (let filtered =
-                case !maybePrevValue of
-                | nothing<'a>() => false
-                | just<'a>(prevValue) => value == prevValue
-                end;
-            if not filtered then
-                (set ref maybePrevValue = just<'a>(value);
+                match *maybePrevValue {
+                    nothing() => false,
+                    just(prevValue) => value == prevValue
+                };
+            if !filtered then
+                (set *maybePrevValue = just(value);
                 ())
             else
                 ()
@@ -242,33 +242,33 @@ fun dropRepeats<'a>(maybePrevValue : maybe<'a> ref, incoming : sig<'a>) : sig<'a
         end,
         incoming)
 
-(*
+/*
     Function: latch
 
     Constantly emmits the value held in the latch. The value held in the latch
     is updated if it receives a value on the incoming signal.
 
     Type Signature:
-    | <'a>(||)(sig<'a>, 'a ref) -> sig<'a>
+    | (||)(sig<a>, a ref) -> sig<a>
 
     Parameters:
-        prevValue : 'a ref - Holds the previous values that the latch received
-        incoming : sig<'a> - The incoming latch update signal
+        prevValue : a ref - Holds the previous values that the latch received
+        incoming : sig<a> - The incoming latch update signal
 
     Returns:
         A signal which constantly emmits the value last received on the incoming
         signal.
-*)
-fun latch<'a>(prevValue : 'a ref, incoming : sig<'a>) : sig<'a> =
-    case incoming of
-    | signal<'a>(just<'a>(val)) =>
-        (set ref prevValue = val;
-        incoming)
-    | _ =>
-        signal<'a>(just<'a>(!prevValue))
-    end
+*/
+fun latch(prevValue : a ref, incoming : sig<a>) : sig<a> =
+    match incoming {
+        signal(just(val)) =>
+            (set *prevValue = val;
+            incoming),
+        _ =>
+            signal(just(*prevValue))
+    }
 
-(*
+/*
     Function: map2
 
     Applys a mapping function to two signals. The function is evaluated when
@@ -276,72 +276,74 @@ fun latch<'a>(prevValue : 'a ref, incoming : sig<'a>) : sig<'a> =
     signals, then the output signal holds no value.
 
     Type Signature:
-    | <'a,'b,'c,'closure>(||)(('closure)('a,'b)->'c, sig<'a>, sig<'b>, ('a*'b) ref) -> sig<'c>
+    | (||)((closure)(a,b)->c, sig<a>, sig<b>, (a*b) ref) -> sig<c>
 
     Parameters:
-        f : ('closure)('a,'b) -> 'c - The mapping function
-        state : ('a * 'b) ref - Holds the last values received from the signals.
-        incomingA : sig<'a> - The first signal
-        incomingB : sig<'b> - The second signal
+        f : (closure)(a,b) -> c - The mapping function
+        state : (a * b) ref - Holds the last values received from the signals.
+        incomingA : sig<a> - The first signal
+        incomingB : sig<b> - The second signal
     
     Returns:
         The mapped signal
-*)
-fun map2<'a,'b,'c,'closure>(f : ('closure)('a, 'b) -> 'c,
-                            state : ('a * 'b) ref,
-                            incomingA : sig<'a>,
-                            incomingB : sig<'b>) : sig<'c> = (
-    let valA = case incomingA of
-               | signal<'a>(just<'a>(val1 : 'a)) => val1
-               | _ => fst<'a,'b>(!state)
-               end;
-    let valB = case incomingB of
-               | signal<'b>(just<'b>(val2 : 'b)) => val2
-               | _ => snd<'a,'b>(!state)
-               end;
-    set ref state = (valA, valB);
-    case (incomingA, incomingB) of
-    | (signal<'a>(nothing<'a>()), signal<'b>(nothing<'b>())) => signal<'c>(nothing<'c>())
-    | _ => signal<'c>(just<'c>(f(valA, valB)))
-    end
+*/
+fun map2(f : (closure)(a, b) -> c,
+         state : (a * b) ref,
+         incomingA : sig<a>,
+         incomingB : sig<b>) : sig<c> = (
+    let valA =
+        match incomingA {
+            signal(just(val1 : a)) => val1,
+            _ => fst(*state)
+        };
+    let valB =
+        match incomingB {
+            signal(just(val2 : b)) => val2,
+            _ => snd(*state)
+        };
+    set *state = (valA, valB);
+    match (incomingA, incomingB) {
+        (signal(nothing()), signal(nothing())) => signal(nothing()),
+        _ => signal(just(f(valA, valB)))
+    }
 )
 
-(*
+/*
     Function: record
 
     Records values in a list as they come in through the incoming signal.
 
     Type Signature:
-    | <'a;n>(||)(sig<'a>, list<'a;n> ref) -> sig<list<'a;n>>
+    | (||)(sig<a>, list<a;n> ref) -> sig<list<a;n>>
 
     Parameters:
-        pastValues : list<'a;n> ref - Previous values recorded from the signal
-        incoming : sig<'a> - Incoming values to record
+        pastValues : list<a;n> ref - Previous values recorded from the signal
+        incoming : sig<a> - Incoming values to record
 
     Returns:
         A signal holding the list of previous values
-*)
-fun record<'a;n>(pastValues : list<'a;n> ref, incoming : sig<'a>) : sig<list<'a;n>> =
-    foldP(List:pushOffFront<'a;n>, pastValues, incoming)
+*/
+fun record(pastValues : list<a;n> ref, incoming : sig<a>) : sig<list<a;n>> =
+    foldP(List:pushOffFront, pastValues, incoming)
 
-(*
+/*
     Function: constant
 
     Gives a signal holding a specific value.
 
     Type Signature:
-    | <'a>(||)('a) -> sig<'a>
+    | (||)(a) -> sig<a>
 
     Parameters:
-        val : 'a - The value that will be held within the signal
+        val : a - The value that will be held within the signal
 
     Returns:
         A signal containing the given value
-*)
-fun constant<'a>(val : 'a) : sig<'a> =
-    signal<'a>(just<'a>(val))
+*/
+fun constant(val : a) : sig<a> =
+    signal(just(val))
 
-(*
+/*
     Function: meta
 
     Performs a meta analysis on a signal, and outputs this result
@@ -352,20 +354,20 @@ fun constant<'a>(val : 'a) : sig<'a> =
     for many applications.
 
     Type Signature:
-    | <'a>(||)(sig<'a>) -> sig<maybe<'a>>
+    | (||)(sig<a>) -> sig<maybe<a>>
 
     Parameters:
-        sigA : sig<'a> - The signal on which the meta analysis will be performed
+        sigA : sig<a> - The signal on which the meta analysis will be performed
 
     Returns:
         A signal of either nothing or just the value of the input signal
-*)
-fun meta<'a>(sigA : sig<'a>) : sig<maybe<'a>> = (
-    let signal<'a>(val) = sigA;
-    constant<maybe<'a>>(val)
+*/
+fun meta(sigA : sig<a>) : sig<maybe<a>> = (
+    let signal(val) = sigA;
+    constant(val)
 )
 
-(*
+/*
     Function: unmeta
 
     The opposite of the meta function. If the input signal holds a value of
@@ -373,24 +375,24 @@ fun meta<'a>(sigA : sig<'a>) : sig<maybe<'a>> = (
     holds just a value, then the output signal will hold that value.
 
     Type Signature:
-    | <'a>(||)(sig<maybe<'a>>) -> sig<'a>
+    | (||)(sig<maybe<a>>) -> sig<a>
 
     Parameters:
-        sigA : sig<maybe<'a>> - The signal to "make concrete"
+        sigA : sig<maybe<a>> - The signal to "make concrete"
 
     Returns:
         A signal that holds a value in the case of the input signal holding
         just a value, and holds no value otherwise.
-*)
-fun unmeta<'a>(sigA : sig<maybe<'a>>) : sig<'a> =
-    case sigA of
-    | signal<maybe<'a>>(just<maybe<'a>>(just<'a>(val))) =>
-        constant<'a>(val)
-    | _ =>
-        signal<'a>(nothing<'a>())
-    end
+*/
+fun unmeta(sigA : sig<maybe<a>>) : sig<a> =
+    match sigA {
+        signal(just(just(val))) =>
+            constant(val),
+        _ =>
+            signal(nothing())
+    }
 
-(*
+/*
     Function: zip
 
     Zips two signals together, so that if a value is received on either signal,
@@ -399,44 +401,44 @@ fun unmeta<'a>(sigA : sig<maybe<'a>>) : sig<'a> =
     signal holds no value.
 
     Type Signature:
-    | <'a,'b>(||)(sig<'a>, sig<'b>, ('a * 'b) ref) -> sig<'a * 'b>
+    | (||)(sig<a>, sig<b>, (a * b) ref) -> sig<a * b>
 
     Parameters:
-        state : ('a * 'b) ref - The state holding the past values of the signals
-        sigA : sig<'a> - The first signal to zip
-        sigB : sig<'b> - The second signal to zip
+        state : (a * b) ref - The state holding the past values of the signals
+        sigA : sig<a> - The first signal to zip
+        sigB : sig<b> - The second signal to zip
 
     Returns:
         A zipped signal.
-*)
-fun zip<'a,'b>(state : ('a * 'b) ref, sigA : sig<'a>, sigB : sig<'b>) : sig<('a * 'b)> =
-    map2<'a,'b,'a*'b,||>(
-        fn (valA : 'a, valB : 'b) : ('a * 'b) ->
+*/
+fun zip(state : (a * b) ref, sigA : sig<a>, sigB : sig<b>) : sig<(a * b)> =
+    map2(
+        fn (valA : a, valB : b) : (a * b) ->
             (valA, valB)
         end, state, sigA, sigB)
 
-(*
+/*
     Function: unzip
 
     Unzips two signals apart, so that the tuple on the incoming signal is split
     into two signals.
 
     Type Signature:
-    | <'a,'b>(||)(sig<'a * 'b>) -> (sig<'a> * sig<'b>)
+    | (||)(sig<a * b>) -> (sig<a> * sig<b>)
 
     Parameters:
-        incoming : sig<'a> - The signal to unzip
+        incoming : sig<a> - The signal to unzip
 
     Returns:
         Two signals inside a tuple
-*)
-fun unzip<'a,'b>(incoming : sig<'a*'b>) : sig<'a>*sig<'b> =
-    case incoming of
-    | signal(just((x, y))) => (signal(just(x)), signal(just(y)))
-    | _ => (signal(nothing()), signal(nothing()))
-    end
+*/
+fun unzip(incoming : sig<a*b>) : sig<a>*sig<b> =
+    match incoming {
+        signal(just((x, y))) => (signal(just(x)), signal(just(y))),
+        _ => (signal(nothing()), signal(nothing()))
+    }
 
-(*
+/*
     Function: toggle
 
     If a value is carried on the incoming signal, then the output signal holds
@@ -445,19 +447,19 @@ fun unzip<'a,'b>(incoming : sig<'a*'b>) : sig<'a>*sig<'b> =
     incoming signal, then no value is outputted on the return signal.
 
     Type Signature:
-    | <'a,'b>(||)('a, 'a, 'a ref, sig<'b>) -> sig<'a>
+    | (||)(a, a, a ref, sig<b>) -> sig<a>
 
     Parameters:
-        val1 : 'a - The first value to toggle between
-        val2 : 'a - The second value to toggle between
-        state : 'a ref - Holds the previous value outputted on the return signal
-        incoming : sig<'b> - The signal which will trigger a toggle
+        val1 : a - The first value to toggle between
+        val2 : a - The second value to toggle between
+        state : a ref - Holds the previous value outputted on the return signal
+        incoming : sig<b> - The signal which will trigger a toggle
 
     Returns:
         A signal containing either val1 or val2, depending on what was
         previously value carried on the output signal.
-*)
-fun toggle<'a,'b>(val1 : 'a, val2 : 'a, state : 'a ref, incoming : sig<'b>) : sig<'a> =
+*/
+fun toggle(val1 : a, val2 : a, state : a ref, incoming : sig<b>) : sig<a> =
     incoming |>
     foldP(fn (event, prevVal) ->
               if prevVal == val1 then

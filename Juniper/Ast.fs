@@ -23,7 +23,6 @@ and RecordRec = { packed : PosAdorn<unit> option;
 
 // Top level declarations
 and FunctionRec = { name     : PosAdorn<string>;
-                    template : PosAdorn<Template> option;
                     clause   : PosAdorn<FunctionClause> }
 
 and AliasRec =   { name     : PosAdorn<string>;
@@ -45,6 +44,7 @@ and LetDecRec = { varName : PosAdorn<string>;
 
 // Declaration defined as any of the above.
 and Declaration = FunctionDec   of FunctionRec
+                // UnionDec is an algebraic datatype. TODO: rename this
                 | UnionDec      of UnionRec
                 | AliasDec      of AliasRec
                 | LetDec        of LetDecRec
@@ -95,17 +95,17 @@ and TyExpr = BaseTy of PosAdorn<BaseTypes>
            | ApplyTy of TyApplyRec
            | ArrayTy of ArrayTyRec
            | FunTy of FunTyRec
-           | VarTy of PosAdorn<string>
            | RefTy of PosAdorn<TyExpr>
            | TupleTy of PosAdorn<TyExpr> list
            // Need this extra type for infix parser combinator matching on tuples
            | ParensTy of PosAdorn<TyExpr>
            | RecordTy of PosAdorn<RecordRec>
            | ClosureTy of PosAdorn<(PosAdorn<string> * PosAdorn<TyExpr>) list>
+           | UnderscoreTy of PosAdorn<unit>
 
 // Pattern matching AST datatypes.
 and MatchVarRec = {varName : PosAdorn<string>; mutable_ : PosAdorn<bool>; typ : PosAdorn<TyExpr> option}
-and MatchValConRec = { name : PosAdorn<Choice<string, ModQualifierRec>>; template : PosAdorn<TemplateApply> option; innerPattern : PosAdorn<PosAdorn<Pattern> list> }
+and MatchValConRec = { name : PosAdorn<Choice<string, ModQualifierRec>>; innerPattern : PosAdorn<PosAdorn<Pattern> list> }
 
 and Pattern = MatchVar of MatchVarRec
             | MatchIntVal of PosAdorn<int64>
@@ -148,8 +148,6 @@ and InternalValConAccessRec = { valCon : PosAdorn<Expr>; typ : PosAdorn<TyExpr> 
 and InternalTupleAccessRec = { tuple : PosAdorn<Expr>; index : int }
 // Function call/apply
 and CallRec =         { func : PosAdorn<Expr>; args : PosAdorn<PosAdorn<Expr> list> }
-// Applying the template of a function
-and TemplateApplyExpRec = { func : PosAdorn<Choice<string, ModQualifierRec>>; templateArgs : PosAdorn<TemplateApply> }
 and RecordExprRec =   { packed : PosAdorn<unit> option; initFields : PosAdorn<(PosAdorn<string> * PosAdorn<Expr>) list> }
 and ArrayMakeExpRec = { typ : PosAdorn<TyExpr>; initializer : PosAdorn<Expr> option }
 and TypeConstraintRec = { exp : PosAdorn<Expr>; typ : PosAdorn<TyExpr> }
@@ -189,7 +187,6 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | CharListLiteral of PosAdorn<string>
           | StringLiteral of PosAdorn<string>
           | CallExp of CallRec
-          | TemplateApplyExp of TemplateApplyExpRec
           | ModQualifierExp of PosAdorn<ModQualifierRec>
           | RecordExp of RecordExprRec
           | ArrayLitExp of PosAdorn<PosAdorn<Expr> list>

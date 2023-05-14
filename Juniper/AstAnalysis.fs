@@ -2,6 +2,17 @@
 module A = Ast
 module T = TypedAst
 
+let resolveUserTyName menv (denv : Map<string * string, A.PosAdorn<A.Declaration>>) (name : string) =
+    match Map.tryFind name menv with
+    | Some modQual ->
+        match Map.tryFind modQual denv with
+        | (Some (_, A.AliasDec _)) | (Some (_, A.UnionDec _)) ->
+            Some modQual
+        | _ ->
+            None
+    | None ->
+        None
+
 // Find all types that a type declaration is referring to
 let tyRefs (menv : Map<string, string*string>) tyDec =
     let rec refsInTyExpr t =
@@ -32,8 +43,6 @@ let tyRefs (menv : Map<string, string*string>) tyDec =
             refsInTyExpr tau
         | A.TupleTy taus ->
             taus |> List.map (A.unwrap >> refsInTyExpr) |> Set.unionMany
-        | A.VarTy _ ->
-            Set.empty
         | A.RecordTy (_, {fields=(_, fields)}) ->
             fields |> List.map (snd >> A.unwrap >> refsInTyExpr) |> Set.unionMany
 
@@ -46,6 +55,81 @@ let tyRefs (menv : Map<string, string*string>) tyDec =
         Set.unionMany
     | A.AliasDec {typ=(_, typ)} ->
         refsInTyExpr typ
+
+// Return a set containing all the named capacity variables in the given capacity expression
+let rec capVarsCap (c : Ast.CapacityExpr) : Set<Ast.PosAdorn<string>> =
+    match c with
+    | Ast.CapacityNameExpr v ->
+        Set.singleton v
+    | Ast.CapacityOp {left = (_, left); right = (_, right)} ->
+        Set.union (capVarsCap left) (capVarsCap right)
+    | Ast.CapacityUnaryOp {term = (_, term)} ->
+        capVarsCap term
+    | Ast.CapacityConst _ ->
+        Set.empty
+
+// Return a set containing all the named capacity variables in the given type expression
+and capVars (ty : Ast.TyExpr) : Set<Ast.PosAdorn<string>> =
+    let capVarsMany elems = List.map (Ast.unwrap >> capVars) elems |> Set.unionMany
+    match ty with
+    | Ast.ApplyTy { tyConstructor = (_, tyConstructor); args = (_, {tyExprs = (_, tyExprs); capExprs = (_, capExprs)}) } ->
+        let v1 = capVars tyConstructor
+        let v2 = capVarsMany tyExprs
+        let v3 = List.map (Ast.unwrap >> capVarsCap) capExprs |> Set.unionMany
+        Set.unionMany [v1; v2; v3]
+    | Ast.ArrayTy {valueType = (_, valueType); capacity = (_, capacity)} ->
+        let v1 = capVars valueType
+        let v2 = capVarsCap capacity
+        Set.union v1 v2
+    | Ast.FunTy {closure = (_, closure); args = args; returnType = (_, returnType)} ->
+        let v1 = capVars closure
+        let v2 = capVarsMany args
+        let v3 = capVars returnType
+        Set.unionMany [v1; v2; v3]
+    | Ast.RefTy (_, refTy) ->
+        capVars refTy
+    | Ast.TupleTy elems ->
+        capVarsMany elems
+    | Ast.ParensTy (_, ty) ->
+        capVars ty
+    | Ast.RecordTy (_, {fields = (_, fields)}) ->
+        fields |> List.map snd |> capVarsMany
+    | Ast.ClosureTy (_, fields) ->
+        fields |> List.map snd |> capVarsMany
+    | (Ast.BaseTy _ | Ast.ModuleQualifierTy _ | Ast.NameTy _ | Ast.UnderscoreTy _) ->
+        Set.empty
+
+let rec tyVars menv denv (ty : Ast.TyExpr) : Set<Ast.PosAdorn<string>> =
+    let tyVars' = tyVars menv denv
+    let tyVarsMany elems = List.map (Ast.unwrap >> tyVars') elems |> Set.unionMany
+    match ty with
+    | Ast.ApplyTy { tyConstructor = (_, tyConstructor); args = (_, {tyExprs = (_, tyExprs); capExprs = _}) } ->
+        let v1 = tyVars' tyConstructor
+        let v2 = tyVarsMany tyExprs
+        Set.union v1 v2
+    | Ast.ArrayTy {valueType = (_, valueType); capacity = _} ->
+        tyVars' valueType
+    | Ast.FunTy {closure = (_, closure); args = args; returnType = (_, returnType)} ->
+        let v1 = tyVars' closure
+        let v2 = tyVarsMany args
+        let v3 = tyVars' returnType
+        Set.unionMany [v1; v2; v3]
+    | Ast.RefTy (_, refTy) ->
+        tyVars' refTy
+    | Ast.TupleTy elems ->
+        tyVarsMany elems
+    | Ast.ParensTy (_, ty) ->
+        tyVars' ty
+    | Ast.RecordTy (_, {fields = (_, fields)}) ->
+        fields |> List.map snd |> tyVarsMany
+    | Ast.ClosureTy (_, fields) ->
+        fields |> List.map snd |> tyVarsMany
+    | Ast.NameTy (posn, name) ->
+        match resolveUserTyName menv denv name with
+        | Some _ -> Set.empty
+        | None -> Set.singleton (posn, name)
+    | (Ast.BaseTy _ | Ast.ModuleQualifierTy _ | Ast.UnderscoreTy _) ->
+        Set.empty
 
 // Find all top level function and let declarations (value declarations)
 // that some expression is referring to
@@ -171,23 +255,6 @@ let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
             Set.empty
         | Ast.StringLiteral _ ->
             Set.empty
-        | Ast.TemplateApplyExp {func=(posf, func)} ->
-            match func with
-            | Choice1Of2 name ->
-                if Set.contains name localVars then
-                    Set.empty
-                else
-                    match Map.tryFind name menv with
-                    | Some modqual when Set.contains modqual valueDecs ->
-                        Set.singleton modqual
-                    | _ ->
-                        Set.empty
-            | Choice2Of2 {module_=(_, module_); name=(_, name)} ->
-                let modqual = (module_, name)
-                if Set.contains modqual valueDecs then
-                    Set.singleton modqual
-                else
-                    Set.empty
         | Ast.TrueExp _ ->
             Set.empty
         | Ast.TupleExp exprs ->

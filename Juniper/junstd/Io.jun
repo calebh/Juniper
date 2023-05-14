@@ -2,11 +2,11 @@ module Io
 open(Prelude)
 include("<Arduino.h>")
 
-(*
+/*
     Interface: Io
-*)
+*/
 
-(*
+/*
     Type: pinState
 
     | pinState
@@ -14,22 +14,22 @@ include("<Arduino.h>")
     Constructors:
         - <high> ()
         - <low> ()
-*)
-(*
+*/
+/*
     Function: high
 
     Type Signature:
     | (||)() -> pinState
-*)
-(*
+*/
+/*
     Function: low
 
     Type Signature:
     | (||)() -> pinState
-*)
+*/
 type pinState = high() | low()
 
-(*
+/*
     Type: mode
 
     | mode
@@ -38,28 +38,28 @@ type pinState = high() | low()
         - <input> ()
         - <output> ()
         - <inputPullup> ()
-*)
-(*
+*/
+/*
     Function: input
 
     Type Signature:
     | (||)() -> mode
-*)
-(*
+*/
+/*
     Function: output
 
     Type Signature:
     | (||)() -> mode
-*)
-(*
+*/
+/*
     Function: inputPullup
 
     Type Signature:
     | (||)() -> mode
-*)
+*/
 type mode = input() | output() | inputPullup()
 
-(*
+/*
     Function: toggle
 
     Given a high value, returns a low value. Given a low value, returns a high
@@ -74,14 +74,14 @@ type mode = input() | output() | inputPullup()
 
     Returns:
         The opposite <pinState>.
-*)
+*/
 fun toggle(p : pinState) : pinState =
-    case p of
-    | high() => low()
-    | low() => high()
-    end
+    match p {
+        high() => low(),
+        low() => high()
+    }
 
-(*
+/*
     Function: printString
 
     Writes a string to the serial output.
@@ -94,28 +94,28 @@ fun toggle(p : pinState) : pinState =
 
     Returns:
         unit
-*)
+*/
 fun printStr(str : string) : unit =
     #Serial.print(str);#
 
-(*
+/*
     Function: printCharList
 
     Writes a character list to the serial output.
 
     Type Signature:
-    | <;n>(||)(list<uint8;n>) -> unit
+    | (||)(list<uint8;n>) -> unit
 
     Parameters:
         cl : list<uint8;n> - The character list to print
 
     Returns:
         unit
-*)
-fun printCharList<;n>(cl : list<uint8; n>) : unit =
-    #Serial.print((char *) &cl.data[0]);#
+*/
+fun printCharList(cl : list<uint8; n>) : unit =
+    #Serial.print((char */ &cl.data[0]);#
 
-(*
+/*
     Function: printFloat
 
     Writes a float to the serial output.
@@ -128,11 +128,11 @@ fun printCharList<;n>(cl : list<uint8; n>) : unit =
 
     Returns:
         unit
-*)
+*/
 fun printFloat(f : float) : unit =
     #Serial.print(f);#
 
-(*
+/*
     Function: printInt
 
     Writes an integer to the serial output.
@@ -145,11 +145,11 @@ fun printFloat(f : float) : unit =
 
     Returns:
         unit
-*)
+*/
 fun printInt(n : int32) : unit =
     #Serial.print(n);#
 
-(*
+/*
     Type: base
 
     | base
@@ -159,55 +159,55 @@ fun printInt(n : int32) : unit =
         - <octal> ()
         - <decimal> ()
         - <hexadecimal> ()
-*)
-(*
+*/
+/*
     Function: binary
 
     Type Signature:
     | (||)() -> base
-*)
-(*
+*/
+/*
     Function: octal
 
     Type Signature:
     | (||)() -> base
-*)
-(*
+*/
+/*
     Function: decimal
 
     Type Signature:
     | (||)() -> base
-*)
-(*
+*/
+/*
     Function: hexadecimal
 
     Type Signature:
     | (||)() -> base
-*)
+*/
 type base = binary() | octal() | decimal() | hexadecimal()
 
-(*
+/*
     Function: baseToInt
 
     Converts a base to the numerical integer base it represents.
 
     Type Signature:
-    | <'t>(||)(base) -> 't where 't : int
+    | (||)(base) -> t where t : int
 
     Parameters:
         b : base - The base value
 
     Returns 2 in the case of binary, 8 for octal, 10 for decimal and 16 for hexadecimal
-*)
+*/
 fun baseToInt(b) =
-    case b of
-    | binary() => 2
-    | octal() => 8
-    | decimal() => 10
-    | hexadecimal() => 16
-    end
+    match b {
+        binary() => 2,
+        octal() => 8,
+        decimal() => 10,
+        hexadecimal() => 16
+    }
 
-(*
+/*
     Function: printIntBase
 
     Writes an integer in the given base to the serial output.
@@ -221,13 +221,13 @@ fun baseToInt(b) =
 
     Returns:
         unit
-*)
+*/
 fun printIntBase(n : int32, b : base) : unit = (
     let bint : int32 = baseToInt(b);
     #Serial.print(n, bint);#
 )
 
-(*
+/*
     Function: printFloatPlaces
 
     Writes a float with the given number of decimal places to the serial output.
@@ -241,11 +241,11 @@ fun printIntBase(n : int32, b : base) : unit = (
 
     Returns:
         unit
-*)
+*/
 fun printFloatPlaces(f : float, numPlaces : int32) : unit =
     #Serial.print(f, numPlaces);#
 
-(*
+/*
     Function: beginSerial
 
     Sets up serial ouput
@@ -262,11 +262,11 @@ fun printFloatPlaces(f : float, numPlaces : int32) : unit =
 
     See also:
         https://www.arduino.cc/en/Serial/Begin
-*)
+*/
 fun beginSerial(speed : uint32) : unit =
     #Serial.begin(speed);#
 
-(*
+/*
     Function: pinStateToInt
 
     Converts a <pinState> to an integer representation.
@@ -279,14 +279,14 @@ fun beginSerial(speed : uint32) : unit =
 
     Returns:
         0 for <low> and 1 for <high>
-*)
+*/
 fun pinStateToInt(value : pinState) : uint8 =
-    case value of
-    | low() => 0u8
-    | high() => 1u8
-    end
+    match value {
+        low() => 0u8,
+        high() => 1u8
+    }
 
-(*
+/*
     Function: intToPinState
 
     Converts an integer to a <pinState> representation.
@@ -298,8 +298,8 @@ fun pinStateToInt(value : pinState) : uint8 =
         value : uint8 - The integer value to convert
 
     Returns:
-        <low> for 0 and <high> for anything else
-*)
+        <low> for 0 && <high> for anything else
+*/
 fun intToPinState(value : uint8) : pinState =
     if value == 0u8 then
         low()
@@ -307,7 +307,7 @@ fun intToPinState(value : uint8) : pinState =
         high()
     end
 
-(*
+/*
     Function: digWrite
 
     Writes a value directly to a pin.
@@ -324,13 +324,13 @@ fun intToPinState(value : uint8) : pinState =
 
     See also:
         <digOut>
-*)
+*/
 fun digWrite(pin : uint16, value : pinState) : unit = (
     let intVal = pinStateToInt(value);
     #digitalWrite(pin, intVal);#
 )
 
-(*
+/*
     Function: digRead
 
     Reads a value direction from a pin.
@@ -346,14 +346,14 @@ fun digWrite(pin : uint16, value : pinState) : unit = (
 
     See also:
         <digIn>
-*)
+*/
 fun digRead(pin : uint16) : pinState = (
     var intVal : uint8;
     #intVal = digitalRead(pin);#;
     intToPinState(intVal)
 )
 
-(*
+/*
     Function: digIn
 
     Creates an input signal given some pin identifier.
@@ -369,14 +369,14 @@ fun digRead(pin : uint16) : pinState = (
 
     See also:
         <digRead>
-*)
+*/
 fun digIn(pin : uint16) : sig<pinState> =
-    signal<pinState>(just<pinState>(digRead(pin)))
+    signal(just(digRead(pin)))
 
-(*
+/*
     Function: digOut
 
-    Takes in an input signal and writes the value contained in the signal to the
+    Takes in an input signal && writes the value contained in the signal to the
     given pin.
 
     Type Signature:
@@ -391,11 +391,11 @@ fun digIn(pin : uint16) : sig<pinState> =
 
     See also:
         <digWrite>
-*)
+*/
 fun digOut(pin : uint16, sig : sig<pinState>) : unit =
-    Signal:sink<pinState,|pin : uint16|>(fn (value : pinState) : unit -> digWrite(pin, value) end, sig)
+    Signal:sink(fn (value : pinState) : unit -> digWrite(pin, value) end, sig)
 
-(*
+/*
     Function: anaRead
 
     Reads a value directly from an analog pin.
@@ -412,14 +412,14 @@ fun digOut(pin : uint16, sig : sig<pinState>) : unit =
     See also:
         <anaIn>
         https://www.arduino.cc/en/Reference/AnalogRead
-*)
+*/
 fun anaRead(pin : uint16) : uint16 = (
     var value : uint16;
     #value = analogRead(pin);#;
     value
 )
 
-(*
+/*
     Function: anaWrite
 
     Writes an analog (PWM) value directly to an analog pin.
@@ -435,11 +435,11 @@ fun anaRead(pin : uint16) : uint16 = (
     See also:
         <anaOut>
         https://www.arduino.cc/en/Reference/AnalogWrite
-*)
+*/
 fun anaWrite(pin : uint16, value : uint8) : unit =
     #analogWrite(pin, value);#
 
-(*
+/*
     Function: anaIn
 
     Creates an analog input signal given some pin identifier.
@@ -452,11 +452,11 @@ fun anaWrite(pin : uint16, value : uint8) : unit =
 
     See also:
         <anaRead>
-*)
+*/
 fun anaIn(pin : uint16) : sig<uint16> =
-    signal<uint16>(just<uint16>(anaRead(pin)))
+    signal(just(anaRead(pin)))
 
-(*
+/*
     Function: anaOut
 
     Takes in an analog input signal and writes the value contained in the signal
@@ -471,12 +471,12 @@ fun anaIn(pin : uint16) : sig<uint16> =
 
     Returns:
         Unit
-*)
+*/
 fun anaOut(pin : uint16, sig : sig<uint8>) : unit =
-    Signal:sink<uint8,|pin : uint16|>(fn (value : uint8) : unit -> anaWrite(pin, value) end, sig)
+    Signal:sink(fn (value : uint8) : unit -> anaWrite(pin, value) end, sig)
 
 
-(*
+/*
     Function: pinModeToInt
 
     Converts a pinMode to an integer representation.
@@ -489,15 +489,15 @@ fun anaOut(pin : uint16, sig : sig<uint8>) : unit =
 
     Returns:
         0 for <input>, 1 for <output> and 2 for <inputPullup>
-*)
+*/
 fun pinModeToInt(m : mode) : uint8 =
-    case m of
-    | input() => 0u8
-    | output() => 1u8
-    | inputPullup() => 2u8
-    end
+    match m {
+        input() => 0u8,
+        output() => 1u8,
+        inputPullup() => 2u8
+    }
 
-(*
+/*
     Function: intToPinMode
 
     Converts an integer representation to a pinMode
@@ -510,15 +510,15 @@ fun pinModeToInt(m : mode) : uint8 =
 
     Returns:
         <input> for 0, <output> for 1 and <inputPullup> for 2
-*)
+*/
 fun intToPinMode(m : uint8) : mode =
-    case m of
-    | 0 => input()
-    | 1 => output()
-    | 2 => inputPullup()
-    end
+    match m {
+        0 => input(),
+        1 => output(),
+        2 => inputPullup()
+    }
 
-(*
+/*
     Function: setPinMode
 
     Sets the <mode> of a specified pin
@@ -528,13 +528,13 @@ fun intToPinMode(m : uint8) : mode =
 
     Returns:
         Unit
-*)
+*/
 fun setPinMode(pin : uint16, m : mode) : unit = (
     let m2 = pinModeToInt(m);
     #pinMode(pin, m2);#
 )
 
-(*
+/*
     Function: risingEdge
 
     Takes in a signal and a previous state and outputs a new signal that fires
@@ -550,18 +550,19 @@ fun setPinMode(pin : uint16, m : mode) : unit = (
     Returns:
         A signal of type unit. The signal fires unit on a rising edge, otherwise
         it does not fire.
-*)
+*/
 fun risingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
-    Signal:toUnit<pinState>(
-        Signal:filter<pinState,|prevState : pinState ref|>(fn (currState : pinState) : bool -> (
-            let ret = case (currState, !prevState) of
-                      | (high(), low()) => false
-                      | _ => true
-                      end;
-            set ref prevState = currState;
+    Signal:toUnit(
+        Signal:filter(fn (currState : pinState) : bool -> (
+            let ret =
+                match (currState, *prevState) {
+                    (high(), low()) => false,
+                    _ => true
+                };
+            set *prevState = currState;
             ret) end, sig))
 
-(*
+/*
     Function: fallingEdge
 
     Takes in a signal and a previous state and outputs a new signal that fires
@@ -577,18 +578,19 @@ fun risingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
     Returns:
         A signal of type unit. The signal fires unit on a falling edge,
         otherwise it does not fire.
-*)
+*/
 fun fallingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
-    Signal:toUnit<pinState>(
-        Signal:filter<pinState,|prevState : pinState ref|>(fn (currState : pinState) : bool -> (
-            let ret = case (currState, !prevState) of
-                      | (low(), high()) => false
-                      | _ => true
-                      end;
-            set ref prevState = currState;
+    Signal:toUnit(
+        Signal:filter(fn (currState : pinState) : bool -> (
+            let ret = 
+                match (currState, *prevState) {
+                    (low(), high()) => false,
+                    _ => true
+                };
+            set *prevState = currState;
             ret) end, sig))
 
-(*
+/*
     Function: edge
 
     Takes in a signal and a previous state and outputs a new signal that fires
@@ -604,13 +606,14 @@ fun fallingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
     Returns:
         A signal that outputs <high> on a rising edge and <low> on a falling
         edge.
-*)
+*/
 fun edge(sig : sig<pinState>, prevState : pinState ref) : sig<pinState> =
-    Signal:filter<pinState,|prevState : pinState ref|>(fn (currState : pinState) : bool -> (
-        let ret = case (currState, !prevState) of
-                  | (high(), low()) => false
-                  | (low(), high()) => false
-                  | _ => true
-                  end;
-        set ref prevState = currState;
+    Signal:filter(fn (currState : pinState) : bool -> (
+        let ret =
+            match (currState, *prevState) {
+                (high(), low()) => false,
+                (low(), high()) => false,
+                _ => true
+            };
+        set *prevState = currState;
         ret) end, sig)

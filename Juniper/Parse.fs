@@ -12,8 +12,9 @@ let fatalizeAnyError (p : Parser<'a, 'u>) : Parser<'a, 'u> =
             Reply(FatalError, reply.Error)
 
 let singleLineComment = skipString "//" >>. restOfLine true >>% ()
-let multiLineComment = skipString "(*" >>. skipCharsTillString "*)" true System.Int32.MaxValue
+let multiLineComment = skipString "/*" >>. skipCharsTillString "*/" true System.Int32.MaxValue
 let ws = spaces .>> (choice [singleLineComment; multiLineComment] >>. spaces |> many)
+let ws1 = (spaces1 <|> singleLineComment <|> multiLineComment) .>> spaces .>> (choice [singleLineComment; multiLineComment] >>. spaces |> many)
 
 let pipe6 p1 p2 p3 p4 p5 p6 f = 
     pipe5 p1 p2 p3 p4 (tuple2 p5 p6)
@@ -107,31 +108,31 @@ let prefix str precidence op f opp =
 List.iter
     (fun f -> f  (fun l op r -> BinaryOpExp {left=l; right=r; op=op}) opp)
     [infix "|>" 1 Pipe Associativity.Left;
-    infix "or"  2 LogicalOr Associativity.Left;
-    infix "and" 3 LogicalAnd Associativity.Left;
-    infix "|||" 4 BitwiseOr Associativity.Left;
-    infix "^^^" 5 BitwiseXor Associativity.Left;
-    infix "&&&" 6 BitwiseAnd Associativity.Left;
+    infix "||"  2 LogicalOr Associativity.Left;
+    infix "&&" 3 LogicalAnd Associativity.Left;
+    infix "|" 4 BitwiseOr Associativity.Left;
+    infix "^" 5 BitwiseXor Associativity.Left;
+    infix "&" 6 BitwiseAnd Associativity.Left;
     infix "=="  7 Equal Associativity.Left;
     infix "!="  7 NotEqual Associativity.Left;
     infix "<"   8 Less Associativity.None;
     infix ">"   8 Greater Associativity.None;
     infix "<="  8 LessOrEqual Associativity.None;
     infix ">="  8 GreaterOrEqual Associativity.None;
-    infix ">>>" 9 BitshiftRight Associativity.Left;
-    infix "<<<" 9 BitshiftLeft Associativity.Left;
+    infix ">>" 9 BitshiftRight Associativity.Left;
+    infix "<<" 9 BitshiftLeft Associativity.Left;
     infix "+"   10 Add Associativity.Left;
     infix "-"   10 Subtract Associativity.Left;
     infix "*"   11 Multiply Associativity.Left;
     infix "/"   11 Divide Associativity.Left;
-    infix "mod" 11 Modulo Associativity.Left]
+    infix "%"   11 Modulo Associativity.Left]
 
 List.iter
     (fun f -> f (fun op term -> UnaryOpExp {op=op; exp=term}) opp)
     [prefix "-"  12 Negate;
-    prefix "~~~" 12 BitwiseNot;
-    prefix "not " 12 LogicalNot;
-    prefix "!" 12 Deref]
+    prefix "~" 12 BitwiseNot;
+    prefix "!" 12 LogicalNot;
+    prefix "*" 12 Deref]
 
 List.iter
     (fun f -> f (fun l op r -> CapacityOp {left=l; op=op; right=r}) capOpp)
@@ -214,7 +215,7 @@ let moduleQualifier =
 let templateDec =
     pipe2
         // Parse type variables
-        (skipChar '<' >>. ws >>. (separatedList (skipChar '\'' >>. pos id) ',' |> pos))
+        (skipChar '<' >>. ws >>. (separatedList (pos id) ',' |> pos))
         // Parse capacity variables
         (ws >>. opt (skipChar ';' >>. ws >>. (separatedList (pos id) ',') |> pos) .>> ws .>> skipChar '>')
         (fun tyVars capVars ->
@@ -248,8 +249,6 @@ let leftRecursiveTyp =
 
 // tyExpr
 do
-    let varTy =
-        skipChar '\'' >>. (fatalizeAnyError id) |> pos |>> VarTy
     let name =
         pos id |>>
         (fun (p, n) ->
@@ -270,17 +269,26 @@ do
             | "string" -> BaseTy (p, TyString)
             | "rawpointer" -> BaseTy (p, TyRawPointer)
             | _ -> NameTy (p, n))
+    let underscore = skipChar '_' |> pos |>> UnderscoreTy
     let mQual = moduleQualifier |>> ModuleQualifierTy
     let closureTy = betweenChar '|' (separatedList ((pos id .>> ws .>> skipChar ':' .>> ws) .>>. tyExpr) ';') '|' |> pos |>> ClosureTy
     let fn =
         pipe3
-            ((betweenChar '(' (varTy <|> closureTy) ')') |> pos)
+            (* If the user does not enter a closure type for this function signature,
+               assume the user intended the closure to be a type wildcard. *)
+            (((betweenChar '(' (choice [name; closureTy; underscore]) ')') |> opt) |> pos)
             (skipChar '(' >>. separatedList (ws >>. tyExpr .>> ws) ',' .>> skipChar ')' .>> ws .>> skipString "->" .>> ws)
             tyExpr
-            (fun closure argTys retTy -> FunTy { closure=closure; args = argTys; returnType = retTy})
+            (fun closure argTys retTy ->
+                let closure' =
+                    match unwrap closure with
+                    | Some c -> (getPos closure, c)
+                    // No closure was explicitly given. Desugar into a wildcard (underscore)
+                    | None -> (getPos closure, UnderscoreTy (getPos closure, ()))
+                FunTy { closure=closure'; args = argTys; returnType = retTy})
     let parens = skipChar '(' >>. ws >>. tyExpr .>> ws .>> skipChar ')' |>> ParensTy
     let recordTy = record |> pos |>> RecordTy
-    let t = choice ([attempt mQual; varTy; closureTy; attempt recordTy; name; attempt fn; parens]) |> pos .>> ws
+    let t = choice ([attempt mQual; closureTy; attempt recordTy; attempt underscore; name; attempt fn; parens]) |> pos .>> ws
     typOpp.TermParser <-
         leftRecurse
             t
@@ -333,19 +341,19 @@ do
     let floatPattern = floatParser |> pos |>> MatchFloatVal |> pos
     let truePattern = skipString "true" |> pos |>> MatchTrue |> pos
     let falsePattern = skipString "false" |> pos |>> MatchFalse |> pos
-    let valConEnd = opt templateApply .>> ws .>>. (skipChar '(' >>. ws >>. (separatedList pattern ',' |> pos) .>> ws .>> skipChar ')') .>> ws
+    let valConEnd = (skipChar '(' >>. ws >>. (separatedList pattern ',' |> pos) .>> ws .>> skipChar ')') .>> ws
     let valConPattern =
         pipe2
             (pos id .>> ws)
             valConEnd
-            (fun (posn, name) (template, innerPattern) ->
-                MatchValCon {name=(posn, Choice1Of2 name); template=template; innerPattern=innerPattern}) |> pos
+            (fun (posn, name) innerPattern ->
+                MatchValCon {name=(posn, Choice1Of2 name); innerPattern=innerPattern}) |> pos
     let valConModQualPattern =
         pipe2
             (pos moduleQualifier .>> ws)
             valConEnd
-            (fun (posm, modQual) (template, innerPattern) ->
-                MatchValCon {name=(posm, Choice2Of2 modQual); template=template; innerPattern=innerPattern}) |> pos
+            (fun (posm, modQual) innerPattern ->
+                MatchValCon {name=(posm, Choice2Of2 modQual); innerPattern=innerPattern}) |> pos
     let underscorePattern = skipChar '_' |> pos |>> MatchUnderscore |> pos
     let recordPattern = (skipChar '{' >>. ws >>. (separatedList (pos id .>>. (ws >>. skipChar '=' >>. pattern .>> ws)) ';' |> pos .>> ws .>> skipChar '}' .>> ws)) |>> MatchRecCon |> pos
     let unitPattern = skipString "()" |> pos |>> MatchUnit |> pos
@@ -440,14 +448,9 @@ do
     let str = pos (stringLiteral '"' true) |>> StringLiteral
     let seq = betweenChar '(' (((expr .>> ws .>> skipChar ';' .>> ws) .>>. fatalizeAnyError (separatedList expr ';')) |> pos) ')' |>> (fun (overallPos, (firstExpr, restExprs)) -> SequenceExp (overallPos, firstExpr::restExprs))
     let quit = skipString "quit" >>. ws >>. (fatalizeAnyError (opt (skipChar '<' >>. ws >>. tyExpr .>> ws .>> skipChar '>') .>> ws .>> skipChar '(' .>> ws .>> skipChar ')')) |>> QuitExp
-    let applyTemplateToFunc =
-        pipe2
-            (pos ((attempt moduleQualifier |>> Choice2Of2) <|> (id |>> Choice1Of2)) .>> ws)
-            templateApply
-            (fun funExpr temp -> TemplateApplyExp {func = funExpr; templateArgs = temp})
     let pIf =
         pipe3
-            (skipString "if" >>. ws >>. fatalizeAnyError (expr .>> ws))
+            ((attempt (skipString "if" >>. ws1)) >>. fatalizeAnyError (expr .>> ws))
             (fatalizeAnyError (skipString "then" >>. ws >>. expr .>> ws))
             (fatalizeAnyError elifList)
             (fun condition trueBranch falseBranch ->
@@ -458,25 +461,25 @@ do
                 })
     let pLet =
         pipe2
-            (pstring "let" >>. ws >>. fatalizeAnyError (pattern .>> ws .>> skipChar '=' .>> ws))
+            ((attempt (pstring "let" >>. ws1)) >>. fatalizeAnyError (pattern .>> ws .>> skipChar '=' .>> ws))
             (fatalizeAnyError (expr .>> ws))
             (fun pat expr ->
                 LetExp {left=pat; right=expr})
     let pVar =
         pipe2
-            (pstring "var" >>. ws >>. fatalizeAnyError (pos id .>> ws))
+            ((attempt (pstring "var" >>. ws1)) >>. fatalizeAnyError (pos id .>> ws))
             (fatalizeAnyError (skipChar ':' >>. ws >>. tyExpr))
             (fun varName ty ->
                 DeclVarExp { varName = varName; typ = ty} )
     let assign =
         pipe3
-            (skipString "set" >>. ws >>. (fatalizeAnyError (skipString "ref" |> opt |>> Option.isSome |> pos) .>> ws))
+            ((attempt (skipString "set" >>. ws1)) >>. (fatalizeAnyError (skipString "*" |> opt |>> Option.isSome |> pos) .>> ws))
             (fatalizeAnyError (leftAssign .>> ws .>> skipChar '=' .>> ws))
             (fatalizeAnyError expr)
             (fun ref_ left right -> AssignExp {left=left; right=right; ref=ref_})
     let forLoop =
         pipe6
-            (pstring "for" >>. ws >>. fatalizeAnyError (pos id .>> ws))
+            ((attempt (pstring "for" >>. ws1)) >>. fatalizeAnyError (pos id .>> ws))
             (fatalizeAnyError (skipChar ':' >>. ws >>. tyExpr .>> ws |> opt))
             (fatalizeAnyError (pstring "in" >>. ws >>. expr .>> ws))
             (fatalizeAnyError ((pstring "to" >>% Upto) <|> (pstring "downto" >>% Downto) |> pos .>> ws))
@@ -486,20 +489,20 @@ do
                 ForLoopExp {varName=varName; typ=typ; start=start; direction=direction; end_=end_; body=body})
     let doWhileLoop =
         pipe2
-            (pstring "do" >>. ws >>. fatalizeAnyError (expr .>> ws))
+            (attempt (pstring "do" >>. ws1) >>. fatalizeAnyError (expr .>> ws))
             (fatalizeAnyError (pstring "while" >>. ws >>. expr .>> ws .>> pstring "end"))
             (fun body condition -> DoWhileLoopExp {body=body; condition=condition})
     let whileLoop =
         pipe2
-            (pstring "while" >>. ws >>. fatalizeAnyError (expr .>> ws .>> pstring "do" .>> ws))
+            (attempt (pstring "while" >>. ws1) >>. fatalizeAnyError (expr .>> ws .>> pstring "do" .>> ws))
             (fatalizeAnyError (expr .>> ws .>> pstring "end"))
             (fun condition body -> WhileLoopExp {condition=condition; body=body})
-    let fn = skipString "fn" >>. ws >>. fatalizeAnyError (functionClause "->" .>> ws .>> skipString "end") |> pos |>> LambdaExp
-    let case =
-        let caseClause = (pattern .>> ws) .>>. (pstring "=>" >>. ws >>. expr)
+    let fn = (attempt (skipString "fn" >>. ws1)) >>. fatalizeAnyError (functionClause "->" .>> ws .>> skipString "end") |> pos |>> LambdaExp
+    let match_ =
+        let matchClause = (pattern .>> ws) .>>. (pstring "=>" >>. ws >>. expr)
         pipe2
-            (pstring "case" >>. ws >>. fatalizeAnyError (expr .>> pstring "of" .>> ws))
-            (fatalizeAnyError ((skipChar '|' >>. ws >>. caseClause) |> many1 |> pos .>> ws .>> pstring "end"))
+            (attempt (pstring "match" >>. ws1) >>. fatalizeAnyError (expr .>> pstring "{" .>> ws))
+            (fatalizeAnyError (sepBy1 (matchClause .>> ws) (skipString "," .>> ws)) |> pos .>> ws .>> pstring "}" .>> ws)
             (fun on clauses ->
                 CaseExp {on=on; clauses=clauses})
     let recordExpr =
@@ -510,7 +513,7 @@ do
             (fun packed fields ->
                 RecordExp {packed=packed; initFields=fields})
     let arrayLiteral = betweenChar '[' (separatedList expr ',') ']' |> pos |>> ArrayLitExp
-    let pref = pstring "ref" >>. ws >>. (fatalizeAnyError expr) |>> RefExp
+    let pref = (attempt (pstring "ref" >>. ws1)) >>. (fatalizeAnyError expr) |>> RefExp
     let modQual = moduleQualifier |> pos |>> ModQualifierExp
     let varReference = attempt id |> pos |>> VarExp
     let arrayMake =
@@ -522,11 +525,12 @@ do
     let tuple = betweenChar '(' (separatedList1 expr ',') ')' |>> TupleExp
     let smartpointer = (skipString "smartpointer" >>. ws >>. fatalizeAnyError ((skipChar '(' >>. expr .>> ws .>> skipChar ',' .>> ws) .>>. (expr .>> ws .>> skipChar ')'))) |>> Smartpointer
     let nullexp = (skipString "null" |> pos |>> NullExp) .>> ws
+    //let sizeofexp = skipString "sizeof" >>. ws >>. fatalizeAnyError (betweenChar '(' tyExpr ')') 
     let e = choice ([punit; attempt parens; ptrue; pfalse; nullexp; charlist; str;
                     attempt pfloating; pint; smartpointer;
-                    fn; quit; attempt tuple; attempt recordExpr; attempt applyTemplateToFunc; seq;
+                    fn; quit; attempt tuple; attempt recordExpr; seq;
                     attempt modQual; forLoop; doWhileLoop; whileLoop;
-                    pLet; pVar; pIf; assign; case;
+                    pLet; pVar; pIf; assign; match_;
                     arrayLiteral; pref; arrayMake; inlineCpp'; varReference]) .>> ws |> pos
     opp.TermParser <-
         leftRecurse
@@ -556,13 +560,11 @@ do
 
 let functionDec =
     let funName = skipString "fun" >>. ws >>. pos id
-    let template = templateDec |> pos |> opt
     let clause = functionClause "=" |> pos
-    pipe3 funName (ws >>. template .>> ws) clause
-        (fun n t c ->
+    pipe2 (funName .>> ws) clause
+        (fun n c ->
             FunctionDec {
                 name = n;
-                template = t;
                 clause = c
             })
 

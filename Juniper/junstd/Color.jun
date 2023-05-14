@@ -1,7 +1,7 @@
 module Color
 open(Prelude)
 
-(*
+/*
     Type: alias rgb
 
     Represents a rgb color
@@ -12,10 +12,10 @@ open(Prelude)
         r : uint8 - Red value
         g : uint8 - Green value
         b : uint8 - Blue value
-*)
+*/
 alias rgb = { r : uint8; g : uint8; b : uint8 }
 
-(*
+/*
     Type: alias rgba
 
     Represents a rgba color
@@ -27,10 +27,10 @@ alias rgb = { r : uint8; g : uint8; b : uint8 }
         g : uint8 - Green value
         b : uint8 - Blue value
         a : uint8 - Alpha value
-*)
+*/
 alias rgba = { r : uint8; g : uint8; b : uint8; a : uint8 }
 
-(*
+/*
     Type: alias hsv
 
     Represents a hsv color
@@ -41,10 +41,10 @@ alias rgba = { r : uint8; g : uint8; b : uint8; a : uint8 }
         h : float - Hue
         s : float - Saturation
         v : float - Value
-*)
+*/
 alias hsv = { h : float; s : float; v : float }
 
-(*
+/*
     Type: alias hsva
 
     Represents a hsva color
@@ -56,10 +56,10 @@ alias hsv = { h : float; s : float; v : float }
         s : float - Saturation
         v : float - Value
         a : float - Alpha
-*)
+*/
 alias hsva = { h : float; s : float; v : float; a : float }
 
-(*
+/*
     Function: hsvToRgb
 
     Converts a hsv color to a rgb color
@@ -72,22 +72,22 @@ alias hsva = { h : float; s : float; v : float; a : float }
 
     Returns:
         The rgb equivalent of the hsv color
-*)
+*/
 fun hsvToRgb(color : hsv) : rgb = (
     let {h=h; s=s; v=v} = color;
     let c : float = v * s;
     let x : float = c * toFloat(1.0 - Math:fabs_(Math:fmod_((toDouble(h) / 60), 2.0) - 1.0));
     let m : float = v - c;
     let (rPrime, gPrime, bPrime) =
-        if 0.0f <= h and h < 60.0f then
+        if 0.0f <= h && h < 60.0f then
             (c, x, 0.0f)
-        elif 60.0f <= h and h < 120.0f then
+        elif 60.0f <= h && h < 120.0f then
             (x, c, 0.0f)
-        elif 120.0f <= h and h < 180.0f then
+        elif 120.0f <= h && h < 180.0f then
             (0.0f, c, x)
-        elif 180.0f <= h and h < 240.0f then
+        elif 180.0f <= h && h < 240.0f then
             (0.0f, x, c)
-        elif 240.0f <= h and h < 300.0f then
+        elif 240.0f <= h && h < 300.0f then
             (x, 0.0f, c)
         else
             (c, 0.0f, x)
@@ -98,7 +98,7 @@ fun hsvToRgb(color : hsv) : rgb = (
     {r=toUInt8(r); g=toUInt8(g); b=toUInt8(b)}
 )
 
-(*
+/*
     Function: rgbToRgb565
 
     Converts a rgb color to a rgb 565 color
@@ -111,88 +111,88 @@ fun hsvToRgb(color : hsv) : rgb = (
 
     Returns:
         The rgb equivalent of the hsv color
-*)
+*/
 fun rgbToRgb565(color : rgb) : uint16 = (
     let {r=r; g=g; b=b} = color;
-    ((u8ToU16(r) &&& 0xf8u16) <<< 8u32) ||| ((u8ToU16(g) &&& 0xfcu16) <<< 3u32) ||| (u8ToU16(b) >>> 3u32)
+    ((u8ToU16(r) & 0xf8u16) << 8u32) | ((u8ToU16(g) & 0xfcu16) << 3u32) | (u8ToU16(b) >> 3u32)
 )
 
-(*
+/*
     Variable: red
 
     The color red (255, 0, 0)
 
     Type:
     | rgb
-*)
+*/
 let red : rgb = {r=255u8; g=0; b=0}
 
-(*
+/*
     Variable: green
 
     The color green (0, 255, 0)
 
     Type:
     | rgb
-*)
+*/
 let green : rgb = {r=0; g=255u8; b=0}
 
-(*
+/*
     Variable: blue
 
     The color blue (0, 0, 255)
 
     Type:
     | rgb
-*)
+*/
 let blue : rgb = {r=0; g=0; b=255u8}
 
-(*
+/*
     Variable: black
 
     The color black (0, 0, 0)
 
     Type:
     | rgb
-*)
+*/
 let black : rgb = {r=0; g=0; b=0}
 
-(*
+/*
     Variable: white
 
     The color white (255, 255, 255)
 
     Type:
     | rgb
-*)
+*/
 let white : rgb = {r=255u8; g=255u8; b=255u8}
 
-(*
+/*
     Variable: yellow
 
     The color yellow (255, 255, 0)
 
     Type:
     | rgb
-*)
+*/
 let yellow : rgb = {r=255u8; g=255u8; b=0}
 
-(*
+/*
     Variable: magenta
 
     The color magenta (255, 0, 255)
 
     Type:
     | rgb
-*)
+*/
 let magenta : rgb = {r=255u8; g=0; b=255u8}
 
-(*
+/*
     Variable: cyan
 
     The color cyan (0, 255, 255)
 
     Type:
     | rgb
-*)
+*/
 let cyan : rgb = {r=0; g=255u8; b=255u8}

@@ -1,59 +1,59 @@
 module CharList
 open(Prelude)
 
-(*
+/*
     Interface: CharList
-*)
+*/
 
-(*
+/*
     Function: toUpper
 
     Converts characters in a character list from lower case to upper case
 
     Type Signature:
-    | <;n>(||)(list<uint8; n>) -> list<uint8; n>
+    | (||)(list<uint8; n>) -> list<uint8; n>
 
     Parameters:
         str : list<uint8; n> - The string to convert to upper case
 
    Returns:
         A list of characters
-*)
+*/
 fun toUpper(str) =
     str |>
     List:map(fn (c : uint8) ->
-        if c >= 97u8 and c <= 122u8 then
+        if c >= 97u8 && c <= 122u8 then
             c - 32u8
         else
             c
         end
     end)
 
-(*
+/*
     Function: toLower
 
     Converts characters in a character list from upper case to lower case
 
     Type Signature:
-    | <;n>(||)(list<uint8; n>) -> list<uint8; n>
+    | (||)(list<uint8; n>) -> list<uint8; n>
 
     Parameters:
         str : list<uint8; n> - The string to convert to lower case
 
    Returns:
         A list of characters
-*)
+*/
 fun toLower(str) =
     str |>
     List:map(fn (c) ->
-        if c >= 65u8 and c <= 90u8 then
+        if c >= 65u8 && c <= 90u8 then
             c + 32u8
         else
             c
         end
     end)
 
-(*
+/*
     Function: i32ToCharList
 
     Converts an int32 to a char list, truncating the string if the
@@ -61,49 +61,49 @@ fun toLower(str) =
     at most length n.
 
     Type Signature:
-    | <;n>(||)(int32) -> charlist<;n>
+    | (||)(int32) -> charlist<;n>
 
     Parameters:
         m : int32 - The number to convert
     
     Returns:
         A list of characters
-*)
-fun i32ToCharList<;n>(m : int32) : charlist<;n> = (
+*/
+fun i32ToCharList(m : int32) : charlist<;n> = (
     let ret = {data=array uint8[n + 1] of 0u8 end; length=0u32};
     #
-    int charsPrinted = 1 + snprintf((char *) &ret.data[0], n + 1, "%d", m);
+    int charsPrinted = 1 + snprintf((char */ &ret.data[0], n + 1, "%d", m);
     ret.length = charsPrinted >= (n + 1) ? (n + 1) : charsPrinted;
     #;
     ret
 )
 
-(*
+/*
     Function: length
 
     Returns the length of a character list, equal to the list length minus one 
     (takes into account the null byte at the end of the character list)
 
     Type Signature:
-    | <;n>(||)(list<uint8; n>) -> uint32
+    | (||)(list<uint8; n>) -> uint32
 
     Parameters:
         s : list<uint8; n> - The character list to find the length of
     
     Returns:
         The length of the character list
-*)
-fun length<;n>(s : list<uint8; n>) : uint32 =
+*/
+fun length(s : list<uint8; n>) : uint32 =
     s.length - 1u32
 
-(*
+/*
     Function: concat
 
     Concatenates two character lists together. This should be used instead of List:append 
     due to the null bytes at the end of character lists.
 
     Type Signature:
-    | <;aCap,bCap,retCap>(||)(list<uint8;aCap>, list<uint8;bCap>) -> list<uint8;retCap>
+    | (||)(list<uint8;aCap>, list<uint8;bCap>) -> list<uint8;retCap>
 
     Parameters:
         sA : list<uint8;aCap> - The first character list.
@@ -111,8 +111,8 @@ fun length<;n>(s : list<uint8; n>) : uint32 =
 
    Returns:
         The two lists appended together.
-*)
-fun concat<;aCap,bCap,retCap>(sA : charlist<;aCap>, sB : charlist<;bCap>) : charlist<;retCap> = (
+*/
+fun concat(sA : charlist<;aCap>, sB : charlist<;bCap>) : charlist<;retCap> = (
     let mutable j : uint32 = 0;
     let lenA = length(sA);
     let lenB = length(sB);
@@ -131,14 +131,14 @@ fun concat<;aCap,bCap,retCap>(sA : charlist<;aCap>, sB : charlist<;bCap>) : char
     out
 )
 
-(*
+/*
     Function: safeConcat
 
     Concatenates two character lists together. Since the return capacity is determined 
     by the input capacities, less type annotations than normal concat are necessary.
 
     Type Signature:
-    | <;aCap,bCap>(||)(charlist<;aCap>, charlist<;bCap>) -> charlist<;aCap+bCap>
+    | (||)(charlist<;aCap>, charlist<;bCap>) -> charlist<;aCap+bCap>
 
     Parameters:
         sA : charlist<;aCap> - The first character list.
@@ -146,5 +146,5 @@ fun concat<;aCap,bCap,retCap>(sA : charlist<;aCap>, sB : charlist<;bCap>) : char
 
    Returns:
         The two lists appended together.
-*)
-fun safeConcat<;aCap,bCap>(sA : charlist<;aCap>, sB : charlist<;bCap>) : charlist<;aCap+bCap> = concat(sA, sB)
+*/
+fun safeConcat(sA : charlist<;aCap>, sB : charlist<;bCap>) : charlist<;aCap+bCap> = concat(sA, sB)

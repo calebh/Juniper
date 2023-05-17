@@ -845,7 +845,7 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
     *)
     (match setupModule with
         | None ->
-            raise <| SemanticError "Unable to find program entry point. Please create a function called setup.\n fun setup() = ()"
+            raise <| SemanticError [Error.ErrMsg "Unable to find program entry point. Please create a function called setup.\n fun setup() = ()"]
         | Some module_ ->
             (if cLinkage then
                 output "#ifdef __cplusplus" + newline() +
@@ -870,7 +870,7 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
     *)
     (match loopModule with
         | None ->
-            raise <| SemanticError "Unable to find program entry point. Please create a function called loop.\n fun loop() = ()."
+            raise <| SemanticError [Error.ErrMsg "Unable to find program entry point. Please create a function called loop.\n fun loop() = ()."]
         | Some module_ ->
             (if cLinkage then
                 output "#ifdef __cplusplus" + newline() +

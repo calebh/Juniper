@@ -1,4 +1,5 @@
 ﻿module Program
+module E = Error
 open FParsec
 open TypedAst
 open Parse
@@ -41,6 +42,20 @@ let helpText =
      "    -h, --help: View this help message";
      "    --custom-placement-new: Output a custom implementation of placement new, for use in Arduino board packages that give compilation errors related to #include <new>";
      "    --c-linkage: setup and loop functions should have C linkage instead of C++. For Arduino board packages that give compilation error related to setup() and loop() linkage issues"] |> String.concat "\n"
+
+let rec printErr errs =
+    match errs with
+    | [] ->
+        ()
+    | e::es ->
+        match e with
+        | E.ErrMsg msg ->
+            System.Console.ForegroundColor <- System.ConsoleColor.Yellow
+            printfn "%s\n\n" msg
+            System.Console.ResetColor()
+            printErr es
+        | E.PosMsg msg ->
+            printfn "%s\n\n" msg
 
 [<EntryPoint>]
 let main argv =
@@ -85,8 +100,11 @@ let main argv =
                 System.IO.File.WriteAllText (outputFile, compiledProgram)
                 0
             with
-                | (Error.TypeError err | Error.SemanticError err | SyntaxError err | Constraint.TypeError err) ->
-                    printfn "%s" err
+                | SyntaxError err ->
+                    printErr [E.ErrMsg err]
+                    1
+                | (Error.SemanticError err | Constraint.TypeError err) ->
+                    printErr err
                     1
                 | :? System.IO.FileNotFoundException as ex ->
                     printf "%s" ex.Message

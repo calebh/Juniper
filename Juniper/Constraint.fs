@@ -10,9 +10,9 @@ open Symbolism.SimplifyLogical
 // This code is based off of Norman Ramsey's implementation as
 // described in the book Programming Languages: Build, Prove, and Compare
 
-exception TypeError of string
+exception TypeError of List<Error.ErrStr>
 
-type ErrorMessage = Lazy<string>
+type ErrorMessage = Lazy<List<Error.ErrStr>>
 
 type InterfaceConstraint = TyExpr * ConstraintType * ErrorMessage
 
@@ -533,7 +533,7 @@ let solveCap (con : ConstraintCap) (terminalCaps : string list) : Map<string, Ca
     varSymbols |>
     List.fold
         (fun (env, symbolsSolvedSoFar) sym ->
-            let relevantErrors = lazy (relevantEquations sym.name |> List.map (fun (EqualCap (left, right, err)) -> err.Force()) |> String.concat "\n\n")
+            let relevantErrors = lazy (relevantEquations sym.name |> List.map (fun (EqualCap (left, right, err)) -> err.Force()) |> List.concat)
             // Todo: try catch for EliminateVariables and IsolateVariable
             try
                 let eliminatedSystem = symbolismEq.EliminateVariables(symbolsSolvedSoFar |> Array.ofList)
@@ -542,7 +542,13 @@ let solveCap (con : ConstraintCap) (terminalCaps : string list) : Map<string, Ca
                     if b.``val`` then
                         (env, symbolsSolvedSoFar)
                     else
-                        raise <| TypeError (sprintf "Error when solving the system of equations for the solution of %s. The system of equations is insolvable. Relevant capacity constraints which led to this situation are:\n%s\n\nThe system of equations is the following: %s\n\nWhen isolated and solve this resulted in the following system of equations: %s" sym.name (relevantErrors.Force()) (symbolismEq.ToString()) (eliminatedSystem.ToString()))
+                        raise <|
+                            TypeError
+                                ([Error.ErrMsg (sprintf "Error when solving the system of equations for the solution of %s. The system of equations is insolvable. Relevant capacity constraints which led to this situation are:" sym.name)]
+                                @
+                                (relevantErrors.Force())
+                                @
+                                ([Error.ErrMsg (sprintf "The system of equations is the following: %s\n\nWhen isolated and solve this resulted in the following system of equations: %s" (symbolismEq.ToString()) (eliminatedSystem.ToString()))]))
                 | _ ->
                     let solvedSystem = eliminatedSystem.IsolateVariable(sym).SimplifyLogical() |> SymbolismExt.heuristicSimplify
                     match solvedSystem with
@@ -550,7 +556,13 @@ let solveCap (con : ConstraintCap) (terminalCaps : string list) : Map<string, Ca
                         if b.``val`` then
                             (env, symbolsSolvedSoFar)
                         else
-                            raise <| TypeError (sprintf "Error when solving the system of equations for the solution of %s. The system of equations is insolvable. Relevant capacity constraints which led to this situation are:\n%s\n\nThe system of equations is the following: %s\n\nWhen isolated and solve this resulted in the following system of equations: %s" sym.name (relevantErrors.Force()) (symbolismEq.ToString()) (solvedSystem.ToString()))
+                            raise <|
+                                TypeError
+                                    ([Error.ErrMsg (sprintf "Error when solving the system of equations for the solution of %s. The system of equations is insolvable. Relevant capacity constraints which led to this situation are:" sym.name)]
+                                    @
+                                    relevantErrors.Force()
+                                    @
+                                    ([Error.ErrMsg (sprintf "The system of equations is the following: %s\n\nWhen isolated and solve this resulted in the following system of equations: %s" (symbolismEq.ToString()) (solvedSystem.ToString()))]))
                     | _ ->
                         match SymbolismExt.extractSolution solvedSystem sym with
                         | Some solution ->
@@ -560,15 +572,27 @@ let solveCap (con : ConstraintCap) (terminalCaps : string list) : Map<string, Ca
                                 (env', sym::symbolsSolvedSoFar)
                             with
                             | :? EquationConversionError ->
-                                raise <| TypeError (sprintf "Error when converting the equation for the solution of %s. The solution could not be written in terms of basic arithmetic operations. Relevant capacity constraints which led to this solution are:\n%s\n\nThe system of equations is the following: %s\n\nWhen isolated and solve this resulted in the following system of equations: %s" sym.name (relevantErrors.Force()) (symbolismEq.ToString()) (solvedSystem.ToString()))
+                                raise <|
+                                    TypeError
+                                        ([Error.ErrMsg (sprintf "Error when converting the equation for the solution of %s. The solution could not be written in terms of basic arithmetic operations. Relevant capacity constraints which led to this solution are:" sym.name)]
+                                        @
+                                        relevantErrors.Force()
+                                        @
+                                        ([Error.ErrMsg (sprintf "The system of equations is the following: %s\n\nWhen isolated and solve this resulted in the following system of equations: %s" (symbolismEq.ToString()) (solvedSystem.ToString()))]))
                         | None ->
                             if solvedSystem.Has(sym) then
-                                raise <| TypeError (sprintf "Unable to extract solution from the system of equations for %s. Relevant capacity constraints which led to this situation are:\n%s\n\nThe system of equations is the following: %s.\n\nWhen isolated and solve this resulted in the following system of equations: %s" sym.name (relevantErrors.Force()) (symbolismEq.ToString()) (solvedSystem.ToString()))
+                                raise <|
+                                    TypeError
+                                        ([Error.ErrMsg (sprintf "Unable to extract solution from the system of equations for %s. Relevant capacity constraints which led to this situation are:" sym.name)]
+                                        @
+                                        relevantErrors.Force()
+                                        @
+                                        ([Error.ErrMsg (sprintf "The system of equations is the following: %s.\n\nWhen isolated and solve this resulted in the following system of equations: %s" (symbolismEq.ToString()) (solvedSystem.ToString()))]))
                             else
                                 (env, symbolsSolvedSoFar)
                 with
                 | :? System.Exception as exc ->
-                    raise <| TypeError (sprintf "An exception was thrown while eliminating variables or isolating them when running the capacity solver system. The exception was: %s" (exc.ToString())))
+                    raise <| TypeError [Error.ErrMsg (sprintf "An exception was thrown while eliminating variables or isolating them when running the capacity solver system. The exception was: %s" (exc.ToString()))])
         (Map.empty, []) |>
     fst
 
@@ -613,7 +637,7 @@ let rec solve (con : Constraint) (terminalCaps : string list) : Map<string, TyEx
                         let (theta2, capCon2, intConst2) = solveTheta (consubst theta1 Map.empty right)
                         (composeTheta theta2 theta1, AndCap (capCon1, capCon2), List.append intConst1 intConst2)
                     | Equal (tau, tau', err) ->
-                        let failMsg = lazy (sprintf "Type error: The types %s and %s are not equal.\n\n%s" (typeString tau) (typeString tau') (err.Force()))
+                        let failMsg = lazy ([Error.ErrMsg (sprintf "Type error: The types %s and %s are not equal." (typeString tau) (typeString tau'))] @ err.Force())
                         match (tau, tau') with
                         | ((TyVar a, tau) | (tau, TyVar a)) ->
                             match solveTyvarEq a tau with
@@ -672,7 +696,7 @@ let rec solve (con : Constraint) (terminalCaps : string list) : Map<string, TyEx
                 List.map
                     (fun (tau, constraintType, failMsg) ->
                         let tau' = tycapsubst thetaSolution Map.empty tau
-                        let failMsg' = lazy (sprintf "Interface constraint error: The type %s does not satisfy the %s constraint.\n\n%s" (typeString tau') (interfaceConstraintString constraintType) (failMsg.Force()))
+                        let failMsg' = lazy ([Error.ErrMsg (sprintf "Interface constraint error: The type %s does not satisfy the %s constraint." (typeString tau') (interfaceConstraintString constraintType))] @ failMsg.Force())
                         match tau' with
                         | TyVar v ->
                             let constraintType' =
@@ -695,11 +719,11 @@ let rec solve (con : Constraint) (terminalCaps : string list) : Map<string, TyEx
                                     match Map.tryFind fieldName fields with
                                     | Some recordFieldTau ->
                                         let fieldTau' = tycapsubst thetaSolution Map.empty fieldTau
-                                        (None, Some (recordFieldTau =~= (fieldTau', lazy (sprintf "Record interface constraint error: The concrete type of the field named %s does not match the type of the constraint.\n\n%s" fieldName (failMsg.Force())))))
+                                        (None, Some (recordFieldTau =~= (fieldTau', lazy ([Error.ErrMsg (sprintf "Record interface constraint error: The concrete type of the field named %s does not match the type of the constraint." fieldName)] @ failMsg.Force()))))
                                     | None ->
-                                        raise <| TypeError (sprintf "Record interface constraint error: The concrete record type %s does not contain a field named %s, as required by the record interface constraint.\n\n%s" (typeString tau') fieldName (failMsg.Force()))
+                                        raise <| TypeError ([Error.ErrMsg (sprintf "Record interface constraint error: The concrete record type %s does not contain a field named %s, as required by the record interface constraint." (typeString tau') fieldName)] @ failMsg.Force())
                                 | _ ->
-                                    raise <| TypeError (sprintf "Record interface constraint error: The concrete type was determined to be %s, which is not a record. However there is a field constraint, requiring that this type has a field with name %s.\n\n%s" (typeString tau') fieldName (failMsg.Force()))
+                                    raise <| TypeError ([Error.ErrMsg (sprintf "Record interface constraint error: The concrete type was determined to be %s, which is not a record. However there is a field constraint, requiring that this type has a field with name %s." (typeString tau') fieldName)] @ failMsg.Force())
                             | _ -> raise <| TypeError (failMsg'.Force())) |>
                 List.unzip
             let extraInterfaceConstraints' = extraInterfaceConstraints |> List.filter Option.isSome |> List.map Option.get |> conjoinConstraints
@@ -726,7 +750,7 @@ let rec solve (con : Constraint) (terminalCaps : string list) : Map<string, TyEx
                                 taus |>
                                 List.map
                                     (fun (t', errMsg') ->
-                                        (t =~= (t', lazy (sprintf "Contradictory record field constraint for field name %s\n\n%s\n\n%s" fieldName (errMsg.Force()) (errMsg'.Force()))))))) |>
+                                        (t =~= (t', lazy ([Error.ErrMsg (sprintf "Contradictory record field constraint for field name %s" fieldName)] @ errMsg.Force() @ errMsg'.Force())))))) |>
                 Seq.concat |> // Flatten the constraints generated per type variable
                 Seq.concat |> // Flatten the constraints generated per field
                 List.ofSeq |>

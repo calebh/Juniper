@@ -621,7 +621,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
             List.map (fun (module_, fname) ->
                 match nameInModule module_ with
                 | Some name -> Ast.unwrap name
-                | None -> raise <| SemanticError (sprintf "Semantic error in %s: The module does not contain exactly one module declaration." fname))
+                | None -> raise <| SemanticError [Error.ErrMsg (sprintf "Semantic error in %s: The module does not contain exactly one module declaration." fname)])
         Map.ofList (List.zip names program)
     
     // valueDecsSet is a set of all fully qualified value declarations in all modules
@@ -655,7 +655,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                 ) Map.empty names
             | dups ->
                 let dupsStr = String.concat ", " dups
-                raise <| SemanticError (sprintf "Semantic error in module %s: The following declarations have duplicate definitions: %s" modName dupsStr)
+                raise <| SemanticError [Error.ErrMsg (sprintf "Semantic error in module %s: The following declarations have duplicate definitions: %s" modName dupsStr)]
         ) program)
 
         let modNamesToMenvs0 = Map.ofList (List.zip (List.map (nameInModule >> Option.get >> Ast.unwrap) program) menvs0)
@@ -666,7 +666,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
             List.fold (fun menv1 nameToMerge ->
                 match Map.tryFind nameToMerge modNamesToMenvs0 with
                 | Some menv' -> Map.merge menv' menv1 
-                | None -> raise <| SemanticError (sprintf "Semantic error: Module %s opens %s, which does not exist." modName nameToMerge)
+                | None -> raise <| SemanticError [Error.ErrMsg (sprintf "Semantic error: Module %s opens %s, which does not exist." modName nameToMerge)]
             ) menv0 allOpens
         ) modNamesToMenvs0)
     
@@ -827,10 +827,10 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                 let sccStr = lazy (scc.Vertices |> Seq.map (fun (m, n) -> sprintf "%s:%s" m n) |> String.concat ", ")
                 // Check for mutually recursive types
                 if Seq.length scc.Vertices > 1 then
-                    raise <| TypeError (sprintf "Semantic error: The following type declarations form an unresolvable dependency cycle: %s" (sccStr.Force()))
+                    raise <| TypeError [Error.ErrMsg (sprintf "Semantic error: The following type declarations form an unresolvable dependency cycle: %s" (sccStr.Force()))]
                 // Check for self-referential types
                 elif Seq.length scc.Edges > 0 then
-                    raise <| TypeError (sprintf "Semantic error: The following type refers to itself: %s" (sccStr.Force())))
+                    raise <| TypeError [Error.ErrMsg (sprintf "Semantic error: The following type refers to itself: %s" (sccStr.Force()))])
         typeGraph.TopologicalSort() |> Seq.rev |> List.ofSeq
 
     let includeDecs = 
@@ -910,7 +910,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                     (fun decref ->
                         if isLet (Ast.unwrap (Map.find decref denv)) then
                             let (module_, name) = decref
-                            raise <| TypeError (sprintf "Semantic error: The let named '%s' in module '%s' has a self reference. The following declarations form an unresolvable dependency cycle: %s" name module_ sccStr)
+                            raise <| TypeError [Error.ErrMsg (sprintf "Semantic error: The let named '%s' in module '%s' has a self reference. The following declarations form an unresolvable dependency cycle: %s" name module_ sccStr)]
                         else
                             ()))
     
@@ -1236,7 +1236,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
                                 | [] -> ()
                                 | badFreeVar::_ ->
                                     let (_, errMsg)::_ = Map.find badFreeVar interfaceConstraints
-                                    raise <| TypeError (sprintf "Too much polymorphism! A polymorphic interface constraint was detected containing a type variable that would not be reified by fixing either the argument types or return types. Consider adding a type constraint to fix the source of this problem.\n\n%s" (errMsg.Force()))
+                                    raise <| TypeError ([Error.ErrMsg (sprintf "Too much polymorphism! A polymorphic interface constraint was detected containing a type variable that would not be reified by fixing either the argument types or return types. Consider adding a type constraint to fix the source of this problem.")] @ errMsg.Force())
                                 let (freeTyVarsInBody, freeCapVarsInBody) = AstAnalysis.findFreeVars theta kappa body'
                                 match Set.difference (List.map A.unwrap freeTyVarsInBody |> Set.ofList) funDepsTs' |> List.ofSeq with
                                 | [] -> ()

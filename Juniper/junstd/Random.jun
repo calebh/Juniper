@@ -21,11 +21,11 @@ include("<Arduino.h>")
     Returns:
         A random number in the range [low, high)
 */
-fun random_(low : int32, high : int32) : int32 = (
+fun random_(low : int32, high : int32) : int32 = {
     let mutable ret : int32 = 0;
     #ret = random(low, high);#;
-    ret
-)
+    ret;
+}
 
 /*
     Function: seed
@@ -62,7 +62,7 @@ fun seed(n : uint32) : unit = #randomSeed(n);#
     Returns:
         A random element from the list
 */
-fun choice(lst : list<t;n>) : t = (
+fun choice(lst : list<t;n>) : t = {
     let i : int32 = random_(0, u32ToI32(lst.length));
-    List:nth(i32ToU32(i), lst)
-)
+    List:nth(i32ToU32(i), lst);
+}

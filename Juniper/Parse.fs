@@ -45,7 +45,6 @@ type LeftRecursiveLeftAssign = ArrayMutationIndex of PosAdorn<Expr>
                              | RecordMutationField of PosAdorn<string>
 
 let (templateApply, templateApplyRef) = createParserForwardedToRef()
-let (elifList, elifListRef) = createParserForwardedToRef()
 let (pattern, patternRef) = createParserForwardedToRef()
 
 let opp = new OperatorPrecedenceParser<PosAdorn<Expr>, Position, unit>()
@@ -235,7 +234,7 @@ let tyExpr = typOpp.ExpressionParser
 let record =
     pipe2
         ((skipString "packed" |> pos |> opt) .>> ws .>> skipChar '{' .>> ws)
-        (separatedList ((pos id .>> ws .>> skipChar ':' .>> ws) .>>. tyExpr) ';' |> pos .>> ws .>> skipChar '}' .>> ws)
+        (separatedList ((pos id .>> ws .>> skipChar ':' .>> ws) .>>. tyExpr) ',' |> pos .>> ws .>> skipChar '}' .>> ws)
         (fun packed fields -> { packed=packed; fields=fields })
 
 // leftRecursiveTyp
@@ -355,7 +354,7 @@ do
             (fun (posm, modQual) innerPattern ->
                 MatchValCon {name=(posm, Choice2Of2 modQual); innerPattern=innerPattern}) |> pos
     let underscorePattern = skipChar '_' |> pos |>> MatchUnderscore |> pos
-    let recordPattern = (skipChar '{' >>. ws >>. (separatedList (pos id .>>. (ws >>. skipChar '=' >>. pattern .>> ws)) ';' |> pos .>> ws .>> skipChar '}' .>> ws)) |>> MatchRecCon |> pos
+    let recordPattern = (skipChar '{' >>. ws >>. (separatedList (pos id .>>. (ws >>. skipChar '=' >>. pattern .>> ws)) ',' |> pos .>> ws .>> skipChar '}' .>> ws)) |>> MatchRecCon |> pos
     let unitPattern = skipString "()" |> pos |>> MatchUnit |> pos
     let parensPattern = betweenChar '(' pattern ')'
     let tuplePattern = betweenChar '(' (separatedList pattern ',') ')' |> pos |>> MatchTuple |> pos
@@ -406,22 +405,6 @@ let leftRecursiveExp =
     let unsafeTypeCast = skipString "::::" >>. ws >>. tyExpr |>> UnsafeTypeCastType
     [callArgs; arrayIndex; unsafeTypeCast; typeConstraint; fieldAccessName] |> choice |> pos .>> ws |> many
 
-// elifList
-do
-    let elseEnd = pstring "else" >>. ws >>. expr .>> ws .>> pstring "end"
-    let pelif =
-        pipe3
-            (pstring "elif" >>. ws >>. expr .>> ws)
-            (pstring "then" >>. ws >>. expr .>> ws)
-            elifList
-            (fun condition trueBranch falseBranch ->
-                IfElseExp {
-                    condition=condition;
-                    trueBranch=trueBranch;
-                    falseBranch=falseBranch
-                }) |> pos
-    elifListRef := choice [elseEnd; pelif]
-
 let inlineCpp =
     let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '#')
     let escapedChar = pstring "\\" >>. (anyOf "\\#" |>> string)
@@ -446,13 +429,13 @@ do
                (fun (posN, (num, constructor)) -> constructor (posN, num))
     let charlist = pos (stringLiteral '\'' true) |>> CharListLiteral
     let str = pos (stringLiteral '"' true) |>> StringLiteral
-    let seq = betweenChar '(' (((expr .>> ws .>> skipChar ';' .>> ws) .>>. fatalizeAnyError (separatedList expr ';')) |> pos) ')' |>> (fun (overallPos, (firstExpr, restExprs)) -> SequenceExp (overallPos, firstExpr::restExprs))
+    let seq = betweenChar '{' (((expr .>> ws .>> skipChar ';' .>> ws) .>>. fatalizeAnyError (many (expr .>> ws .>> skipChar ';' .>> ws))) |> pos) '}' |>> (fun (overallPos, (firstExpr, restExprs)) -> SequenceExp (overallPos, firstExpr::restExprs))
     let quit = skipString "quit" >>. ws >>. (fatalizeAnyError (opt (skipChar '<' >>. ws >>. tyExpr .>> ws .>> skipChar '>') .>> ws .>> skipChar '(' .>> ws .>> skipChar ')')) |>> QuitExp
     let pIf =
         pipe3
-            ((attempt (skipString "if" >>. ws1)) >>. fatalizeAnyError (expr .>> ws))
-            (fatalizeAnyError (skipString "then" >>. ws >>. expr .>> ws))
-            (fatalizeAnyError elifList)
+            ((attempt (skipString "if" >>. ws)) >>. skipChar '(' >>. ws >>. fatalizeAnyError (expr .>> ws) .>> ws .>> skipChar ')' .>> ws)
+            (fatalizeAnyError (expr .>> ws))
+            (fatalizeAnyError (skipString "else" >>. ws >>. expr .>> ws))
             (fun condition trueBranch falseBranch ->
                 IfElseExp {
                     condition = condition;
@@ -505,13 +488,20 @@ do
             (fatalizeAnyError (sepBy1 (matchClause .>> ws) (skipString "," .>> ws)) |> pos .>> ws .>> pstring "}" .>> ws)
             (fun on clauses ->
                 CaseExp {on=on; clauses=clauses})
-    let recordExpr =
-        let fieldList = separatedList ((pos id .>> ws) .>>. (skipChar '=' >>. ws >>. expr)) ';'
+    let fieldp = (pos id .>> ws) .>>. (skipChar '=' >>. ws >>. expr)
+    let recordExpr1 =
         pipe2
             ((skipString "packed") |> pos |> opt .>> ws)
-            (betweenChar '{' (ws >>. fieldList .>> ws) '}' |> pos)
+            (betweenChar '{' (ws >>. (fieldp |>> fun field -> [field]) .>> ws) '}' |> pos)
             (fun packed fields ->
                 RecordExp {packed=packed; initFields=fields})
+    let recordExprMany =
+        let fieldList = separatedList1 ((pos id .>> ws) .>>. (skipChar '=' >>. ws >>. expr)) ','
+        pipe2
+            ((skipString "packed") |> pos |> opt .>> ws)
+            ((attempt (skipChar '{' >>. ws >>. ((fieldp .>> ws .>> skipChar ',' .>> ws)))) .>>. (fatalizeAnyError (fieldList .>> ws .>> skipChar '}' .>> ws)) |> pos)
+            (fun packed (fieldsPos, (firstField, remainingFields)) ->
+                RecordExp {packed=packed; initFields=(fieldsPos, firstField::remainingFields)})
     let arrayLiteral = betweenChar '[' (separatedList expr ',') ']' |> pos |>> ArrayLitExp
     let pref = (attempt (pstring "ref" >>. ws1)) >>. (fatalizeAnyError expr) |>> RefExp
     let modQual = moduleQualifier |> pos |>> ModQualifierExp
@@ -528,7 +518,7 @@ do
     //let sizeofexp = skipString "sizeof" >>. ws >>. fatalizeAnyError (betweenChar '(' tyExpr ')') 
     let e = choice ([punit; attempt parens; ptrue; pfalse; nullexp; charlist; str;
                     attempt pfloating; pint; smartpointer;
-                    fn; quit; attempt tuple; attempt recordExpr; seq;
+                    fn; quit; attempt tuple; attempt recordExpr1; recordExprMany; seq;
                     attempt modQual; forLoop; doWhileLoop; whileLoop;
                     pLet; pVar; pIf; assign; match_;
                     arrayLiteral; pref; arrayMake; inlineCpp'; varReference]) .>> ws |> pos

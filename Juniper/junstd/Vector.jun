@@ -95,14 +95,14 @@ fun get(i : uint32, v : vector<a;n>) : a =
     Returns:
         The sum of the two vectors
 */
-fun add(v1 : vector<a;n>, v2 : vector<a;n>) : vector<a;n> where a : num = (
+fun add(v1 : vector<a;n>, v2 : vector<a;n>) : vector<a;n> where a : num = {
     let mutable result = v1;
-    for i : int32 in 0 to n - 1 do (
+    for i : int32 in 0 to n - 1 do {
         set result.data[i] = (result.data[i] : a) + (v2.data[i] : a);
-        ()
-    ) end;
-    result
-)
+        ();
+    } end;
+    result;
+}
 
 /*
     Function: zero
@@ -133,14 +133,14 @@ fun zero() : vector<a;n> where a : num =
     Returns:
         The vector difference v1-v2
 */
-fun subtract(v1 : vector<a;n>, v2 : vector<a;n>) : vector<a;n> where a : num = (
+fun subtract(v1 : vector<a;n>, v2 : vector<a;n>) : vector<a;n> where a : num = {
     let mutable result = v1;
-    for i : int32 in 0 to n - 1 do (
+    for i : int32 in 0 to n - 1 do {
         set result.data[i] = (result.data[i] : a) - (v2.data[i] : a);
-        ()
-    ) end;
-    result
-)
+        ();
+    } end;
+    result;
+}
 
 /*
     Function: scale
@@ -157,14 +157,14 @@ fun subtract(v1 : vector<a;n>, v2 : vector<a;n>) : vector<a;n> where a : num = (
     Returns:
         The result of scalar*v
 */
-fun scale(scalar : a, v : vector<a;n>) : vector<a;n> where a : num = (
+fun scale(scalar : a, v : vector<a;n>) : vector<a;n> where a : num = {
     let mutable result = v;
-    for i : int32 in 0 to n - 1 do (
+    for i : int32 in 0 to n - 1 do {
         set result.data[i] = (result.data[i] : a) * scalar;
-        ()
-    ) end;
-    result
-)
+        ();
+    } end;
+    result;
+}
 
 /*
     Function: dot
@@ -181,14 +181,14 @@ fun scale(scalar : a, v : vector<a;n>) : vector<a;n> where a : num = (
     Returns:
         The result of v1 dot v2
 */
-fun dot(v1 : vector<a;n>, v2 : vector<a;n>) : a where a : num = (
+fun dot(v1 : vector<a;n>, v2 : vector<a;n>) : a where a : num = {
     let mutable sum : a = 0;
-    for i : int32 in 0 to n - 1 do (
+    for i : int32 in 0 to n - 1 do {
         set sum = sum + (v1.data[i] * v2.data[i]);
-        ()
-    ) end;
-    sum
-)
+        ();
+    } end;
+    sum;
+}
 
 /*
     Function: magnitude2
@@ -204,14 +204,14 @@ fun dot(v1 : vector<a;n>, v2 : vector<a;n>) : a where a : num = (
     Returns:
         The square magnitude of the vector
 */
-fun magnitude2(v : vector<a;n>) : a where a : num = (
+fun magnitude2(v : vector<a;n>) : a where a : num = {
     let mutable sum : a = 0;
-    for i : int32 in 0 to n - 1 do (
+    for i : int32 in 0 to n - 1 do {
         set sum = sum + (v.data[i] * v.data[i]);
-        ()
-    ) end;
-    sum
-)
+        ();
+    } end;
+    sum;
+}
 
 /*
     Function: magnitude
@@ -245,14 +245,14 @@ fun magnitude(v : vector<a;n>) : double where a : num =
     Returns:
         The vector formed by elementwise multiplication of the two vectors
 */
-fun multiply(u : vector<a;n>, v : vector<a;n>) : vector<a;n> where a : num = (
+fun multiply(u : vector<a;n>, v : vector<a;n>) : vector<a;n> where a : num = {
     let mutable result = u;
-    for i : int32 in 0 to n - 1 do (
+    for i : int32 in 0 to n - 1 do {
         set result.data[i] = (result.data[i] : a) * (v.data[i] : a);
-        ()
-    ) end;
-    result
-)
+        ();
+    } end;
+    result;
+}
 
 /*
     Function: normalize
@@ -268,19 +268,19 @@ fun multiply(u : vector<a;n>, v : vector<a;n>) : vector<a;n> where a : num = (
     Returns:
         The normalized vector
 */
-fun normalize(v : vector<a;n>) : vector<a;n> where a : num = (
+fun normalize(v : vector<a;n>) : vector<a;n> where a : num = {
     let mag = magnitude(v);
-    if mag > (0 : a) then (
+    if (mag > (0 : a)) {
         let mutable result = v;
-        for i : int32 in 0 to n - 1 do (
+        for i : int32 in 0 to n - 1 do {
             set result.data[i] = fromDouble(toDouble(result.data[i]) / mag);
-            ()
-        ) end;
-        result
-    ) else
-        v
-    end
-)
+            ();
+        } end;
+        result;
+    } else {
+        v;
+    };
+}
 
 /*
     Function: angle
@@ -335,10 +335,10 @@ fun cross(u : vector<a;3>, v : vector<a;3>) : vector<a;3> where a : num =
     Returns:
         The result of projecting vector a onto vector b
 */
-fun project(a : vector<z;n>, b : vector<z;n>) : vector<z;n> where z : num = (
+fun project(a : vector<z;n>, b : vector<z;n>) : vector<z;n> where z : num = {
     let bn = normalize(b);
-    scale(dot(a, bn), bn)
-)
+    scale(dot(a, bn), bn);
+}
 
 /*
     Function: projectPlane

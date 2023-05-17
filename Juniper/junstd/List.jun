@@ -24,14 +24,14 @@ open(Prelude)
    Returns:
         The list obtained by applying f to every element of lst.
 */
-fun map(f : (closure)(a) -> b, lst : list<a; n>) : list<b; n> = (
+fun map(f : (closure)(a) -> b, lst : list<a; n>) : list<b; n> = {
     let mutable ret = array b[n] end;
-    for i : uint32 in 0u32 to lst.length - 1u32 do (
+    for i : uint32 in 0u32 to lst.length - 1u32 do {
         set ret[i] = f(lst.data[i]);
-        ()
-    ) end;
-    {data=ret; length=lst.length}
-)
+        ();
+    } end;
+    {data=ret, length=lst.length};
+}
 
 /*
     Function: foldl
@@ -50,14 +50,14 @@ fun map(f : (closure)(a) -> b, lst : list<a; n>) : list<b; n> = (
     Returns:
         The final state value.
 */
-fun foldl(f : (closure)(t, state) -> state, initState : state, lst : list<t; n>) : state = (
+fun foldl(f : (closure)(t, state) -> state, initState : state, lst : list<t; n>) : state = {
     let mutable s = initState;
-    for i : uint32 in 0u32 to lst.length - 1u32 do (
+    for i : uint32 in 0u32 to lst.length - 1u32 do {
         set s = f(lst.data[i], s);
-        ()
-    ) end;
-    s
-)
+        ();
+    } end;
+    s;
+}
 
 /*
     Function: foldr
@@ -77,14 +77,14 @@ fun foldl(f : (closure)(t, state) -> state, initState : state, lst : list<t; n>)
     Returns:
         The final state value.
 */
-fun foldr(f : (closure)(t, state) -> state, initState : state, lst : list<t; n>) : state = (
+fun foldr(f : (closure)(t, state) -> state, initState : state, lst : list<t; n>) : state = {
     let mutable s = initState;
-    for i : uint32 in lst.length - 1u32 downto 0u32 do (
+    for i : uint32 in lst.length - 1u32 downto 0u32 do {
         set s = f(lst.data[i], s);
-        ()
-    ) end;
-    s
-)
+        ();
+    } end;
+    s;
+}
 
 /*
     Function: append
@@ -101,21 +101,21 @@ fun foldr(f : (closure)(t, state) -> state, initState : state, lst : list<t; n>)
    Returns:
         The two lists appended together.
 */
-fun append(lstA : list<t;aCap>, lstB : list<t;bCap>) : list<t;retCap> = (
+fun append(lstA : list<t;aCap>, lstB : list<t;bCap>) : list<t;retCap> = {
     let mutable j : uint32 = 0u32;
-    let mutable out = {data=array t[retCap] end; length=lstA.length + lstB.length};
-    for i : uint32 in 0u32 to lstA.length - 1u32 do (
+    let mutable out = {data=array t[retCap] end, length=lstA.length + lstB.length};
+    for i : uint32 in 0u32 to lstA.length - 1u32 do {
         set out.data[j] = (lstA.data[i] : t);
         set j = j + 1u32;
-        ()
-    ) end;
-    for i : uint32 in 0u32 to lstB.length - 1u32 do (
+        ();
+    } end;
+    for i : uint32 in 0u32 to lstB.length - 1u32 do {
         set out.data[j] = (lstB.data[i] : t);
         set j = j + 1u32;
-        ()
-    ) end;
-    out
-)
+        ();
+    } end;
+    out;
+}
 
 /*
     Function: nth
@@ -133,11 +133,11 @@ fun append(lstA : list<t;aCap>, lstB : list<t;bCap>) : list<t;retCap> = (
         The element at position i in the list
 */
 fun nth(i : uint32, lst : list<t;n>) : t =
-    if i < (lst.length : uint32) then
-        lst.data[i]
-    else
-        quit<t>()
-    end
+    if (i < (lst.length : uint32)) {
+        lst.data[i];
+    } else {
+        quit<t>();
+    }
 
 /*
     Function: flattenSafe
@@ -154,18 +154,18 @@ fun nth(i : uint32, lst : list<t;n>) : t =
         The flattened list
 */
 
-fun flattenSafe(listOfLists : list<list<t;m>;n>) : list<t;m*n> = (
+fun flattenSafe(listOfLists : list<list<t;m>;n>) : list<t;m*n> = {
     let mutable ret = array t[m*n] end;
     let mutable index : uint32 = 0u32;
     for i : uint32 in 0u32 to listOfLists.length - 1u32 do
-        for j : uint32 in 0u32 to (listOfLists.data[i] : list<t;m>).length - 1u32 do (
+        for j : uint32 in 0u32 to (listOfLists.data[i] : list<t;m>).length - 1u32 do {
             set ret[index] = (listOfLists.data[i] : list<t;m>).data[j];
             set index = ((index + 1u32) : uint32);
-            ()
-        ) end
+            ();
+        } end
     end;
-    {data=ret; length=index}
-)
+    {data=ret, length=index};
+}
 
 
 /*
@@ -183,14 +183,14 @@ fun flattenSafe(listOfLists : list<list<t;m>;n>) : list<t;m*n> = (
     Returns:
         The new list with capacity m
 */
-fun resize(lst : list<t;n>) : list<t;m> = (
+fun resize(lst : list<t;n>) : list<t;m> = {
     let mutable ret = array t[m] end;
-    for i : uint32 in 0u32 to lst.length - 1u32 do (
+    for i : uint32 in 0u32 to lst.length - 1u32 do {
         set ret[i] = lst.data[i];
-        ()
-    ) end;
-    {data=ret; length=lst.length}
-)
+        ();
+    } end;
+    {data=ret, length=lst.length};
+}
 
 /*
     Function: all
@@ -209,18 +209,18 @@ fun resize(lst : list<t;n>) : list<t;m> = (
         A boolean value which determines if pred satsified for every element of
         lst.
 */
-fun all(pred : (closure)(t) -> bool, lst : list<t;n>) : bool = (
+fun all(pred : (closure)(t) -> bool, lst : list<t;n>) : bool = {
     let mutable satisfied = true;
     for i : uint32 in 0u32 to lst.length - 1u32 do
-        if satisfied then
-            (set satisfied = pred(lst.data[i]);
-            ())
-        else
-            ()
-        end
+        if (satisfied) {
+            set satisfied = pred(lst.data[i]);
+            ();
+        } else {
+            ();
+        }
     end;
-    satisfied
-)
+    satisfied;
+}
 
 /*
     Function: any
@@ -239,18 +239,18 @@ fun all(pred : (closure)(t) -> bool, lst : list<t;n>) : bool = (
         A boolean value which determines if pred is satsified for some element
         of lst.
 */
-fun any(pred : (closure)(t) -> bool, lst : list<t;n>) : bool = (
+fun any(pred : (closure)(t) -> bool, lst : list<t;n>) : bool = {
     let mutable satisfied = false;
     for i : uint32 in 0u32 to lst.length - 1u32 do
-        if !satisfied then
-            (set satisfied = pred(lst.data[i]);
-            ())
-        else
-            ()
-        end
+        if (!satisfied) {
+            set satisfied = pred(lst.data[i]);
+            ();
+        } else {
+            ();
+        }
     end;
-    satisfied
-)
+    satisfied;
+}
 
 /*
     Function: pushBack
@@ -268,16 +268,15 @@ fun any(pred : (closure)(t) -> bool, lst : list<t;n>) : bool = (
     Returns:
         A copy of lst with elem appended to the end
 */
-fun pushBack(elem : t, lst : list<t;n>) : list<t;n> = (
-    if (lst.length : uint32) >= n then
-        quit<list<t;n>>()
-    else (
+fun pushBack(elem : t, lst : list<t;n>) : list<t;n> =
+    if ((lst.length : uint32) >= n) {
+        quit<list<t;n>>();
+    } else {
         let mutable ret = lst;
         set ret.data[lst.length : uint32] = elem;
         set ret.length = lst.length + 1u32;
-        ret
-    ) end
-)
+        ret;
+    }
 
 /*
     Function: pushOffFront
@@ -296,20 +295,20 @@ fun pushBack(elem : t, lst : list<t;n>) : list<t;n> = (
     Returns:
         A copy of lst with elem appended to the front
 */
-fun pushOffFront(elem : t, lst : list<t;n>) : list<t;n> = (
+fun pushOffFront(elem : t, lst : list<t;n>) : list<t;n> = {
     let mutable ret = lst;
-    for i : int32 in n - 2i32 downto 0i32 do (
+    for i : int32 in n - 2i32 downto 0i32 do {
         set ret.data[i + 1i32] = (ret.data[i] : t);
-        ()
-    ) end;
+        ();
+    } end;
     set ret.data[0u32] = elem;
-    if ret.length == i32ToU32(n) then
-        ret
-    else
-        (set ret.length = lst.length + 1u32;
-        ret)
-    end
-)
+    if (ret.length == i32ToU32(n)) {
+        ret;
+    } else {
+        set ret.length = lst.length + 1u32;
+        ret;
+    };
+}
 
 /*
     Function: setNth
@@ -329,13 +328,13 @@ fun pushOffFront(elem : t, lst : list<t;n>) : list<t;n> = (
         A new list where the elem is at index.
 */
 fun setNth(index : uint32, elem : t, lst : list<t;n>) : list<t;n> =
-    if (lst.length : uint32) <= index then
-        quit<list<t;n>>()
-    else
-        (let mutable ret = lst;
+    if ((lst.length : uint32) <= index) {
+        quit<list<t;n>>();
+    } else {
+        let mutable ret = lst;
         set ret.data[index] = elem;
-        ret)
-    end
+        ret;
+    }
 
 /*
     Function: replicate
@@ -353,7 +352,7 @@ fun setNth(index : uint32, elem : t, lst : list<t;n>) : list<t;n> =
         A new list with elem at every position in the list.
 */
 fun replicate(numOfElements : uint32, elem : t) : list<t;n> =
-    {data = array t[n] of elem end; length = numOfElements}
+    {data = array t[n] of elem end, length = numOfElements}
 
 /*
     Function: remove
@@ -371,30 +370,30 @@ fun replicate(numOfElements : uint32, elem : t) : list<t;n> =
     Returns:
         A copy of lst with elem removed.
 */
-fun remove(elem : t, lst : list<t;n>) : list<t;n> = (
+fun remove(elem : t, lst : list<t;n>) : list<t;n> = {
     let mutable index : uint32 = 0u32;
     let mutable found = false;
     for i : uint32 in 0u32 to lst.length - 1u32 do
-        if (!found) && (lst.data[i] == elem) then (
+        if ((!found) && (lst.data[i] == elem)) {
             set index = i;
             set found = true;
-            ()
-        ) else
-            ()
-        end
+            ();
+        } else {
+            ();
+        }
     end;
-    if found then
-        (let mutable ret = lst;
+    if (found) {
+        let mutable ret = lst;
         set ret.length = lst.length - 1u32;
-        for i : uint32 in index to lst.length - 2u32 do (
+        for i : uint32 in index to lst.length - 2u32 do {
             set ret.data[i] = lst.data[i + 1u32];
-            ()
-        ) end;
-        ret)
-    else
-        lst
-    end
-)
+            ();
+        } end;
+        ret;
+    } else {
+        lst;
+    };
+}
 
 /*
     Function: dropLast
@@ -411,16 +410,15 @@ fun remove(elem : t, lst : list<t;n>) : list<t;n> = (
     Returns:
         The list with the last element dropped
 */
-fun dropLast(lst : list<t;n>) : list<t;n> = (
-    if lst.length == 0u32 then
-        quit<list<t;n>>()
-    else
+fun dropLast(lst : list<t;n>) : list<t;n> =
+    if (lst.length == 0u32) {
+        quit<list<t;n>>();
+    } else {
         {
-            data = lst.data;
+            data = lst.data,
             length = lst.length - 1u32
-        }
-    end
-)
+        };
+    }
 
 /*
     Function: foreach
@@ -459,11 +457,11 @@ fun foreach(f : (closure)(t) -> unit, lst : list<t;n>) : unit =
         The last element of the list
 */
 fun last(lst : list<t;n>) : t =
-    if lst.length == 0 then
-        quit<t>()
-    else
-        lst.data[lst.length - 1u32]
-    end
+    if (lst.length == 0) {
+        quit<t>();
+    } else {
+        lst.data[lst.length - 1u32];
+    }
 
 /*
     Function: max_
@@ -481,20 +479,20 @@ fun last(lst : list<t;n>) : t =
         The maximum element of the list
 */
 fun max_(lst : list<t;n>) : t where t : num =
-    if (lst.length == 0u32) || (n == 0i32) then
-        quit<t>()
-    else (
+    if ((lst.length == 0u32) || (n == 0i32)) {
+        quit<t>();
+    } else {
         let mutable maxVal : t = lst.data[0u32];
         for i : uint32 in 1u32 to lst.length - 1u32 do
-            if (lst.data[i] : t) > maxVal then (
+            if ((lst.data[i] : t) > maxVal) {
                 set maxVal = lst.data[i];
-                ()
-            ) else
-                ()
-            end
+                ();
+            } else {
+                ();
+            }
         end;
-        maxVal
-    ) end
+        maxVal;
+    }
 
 
 /*
@@ -513,20 +511,20 @@ fun max_(lst : list<t;n>) : t where t : num =
         The minimum element of the list
 */
 fun min_(lst : list<t;n>) : t =
-    if (lst.length == 0u32) || (n == 0i32) then
-        quit<t>()
-    else (
+    if ((lst.length == 0u32) || (n == 0i32)) {
+        quit<t>();
+    } else {
         let mutable minVal : t = lst.data[0u32];
         for i : uint32 in 1u32 to lst.length - 1u32 do
-            if (lst.data[i] : t) < minVal then (
+            if ((lst.data[i] : t) < minVal) {
                 set minVal = lst.data[i];
-                ()
-            ) else
-                ()
-            end
+                ();
+            } else {
+                ();
+            }
         end;
-        minVal
-    ) end
+        minVal;
+    }
 
 
 /*
@@ -544,18 +542,18 @@ fun min_(lst : list<t;n>) : t =
     Returns:
         True if elem is in the list, otherwise false.
 */
-fun member(elem : t, lst : list<t;n>) : bool = (
+fun member(elem : t, lst : list<t;n>) : bool = {
     let mutable found = false;
     for i : uint32 in 0u32 to lst.length - 1u32 do
-        if (!found) && (lst.data[i] == elem) then (
+        if ((!found) && (lst.data[i] == elem)) {
             set found = true;
-            ()
-        ) else
-            ()
-        end
+            ();
+        } else {
+            ();
+        }
     end;
-    found
-)
+    found;
+}
 
 /*
     Function: zip
@@ -576,19 +574,19 @@ fun member(elem : t, lst : list<t;n>) : bool = (
         The zipped lists.
 */
 fun zip(lstA : list<a;n>, lstB : list<b;n>) : list<a*b;n> =
-    if (lstA.length : uint32) == lstB.length then
-        (let mutable ret = {
-            data = array (a*b)[n] end;
+    if ((lstA.length : uint32) == lstB.length) {
+        let mutable ret = {
+            data = array (a*b)[n] end,
             length = lstA.length
         };
-        for i : uint32 in 0u32 to lstA.length do (
+        for i : uint32 in 0u32 to lstA.length do {
             set ret.data[i] = (lstA.data[i] : a, lstB.data[i] : b);
-            ()
-        ) end;
-        ret)
-    else
-        quit<list<a*b;n>>()
-    end
+            ();
+        } end;
+        ret;
+    } else {
+        quit<list<a*b;n>>();
+    }
 
 /*
     Function: unzip
@@ -606,23 +604,23 @@ fun zip(lstA : list<a;n>, lstB : list<b;n>) : list<a*b;n> =
     Returns:
         The two unzipped lists.
 */
-fun unzip(lst : list<a*b; n>) : list<a;n>*list<b;n> = (
+fun unzip(lst : list<a*b; n>) : list<a;n>*list<b;n> = {
     let mutable retA = {
-        data = array a[n] end;
+        data = array a[n] end,
         length = lst.length
     };
     let mutable retB = {
-        data = array b[n] end;
+        data = array b[n] end,
         length = lst.length
     };
-    for i : uint32 in 0u32 to lst.length - 1u32 do (
+    for i : uint32 in 0u32 to lst.length - 1u32 do {
         let (a, b) = lst.data[i];
         set retA.data[i] = a;
         set retB.data[i] = b;
-        ()
-    ) end;
-    (retA, retB)
-)
+        ();
+    } end;
+    (retA, retB);
+}
 
 /*
     Function: sum

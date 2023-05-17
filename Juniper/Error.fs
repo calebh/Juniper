@@ -2,8 +2,6 @@
 open FParsec
 open System.IO
 
-//exception TypeError of (string * string)
-
 type ErrStr = ErrMsg of string
             | PosMsg of string
 

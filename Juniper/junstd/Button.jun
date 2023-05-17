@@ -10,7 +10,7 @@ open(Prelude, Io)
 
     The buttonState type is used by the debounce functions to store state.
 
-    | alias buttonState = { actualState : pinState; lastState : pinState; lastDebounceTime : uint32 }
+    | alias buttonState = { actualState : pinState, lastState : pinState, lastDebounceTime : uint32 }
 
     Members:
         actualState : Io:pinState - The actual state of the button
@@ -18,7 +18,7 @@ open(Prelude, Io)
             update)
         lastDebounceTime : uint32 - The last debounce time
 */
-alias buttonState = { actualState : pinState; lastState : pinState; lastDebounceTime : uint32 }
+alias buttonState = { actualState : pinState, lastState : pinState, lastDebounceTime : uint32 }
 
 /*
     Function: state
@@ -32,9 +32,8 @@ alias buttonState = { actualState : pinState; lastState : pinState; lastDebounce
     Returns:
         A new <buttonState>
 */
-fun state() : buttonState ref = (
-    ref { actualState = Io:low(); lastState = Io:low(); lastDebounceTime = 0 }
-)
+fun state() : buttonState ref =
+    ref { actualState = Io:low(), lastState = Io:low(), lastDebounceTime = 0 }
 
 /*
     Function: debounceDelay
@@ -59,27 +58,27 @@ fun state() : buttonState ref = (
         Io:risingEdge, Io:fallingEdge, Io:edge
 */
 fun debounceDelay(incoming : sig<pinState>, delay : uint16, buttonState : buttonState ref) : sig<pinState> =
-    Signal:map(fn (currentState : pinState) : pinState ->
-        (let {actualState=actualState;
-              lastState=lastState;
-              lastDebounceTime=lastDebounceTime} = *buttonState;
-        if currentState != lastState then
-            (set * buttonState = { actualState = actualState;
-                                     lastState = currentState;
-                                     lastDebounceTime = Time:now() };
-            actualState)
-        elif (currentState != actualState) && ((Time:now() - (*buttonState).lastDebounceTime) > delay) then
-            (set * buttonState = { actualState = currentState;
-                                     lastState = currentState;
-                                     lastDebounceTime = lastDebounceTime};
-            currentState)
-        else
-            (set * buttonState = { actualState = actualState;
-                                     lastState = currentState;
-                                     lastDebounceTime = lastDebounceTime };
-            actualState)
-        end)
-    end, incoming)
+    Signal:map(fn (currentState : pinState) : pinState -> {
+        let {actualState=actualState,
+             lastState=lastState,
+             lastDebounceTime=lastDebounceTime} = *buttonState;
+        if (currentState != lastState) {
+            set *buttonState = { actualState = actualState,
+                                 lastState = currentState,
+                                 lastDebounceTime = Time:now() };
+            actualState;
+        } else if ((currentState != actualState) && ((Time:now() - (*buttonState).lastDebounceTime) > delay)) {
+            set *buttonState = { actualState = currentState,
+                                 lastState = currentState,
+                                 lastDebounceTime = lastDebounceTime};
+            currentState;
+        } else {
+            set *buttonState = { actualState = actualState,
+                                 lastState = currentState,
+                                 lastDebounceTime = lastDebounceTime };
+            actualState;
+        };
+    } end, incoming)
 
 /*
     Function: debounce

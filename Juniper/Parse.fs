@@ -331,7 +331,7 @@ let floatParser =
 do
     let varPattern =
         pipe3
-            (pstring "mutable" |> opt |>> Option.isSome |> pos .>> ws)
+            (pstring "mut" |> opt |>> Option.isSome |> pos .>> ws)
             (pos id .>> ws)
             (skipChar ':' >>. ws >>. tyExpr |> opt .>> ws)
             (fun mut name typ ->

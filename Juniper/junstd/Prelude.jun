@@ -606,7 +606,7 @@ fun swap(tup) = {
         a0: a - The initial value to supply to the function
 */
 fun until(p : (closureP)(a) -> bool, f : (closureF)(a) -> a, a0 : a) : a = {
-    let mutable a = a0;
+    let mut a = a0;
     while !p(a) do {
         set a = f(a);
         ();

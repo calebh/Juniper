@@ -22,7 +22,7 @@ include("<Arduino.h>")
         A random number in the range [low, high)
 */
 fun random_(low : int32, high : int32) : int32 = {
-    let mutable ret : int32 = 0;
+    let mut ret : int32 = 0;
     #ret = random(low, high);#;
     ret;
 }

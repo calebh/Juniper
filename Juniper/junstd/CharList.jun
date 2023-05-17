@@ -113,10 +113,10 @@ fun length(s : list<uint8; n>) : uint32 =
         The two lists appended together.
 */
 fun concat(sA : charlist<;aCap>, sB : charlist<;bCap>) : charlist<;retCap> = {
-    let mutable j : uint32 = 0;
+    let mut j : uint32 = 0;
     let lenA = length(sA);
     let lenB = length(sB);
-    let mutable out = {data=array uint8[retCap+1] of 0u8 end,
+    let mut out = {data=array uint8[retCap+1] of 0u8 end,
                        length=lenA + lenB + 1};
     for i : uint32 in 0 to lenA - 1 do {
         set out.data[j] = sA.data[i] : uint8;

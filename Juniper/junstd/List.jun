@@ -25,7 +25,7 @@ open(Prelude)
         The list obtained by applying f to every element of lst.
 */
 fun map(f : (closure)(a) -> b, lst : list<a; n>) : list<b; n> = {
-    let mutable ret = array b[n] end;
+    let mut ret = array b[n] end;
     for i : uint32 in 0u32 to lst.length - 1u32 do {
         set ret[i] = f(lst.data[i]);
         ();
@@ -51,7 +51,7 @@ fun map(f : (closure)(a) -> b, lst : list<a; n>) : list<b; n> = {
         The final state value.
 */
 fun foldl(f : (closure)(t, state) -> state, initState : state, lst : list<t; n>) : state = {
-    let mutable s = initState;
+    let mut s = initState;
     for i : uint32 in 0u32 to lst.length - 1u32 do {
         set s = f(lst.data[i], s);
         ();
@@ -78,7 +78,7 @@ fun foldl(f : (closure)(t, state) -> state, initState : state, lst : list<t; n>)
         The final state value.
 */
 fun foldr(f : (closure)(t, state) -> state, initState : state, lst : list<t; n>) : state = {
-    let mutable s = initState;
+    let mut s = initState;
     for i : uint32 in lst.length - 1u32 downto 0u32 do {
         set s = f(lst.data[i], s);
         ();
@@ -102,8 +102,8 @@ fun foldr(f : (closure)(t, state) -> state, initState : state, lst : list<t; n>)
         The two lists appended together.
 */
 fun append(lstA : list<t;aCap>, lstB : list<t;bCap>) : list<t;retCap> = {
-    let mutable j : uint32 = 0u32;
-    let mutable out = {data=array t[retCap] end, length=lstA.length + lstB.length};
+    let mut j : uint32 = 0u32;
+    let mut out = {data=array t[retCap] end, length=lstA.length + lstB.length};
     for i : uint32 in 0u32 to lstA.length - 1u32 do {
         set out.data[j] = (lstA.data[i] : t);
         set j = j + 1u32;
@@ -155,8 +155,8 @@ fun nth(i : uint32, lst : list<t;n>) : t =
 */
 
 fun flattenSafe(listOfLists : list<list<t;m>;n>) : list<t;m*n> = {
-    let mutable ret = array t[m*n] end;
-    let mutable index : uint32 = 0u32;
+    let mut ret = array t[m*n] end;
+    let mut index : uint32 = 0u32;
     for i : uint32 in 0u32 to listOfLists.length - 1u32 do
         for j : uint32 in 0u32 to (listOfLists.data[i] : list<t;m>).length - 1u32 do {
             set ret[index] = (listOfLists.data[i] : list<t;m>).data[j];
@@ -184,7 +184,7 @@ fun flattenSafe(listOfLists : list<list<t;m>;n>) : list<t;m*n> = {
         The new list with capacity m
 */
 fun resize(lst : list<t;n>) : list<t;m> = {
-    let mutable ret = array t[m] end;
+    let mut ret = array t[m] end;
     for i : uint32 in 0u32 to lst.length - 1u32 do {
         set ret[i] = lst.data[i];
         ();
@@ -210,7 +210,7 @@ fun resize(lst : list<t;n>) : list<t;m> = {
         lst.
 */
 fun all(pred : (closure)(t) -> bool, lst : list<t;n>) : bool = {
-    let mutable satisfied = true;
+    let mut satisfied = true;
     for i : uint32 in 0u32 to lst.length - 1u32 do
         if (satisfied) {
             set satisfied = pred(lst.data[i]);
@@ -240,7 +240,7 @@ fun all(pred : (closure)(t) -> bool, lst : list<t;n>) : bool = {
         of lst.
 */
 fun any(pred : (closure)(t) -> bool, lst : list<t;n>) : bool = {
-    let mutable satisfied = false;
+    let mut satisfied = false;
     for i : uint32 in 0u32 to lst.length - 1u32 do
         if (!satisfied) {
             set satisfied = pred(lst.data[i]);
@@ -272,7 +272,7 @@ fun pushBack(elem : t, lst : list<t;n>) : list<t;n> =
     if ((lst.length : uint32) >= n) {
         quit<list<t;n>>();
     } else {
-        let mutable ret = lst;
+        let mut ret = lst;
         set ret.data[lst.length : uint32] = elem;
         set ret.length = lst.length + 1u32;
         ret;
@@ -296,7 +296,7 @@ fun pushBack(elem : t, lst : list<t;n>) : list<t;n> =
         A copy of lst with elem appended to the front
 */
 fun pushOffFront(elem : t, lst : list<t;n>) : list<t;n> = {
-    let mutable ret = lst;
+    let mut ret = lst;
     for i : int32 in n - 2i32 downto 0i32 do {
         set ret.data[i + 1i32] = (ret.data[i] : t);
         ();
@@ -331,7 +331,7 @@ fun setNth(index : uint32, elem : t, lst : list<t;n>) : list<t;n> =
     if ((lst.length : uint32) <= index) {
         quit<list<t;n>>();
     } else {
-        let mutable ret = lst;
+        let mut ret = lst;
         set ret.data[index] = elem;
         ret;
     }
@@ -371,8 +371,8 @@ fun replicate(numOfElements : uint32, elem : t) : list<t;n> =
         A copy of lst with elem removed.
 */
 fun remove(elem : t, lst : list<t;n>) : list<t;n> = {
-    let mutable index : uint32 = 0u32;
-    let mutable found = false;
+    let mut index : uint32 = 0u32;
+    let mut found = false;
     for i : uint32 in 0u32 to lst.length - 1u32 do
         if ((!found) && (lst.data[i] == elem)) {
             set index = i;
@@ -383,7 +383,7 @@ fun remove(elem : t, lst : list<t;n>) : list<t;n> = {
         }
     end;
     if (found) {
-        let mutable ret = lst;
+        let mut ret = lst;
         set ret.length = lst.length - 1u32;
         for i : uint32 in index to lst.length - 2u32 do {
             set ret.data[i] = lst.data[i + 1u32];
@@ -482,7 +482,7 @@ fun max_(lst : list<t;n>) : t where t : num =
     if ((lst.length == 0u32) || (n == 0i32)) {
         quit<t>();
     } else {
-        let mutable maxVal : t = lst.data[0u32];
+        let mut maxVal : t = lst.data[0u32];
         for i : uint32 in 1u32 to lst.length - 1u32 do
             if ((lst.data[i] : t) > maxVal) {
                 set maxVal = lst.data[i];
@@ -514,7 +514,7 @@ fun min_(lst : list<t;n>) : t =
     if ((lst.length == 0u32) || (n == 0i32)) {
         quit<t>();
     } else {
-        let mutable minVal : t = lst.data[0u32];
+        let mut minVal : t = lst.data[0u32];
         for i : uint32 in 1u32 to lst.length - 1u32 do
             if ((lst.data[i] : t) < minVal) {
                 set minVal = lst.data[i];
@@ -543,7 +543,7 @@ fun min_(lst : list<t;n>) : t =
         True if elem is in the list, otherwise false.
 */
 fun member(elem : t, lst : list<t;n>) : bool = {
-    let mutable found = false;
+    let mut found = false;
     for i : uint32 in 0u32 to lst.length - 1u32 do
         if ((!found) && (lst.data[i] == elem)) {
             set found = true;
@@ -575,7 +575,7 @@ fun member(elem : t, lst : list<t;n>) : bool = {
 */
 fun zip(lstA : list<a;n>, lstB : list<b;n>) : list<a*b;n> =
     if ((lstA.length : uint32) == lstB.length) {
-        let mutable ret = {
+        let mut ret = {
             data = array (a*b)[n] end,
             length = lstA.length
         };
@@ -605,11 +605,11 @@ fun zip(lstA : list<a;n>, lstB : list<b;n>) : list<a*b;n> =
         The two unzipped lists.
 */
 fun unzip(lst : list<a*b; n>) : list<a;n>*list<b;n> = {
-    let mutable retA = {
+    let mut retA = {
         data = array a[n] end,
         length = lst.length
     };
-    let mutable retB = {
+    let mut retB = {
         data = array b[n] end,
         length = lst.length
     };

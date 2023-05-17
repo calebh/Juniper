@@ -58,7 +58,7 @@ fun state() : buttonState ref =
         Io:risingEdge, Io:fallingEdge, Io:edge
 */
 fun debounceDelay(incoming : sig<pinState>, delay : uint16, buttonState : buttonState ref) : sig<pinState> =
-    Signal:map(fn (currentState : pinState) : pinState -> {
+    Signal:map((currentState : pinState) : pinState => {
         let {actualState=actualState,
              lastState=lastState,
              lastDebounceTime=lastDebounceTime} = *buttonState;
@@ -78,7 +78,7 @@ fun debounceDelay(incoming : sig<pinState>, delay : uint16, buttonState : button
                                  lastDebounceTime = lastDebounceTime };
             actualState;
         };
-    } end, incoming)
+    }, incoming)
 
 /*
     Function: debounce

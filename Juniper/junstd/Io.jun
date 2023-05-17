@@ -393,7 +393,7 @@ fun digIn(pin : uint16) : sig<pinState> =
         <digWrite>
 */
 fun digOut(pin : uint16, sig : sig<pinState>) : unit =
-    Signal:sink(fn (value : pinState) : unit -> digWrite(pin, value) end, sig)
+    Signal:sink((value : pinState) : unit => digWrite(pin, value), sig)
 
 /*
     Function: anaRead
@@ -473,7 +473,7 @@ fun anaIn(pin : uint16) : sig<uint16> =
         Unit
 */
 fun anaOut(pin : uint16, sig : sig<uint8>) : unit =
-    Signal:sink(fn (value : uint8) : unit -> anaWrite(pin, value) end, sig)
+    Signal:sink((value : uint8) : unit => anaWrite(pin, value), sig)
 
 
 /*
@@ -553,14 +553,14 @@ fun setPinMode(pin : uint16, m : mode) : unit = {
 */
 fun risingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
     Signal:toUnit(
-        Signal:filter(fn (currState : pinState) : bool -> {
+        Signal:filter((currState : pinState) : bool => {
             let ret =
                 match (currState, *prevState) {
                     (high(), low()) => false,
                     _ => true
                 };
             set *prevState = currState;
-            ret;} end, sig))
+            ret;}, sig))
 
 /*
     Function: fallingEdge
@@ -581,14 +581,14 @@ fun risingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
 */
 fun fallingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
     Signal:toUnit(
-        Signal:filter(fn (currState : pinState) : bool -> {
+        Signal:filter((currState : pinState) : bool => {
             let ret = 
                 match (currState, *prevState) {
                     (low(), high()) => false,
                     _ => true
                 };
             set *prevState = currState;
-            ret;} end, sig))
+            ret;}, sig))
 
 /*
     Function: edge
@@ -608,7 +608,7 @@ fun fallingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
         edge.
 */
 fun edge(sig : sig<pinState>, prevState : pinState ref) : sig<pinState> =
-    Signal:filter(fn (currState : pinState) : bool -> {
+    Signal:filter((currState : pinState) : bool => {
         let ret =
             match (currState, *prevState) {
                 (high(), low()) => false,
@@ -616,4 +616,4 @@ fun edge(sig : sig<pinState>, prevState : pinState ref) : sig<pinState> =
                 _ => true
             };
         set *prevState = currState;
-        ret;} end, sig)
+        ret;}, sig)

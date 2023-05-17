@@ -144,7 +144,7 @@ fun extractptr(p : pointer) : rawpointer = {
         A composed function equivalent to f(g(x))
 */
 fun compose(f : (closureF)(b) -> c, g : (closureG)(a) -> b) : (|f : (closureF)(b) -> c; g : (closureG)(a) -> b|)(a) -> c =
-    fn (x : a) : c -> f(g(x)) end
+    (x : a) : c => f(g(x))
 
 /*
     Function: curry
@@ -161,11 +161,9 @@ fun compose(f : (closureF)(b) -> c, g : (closureG)(a) -> b) : (|f : (closureF)(b
         A curried function
 */
 fun curry(f : (closure)(a, b) -> c) : (|f : (closure)(a, b) -> c|)(a) -> (|valueA : a; f : (closure)(a, b) -> c|)(b) -> c =
-    fn (valueA : a) ->
-        fn (valueB : b) : c ->
+    (valueA : a) =>
+        (valueB : b) : c =>
             f(valueA, valueB)
-        end
-    end
 
 /*
     Function: uncurrcy
@@ -182,9 +180,8 @@ fun curry(f : (closure)(a, b) -> c) : (|f : (closure)(a, b) -> c|)(a) -> (|value
         A uncurried function
 */
 fun uncurry(f : (closureA)(a) -> (closureB)(b) -> c) : (|f : (closureA)(a) -> (closureB)(b) -> c|)(a, b) -> c =
-    fn (valueA, valueB) ->
+    (valueA, valueB) =>
         f(valueA)(valueB)
-    end
 
 /*
     Function: curry3
@@ -201,13 +198,10 @@ fun uncurry(f : (closureA)(a) -> (closureB)(b) -> c) : (|f : (closureA)(a) -> (c
         A curried function
 */
 fun curry3(f : (closureF)(a, b, c) -> d) : (|f : (closureF)(a, b, c) -> d|)(a) -> (|f : (closureF)(a, b, c) -> d; valueA : a|)(b) -> (|f : (closureF)(a, b, c) -> d; valueA : a; valueB : b|)(c) -> d =
-    fn (valueA : a) ->
-        fn (valueB : b) ->
-            fn (valueC : c) ->
+    (valueA : a) =>
+        (valueB : b) =>
+            (valueC : c) =>
                 f(valueA, valueB, valueC)
-            end
-        end
-    end
 
 /*
     Function: uncurry3
@@ -224,9 +218,8 @@ fun curry3(f : (closureF)(a, b, c) -> d) : (|f : (closureF)(a, b, c) -> d|)(a) -
         An uncurried function
 */
 fun uncurry3(f : (closureA)(a) -> (closureB)(b) -> (closureC)(c) -> d) : (|f : (closureA)(a) -> (closureB)(b) -> (closureC)(c) -> d|)(a, b, c) -> d =
-    fn (valueA, valueB, valueC) ->
+    (valueA, valueB, valueC) =>
         f(valueA)(valueB)(valueC)
-    end
 
 /*
     Function: eq

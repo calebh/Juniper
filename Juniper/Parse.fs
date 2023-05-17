@@ -391,10 +391,10 @@ let functionClause delimiter =
                                  (skipString "packed") |> pos |>> IsPacked]
     let interfaceConstraints =
         (skipString "where" >>. ws >>. (separatedList (pos (tyExpr .>> ws .>> skipChar ':' .>> ws .>>. pos constraintType) .>> ws) ',') .>> ws) |> opt |>> Option.flattenList |> pos
-    let body = skipString delimiter >>. ws >>. expr
-    pipe4 arguments returnTy interfaceConstraints body
-        (fun a r c b ->
-            {returnTy = r; arguments = a; body = b; interfaceConstraints=c})
+    let body = (attempt (skipString delimiter)) >>? ws >>? (fatalizeAnyError expr)
+    (attempt arguments) .>>.? (attempt returnTy) .>>.? (attempt interfaceConstraints) .>>.? body |>>
+    (fun (((a, r), c), b) ->
+        {returnTy = r; arguments = a; body = b; interfaceConstraints=c})
 
 // leftRecursiveExp
 let leftRecursiveExp =
@@ -480,7 +480,7 @@ do
             (attempt (pstring "while" >>. ws1) >>. fatalizeAnyError (expr .>> ws .>> pstring "do" .>> ws))
             (fatalizeAnyError (expr .>> ws .>> pstring "end"))
             (fun condition body -> WhileLoopExp {condition=condition; body=body})
-    let fn = (attempt (skipString "fn" >>. ws1)) >>. fatalizeAnyError (functionClause "->" .>> ws .>> skipString "end") |> pos |>> LambdaExp
+    let fn = (functionClause "=>" .>> ws) |>> (fun clause -> LambdaExp ((TypedAst.dummyPos, TypedAst.dummyPos), clause))
     let match_ =
         let matchClause = (pattern .>> ws) .>>. (pstring "=>" >>. ws >>. expr)
         pipe2
@@ -516,9 +516,9 @@ do
     let smartpointer = (skipString "smartpointer" >>. ws >>. fatalizeAnyError ((skipChar '(' >>. expr .>> ws .>> skipChar ',' .>> ws) .>>. (expr .>> ws .>> skipChar ')'))) |>> Smartpointer
     let nullexp = (skipString "null" |> pos |>> NullExp) .>> ws
     //let sizeofexp = skipString "sizeof" >>. ws >>. fatalizeAnyError (betweenChar '(' tyExpr ')') 
-    let e = choice ([punit; attempt parens; ptrue; pfalse; nullexp; charlist; str;
+    let e = choice ([punit; ptrue; pfalse; nullexp; charlist; str;
                     attempt pfloating; pint; smartpointer;
-                    fn; quit; attempt tuple; attempt recordExpr1; recordExprMany; seq;
+                    fn; attempt parens; quit; attempt tuple; attempt recordExpr1; recordExprMany; seq;
                     attempt modQual; forLoop; doWhileLoop; whileLoop;
                     pLet; pVar; pIf; assign; match_;
                     arrayLiteral; pref; arrayMake; inlineCpp'; varReference]) .>> ws |> pos

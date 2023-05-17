@@ -117,15 +117,14 @@ fun mergeMany(sigs : list<sig<a>;n>) : sig<a> = {
     let ret =
         sigs |>
         List:foldl(
-            fn (sig, accum) ->
+            (sig, accum) =>
                 match accum {
                     nothing() => {
                         let signal(heldValue) = sig;
                         heldValue;
                     },
                     _ => accum
-                }
-            end,
+                },
             nothing()
         );
     signal(ret);
@@ -177,7 +176,7 @@ fun join(sigA : sig<a>, sigB : sig<b>) : sig<either<a,b>> =
         A signal of units.
 */
 fun toUnit(s : sig<a>) : sig<unit> =
-    map(fn (x : a) : unit -> () end, s)
+    map((x : a) : unit => (), s)
 
 /*
     Function: foldP
@@ -228,7 +227,7 @@ fun foldP(f : (closure)(a,state) -> state, state0 : state ref, incoming : sig<a>
 */
 fun dropRepeats(maybePrevValue : maybe<a> ref, incoming : sig<a>) : sig<a> =
     filter(
-        fn (value : a) : bool -> {
+        (value : a) : bool => {
             let filtered =
                 match *maybePrevValue {
                     nothing() => false,
@@ -241,7 +240,7 @@ fun dropRepeats(maybePrevValue : maybe<a> ref, incoming : sig<a>) : sig<a> =
                 ();
             };
             filtered;
-        } end,
+        },
         incoming)
 
 /*
@@ -416,9 +415,9 @@ fun unmeta(sigA : sig<maybe<a>>) : sig<a> =
 */
 fun zip(state : (a * b) ref, sigA : sig<a>, sigB : sig<b>) : sig<(a * b)> =
     map2(
-        fn (valA : a, valB : b) : (a * b) ->
-            (valA, valB)
-        end, state, sigA, sigB)
+        (valA : a, valB : b) : (a * b) =>
+            (valA, valB),
+        state, sigA, sigB)
 
 /*
     Function: unzip
@@ -464,10 +463,11 @@ fun unzip(incoming : sig<a*b>) : sig<a>*sig<b> =
 */
 fun toggle(val1 : a, val2 : a, state : a ref, incoming : sig<b>) : sig<a> =
     incoming |>
-    foldP(fn (event, prevVal) ->
-              if (prevVal == val1) {
-                  val2;
-              } else {
-                  val1;
-              }
-          end, state)
+    foldP(
+        (event, prevVal) =>
+            if (prevVal == val1) {
+                val2;
+            } else {
+                val1;
+            },
+        state)

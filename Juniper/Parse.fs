@@ -16,6 +16,9 @@ let multiLineComment = skipString "/*" >>. skipCharsTillString "*/" true System.
 let ws = spaces .>> (choice [singleLineComment; multiLineComment] >>. spaces |> many)
 let ws1 = (spaces1 <|> singleLineComment <|> multiLineComment) .>> spaces .>> (choice [singleLineComment; multiLineComment] >>. spaces |> many)
 
+let pipe3' p1 p2 p3 f =
+    p1 .>>.? p2 .>>.? p3 |>> (fun ((a, b), c) -> f a b c)
+
 let pipe6 p1 p2 p3 p4 p5 p6 f = 
     pipe5 p1 p2 p3 p4 (tuple2 p5 p6)
           (fun x1 x2 x3 x4 (x5, x6) -> f x1 x2 x3 x4 x5 x6)
@@ -40,9 +43,6 @@ type LeftRecursiveExp = CallArgs of PosAdorn<PosAdorn<Expr> list>
 type LeftRecursiveTyp = ArrayTyCap of PosAdorn<CapacityExpr>
                       | RefTyRef of PosAdorn<unit>
                       | ApplyTyTemplate of PosAdorn<TemplateApply>
-
-type LeftRecursiveLeftAssign = ArrayMutationIndex of PosAdorn<Expr>
-                             | RecordMutationField of PosAdorn<string>
 
 let (templateApply, templateApplyRef) = createParserForwardedToRef()
 let (pattern, patternRef) = createParserForwardedToRef()
@@ -104,45 +104,50 @@ let prefix str precidence op f opp =
             (overallPos,  f (opPos, op) term))
         opp
 
-List.iter
-    (fun f -> f  (fun l op r -> BinaryOpExp {left=l; right=r; op=op}) opp)
-    [infix "|>" 1 Pipe Associativity.Left;
-    infix "||"  2 LogicalOr Associativity.Left;
-    infix "&&" 3 LogicalAnd Associativity.Left;
-    infix "|" 4 BitwiseOr Associativity.Left;
-    infix "^" 5 BitwiseXor Associativity.Left;
-    infix "&" 6 BitwiseAnd Associativity.Left;
-    infix "=="  7 Equal Associativity.Left;
-    infix "!="  7 NotEqual Associativity.Left;
-    infix "<"   8 Less Associativity.None;
-    infix ">"   8 Greater Associativity.None;
-    infix "<="  8 LessOrEqual Associativity.None;
-    infix ">="  8 GreaterOrEqual Associativity.None;
-    infix ">>" 9 BitshiftRight Associativity.Left;
-    infix "<<" 9 BitshiftLeft Associativity.Left;
-    infix "+"   10 Add Associativity.Left;
-    infix "-"   10 Subtract Associativity.Left;
-    infix "*"   11 Multiply Associativity.Left;
-    infix "/"   11 Divide Associativity.Left;
-    infix "%"   11 Modulo Associativity.Left]
+do
+    infix "=" 1 () Associativity.Right (fun l op r -> AssignExp { left = ConvertAst.convertToLHS l; right=r}) opp
 
 List.iter
+    // f here is the partially applied infix function
+    (fun f -> f (fun l op r -> BinaryOpExp {left=l; right=r; op=op}) opp)
+    [infix "|>" 2 Pipe Associativity.Left;
+    infix "||"  3 LogicalOr Associativity.Left;
+    infix "&&" 4 LogicalAnd Associativity.Left;
+    infix "|" 5 BitwiseOr Associativity.Left;
+    infix "^" 6 BitwiseXor Associativity.Left;
+    infix "&" 7 BitwiseAnd Associativity.Left;
+    infix "=="  8 Equal Associativity.Left;
+    infix "!="  8 NotEqual Associativity.Left;
+    infix "<"   9 Less Associativity.None;
+    infix ">"   9 Greater Associativity.None;
+    infix "<="  9 LessOrEqual Associativity.None;
+    infix ">="  9 GreaterOrEqual Associativity.None;
+    infix ">>" 10 BitshiftRight Associativity.Left;
+    infix "<<" 10 BitshiftLeft Associativity.Left;
+    infix "+"   11 Add Associativity.Left;
+    infix "-"   11 Subtract Associativity.Left;
+    infix "*"   12 Multiply Associativity.Left;
+    infix "/"   12 Divide Associativity.Left;
+    infix "%"   12 Modulo Associativity.Left]
+
+List.iter
+    // f here is the partially applied prefix function
     (fun f -> f (fun op term -> UnaryOpExp {op=op; exp=term}) opp)
-    [prefix "-"  12 Negate;
-    prefix "~" 12 BitwiseNot;
-    prefix "!" 12 LogicalNot;
-    prefix "*" 12 Deref]
+    [prefix "-"  13 Negate;
+    prefix "~" 13 BitwiseNot;
+    prefix "!" 13 LogicalNot;
+    prefix "*" 13 Deref]
 
 List.iter
     (fun f -> f (fun l op r -> CapacityOp {left=l; op=op; right=r}) capOpp)
-    [infix "+" 10 CapAdd Associativity.Left;
-    infix "-"  10 CapSubtract Associativity.Left;
-    infix "*"  11 CapMultiply Associativity.Left;
-    infix "/"  11 CapDivide Associativity.Left]
+    [infix "+" 11 CapAdd Associativity.Left;
+    infix "-"  11 CapSubtract Associativity.Left;
+    infix "*"  12 CapMultiply Associativity.Left;
+    infix "/"  12 CapDivide Associativity.Left]
 
 List.iter
     (fun f -> f (fun op term -> CapacityUnaryOp {op=op; term=term}) capOpp)
-    [prefix "-" 11 CapNegate]
+    [prefix "-" 12 CapNegate]
 
 infix "*" 1 () Associativity.Left
     (fun l _ r ->
@@ -363,24 +368,6 @@ do
                           underscorePattern; recordPattern; unitPattern;
                           attempt tuplePattern; parensPattern; varPattern])
 
-// leftRecursiveLeftAssign
-let leftRecursiveLeftAssign =
-    let arrayMutationIndex = betweenChar '[' expr ']' |>> ArrayMutationIndex
-    let recordMutationField = skipChar '.' >>. pos id |>> RecordMutationField
-    choice [arrayMutationIndex; recordMutationField] |> pos .>> ws |> many
-
-let leftAssign =
-    let varMutation = id |> pos |>> VarMutation
-    let modQualifierMutation = moduleQualifier |> pos |>> ModQualifierMutation
-    let term = (varMutation <|> modQualifierMutation) |> pos .>> ws
-    leftRecurse
-        term
-        leftRecursiveLeftAssign
-        (fun term chainElem ->
-            match chainElem with
-            | ArrayMutationIndex index -> ArrayMutation {array=term; index=index}
-            | RecordMutationField fname -> RecordMutation {record=term; fieldName=fname})
-
 let functionClause delimiter =
     let arguments = betweenChar '(' (separatedList (pos id .>>. opt (ws >>. skipChar ':' >>. ws >>. tyExpr)) ',' |> pos) ')' .>> ws
     let returnTy = opt (skipChar ':' >>. ws >>. tyExpr .>> ws) .>> ws
@@ -454,12 +441,6 @@ do
             (fatalizeAnyError (skipChar ':' >>. ws >>. tyExpr))
             (fun varName ty ->
                 DeclVarExp { varName = varName; typ = ty} )
-    let assign =
-        pipe3
-            ((attempt (skipString "set" >>. ws1)) >>. (fatalizeAnyError (skipString "*" |> opt |>> Option.isSome |> pos) .>> ws))
-            (fatalizeAnyError (leftAssign .>> ws .>> skipChar '=' .>> ws))
-            (fatalizeAnyError expr)
-            (fun ref_ left right -> AssignExp {left=left; right=right; ref=ref_})
     let forLoop =
         pipe6
             ((attempt (pstring "for" >>. ws1)) >>. fatalizeAnyError (pos id .>> ws))
@@ -520,7 +501,7 @@ do
                     attempt pfloating; pint; smartpointer;
                     fn; attempt parens; quit; attempt tuple; attempt recordExpr1; recordExprMany; seq;
                     attempt modQual; forLoop; doWhileLoop; whileLoop;
-                    pLet; pVar; pIf; assign; match_;
+                    pLet; pVar; pIf; match_;
                     arrayLiteral; pref; arrayMake; inlineCpp'; varReference]) .>> ws |> pos
     opp.TermParser <-
         leftRecurse

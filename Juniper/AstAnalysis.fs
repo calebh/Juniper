@@ -166,6 +166,8 @@ let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
             | Some modqual when Set.contains modqual valueDecs ->
                 Set.singleton modqual
             | _ -> Set.empty
+        | Ast.RefMutation (_, expr) ->
+            d localVars expr
 
     and d localVars e =
         let d' = d localVars
@@ -316,6 +318,8 @@ let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.Capa
             append2 ([freeVarsLeftAssign pos array; ffv index] |> List.unzip)
         | T.RecordMutation {record=record} ->
             freeVarsLeftAssign pos record
+        | T.RefMutation exp ->
+            ffv exp
 
     let rec freeVarsPattern ((pos, _, pat) : T.TyAdorn<T.Pattern>) =
         match pat with

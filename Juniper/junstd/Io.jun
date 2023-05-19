@@ -559,7 +559,7 @@ fun risingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
                     (high(), low()) => false,
                     _ => true
                 };
-            set *prevState = currState;
+            *prevState = currState;
             ret;}, sig))
 
 /*
@@ -587,7 +587,7 @@ fun fallingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
                     (low(), high()) => false,
                     _ => true
                 };
-            set *prevState = currState;
+            *prevState = currState;
             ret;}, sig))
 
 /*
@@ -615,5 +615,5 @@ fun edge(sig : sig<pinState>, prevState : pinState ref) : sig<pinState> =
                 (low(), high()) => false,
                 _ => true
             };
-        set *prevState = currState;
+        *prevState = currState;
         ret;}, sig)

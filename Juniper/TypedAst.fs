@@ -129,7 +129,7 @@ and BinaryOpRec =     { left : TyAdorn<Expr>; op : BinaryOps; right : TyAdorn<Ex
 and IfElseRec =       { condition : TyAdorn<Expr>; trueBranch : TyAdorn<Expr>; falseBranch : TyAdorn<Expr> }
 and LetRec =          { left : TyAdorn<Pattern>; right : TyAdorn<Expr> }
 // Variable assign
-and AssignRec =       { left : TyAdorn<LeftAssign>; right : TyAdorn<Expr>; ref : bool }
+and AssignRec =       { left : TyAdorn<LeftAssign>; right : TyAdorn<Expr> }
 and ForLoopRec =      { typ : TyExpr; varName : string; start : TyAdorn<Expr>; direction : Direction; end_ : TyAdorn<Expr>; body : TyAdorn<Expr> }
 and WhileLoopRec =    { condition : TyAdorn<Expr>; body : TyAdorn<Expr> }
 and DoWhileLoopRec =  { condition : TyAdorn<Expr>; body: TyAdorn<Expr> }
@@ -209,6 +209,7 @@ and LeftAssign = VarMutation of string
                | ModQualifierMutation of ModQualifierRec
                | ArrayMutation of ArrayMutationRec
                | RecordMutation of RecordMutationRec
+               | RefMutation of TyAdorn<Expr>
 
 // Takes in a wrapped AST object, returns the object within the TyAdorn.
 let unwrap<'a> ((_, _, c) : TyAdorn<'a>) = c
@@ -392,6 +393,9 @@ let rec preorderMapFoldLeftAssign (exprMapper: Map<string, TyExpr> -> 'accum -> 
     | RecordMutation {record=record; fieldName=fieldName} ->
         let (record', accum'') = preorderMapFoldLeftAssign' accum' record
         (RecordMutation {record=record'; fieldName=fieldName}, accum'')
+    | RefMutation expr ->
+        let (expr', accum'') = preorderMapFold exprMapper leftAssignMapper patternMapper gamma accum' expr
+        (RefMutation expr', accum'')
 
 and preorderMapFoldPattern (patternMapper : Map<string, TyExpr> -> 'accum -> TyAdorn<Pattern> -> (TyAdorn<Pattern> * 'accum))
                            (gamma : Map<string, TyExpr>) (accum : 'accum) (pat : TyAdorn<Pattern>) : (TyAdorn<Pattern> * 'accum) =
@@ -430,10 +434,10 @@ and preorderMapFold (exprMapper: Map<string, TyExpr> -> 'accum -> TyAdorn<Expr> 
     | ArrayMakeExp {typ=typ; initializer=initializer} ->
         let (initializer', accum'') = Option.mapFold preorderMapFold' accum' initializer
         (wrapLike expr' (ArrayMakeExp {typ=typ; initializer=initializer'}), accum'')
-    | AssignExp {left=left; right=right; ref=ref} ->
+    | AssignExp {left=left; right=right} ->
         let (left', accum'') = preorderMapFoldLeftAssign' accum' (unwrap left)
         let (right', accum''') = preorderMapFold' accum'' right
-        (wrapLike expr' (AssignExp {left=wrapLike left left'; right=right'; ref=ref}), accum''')
+        (wrapLike expr' (AssignExp {left=wrapLike left left'; right=right'}), accum''')
     | BinaryOpExp {left=left; op=op; right=right} ->
         let (left', accum'') = preorderMapFold' accum' left
         let (right', accum''') = preorderMapFold' accum'' right

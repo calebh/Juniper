@@ -154,3 +154,24 @@ let convertInterfaceConstraint menv denv dtenv interfaceConstraint =
                     T.HasField (name, convertType menv denv dtenv Map.empty Map.empty tau))
         T.IsRecord::(cs1 @ cs2)
     | A.IsPacked _ -> [T.IsPacked]
+
+let convertToLHS expr=
+    // Converts an expression into a valid left hand side (LHS) form
+    let rec convertToLHSRec topLevel expr =
+        let pose = A.getPos expr
+        let expr' =
+            match (A.unwrap expr) with
+            | A.UnaryOpExp { op = (_, A.Deref); exp = exp} when topLevel ->
+                A.RefMutation exp
+            | A.RecordAccessExp { record = record; fieldName = fieldName } ->
+                A.RecordMutation { record = convertToLHSRec false record; fieldName = fieldName }
+            | A.VarExp varName ->
+                A.VarMutation varName
+            | A.ModQualifierExp modQual ->
+                A.ModQualifierMutation modQual
+            | A.ArrayAccessExp { array = arr; index = index } ->
+                A.ArrayMutation { array = convertToLHSRec false arr; index = index }
+            | _ ->
+                raise <| SemanticError ((errStr [pose] "The left hand side of the assignment operation contained an invalid expression.").Force())
+        (pose, expr')
+    convertToLHSRec true expr

@@ -133,7 +133,7 @@ and BinaryOpRec =     { left : PosAdorn<Expr>; op : PosAdorn<BinaryOps>; right :
 and IfElseRec =       { condition : PosAdorn<Expr>; trueBranch : PosAdorn<Expr>; falseBranch : PosAdorn<Expr> }
 and LetRec =          { left : PosAdorn<Pattern>; right : PosAdorn<Expr> }
 // Variable assign
-and AssignRec =       { left : PosAdorn<LeftAssign>; right : PosAdorn<Expr>; ref : PosAdorn<bool> }
+and AssignRec =       { left : PosAdorn<LeftAssign>; right : PosAdorn<Expr>; }
 and ForLoopRec =      { typ : PosAdorn<TyExpr> option; varName : PosAdorn<string>; start : PosAdorn<Expr>; direction : PosAdorn<Direction>; end_ : PosAdorn<Expr>; body : PosAdorn<Expr> }
 and WhileLoopRec =    { condition : PosAdorn<Expr>; body : PosAdorn<Expr> }
 and DoWhileLoopRec =  { condition : PosAdorn<Expr>; body: PosAdorn<Expr> }
@@ -209,6 +209,7 @@ and LeftAssign = VarMutation of PosAdorn<string>
                | ModQualifierMutation of PosAdorn<ModQualifierRec>
                | ArrayMutation of ArrayMutationRec
                | RecordMutation of RecordMutationRec
+               | RefMutation of PosAdorn<Expr>
 
 // Takes in a wrapped AST object, returns the object within the PosAdorn.
 let unwrap<'a> ((_, c) : PosAdorn<'a>) = c

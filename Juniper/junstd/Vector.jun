@@ -98,7 +98,7 @@ fun get(i : uint32, v : vector<a;n>) : a =
 fun add(v1 : vector<a;n>, v2 : vector<a;n>) : vector<a;n> where a : num = {
     let mut result = v1;
     for i : int32 in 0 to n - 1 do {
-        set result.data[i] = (result.data[i] : a) + (v2.data[i] : a);
+        result.data[i] = (result.data[i] : a) + (v2.data[i] : a);
         ();
     } end;
     result;
@@ -136,7 +136,7 @@ fun zero() : vector<a;n> where a : num =
 fun subtract(v1 : vector<a;n>, v2 : vector<a;n>) : vector<a;n> where a : num = {
     let mut result = v1;
     for i : int32 in 0 to n - 1 do {
-        set result.data[i] = (result.data[i] : a) - (v2.data[i] : a);
+        result.data[i] = (result.data[i] : a) - (v2.data[i] : a);
         ();
     } end;
     result;
@@ -160,7 +160,7 @@ fun subtract(v1 : vector<a;n>, v2 : vector<a;n>) : vector<a;n> where a : num = {
 fun scale(scalar : a, v : vector<a;n>) : vector<a;n> where a : num = {
     let mut result = v;
     for i : int32 in 0 to n - 1 do {
-        set result.data[i] = (result.data[i] : a) * scalar;
+        result.data[i] = (result.data[i] : a) * scalar;
         ();
     } end;
     result;
@@ -184,7 +184,7 @@ fun scale(scalar : a, v : vector<a;n>) : vector<a;n> where a : num = {
 fun dot(v1 : vector<a;n>, v2 : vector<a;n>) : a where a : num = {
     let mut sum : a = 0;
     for i : int32 in 0 to n - 1 do {
-        set sum = sum + (v1.data[i] * v2.data[i]);
+        sum = sum + (v1.data[i] * v2.data[i]);
         ();
     } end;
     sum;
@@ -207,7 +207,7 @@ fun dot(v1 : vector<a;n>, v2 : vector<a;n>) : a where a : num = {
 fun magnitude2(v : vector<a;n>) : a where a : num = {
     let mut sum : a = 0;
     for i : int32 in 0 to n - 1 do {
-        set sum = sum + (v.data[i] * v.data[i]);
+        sum = sum + (v.data[i] * v.data[i]);
         ();
     } end;
     sum;
@@ -248,7 +248,7 @@ fun magnitude(v : vector<a;n>) : double where a : num =
 fun multiply(u : vector<a;n>, v : vector<a;n>) : vector<a;n> where a : num = {
     let mut result = u;
     for i : int32 in 0 to n - 1 do {
-        set result.data[i] = (result.data[i] : a) * (v.data[i] : a);
+        result.data[i] = (result.data[i] : a) * (v.data[i] : a);
         ();
     } end;
     result;
@@ -273,7 +273,7 @@ fun normalize(v : vector<a;n>) : vector<a;n> where a : num = {
     if (mag > (0 : a)) {
         let mut result = v;
         for i : int32 in 0 to n - 1 do {
-            set result.data[i] = fromDouble(toDouble(result.data[i]) / mag);
+            result.data[i] = fromDouble(toDouble(result.data[i]) / mag);
             ();
         } end;
         result;

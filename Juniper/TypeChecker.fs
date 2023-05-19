@@ -225,18 +225,16 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 adorn posE typ' (T.ArrayMakeExp {typ=typ'; initializer=maybeInitializer'}) c
             | _ ->
                 raise <| TypeError ((errStr [post] "Type declaration should be an array type").Force())
-        | Ast.AssignExp {left=(posl, left); right=(posr, _) as right; ref=(posref, ref)} ->
+        | Ast.AssignExp {left=(posl, left); right=(posr, _) as right; } ->
             let rec checkLeft left =
-                let ((_, taul, left'), c) =
+                let ((_, retTau, left'), c) =
                     match left with
                     | Ast.ModQualifierMutation (posmq, {module_=(posm, module_); name=(posn, name)}) ->                    
                         match Map.tryFind (module_, name) dtenv with
                         | Some (T.LetDecTy tau) ->
-                            if ref then
-                                // TODO: Update this if we decide to make module level values mutable
-                                adorn posl tau (T.ModQualifierMutation {module_=module_; name=name}) Trivial
-                            else
-                                raise <| TypeError ((errStr [posmq] "Top level let declarations are not mutable. Did you mean to use 'set ref' instead?").Force())
+                            // TODO: Update this if we decide to make module level values mutable
+                            //adorn posl tau (T.ModQualifierMutation {module_=module_; name=name}) Trivial
+                            raise <| TypeError ((errStr [posmq] "Top level let declarations are not mutable. Did you mean to use a derefence set (ie *x = ...) instead?").Force())
                         | Some _ ->
                             raise <| TypeError ((errStr [posn] (sprintf "Found a declaration named %s in module %s, but it was not a let declaration." name module_)).Force())
                         | None ->
@@ -257,7 +255,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     | Ast.VarMutation (posn, name) ->
                         match Map.tryFind name gamma with
                         | Some (isMutable, tyscheme) ->
-                            if ref || isMutable then
+                            if isMutable then
                                 let ((tau, interfaceConstraints), _, _) = freshInstance tyscheme
                                 let err = errStr [posn] "The interface constraints are not satisfied."
                                 let interfaceConstraints' = interfaceConstraints |> List.map (fun (conTau, con) -> InterfaceConstraint (conTau, con, err)) |> conjoinConstraints
@@ -266,18 +264,17 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                                 raise <| TypeError ((errStr [posn] (sprintf "The variable named %s is not mutable." name)).Force())
                         | None ->
                             raise <| TypeError ((errStr [posn] (sprintf "Unable to find variable named %s in the current scope." name)).Force())
-                let (rettau, c') =
-                    if ref then
+                    | Ast.RefMutation ((pose, _) as expr) ->
+                        let (expr', c) = ty expr
                         let tau = freshtyvar ()
-                        (tau, c &&& (taul =~= (T.ConApp (T.TyCon T.RefTy, [tau], []), errStr [posl] "The left hand side of the set operation is not a reference, but 'set ref' was used. Do you mean to use just 'set' instead?")))
-                    else
-                        (taul, c)
-                adorn posl rettau left' c'
+                        let c' = c &&& (T.getType expr' =~= (T.ConApp (T.TyCon T.RefTy, [tau], []), errStr [pose] "The left hand side of the assignment operation is not a reference, but a dereference operation (*) was used. Are you sure you meant to set a ref cell?"))
+                        adorn posl tau (T.RefMutation expr') c'
+                adorn posl retTau left' c
             // End checkleft
             let (right', c1) = ty right
             let (left', c2) = checkLeft left
             let c' = c1 &&& c2 &&& (T.getType left' =~= (T.getType right', (errStr [posl; posr] "The type of the left hand side should match the type of the right hand side in a set expression.")))
-            adorn posE (T.getType right') (T.AssignExp {left=left'; right=right'; ref=ref}) c'
+            adorn posE (T.getType right') (T.AssignExp {left=left'; right=right'}) c'
         | Ast.BinaryOpExp {left=(posl, _) as left; op=(poso, A.Pipe); right=(posr, _) as right} ->
             match A.unwrap right with
             | A.CallExp {func=func; args=(posa, args)} ->

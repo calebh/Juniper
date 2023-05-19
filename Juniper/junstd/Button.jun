@@ -63,19 +63,19 @@ fun debounceDelay(incoming : sig<pinState>, delay : uint16, buttonState : button
              lastState=lastState,
              lastDebounceTime=lastDebounceTime} = *buttonState;
         if (currentState != lastState) {
-            set *buttonState = { actualState = actualState,
-                                 lastState = currentState,
-                                 lastDebounceTime = Time:now() };
+            *buttonState = { actualState = actualState,
+                             lastState = currentState,
+                             lastDebounceTime = Time:now() };
             actualState;
         } else if ((currentState != actualState) && ((Time:now() - (*buttonState).lastDebounceTime) > delay)) {
-            set *buttonState = { actualState = currentState,
-                                 lastState = currentState,
-                                 lastDebounceTime = lastDebounceTime};
+            *buttonState = { actualState = currentState,
+                             lastState = currentState,
+                             lastDebounceTime = lastDebounceTime};
             currentState;
         } else {
-            set *buttonState = { actualState = actualState,
-                                 lastState = currentState,
-                                 lastDebounceTime = lastDebounceTime };
+            *buttonState = { actualState = actualState,
+                             lastState = currentState,
+                             lastDebounceTime = lastDebounceTime };
             actualState;
         };
     }, incoming)

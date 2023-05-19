@@ -202,7 +202,7 @@ fun foldP(f : (closure)(a,state) -> state, state0 : state ref, incoming : sig<a>
     match incoming {
         signal(just(val)) => {
             let state1 = f(val, *state0);
-            set *state0 = state1;
+            *state0 = state1;
             signal(just(state1));
         },
         _ =>
@@ -234,7 +234,7 @@ fun dropRepeats(maybePrevValue : maybe<a> ref, incoming : sig<a>) : sig<a> =
                     just(prevValue) => value == prevValue
                 };
             if (!filtered) {
-                set *maybePrevValue = just(value);
+                *maybePrevValue = just(value);
                 ();
             } else {
                 ();
@@ -263,7 +263,7 @@ fun dropRepeats(maybePrevValue : maybe<a> ref, incoming : sig<a>) : sig<a> =
 fun latch(prevValue : a ref, incoming : sig<a>) : sig<a> =
     match incoming {
         signal(just(val)) => {
-            set *prevValue = val;
+            *prevValue = val;
             incoming;
         },
         _ =>
@@ -303,7 +303,7 @@ fun map2(f : (closure)(a, b) -> c,
             signal(just(val2 : b)) => val2,
             _ => snd(*state)
         };
-    set *state = (valA, valB);
+    *state = (valA, valB);
     match (incomingA, incomingB) {
         (signal(nothing()), signal(nothing())) => signal(nothing()),
         _ => signal(just(f(valA, valB)))

@@ -235,6 +235,10 @@ and compileLeftAssign theta kappa topLevel (left : LeftAssign) : string =
         output fieldName
     | ModQualifierMutation {module_=module_; name=name} ->
         output module_ + output "::" + output name
+    | RefMutation exp ->
+        output "*((" +
+        compile exp +
+        output ").get())"
 
 // Converts a pattern match statement in Juniper to the appropriate representation in C++
 and compilePattern (pattern : TyAdorn<Pattern>) (path : TyAdorn<Expr>) =
@@ -418,13 +422,10 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         output (compileType typ) + output " " + output varName + output ";" + newline() +
         output "return " + compile false (dummyWrap (VarExp (varName, [], []))) + output ";" +
         unindentId() + newline() + output "})())"
-    | AssignExp {left=(_, _, left); right=right; ref=ref} ->
+    | AssignExp {left=(_, _, left); right=right} ->
         let (_, ty, _) = right
         output "(" +
-        (if ref then
-            output "*((" + compileType ty + "*) (" + compileLeftAssign left + output ".get()))"
-        else
-            compileLeftAssign left) +
+        compileLeftAssign left +
         output " = " +
         compile topLevel right +
         output ")"

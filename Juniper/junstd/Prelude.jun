@@ -601,7 +601,7 @@ fun swap(tup) = {
 fun until(p : (closureP)(a) -> bool, f : (closureF)(a) -> a, a0 : a) : a = {
     let mut a = a0;
     while !p(a) do {
-        set a = f(a);
+        a = f(a);
         ();
     } end;
     a;

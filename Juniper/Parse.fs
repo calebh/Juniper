@@ -53,7 +53,6 @@ type LeftRecursiveExp = CallArgs of PosAdorn<PosAdorn<Expr> list>
                       | ArrayIndex of PosAdorn<Expr>
                       | TypeConstraintType of PosAdorn<TyExpr>
                       | FieldAccessName of PosAdorn<string>
-                      | UnsafeTypeCastType of PosAdorn<TyExpr>
 
 type LeftRecursiveTyp = ArrayTyCap of PosAdorn<CapacityExpr>
                       | RefTyRef of PosAdorn<unit>
@@ -411,8 +410,7 @@ let leftRecursiveExp =
     let arrayIndex = betweenChar '[' expr ']' |>> ArrayIndex
     let typeConstraint = skipChar ':' >>. ws >>. tyExpr |>> TypeConstraintType
     let fieldAccessName = skipChar '.' >>. ws >>. id |> pos |>> FieldAccessName
-    let unsafeTypeCast = skipString "::::" >>. ws >>. tyExpr |>> UnsafeTypeCastType
-    [callArgs; arrayIndex; unsafeTypeCast; typeConstraint; fieldAccessName] |> choice |> pos .>> ws |> many
+    [callArgs; arrayIndex; typeConstraint; fieldAccessName] |> choice |> pos .>> ws |> many
 
 let inlineCpp =
     let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '#')
@@ -541,8 +539,7 @@ do
                 | CallArgs args -> CallExp {func=term; args=args}
                 | ArrayIndex index -> ArrayAccessExp {array=term; index=index}
                 | TypeConstraintType typ -> TypeConstraint {exp=term; typ=typ}
-                | FieldAccessName fieldName -> RecordAccessExp {record=term; fieldName=fieldName}
-                | UnsafeTypeCastType typ -> UnsafeTypeCast {exp=term; typ=typ})
+                | FieldAccessName fieldName -> RecordAccessExp {record=term; fieldName=fieldName})
 
 // templateApply
 do

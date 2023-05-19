@@ -584,10 +584,6 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let (exp', c1) = ty exp
             let c' = c1 &&& (convertType' typ =~= (T.getType exp', errStr [pose; post] "Type constraint could not be satisfied"))
             adorn posE (T.getType exp') (T.unwrap exp') c'
-        | Ast.UnsafeTypeCast {exp=(pose, _) as exp; typ=typ} ->
-            let (exp', c) = ty exp
-            let typ' = convertType' typ
-            adorn pose typ' (T.unwrap exp') c
         | Ast.UnaryOpExp {op=(poso, op); exp=(pose, _) as exp} ->
             let (exp', c1) = ty exp
             let (op', c2, tau) =

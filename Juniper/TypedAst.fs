@@ -140,7 +140,6 @@ and ArrayAccessRec =  { array : TyAdorn<Expr>; index : TyAdorn<Expr> }
 and InternalDeclareVarExpRec = { varName : string; typ : TyExpr; right : TyAdorn<Expr> }
 and InternalUsingRec = { varName : string; typ : TyExpr }
 and InternalUsingCapRec = { varName : string; cap : CapacityExpr }
-and UnsafeTypeCastRec = { exp : TyAdorn<Expr>; typ : TyExpr }
 // Function call/apply
 and CallRec =         { func : TyAdorn<Expr>; args : TyAdorn<Expr> list }
 // Applying the template of a function

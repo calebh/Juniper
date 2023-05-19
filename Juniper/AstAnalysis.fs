@@ -287,8 +287,6 @@ let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
             d' exp
         | Ast.UnitExp _ ->
             Set.empty
-        | Ast.UnsafeTypeCast {exp=(_, exp)} ->
-            d' exp
         | Ast.VarExp (posv, varName) ->
             if Set.contains varName localVars then
                 Set.empty

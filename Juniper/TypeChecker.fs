@@ -384,11 +384,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let (condition', c2) = ty condition
             let c' = c1 &&& c2 &&& (T.getType condition' =~= (T.booltype, errStr [posc] "Condition of while loop must be of boolean type"))
             adorn posE T.unittype (T.WhileLoopExp {condition=condition'; body=body'}) c'
-        | Ast.ForLoopExp {typ=maybeTyp; varName=(posv, varName); start=(poss, _) as start; direction=(posd, direction); body=(posb, _) as body; end_=(pose, _) as end_} ->
-            let direction' =
-                match direction with
-                | Ast.Upto -> T.Upto
-                | Ast.Downto -> T.Downto
+        | Ast.ForInLoopExp {typ=maybeTyp; varName=(posv, varName); start=(poss, _) as start; body=(posb, _) as body; end_=(pose, _) as end_} ->
             let tauIterator =
                 match maybeTyp with
                 | Some tau ->
@@ -401,9 +397,22 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let (body', c3) = typeof body denv dtenv menv (Set.add varName localVars) ienv tyVarMapping capVarMapping gamma'
             let c' = c1 &&& c2 &&& c3 &&& (tauIterator =~= (T.getType start', errStr [posv; poss] "Type of the start expression does not match the type of the iterator")) &&&
                                           (tauIterator =~= (T.getType end_', errStr [posv; pose] "Type of the end expression doesn't match the type of the iterator")) &&&
-                                          (T.getType body' =~= (T.unittype, errStr [posb] "Body of do while loop must return type unit")) &&&
                                           (InterfaceConstraint (tauIterator, IsInt, errStr [posv] "Variable must be of integer type"))
-            adorn posE T.unittype (T.ForLoopExp {typ=tauIterator; varName=varName; start=start'; end_=end_'; body=body'; direction=direction'}) c'
+            adorn posE T.unittype (T.ForInLoopExp {typ=tauIterator; varName=varName; start=start'; end_=end_'; body=body'}) c'
+        | Ast.ForLoopExp { initLoop=(_, Ast.UnitExp _); loopCondition=(posc, _) as loopCondition; loopStep=loopStep; body=body} ->
+            // No initializer needed for this loop (it is a unit expression)
+            let (loopCondition', c1) = ty loopCondition
+            let (loopStep', c2) = ty loopStep
+            let (body', c3) = ty body
+            let c' = c1 &&& c2 &&& c3 &&& (T.getType loopCondition' =~= (T.booltype, errStr [posc] "Condition of for loop must be of boolean type"))
+            adorn posE T.unittype (T.ForLoopExp {loopCondition=loopCondition'; loopStep=loopStep'; body=body'}) c'
+        | Ast.ForLoopExp { initLoop=initLoop; loopCondition=loopCondition; loopStep=loopStep; body=body} ->
+            // Move the initializers outside the loop and into their own sequence
+            // Initializer becomes a unit expression
+            let initPos = Ast.getPos initLoop
+            let initUnit = (initPos, Ast.UnitExp (initPos, ()))
+            let loop' = (posE, Ast.SequenceExp (posE, [initLoop; (posE, Ast.ForLoopExp { initLoop=initUnit; loopCondition=loopCondition; loopStep=loopStep; body=body })]))
+            ty loop'
         | Ast.LambdaExp (posf, {returnTy=maybeReturnTy; arguments=(posargs, arguments); body=(posb, _) as body; interfaceConstraints=(posi, interfaceConstraints)}) ->
             match interfaceConstraints with
             | [] -> ()

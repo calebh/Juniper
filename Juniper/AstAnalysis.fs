@@ -203,11 +203,31 @@ let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
             Set.empty
         | Ast.DoubleExp _ ->
             Set.empty
-        | Ast.ForLoopExp {varName=(_, varName); start=(_, start); end_=(_, end_); body=(_, body)} ->
+        | Ast.ForInLoopExp {varName=(_, varName); start=(_, start); end_=(_, end_); body=(_, body)} ->
             let s1 = d' start
             let s2 = d' end_
             let s3 = d (Set.add varName localVars) body
             Set.unionMany [s1; s2; s3]
+        | Ast.ForLoopExp { initLoop = (_, (Ast.LetExp {left=(_, left)} as initLoop)); loopCondition=(_, loopCondition); loopStep=(_, loopStep); body=(_, body)} ->
+            let s1 = d' initLoop
+            let localVars' = Set.union localVars (getVars left)
+            let s2 = d localVars' loopCondition
+            let s3 = d localVars' loopStep
+            let s4 = d localVars' body
+            Set.unionMany [s1; s2; s3; s4]
+        | Ast.ForLoopExp { initLoop = (_, (Ast.VarExp (_, varName) as initLoop)); loopCondition=(_, loopCondition); loopStep=(_, loopStep); body=(_, body)} ->
+            let s1 = d' initLoop
+            let localVars' = Set.add varName localVars
+            let s2 = d localVars' loopCondition
+            let s3 = d localVars' loopStep
+            let s4 = d localVars' body
+            Set.unionMany [s1; s2; s3; s4]
+        | Ast.ForLoopExp { initLoop = (_, initLoop); loopCondition=(_, loopCondition); loopStep=(_, loopStep); body=(_, body) } ->
+            let s1 = d' initLoop
+            let s2 = d' loopCondition
+            let s3 = d' loopStep
+            let s4 = d' body
+            Set.unionMany [s1; s2; s3; s4]
         | Ast.IfElseExp {condition=(_, condition); trueBranch=(_, trueBranch); falseBranch=(_, falseBranch)} ->
             [condition; trueBranch; falseBranch] |> List.map d' |> Set.unionMany
         | Ast.InlineCode _ ->
@@ -366,8 +386,10 @@ let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.Capa
             T.UInt64Exp _ | T.Int64Exp _ | T.Int8Exp _ | T.UInt8Exp _ |
             T.InternalUsing _ | T.InternalUsingCap _ | T.NullExp | T.StringExp _) ->
             ([], [])
-        | T.ForLoopExp {typ=typ; start=start; end_=end_; body=body} ->
+        | T.ForInLoopExp {typ=typ; start=start; end_=end_; body=body} ->
             append2 ([freeVarsTyp (T.getPos e) typ; ffv start; ffv end_; ffv body] |> List.unzip)
+        | T.ForLoopExp {loopCondition=loopCondition; loopStep=loopStep; body=body} ->
+            append2 ([ffv loopCondition; ffv loopStep; ffv body] |> List.unzip)
         | T.IfElseExp {condition=condition; trueBranch=trueBranch; falseBranch=falseBranch} ->
             append2 (List.map ffv [condition; trueBranch; falseBranch] |> List.unzip)
         | T.LambdaExp {returnTy=returnTy; arguments=arguments; body=body} ->

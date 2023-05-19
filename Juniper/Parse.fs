@@ -22,6 +22,18 @@ let pipe2' p1 p2 f =
 let pipe3' p1 p2 p3 f =
     p1 .>>.? p2 .>>.? p3 |>> (fun ((a, b), c) -> f a b c)
 
+let pipe4' p1 p2 p3 p4 f = 
+    p1 .>>.? p2 .>>.? p3 .>>.? p4 |>>
+    (fun (((x1, x2), x3), x4) -> f x1 x2 x3 x4)
+
+let pipe5' p1 p2 p3 p4 p5 f = 
+    p1 .>>.? p2 .>>.? p3 .>>.? p4 .>>.? p5 |>>
+    (fun ((((x1, x2), x3), x4), x5) -> f x1 x2 x3 x4 x5)
+
+let pipe6' p1 p2 p3 p4 p5 p6 f = 
+    p1 .>>.? p2 .>>.? p3 .>>.? p4 .>>.? p5 .>>.? p6 |>>
+    (fun (((((x1, x2), x3), x4), x5), x6) -> f x1 x2 x3 x4 x5 x6)
+
 let pipe6 p1 p2 p3 p4 p5 p6 f = 
     pipe5 p1 p2 p3 p4 (tuple2 p5 p6)
           (fun x1 x2 x3 x4 (x5, x6) -> f x1 x2 x3 x4 x5 x6)
@@ -451,16 +463,23 @@ do
             (fatalizeAnyError (skipChar ':' >>. ws >>. tyExpr))
             (fun varName ty ->
                 DeclVarExp { varName = varName; typ = ty} )
+    let forInLoop =
+        pipe5'
+            (attempt (pstring "for" >>. ws >>. skipChar '(' >>. ws >>. pos id .>> ws))
+            (attempt (skipChar ':' >>. ws >>. tyExpr .>> ws |> opt))
+            (attempt (pstring "in" >>. ws) >>. (fatalizeAnyError (expr .>> ws .>> skipString "to" .>> ws1)))
+            (fatalizeAnyError (expr .>> ws .>> skipChar ')' .>> ws))
+            (fatalizeAnyError (expr .>> ws))
+            (fun varName typ start end_ body ->
+                ForInLoopExp {varName=varName; typ=typ; start=start; end_=end_; body=body})
     let forLoop =
-        pipe6
-            ((attempt (pstring "for" >>. ws1)) >>. fatalizeAnyError (pos id .>> ws))
-            (fatalizeAnyError (skipChar ':' >>. ws >>. tyExpr .>> ws |> opt))
-            (fatalizeAnyError (pstring "in" >>. ws >>. expr .>> ws))
-            (fatalizeAnyError ((pstring "to" >>% Upto) <|> (pstring "downto" >>% Downto) |> pos .>> ws))
-            (fatalizeAnyError expr)
-            (fatalizeAnyError (pstring "do" >>. ws >>. expr .>> pstring "end"))
-            (fun varName typ start direction end_ body ->
-                ForLoopExp {varName=varName; typ=typ; start=start; direction=direction; end_=end_; body=body})
+        pipe4'
+            (attempt (pstring "for") >>. ws >>. fatalizeAnyError (skipChar '(' >>. ws >>. expr .>> ws .>> skipChar ';' .>> ws))
+            (fatalizeAnyError (expr .>> ws .>> skipChar ';' .>> ws))
+            (fatalizeAnyError (expr .>> ws .>> skipChar ')' .>> ws))
+            (fatalizeAnyError (expr .>> ws))
+            (fun initLoop loopCondition loopStep body ->
+                ForLoopExp {initLoop = initLoop; loopCondition = loopCondition; loopStep = loopStep; body = body})
     let doWhileLoop =
         pipe2
             (attempt (pstring "do" >>. ws1) >>. fatalizeAnyError (expr .>> ws))
@@ -510,7 +529,7 @@ do
     let e = choice ([punit; ptrue; pfalse; nullexp; charlist; str;
                     attempt pfloating; pint; smartpointer;
                     fn; attempt parens; quit; attempt tuple; attempt recordExpr1; recordExprMany; seq;
-                    attempt modQual; forLoop; doWhileLoop; whileLoop;
+                    attempt modQual; forInLoop; forLoop; doWhileLoop; whileLoop;
                     pLet; pVar; pIf; match_;
                     arrayLiteral; pref; arrayMake; inlineCpp'; varReference]) .>> ws |> pos
     opp.TermParser <-

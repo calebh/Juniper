@@ -546,7 +546,7 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
             | Negate -> output "-"
             | LogicalNot -> output "!"
             | BitwiseNot -> output "~") + output "(" + compile topLevel exp + output ")"
-    | ForLoopExp {typ=typ; varName=varName; start=start; direction=direction; end_=end_; body=body} ->
+    | ForInLoopExp {typ=typ; varName=varName; start=start; end_=end_; body=body} ->
         let startName = Guid.string()
         let endName = Guid.string()
         output ("((" + capture + "() -> ") +
@@ -555,12 +555,18 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         compileType typ + output " " + output startName + output " = " + compile topLevel start + output ";" + newline() +
         compileType typ + output " " + output endName + output " = " + compile topLevel end_ + output ";" + newline() +
         output "for (" + compileType typ + output " " + output varName + output " = " + output startName + output "; " +
-        output varName + (match direction with
-                            | Upto -> output " <= "
-                            | Downto -> output " >= ") + output endName + output "; " +
-        output varName + (match direction with
-                            | Upto -> output "++"
-                            | Downto -> output "--") + output ") {" + indentId() + newline() +
+        output varName + output " < " + output endName + output "; " +
+        output varName + output "++" + output ") {" + indentId() + newline() +
+        compile false body + output ";" + unindentId() + newline() +
+        output "}" + newline() +
+        output "return {};" + newline() +
+        unindentId() +
+        output "})())"
+    | ForLoopExp {loopCondition=loopCondition; loopStep = loopStep; body=body} ->
+        output ("((" + capture + "() -> ") +
+        compileType unitty + output " {" + newline() + indentId() +
+        output "for (; " + compile false loopCondition + output "; " +
+        compile false loopStep + output ") {" + indentId() + newline() +
         compile false body + output ";" + unindentId() + newline() +
         output "}" + newline() +
         output "return {};" + newline() +

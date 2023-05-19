@@ -124,9 +124,6 @@ and FunctionClause = {returnTy : PosAdorn<TyExpr> option; arguments : PosAdorn<(
 // Module qualifier.
 and ModQualifierRec = { module_ : PosAdorn<string>; name : PosAdorn<string> }
 
-and Direction = Upto
-              | Downto
-
 // Other AST objects and their definitions. Most of them are explained within their names.
 // Binary operation
 and BinaryOpRec =     { left : PosAdorn<Expr>; op : PosAdorn<BinaryOps>; right : PosAdorn<Expr> }
@@ -134,7 +131,8 @@ and IfElseRec =       { condition : PosAdorn<Expr>; trueBranch : PosAdorn<Expr>;
 and LetRec =          { left : PosAdorn<Pattern>; right : PosAdorn<Expr> }
 // Variable assign
 and AssignRec =       { left : PosAdorn<LeftAssign>; right : PosAdorn<Expr>; }
-and ForLoopRec =      { typ : PosAdorn<TyExpr> option; varName : PosAdorn<string>; start : PosAdorn<Expr>; direction : PosAdorn<Direction>; end_ : PosAdorn<Expr>; body : PosAdorn<Expr> }
+and ForInLoopRec =      { typ : PosAdorn<TyExpr> option; varName : PosAdorn<string>; start : PosAdorn<Expr>; end_ : PosAdorn<Expr>; body : PosAdorn<Expr> }
+and ForLoopRec =      { initLoop : PosAdorn<Expr>; loopCondition : PosAdorn<Expr>; loopStep : PosAdorn<Expr>; body : PosAdorn<Expr> }
 and WhileLoopRec =    { condition : PosAdorn<Expr>; body : PosAdorn<Expr> }
 and DoWhileLoopRec =  { condition : PosAdorn<Expr>; body: PosAdorn<Expr> }
 // Pattern matching
@@ -159,6 +157,7 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | LetExp of LetRec
           | InlineCode of PosAdorn<string>
           | AssignExp of AssignRec
+          | ForInLoopExp of ForInLoopRec
           | ForLoopExp of ForLoopRec
           | WhileLoopExp of WhileLoopRec
           | DoWhileLoopExp of DoWhileLoopRec

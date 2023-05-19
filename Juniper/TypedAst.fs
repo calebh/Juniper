@@ -120,9 +120,6 @@ and FunctionClause = {closure : Map<string, TyExpr>; returnTy : TyExpr; argument
 // Module qualifier.
 and ModQualifierRec = { module_ : string; name : string }
 
-and Direction = Upto
-              | Downto
-
 // Other AST objects and their definitions. Most of them are explained within their names.
 // Binary operation
 and BinaryOpRec =     { left : TyAdorn<Expr>; op : BinaryOps; right : TyAdorn<Expr> }
@@ -130,7 +127,8 @@ and IfElseRec =       { condition : TyAdorn<Expr>; trueBranch : TyAdorn<Expr>; f
 and LetRec =          { left : TyAdorn<Pattern>; right : TyAdorn<Expr> }
 // Variable assign
 and AssignRec =       { left : TyAdorn<LeftAssign>; right : TyAdorn<Expr> }
-and ForLoopRec =      { typ : TyExpr; varName : string; start : TyAdorn<Expr>; direction : Direction; end_ : TyAdorn<Expr>; body : TyAdorn<Expr> }
+and ForInLoopRec =      { typ : TyExpr; varName : string; start : TyAdorn<Expr>; end_ : TyAdorn<Expr>; body : TyAdorn<Expr> }
+and ForLoopRec =      { loopCondition : TyAdorn<Expr> ; loopStep : TyAdorn<Expr>; body : TyAdorn<Expr> }
 and WhileLoopRec =    { condition : TyAdorn<Expr>; body : TyAdorn<Expr> }
 and DoWhileLoopRec =  { condition : TyAdorn<Expr>; body: TyAdorn<Expr> }
 // Pattern matching
@@ -161,6 +159,7 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | InternalUsingCap of InternalUsingCapRec
           | InlineCode of string
           | AssignExp of AssignRec
+          | ForInLoopExp of ForInLoopRec
           | ForLoopExp of ForLoopRec
           | WhileLoopExp of WhileLoopRec
           | DoWhileLoopExp of DoWhileLoopRec
@@ -470,12 +469,17 @@ and preorderMapFold (exprMapper: Map<string, TyExpr> -> 'accum -> TyAdorn<Expr> 
         (expr', accum')
     | FloatExp _ ->
         (expr', accum')
-    | ForLoopExp {typ=typ; varName=varName; start=start; direction=direction; end_=end_; body=body } ->
+    | ForInLoopExp {typ=typ; varName=varName; start=start; end_=end_; body=body } ->
         let gamma' = Map.add varName typ gamma
         let (start', accum'') = preorderMapFold exprMapper leftAssignMapper patternMapper gamma' accum' start
         let (end_', accum''') = preorderMapFold exprMapper leftAssignMapper patternMapper gamma' accum'' end_
         let (body', accum'''') = preorderMapFold exprMapper leftAssignMapper patternMapper gamma' accum''' body
-        (wrapLike expr' (ForLoopExp {typ=typ; varName=varName; start=start'; direction=direction; end_=end_'; body=body'}), accum'''')
+        (wrapLike expr' (ForInLoopExp {typ=typ; varName=varName; start=start'; end_=end_'; body=body'}), accum'''')
+    | ForLoopExp {loopCondition=loopCondition; loopStep=loopStep; body=body} ->
+        let (loopCondition', accum'') = preorderMapFold' accum' loopCondition
+        let (loopStep', accum''') = preorderMapFold' accum'' loopStep
+        let (body', accum'''') = preorderMapFold' accum''' body
+        (wrapLike expr' (ForLoopExp {loopCondition=loopCondition'; loopStep=loopStep'; body=body'}), accum'''')
     | FunctionWrapperEmptyClosure inner ->
         let (inner', accum'') = preorderMapFold' accum' inner
         (wrapLike expr' (FunctionWrapperEmptyClosure inner'), accum'')

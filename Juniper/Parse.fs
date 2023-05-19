@@ -16,6 +16,9 @@ let multiLineComment = skipString "/*" >>. skipCharsTillString "*/" true System.
 let ws = spaces .>> (choice [singleLineComment; multiLineComment] >>. spaces |> many)
 let ws1 = (spaces1 <|> singleLineComment <|> multiLineComment) .>> spaces .>> (choice [singleLineComment; multiLineComment] >>. spaces |> many)
 
+let pipe2' p1 p2 f =
+    p1 .>>.? p2 |>> (fun (a, b) -> f a b)
+
 let pipe3' p1 p2 p3 f =
     p1 .>>.? p2 .>>.? p3 |>> (fun ((a, b), c) -> f a b c)
 
@@ -276,23 +279,30 @@ do
     let underscore = skipChar '_' |> pos |>> UnderscoreTy
     let mQual = moduleQualifier |>> ModuleQualifierTy
     let closureTy = betweenChar '|' (separatedList ((pos id .>> ws .>> skipChar ':' .>> ws) .>>. tyExpr) ';') '|' |> pos |>> ClosureTy
-    let fn =
-        pipe3
-            (* If the user does not enter a closure type for this function signature,
-               assume the user intended the closure to be a type wildcard. *)
-            (((betweenChar '(' (choice [name; closureTy; underscore]) ')') |> opt) |> pos)
-            (skipChar '(' >>. separatedList (ws >>. tyExpr .>> ws) ',' .>> skipChar ')' .>> ws .>> skipString "->" .>> ws)
-            tyExpr
-            (fun closure argTys retTy ->
-                let closure' =
-                    match unwrap closure with
-                    | Some c -> (getPos closure, c)
+    let (fn1, fn2) =
+        let closurep = betweenChar '(' (choice [attempt underscore; name; closureTy]) ')' |> pos
+        let argsp = skipChar '(' >>. separatedList (ws >>. tyExpr .>> ws) ',' .>> skipChar ')' .>> ws .>> skipString "->" .>> ws
+        let fn1 =
+            pipe3
+                closurep
+                argsp
+                tyExpr
+                (fun closure argTys retTy ->
+                    FunTy { closure=closure; args = argTys; returnType = retTy})
+        let fn2 =
+            pipe2
+                (* If the user does not enter a closure type for this function signature,
+                   assume the user intended the closure to be a type wildcard. *)
+                (argsp |> pos)
+                tyExpr
+                (fun (posa, argTys) retTy ->
                     // No closure was explicitly given. Desugar into a wildcard (underscore)
-                    | None -> (getPos closure, UnderscoreTy (getPos closure, ()))
-                FunTy { closure=closure'; args = argTys; returnType = retTy})
+                    let closure = (posa, UnderscoreTy (posa, ()))
+                    FunTy { closure=closure; args=argTys; returnType = retTy})
+        (fn1, fn2)
     let parens = skipChar '(' >>. ws >>. tyExpr .>> ws .>> skipChar ')' |>> ParensTy
     let recordTy = record |> pos |>> RecordTy
-    let t = choice ([attempt mQual; closureTy; attempt recordTy; attempt underscore; name; attempt fn; parens]) |> pos .>> ws
+    let t = choice ([attempt mQual; closureTy; attempt recordTy; attempt underscore; name; attempt fn1; attempt fn2; parens]) |> pos .>> ws
     typOpp.TermParser <-
         leftRecurse
             t
@@ -454,12 +464,12 @@ do
     let doWhileLoop =
         pipe2
             (attempt (pstring "do" >>. ws1) >>. fatalizeAnyError (expr .>> ws))
-            (fatalizeAnyError (pstring "while" >>. ws >>. expr .>> ws .>> pstring "end"))
+            (fatalizeAnyError (pstring "while" >>. ws >>. skipChar '(' >>. ws >>. expr .>> ws .>> skipChar ')'))
             (fun body condition -> DoWhileLoopExp {body=body; condition=condition})
     let whileLoop =
-        pipe2
-            (attempt (pstring "while" >>. ws1) >>. fatalizeAnyError (expr .>> ws .>> pstring "do" .>> ws))
-            (fatalizeAnyError (expr .>> ws .>> pstring "end"))
+        pipe2'
+            (attempt (pstring "while" >>. ws) >>. fatalizeAnyError (skipChar '(' >>. ws >>. expr .>> ws .>> skipChar ')' .>> ws))
+            (fatalizeAnyError (expr .>> ws))
             (fun condition body -> WhileLoopExp {condition=condition; body=body})
     let fn = (functionClause "=>" .>> ws) |>> (fun clause -> LambdaExp ((TypedAst.dummyPos, TypedAst.dummyPos), clause))
     let match_ =

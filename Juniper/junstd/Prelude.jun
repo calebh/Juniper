@@ -591,19 +591,18 @@ fun swap(tup) = {
     Yields the result of applying f until p holds.
 
     Type signature:
-    | (||)((closureP)(a) -> bool, (closureF)(a) -> a, a) -> a
+    | ((a) -> bool, (a) -> a, a) -> a
 
     Parameters:
-        p: (closureP)(a) -> bool - The predicate
-        f: (closureF)(a) -> a - The function to repeatedly apply
+        p: (a) -> bool - The predicate
+        f: (a) -> a - The function to repeatedly apply
         a0: a - The initial value to supply to the function
 */
-fun until(p : (closureP)(a) -> bool, f : (closureF)(a) -> a, a0 : a) : a = {
+fun until(p : (a) -> bool, f : (a) -> a, a0 : a) : a = {
     let mut a = a0;
-    while !p(a) do {
+    while (!p(a)) {
         a = f(a);
-        ();
-    } end;
+    };
     a;
 }
 

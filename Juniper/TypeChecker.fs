@@ -377,14 +377,12 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
         | Ast.DoWhileLoopExp {condition=(posc, _) as condition; body=(posb, _) as body} ->
             let (body', c1) = ty body
             let (condition', c2) = ty condition
-            let c' = c1 &&& c2 &&& (T.getType condition' =~= (T.booltype, errStr [posc] "Condition of do while loop must be of boolean type")) &&&
-                                   (T.getType body' =~= (T.unittype, errStr [posb] "Body of do while loop must return type unit"))
+            let c' = c1 &&& c2 &&& (T.getType condition' =~= (T.booltype, errStr [posc] "Condition of do while loop must be of boolean type"))
             adorn posE T.unittype (T.DoWhileLoopExp {condition=condition'; body=body'}) c'
         | Ast.WhileLoopExp {condition=(posc, _) as condition; body=(posb, _) as body} ->
             let (body', c1) = ty body
             let (condition', c2) = ty condition
-            let c' = c1 &&& c2 &&& (T.getType condition' =~= (T.booltype, errStr [posc] "Condition of while loop must be of boolean type")) &&&
-                                   (T.getType body' =~= (T.unittype, errStr [posb] "Body of while loop must return type unit"))
+            let c' = c1 &&& c2 &&& (T.getType condition' =~= (T.booltype, errStr [posc] "Condition of while loop must be of boolean type"))
             adorn posE T.unittype (T.WhileLoopExp {condition=condition'; body=body'}) c'
         | Ast.ForLoopExp {typ=maybeTyp; varName=(posv, varName); start=(poss, _) as start; direction=(posd, direction); body=(posb, _) as body; end_=(pose, _) as end_} ->
             let direction' =

@@ -294,11 +294,11 @@ and typeString (ty : TyExpr) : string =
     | ConApp (TyCon con, args, capArgs) ->
         typeConString con args capArgs
     | TyVar name ->
-        sprintf "'%s" name
+        sprintf "%s" name
     | RecordTy (Some packed, fields) ->
-        sprintf "packed {%s}" (packed |> List.map (fun fieldName -> sprintf "%s : %s" fieldName (Map.find fieldName fields |> typeString)) |> String.concat "; ")
+        sprintf "packed {%s}" (packed |> List.map (fun fieldName -> sprintf "%s : %s" fieldName (Map.find fieldName fields |> typeString)) |> String.concat ", ")
     | RecordTy (None, fields) ->
-        sprintf "{%s}" (fields |> Map.toList |> List.map (fun (fieldName, fieldTau) -> sprintf "%s : %s" fieldName (typeString fieldTau)) |> String.concat "; ")
+        sprintf "{%s}" (fields |> Map.toList |> List.map (fun (fieldName, fieldTau) -> sprintf "%s : %s" fieldName (typeString fieldTau)) |> String.concat ", ")
     | ClosureTy fields ->
         sprintf "|%s|" (fields |> Map.toList |> List.map (fun (fieldName, fieldTau) -> sprintf "%s : %s" fieldName (typeString fieldTau)) |> String.concat "; ")
     | ConApp (con, args, capArgs) ->

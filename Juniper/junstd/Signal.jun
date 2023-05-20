@@ -278,11 +278,11 @@ fun latch(prevValue : a ref, incoming : sig<a>) : sig<a> =
     signals, then the output signal holds no value.
 
     Type Signature:
-    | (||)((closure)(a,b)->c, sig<a>, sig<b>, (a*b) ref) -> sig<c>
+    | (||)((closure)(a,b)->c, sig<a>, sig<b>, (a, b) ref) -> sig<c>
 
     Parameters:
         f : (closure)(a,b) -> c - The mapping function
-        state : (a * b) ref - Holds the last values received from the signals.
+        state : (a, b) ref - Holds the last values received from the signals.
         incomingA : sig<a> - The first signal
         incomingB : sig<b> - The second signal
     
@@ -290,7 +290,7 @@ fun latch(prevValue : a ref, incoming : sig<a>) : sig<a> =
         The mapped signal
 */
 fun map2(f : (closure)(a, b) -> c,
-         state : (a * b) ref,
+         state : (a, b) ref,
          incomingA : sig<a>,
          incomingB : sig<b>) : sig<c> = {
     let valA =
@@ -403,21 +403,18 @@ fun unmeta(sigA : sig<maybe<a>>) : sig<a> =
     signal holds no value.
 
     Type Signature:
-    | (||)(sig<a>, sig<b>, (a * b) ref) -> sig<a * b>
+    | (||)(sig<a>, sig<b>, (a, b) ref) -> sig<(a, b)>
 
     Parameters:
-        state : (a * b) ref - The state holding the past values of the signals
+        state : (a, b) ref - The state holding the past values of the signals
         sigA : sig<a> - The first signal to zip
         sigB : sig<b> - The second signal to zip
 
     Returns:
         A zipped signal.
 */
-fun zip(state : (a * b) ref, sigA : sig<a>, sigB : sig<b>) : sig<(a * b)> =
-    map2(
-        (valA : a, valB : b) : (a * b) =>
-            (valA, valB),
-        state, sigA, sigB)
+fun zip(state : (a, b) ref, sigA : sig<a>, sigB : sig<b>) : sig<(a, b)> =
+    map2((valA : a, valB : b) => (valA, valB), state, sigA, sigB)
 
 /*
     Function: unzip
@@ -426,7 +423,7 @@ fun zip(state : (a * b) ref, sigA : sig<a>, sigB : sig<b>) : sig<(a * b)> =
     into two signals.
 
     Type Signature:
-    | (||)(sig<a * b>) -> (sig<a> * sig<b>)
+    | (||)(sig<(a, b))>) -> (sig<a>, sig<b>)
 
     Parameters:
         incoming : sig<a> - The signal to unzip
@@ -434,7 +431,7 @@ fun zip(state : (a * b) ref, sigA : sig<a>, sigB : sig<b>) : sig<(a * b)> =
     Returns:
         Two signals inside a tuple
 */
-fun unzip(incoming : sig<a*b>) : sig<a>*sig<b> =
+fun unzip(incoming : sig<(a, b)>) : (sig<a>, sig<b>) =
     match incoming {
         signal(just((x, y))) => (signal(just(x)), signal(just(y))),
         _ => (signal(nothing()), signal(nothing()))

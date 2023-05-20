@@ -109,8 +109,6 @@ let convertType menv denv (dtenv : Map<string * string, T.DeclarationTy>) tyVarM
             match AstAnalysis.resolveUserTyName menv denv name with
             | Some (module_, name) -> T.TyCon <| T.ModuleQualifierTy {module_=module_; name=name}
             | None -> Map.findDefault name (T.TyVar name) tyVarMapping
-        | Ast.ParensTy (_, tau) ->
-            ct tau
         | Ast.RefTy (_, tau) ->
             T.ConApp (T.TyCon T.RefTy, [ct tau], [])
         | Ast.TupleTy taus ->

@@ -285,7 +285,7 @@ fun exp_(x : double) : double = {
     x = mantissa * 2 ^ exponent.
 
     Type Signature:
-    | (||)(double) -> (double * int16)
+    | (||)(double) -> (double, int16)
 
     Parameters:
         x : double - The number
@@ -293,7 +293,7 @@ fun exp_(x : double) : double = {
     Returns:
         (mantissa, exponent) as a tuple
 */
-fun frexp_(x : double) : (double * int16) = {
+fun frexp_(x : double) : (double, int16) = {
     let ret = 0.0;
     let exponent = 0i16;
     #ret = frexp(x, &exponent);#;
@@ -368,7 +368,7 @@ fun log10_(x : double) : double = {
     the integer component of the given number.
 
     Type Signature:
-    | (||)(double) -> (double * double)
+    | (||)(double) -> (double, double)
 
     Parameters:
         x : double - The number
@@ -376,7 +376,7 @@ fun log10_(x : double) : double = {
     Returns:
         (fractionComponent, integerComponent) as a tuple value.
 */
-fun modf_(x : double) : (double * double) = {
+fun modf_(x : double) : (double, double) = {
     let ret : double = 0.0;
     let integer : double = 0.0;
     #ret = modf(x, &integer);#;

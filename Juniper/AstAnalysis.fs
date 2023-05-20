@@ -37,8 +37,6 @@ let tyRefs (menv : Map<string, string*string>) tyDec =
                 Set.empty
             | Some modQual ->
                 Set.singleton modQual
-        | A.ParensTy (_, tau) ->
-            refsInTyExpr tau
         | A.RefTy (_, tau) ->
             refsInTyExpr tau
         | A.TupleTy taus ->
@@ -90,8 +88,6 @@ and capVars (ty : Ast.TyExpr) : Set<Ast.PosAdorn<string>> =
         capVars refTy
     | Ast.TupleTy elems ->
         capVarsMany elems
-    | Ast.ParensTy (_, ty) ->
-        capVars ty
     | Ast.RecordTy (_, {fields = (_, fields)}) ->
         fields |> List.map snd |> capVarsMany
     | Ast.ClosureTy (_, fields) ->
@@ -118,8 +114,6 @@ let rec tyVars menv denv (ty : Ast.TyExpr) : Set<Ast.PosAdorn<string>> =
         tyVars' refTy
     | Ast.TupleTy elems ->
         tyVarsMany elems
-    | Ast.ParensTy (_, ty) ->
-        tyVars' ty
     | Ast.RecordTy (_, {fields = (_, fields)}) ->
         fields |> List.map snd |> tyVarsMany
     | Ast.ClosureTy (_, fields) ->

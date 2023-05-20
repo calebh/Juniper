@@ -65,7 +65,8 @@ let opp = new OperatorPrecedenceParser<PosAdorn<Expr>, Position, unit>()
 let expr = opp.ExpressionParser
 
 let capOpp = new OperatorPrecedenceParser<PosAdorn<CapacityExpr>, Position, unit>()
-let typOpp = new OperatorPrecedenceParser<PosAdorn<TyExpr>, Position, unit>()
+
+let tyExpr, tyExprRef = createParserForwardedToRef<PosAdorn<TyExpr>, unit>()
 
 let leftRecurse pterm pchain makeTree =
     pipe2
@@ -163,16 +164,6 @@ List.iter
     (fun f -> f (fun op term -> CapacityUnaryOp {op=op; term=term}) capOpp)
     [prefix "-" 12 CapNegate]
 
-infix "*" 1 () Associativity.Left
-    (fun l _ r ->
-        let (_, left) = l
-        let (_, right) = r
-        match (left, right) with
-        | (TupleTy lstL, TupleTy lstR) -> TupleTy (List.append lstL lstR)
-        | (TupleTy lstL, _)            -> TupleTy (List.append lstL [r])
-        | (_, TupleTy lstR)            -> TupleTy (l::lstR)
-        | _                            -> TupleTy [l; r]) typOpp
-
 let pos p : Parser<PosAdorn<'a>, 'b> = getPosition .>>. p .>>. getPosition |>> fun ((pos1, value), pos2) -> ((pos1, pos2), value)
 
 let betweenChar left p right = skipChar left >>. ws >>. p .>> ws .>> skipChar right
@@ -248,8 +239,6 @@ do
     let capParens = skipChar '(' >>. ws >>. capExpr .>> ws .>> skipChar ')'
     capOpp.TermParser <- (choice [capVar; capConst; capParens]) .>> ws
 
-let tyExpr = typOpp.ExpressionParser
-
 let record =
     pipe2
         ((skipString "packed" |> pos |> opt) .>> ws .>> skipChar '{' .>> ws)
@@ -311,10 +300,15 @@ do
                     let closure = (posa, UnderscoreTy (posa, ()))
                     FunTy { closure=closure; args=argTys; returnType = retTy})
         (fn1, fn2)
-    let parens = skipChar '(' >>. ws >>. tyExpr .>> ws .>> skipChar ')' |>> ParensTy
+    let tuple =
+        pipe2
+            (skipChar '(' >>. ws >>. tyExpr .>> ws .>> skipChar ',' .>> ws)
+            ((separatedList1 tyExpr ',') .>> ws .>> skipChar ')')
+            (fun tyHead tyRest ->
+                TupleTy (tyHead::tyRest))
     let recordTy = record |> pos |>> RecordTy
-    let t = choice ([attempt mQual; closureTy; attempt recordTy; attempt underscore; name; attempt fn1; attempt fn2; parens]) |> pos .>> ws
-    typOpp.TermParser <-
+    let t = choice ([attempt mQual; closureTy; attempt recordTy; attempt underscore; name; attempt fn1; attempt fn2; tuple]) |> pos .>> ws
+    tyExprRef.Value <-
         leftRecurse
             t
             leftRecursiveTyp

@@ -97,8 +97,6 @@ and TyExpr = BaseTy of PosAdorn<BaseTypes>
            | FunTy of FunTyRec
            | RefTy of PosAdorn<TyExpr>
            | TupleTy of PosAdorn<TyExpr> list
-           // Need this extra type for infix parser combinator matching on tuples
-           | ParensTy of PosAdorn<TyExpr>
            | RecordTy of PosAdorn<RecordRec>
            | ClosureTy of PosAdorn<(PosAdorn<string> * PosAdorn<TyExpr>) list>
            | UnderscoreTy of PosAdorn<unit>

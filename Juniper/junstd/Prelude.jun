@@ -406,16 +406,16 @@ fun apply(f : (closure)(a) -> b, x : a) : b =
     Applies a tuple of values to the given function
 
     Type signature:
-    | (||)((closure)(a,b) -> c, a*b) -> c
+    | (||)((closure)(a,b) -> c, (a,b)) -> c
 
     Parameters:
         f : (closure)(a,b) -> c - The function to apply
-        tup : a*b - The values to pass to the function
+        tup : (a,b) - The values to pass to the function
 
     Returns:
         The result of the values held in the tuple applied to f
 */
-fun apply2(f : (closure)(a, b) -> c, tup : a*b) : c = {
+fun apply2(f : (closure)(a, b) -> c, tup : (a,b)) : c = {
     let (a, b) = tup;
     f(a, b);
 }
@@ -426,16 +426,16 @@ fun apply2(f : (closure)(a, b) -> c, tup : a*b) : c = {
     Applies a tuple of values to the given function
 
     Type signature:
-    | (||)((closure)(a,b,c) -> d, a*b*c) -> d
+    | (||)((closure)(a,b,c) -> d, (a,b,c)) -> d
 
     Parameters:
         f : (closure)(a,b,c) -> d - The function to apply
-        tup : a*b*c - The values to pass to the function
+        tup : (a,b,c) - The values to pass to the function
 
     Returns:
         The result of the values held in the tuple applied to f
 */
-fun apply3(f : (closure)(a, b, c) -> d, tup : a*b*c) : d = {
+fun apply3(f : (closure)(a, b, c) -> d, tup : (a,b,c)) : d = {
     let (a, b, c) = tup;
     f(a, b, c);
 }
@@ -446,16 +446,16 @@ fun apply3(f : (closure)(a, b, c) -> d, tup : a*b*c) : d = {
     Applies a tuple of values to the given function
 
     Type signature:
-    | (||)((closure)(a,b,c,d) -> e, a*b*c*d) -> e
+    | (||)((closure)(a,b,c,d) -> e, (a,b,c,d)) -> e
 
     Parameters:
         f : (closure)(a,b,c,d) -> e - The function to apply
-        tup : a*b*c*d - The values to pass to the function
+        tup : (a,b,c,d) - The values to pass to the function
 
     Returns:
         The result of the values held in the tuple applied to f
 */
-fun apply4(f : (closure)(a,b,c,d) -> e, tup : a*b*c*d) : e = {
+fun apply4(f : (closure)(a,b,c,d) -> e, tup : (a,b,c,d)) : e = {
     let (a, b, c, d) = tup;
     f(a, b, c, d);
 }
@@ -466,15 +466,15 @@ fun apply4(f : (closure)(a,b,c,d) -> e, tup : a*b*c*d) : e = {
     Gives the first element of a two element tuple.
 
     Type signature:
-    | (||)((a * b)) -> a
+    | (||)((a, b)) -> a
 
     Parameters:
-        tup : (a * b) - The tuple to extract the first element from
+        tup : (a, b) - The tuple to extract the first element from
 
     Returns:
         The first element of the two element tuple.
 */
-fun fst(tup : (a * b)) : a =
+fun fst(tup : (a, b)) : a =
     match tup {
         (x, _) => x
     }
@@ -485,15 +485,15 @@ fun fst(tup : (a * b)) : a =
     Gives the second element of a two element tuple.
 
     Type signature:
-    | (||)((a * b)) -> b
+    | (||)((a, b)) -> b
 
     Parameters:
-        tup : (a * b) - The tuple to extract the second element from
+        tup : (a, b) - The tuple to extract the second element from
 
     Returns:
         The second element of the two element tuple.
 */
-fun snd(tup : (a * b)) : b =
+fun snd(tup : (a, b)) : b =
     match tup {
         (_, x) => x
     }
@@ -572,10 +572,10 @@ fun div(numA : a, numB : a) : a where a : num = numA / numB
     Swaps the two elements of a tuple
 
     Type signature:
-    | (||)(a*b) -> (b*a)
+    | (||)((a,b)) -> (b,a)
 
     Parameters:
-        tup : a*b - The tuple to swap
+        tup : (a,b) - The tuple to swap
 
     Returns:
         The tuple with swapped elements

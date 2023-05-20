@@ -567,7 +567,7 @@ fun member(elem : t, lst : list<t;n>) : bool = {
     of equal length, the elements from the shorter list are dropped.
 
     Type Signature:
-    | (||)(list<a;n>, list<b;n>) -> list<(a*b);n>
+    | (||)(list<a;n>, list<b;n>) -> list<(a,b);n>
 
     Parameters:
         lstA : list<a;n> - The first list to zip
@@ -576,10 +576,10 @@ fun member(elem : t, lst : list<t;n>) : bool = {
     Returns:
         The zipped lists.
 */
-fun zip(lstA : list<a;n>, lstB : list<b;n>) : list<a*b;n> = {
+fun zip(lstA : list<a;n>, lstB : list<b;n>) : list<(a,b);n> = {
     let outLen = Math:min_(lstA.length, lstB.length);
     let mut ret = {
-        data = array (a*b)[n] end,
+        data = array (a,b)[n] end,
         length = outLen
     };
     for (i : uint32 in 0u32 to outLen) {
@@ -604,7 +604,7 @@ fun zip(lstA : list<a;n>, lstB : list<b;n>) : list<a*b;n> = {
     Returns:
         The two unzipped lists.
 */
-fun unzip(lst : list<a*b; n>) : list<a;n>*list<b;n> = {
+fun unzip(lst : list<(a,b); n>) : (list<a;n>, list<b;n>) = {
     let mut retA = {
         data = array a[n] end,
         length = lst.length

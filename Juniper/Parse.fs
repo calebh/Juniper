@@ -417,6 +417,20 @@ do
     let parens = betweenChar '(' (expr |>> unwrap) ')'
     let ptrue = skipString "true" |> pos |>> TrueExp
     let pfalse = skipString "false" |> pos |>> FalseExp
+
+    // Parsers for operation enclosed parenthesis
+    // These operations are syntax sugar for Prelude module functions
+    let genParensOp symbol funName = skipString ("(" + symbol + ")") |> pos |>> (fun (pos, _) -> ModQualifierExp (pos, {module_=(pos, "Prelude"); name=(pos, funName)}))
+    // For example, (==) gets mapped to Prelude:eq
+    let pParensEq = genParensOp "==" "eq"
+    let pParensNeq = genParensOp "!=" "neq"
+    let pParensGeq = genParensOp ">=" "geq"
+    let pParensGt = genParensOp ">" "gt"
+    let pParensLeq = genParensOp "<=" "leq"
+    let pParensLt = genParensOp "<" "lt"
+    let pParensNot = genParensOp "!" "notf"
+    let pParensAnd = genParensOp "&&" "andf"
+    let pParensOr = genParensOp "||" "orf"
     
     let pfloating = (floatParser .>>. choice [skipChar 'f' >>. preturn FloatExp; preturn DoubleExp]) |>
                     pos |>>
@@ -518,7 +532,9 @@ do
     let smartpointer = (skipString "smartpointer" >>. ws >>. fatalizeAnyError ((skipChar '(' >>. expr .>> ws .>> skipChar ',' .>> ws) .>>. (expr .>> ws .>> skipChar ')'))) |>> Smartpointer
     let nullexp = (skipString "null" |> pos |>> NullExp) .>> ws
     //let sizeofexp = skipString "sizeof" >>. ws >>. fatalizeAnyError (betweenChar '(' tyExpr ')') 
-    let e = choice ([punit; ptrue; pfalse; nullexp; charlist; str;
+    let e = choice ([punit; ptrue; pfalse;
+                    pParensEq; pParensNeq; pParensGeq; pParensGt; pParensLeq; pParensLt; pParensNot; pParensAnd; pParensOr;
+                    nullexp; charlist; str;
                     attempt pfloating; pint; smartpointer;
                     fn; attempt parens; quit; attempt tuple; attempt recordExpr1; recordExprMany; seq;
                     attempt modQual; forInLoop; forLoop; doWhileLoop; whileLoop;

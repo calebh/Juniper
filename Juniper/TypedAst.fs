@@ -195,6 +195,7 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | Smartpointer of TyAdorn<Expr> * TyAdorn<Expr>
           | NullExp
           | FunctionWrapperEmptyClosure of TyAdorn<Expr>
+          | SizeofExp of TyExpr
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | BitwiseXor
               | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
               | BitshiftLeft | BitshiftRight

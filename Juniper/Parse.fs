@@ -531,11 +531,11 @@ do
     let tuple = betweenChar '(' (separatedList1 expr ',') ')' |>> TupleExp
     let smartpointer = (skipString "smartpointer" >>. ws >>. fatalizeAnyError ((skipChar '(' >>. expr .>> ws .>> skipChar ',' .>> ws) .>>. (expr .>> ws .>> skipChar ')'))) |>> Smartpointer
     let nullexp = (skipString "null" |> pos |>> NullExp) .>> ws
-    //let sizeofexp = skipString "sizeof" >>. ws >>. fatalizeAnyError (betweenChar '(' tyExpr ')') 
+    let sizeofexp = (attempt ((skipString "sizeof") >>. ws)) >>? fatalizeAnyError (betweenChar '(' tyExpr ')') |>> SizeofExp 
     let e = choice ([punit; ptrue; pfalse;
                     pParensEq; pParensNeq; pParensGeq; pParensGt; pParensLeq; pParensLt; pParensNot; pParensAnd; pParensOr;
                     nullexp; charlist; str;
-                    attempt pfloating; pint; smartpointer;
+                    attempt pfloating; pint; smartpointer; sizeofexp;
                     fn; attempt parens; quit; attempt tuple; attempt recordExpr1; recordExprMany; seq;
                     attempt modQual; forInLoop; forLoop; doWhileLoop; whileLoop;
                     pLet; pVar; pIf; match_;

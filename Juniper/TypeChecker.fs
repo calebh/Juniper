@@ -168,6 +168,9 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             adorn posE T.floattype (T.FloatExp num) Trivial
         | Ast.DoubleExp (pos, num) ->
             adorn posE T.doubletype (T.DoubleExp num) Trivial
+        | Ast.SizeofExp tyExpr ->
+            let tyExpr' = convertType' tyExpr
+            adorn posE T.uint32type (T.SizeofExp tyExpr') Trivial
         | Ast.IfElseExp {condition=(posc, _) as condition; trueBranch=(post, _) as trueBranch; falseBranch=(posf, _) as falseBranch} ->
             let (exprs', c) = typesof [condition; trueBranch; falseBranch] dtenv menv localVars gamma
             let [condition'; trueBranch'; falseBranch'] = exprs'

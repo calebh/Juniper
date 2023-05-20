@@ -192,6 +192,7 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | TypeConstraint of TypeConstraintRec
           | Smartpointer of PosAdorn<Expr> * PosAdorn<Expr>
           | NullExp of PosAdorn<unit>
+          | SizeofExp of PosAdorn<TyExpr>
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | BitwiseXor
               | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
               | BitshiftLeft | BitshiftRight | Pipe

@@ -345,6 +345,8 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         output (sprintf "((uint64_t) %i)" num)
     | NullExp ->
         output "nullptr"
+    | SizeofExp typ ->
+        output "sizeof(" + compileType typ + ")"
     | IfElseExp {condition=condition; trueBranch=trueBranch; falseBranch=falseBranch} ->
         output "(" +
         compile topLevel condition +

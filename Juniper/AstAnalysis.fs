@@ -242,6 +242,8 @@ let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
                 Set.empty
         | Ast.Smartpointer ((_, rawptr), (_, destructor)) ->
             Set.union (d' rawptr) (d' destructor)
+        | Ast.SizeofExp _ ->
+            Set.empty
         | Ast.QuitExp _ ->
             Set.empty
         | Ast.RecordAccessExp {record=(_, record)} ->
@@ -390,6 +392,8 @@ let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.Capa
         | T.LetExp {left=left; right=right} ->
             append2 ([freeVarsPattern left; ffv right] |> List.unzip)
         | T.QuitExp typ ->
+            freeVarsTyp (T.getPos e) typ
+        | T.SizeofExp typ ->
             freeVarsTyp (T.getPos e) typ
         | T.RecordAccessExp {record=record} ->
             ffv record

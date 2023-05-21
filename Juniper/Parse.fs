@@ -53,6 +53,7 @@ type LeftRecursiveExp = CallArgs of PosAdorn<PosAdorn<Expr> list>
                       | ArrayIndex of PosAdorn<Expr>
                       | TypeConstraintType of PosAdorn<TyExpr>
                       | FieldAccessName of PosAdorn<string>
+                      | RefFieldAccessName of PosAdorn<string>
 
 type LeftRecursiveTyp = ArrayTyCap of PosAdorn<CapacityExpr>
                       | RefTyRef of PosAdorn<unit>
@@ -404,7 +405,8 @@ let leftRecursiveExp =
     let arrayIndex = betweenChar '[' expr ']' |>> ArrayIndex
     let typeConstraint = skipChar ':' >>. ws >>. tyExpr |>> TypeConstraintType
     let fieldAccessName = skipChar '.' >>. ws >>. id |> pos |>> FieldAccessName
-    [callArgs; arrayIndex; typeConstraint; fieldAccessName] |> choice |> pos .>> ws |> many
+    let refFieldAccessName = skipString "->" >>. ws >>. id |> pos |>> RefFieldAccessName
+    [callArgs; arrayIndex; typeConstraint; refFieldAccessName; fieldAccessName] |> choice |> pos .>> ws |> many
 
 let inlineCpp =
     let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '#')
@@ -549,7 +551,8 @@ do
                 | CallArgs args -> CallExp {func=term; args=args}
                 | ArrayIndex index -> ArrayAccessExp {array=term; index=index}
                 | TypeConstraintType typ -> TypeConstraint {exp=term; typ=typ}
-                | FieldAccessName fieldName -> RecordAccessExp {record=term; fieldName=fieldName})
+                | FieldAccessName fieldName -> RecordAccessExp {record=term; fieldName=fieldName}
+                | RefFieldAccessName fieldName -> RefRecordAccessExp {recordRef=term; fieldName=fieldName})
 
 // templateApply
 do

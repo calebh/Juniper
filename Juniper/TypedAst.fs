@@ -136,6 +136,7 @@ and CaseRec =         { on : TyAdorn<Expr>; clauses : (TyAdorn<Pattern> * TyAdor
 // Unary operation
 and UnaryOpRec =      { op : UnaryOps; exp : TyAdorn<Expr> }
 and RecordAccessRec = { record : TyAdorn<Expr>; fieldName : string }
+and RefRecordAccessRec = { recordRef : TyAdorn<Expr>; fieldName : string }
 and ArrayAccessRec =  { array : TyAdorn<Expr>; index : TyAdorn<Expr> }
 and InternalDeclareVarExpRec = { varName : string; typ : TyExpr; right : TyAdorn<Expr> }
 and InternalUsingRec = { varName : string; typ : TyExpr }
@@ -165,6 +166,7 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | CaseExp of CaseRec
           | UnaryOpExp of UnaryOpRec
           | RecordAccessExp of RecordAccessRec
+          | RefRecordAccessExp of RefRecordAccessRec
           | ArrayAccessExp of ArrayAccessRec
           | VarExp of string * TyExpr list * CapacityExpr list
           | UnitExp
@@ -516,6 +518,9 @@ and preorderMapFold (exprMapper: Map<string, TyExpr> -> 'accum -> TyAdorn<Expr> 
     | RecordAccessExp {record=record; fieldName=fieldName} ->
         let (record', accum'') = preorderMapFold' accum' record
         (wrapLike expr' (RecordAccessExp {record=record'; fieldName=fieldName}), accum'')
+    | RefRecordAccessExp {recordRef=recordRef; fieldName=fieldName} ->
+        let (recordRef', accum'') = preorderMapFold' accum' recordRef
+        (wrapLike expr' (RefRecordAccessExp {recordRef=recordRef'; fieldName=fieldName}), accum'')
     | RecordExp {packed=packed; initFields=initFields} ->
         let names = initFields |> List.map fst
         let (fieldExprs', accum'') = initFields |> List.map snd |> List.mapFold preorderMapFold' accum'

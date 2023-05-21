@@ -248,6 +248,8 @@ let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
             Set.empty
         | Ast.RecordAccessExp {record=(_, record)} ->
             d' record
+        | Ast.RefRecordAccessExp {recordRef=(_, recordRef)} ->
+            d' recordRef
         | Ast.RecordExp {initFields=(_, initFields)} ->
             initFields |> List.map (snd >> Ast.unwrap >> d') |> Set.unionMany
         | Ast.RefExp (_, expr) ->
@@ -397,6 +399,8 @@ let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.Capa
             freeVarsTyp (T.getPos e) typ
         | T.RecordAccessExp {record=record} ->
             ffv record
+        | T.RefRecordAccessExp {recordRef=recordRef} ->
+            ffv recordRef
         | T.RecordExp {initFields=initFields} ->
             append2 (List.map (snd >> ffv) initFields |> List.unzip)
         | T.RefExp exp ->

@@ -503,6 +503,14 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let fieldConstraint = InterfaceConstraint (T.getType record', HasField (fieldName, tau), errStr [posE] (sprintf "Expected the expression to be a record type and have a field named %s" fieldName))
             let c'' = c' &&& fieldConstraint
             adorn posE tau (T.RecordAccessExp {record=record'; fieldName=fieldName}) c''
+        | Ast.RefRecordAccessExp {recordRef=(posr, _) as recordRef; fieldName=(posf, fieldName)} ->
+            let (recordRef', c') = ty recordRef
+            let recordTau = freshtyvar ()
+            let refConstraint = (T.ConApp (T.TyCon T.RefTy, [recordTau], [])) =~= (T.getType recordRef', errStr [posr] "Left hand side of ref record access must be a ref")
+            let fieldTau = freshtyvar ()
+            let fieldConstraint = InterfaceConstraint (recordTau, HasField (fieldName, fieldTau), errStr [posE] (sprintf "Expected the expression to be a record type and have a field named %s" fieldName))
+            let c'' = c' &&& refConstraint &&& fieldConstraint
+            adorn posE fieldTau (T.RefRecordAccessExp {recordRef=recordRef'; fieldName=fieldName}) c''
         | Ast.RecordExp { packed=maybePacked; initFields=(posi, initFields)} ->
             let initFieldNames = initFields |> List.map (fst >> Ast.unwrap)
             let maybePacked' =

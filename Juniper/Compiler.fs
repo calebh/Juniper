@@ -505,6 +505,8 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         output "(" + compile topLevel left + output " " + output opStr + output " " + compile topLevel right + output ")"
     | RecordAccessExp { record=record; fieldName=fieldName} ->
         output "(" + compile topLevel record + output ")." + output fieldName
+    | RefRecordAccessExp {recordRef = recordRef; fieldName=fieldName} ->
+        output "((" + compile topLevel recordRef + output ").get())->" + output fieldName
     | LambdaExp {closure=closure; returnTy=returnTy; arguments=args; body=body} ->
         output "juniper::function<" + compileType (ClosureTy closure) + ", " + compileType returnTy + "(" + (args |> List.map (snd >> compileType) |> String.concat ",") + ")>(" +
         (if Map.count closure = 0 then

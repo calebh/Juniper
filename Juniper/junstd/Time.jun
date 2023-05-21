@@ -88,7 +88,7 @@ fun every(interval : uint32, state : timerState ref) : sig<uint32> = {
         } else {
             (t / interval) * interval;
         };
-    if (((*state).lastPulse : uint32) >= lastWindow) {
+    if ((state->lastPulse : uint32) >= lastWindow) {
         signal(nothing());
     } else {
         *state = { lastPulse = t };

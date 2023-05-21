@@ -138,6 +138,7 @@ and CaseRec =         { on : PosAdorn<Expr>; clauses : PosAdorn<(PosAdorn<Patter
 // Unary operation
 and UnaryOpRec =      { op : PosAdorn<UnaryOps>; exp : PosAdorn<Expr> }
 and RecordAccessRec = { record : PosAdorn<Expr>; fieldName : PosAdorn<string> }
+and RefRecordAccessRec = { recordRef : PosAdorn<Expr>; fieldName : PosAdorn<string> }
 and ArrayAccessRec =  { array : PosAdorn<Expr>; index : PosAdorn<Expr> }
 and InternalDeclareVarExpRec = { varName : PosAdorn<string>; typ : PosAdorn<TyExpr> option; right : PosAdorn<Expr> }
 and InternalValConAccessRec = { valCon : PosAdorn<Expr>; typ : PosAdorn<TyExpr> }
@@ -161,6 +162,7 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | CaseExp of CaseRec
           | UnaryOpExp of UnaryOpRec
           | RecordAccessExp of RecordAccessRec
+          | RefRecordAccessExp of RefRecordAccessRec
           | ArrayAccessExp of ArrayAccessRec
           | VarExp of PosAdorn<string>
           | DeclVarExp of DeclVarExpRec

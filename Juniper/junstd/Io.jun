@@ -113,7 +113,7 @@ fun printStr(str : string) : unit =
         unit
 */
 fun printCharList(cl : list<uint8; n>) : unit =
-    #Serial.print((char */ &cl.data[0]);#
+    #Serial.print((char *) &cl.data[0]);#
 
 /*
     Function: printFloat

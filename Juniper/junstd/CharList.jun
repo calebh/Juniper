@@ -70,7 +70,7 @@ fun toLower(str) =
 fun i32ToCharList(m : int32) : charlist<;n> = {
     let ret = {data=array uint8[n + 1] of 0u8 end, length=0u32};
     #
-    int charsPrinted = 1 + snprintf((char */ &ret.data[0], n + 1, "%d", m);
+    int charsPrinted = 1 + snprintf((char *) &ret.data[0], n + 1, "%d", m);
     ret.length = charsPrinted >= (n + 1) ? (n + 1) : charsPrinted;
     #;
     ret;

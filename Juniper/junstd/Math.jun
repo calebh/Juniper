@@ -285,7 +285,7 @@ fun exp_(x : double) : double = {
     x = mantissa * 2 ^ exponent.
 
     Type Signature:
-    | (||)(double) -> (double, int16)
+    | (||)(double) -> (double, int32)
 
     Parameters:
         x : double - The number
@@ -293,10 +293,12 @@ fun exp_(x : double) : double = {
     Returns:
         (mantissa, exponent) as a tuple
 */
-fun frexp_(x : double) : (double, int16) = {
+fun frexp_(x : double) : (double, int32) = {
     let ret = 0.0;
-    let exponent = 0i16;
-    #ret = frexp(x, &exponent);#;
+    let exponent = 0i32;
+    #int exponent2;
+    ret = frexp(x, &exponent2);
+    exponent = (int32_t) exponent2;#;
     (ret, exponent);
 }
 

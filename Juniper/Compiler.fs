@@ -381,7 +381,7 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         indentId() +
         output "if (" + compile false condition + output ") {" + newline() +
         indentId() +
-        compile false trueBranch + newline() +
+        compile false trueBranch + output ";" + newline() +
         unindentId() +
         output "}" + newline () +
         output "return {};" + newline() +
@@ -619,7 +619,9 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         output "(juniper::shared_ptr<" + compileType typ + output ">(new " + compileType typ +
         output "(" + compile topLevel exp  + output ")))"
     | DoWhileLoopExp {condition=condition; body=body} ->
-        output ("((" + capture + "() -> ") + indentId() + newline() +
+        output ("((" + capture + "() -> ") +
+        compileType unitty +
+        output " {" + indentId() + newline() +
         output "do {" + indentId() + newline() +
         compile false body + output ";" + unindentId() + newline() +
         output "} while(" + compile false condition + output ");" + newline() +

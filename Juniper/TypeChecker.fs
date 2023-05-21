@@ -638,7 +638,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
 // and topological ordering. The first part of this function consists of analyzing
 // the modules to build up environments used in type checking. The second part
 // involves a graph theoretical/topological ordering analysis.
-let typecheckProgram (program : Ast.Module list) (fnames : string list) =
+let typecheckProgram (program : Ast.Module list) (fnames : string list) (keepUnreachable : bool) =
     // modNamesToMods maps module names to module contents
     let modNamesToMods =
         let names =
@@ -786,6 +786,9 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
             valueGraph.AddVertex((module_, name)) |> ignore
         ))
 
+    let mutable maybeSetupModule = None
+    let mutable maybeLoopModule = None
+
     // Add edges to the graph
     program |> List.iter (fun moduledef ->
         let module_ = nameInModule moduledef |> Option.get |> Ast.unwrap
@@ -799,6 +802,12 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
             let references =
                 match dec with
                 | (Ast.FunctionDec {clause=(_, {body=(_, expr); arguments=(_, arguments)})}) ->
+                    if name = "setup" then
+                        maybeSetupModule <- Some module_
+                    elif name = "loop" then
+                        maybeLoopModule <- Some module_
+                    else
+                        ()
                     // We need to determine what local variables this function declares so that we know what variables
                     // to ignore if we find a reference to that name
                     // Get the function's argument names
@@ -818,6 +827,28 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) =
             )
         )
     )
+
+    let reachable startNode =
+        let rec reachableRec visitedAlready startNode =
+            if Set.contains startNode visitedAlready then
+                visitedAlready
+            else
+                let mutable visitedAlready' = Set.add startNode visitedAlready
+                valueGraph.OutEdges(startNode) |>
+                Seq.fold (fun accumVisitedAlready outEdge -> reachableRec accumVisitedAlready outEdge.Target) visitedAlready'
+        reachableRec Set.empty startNode
+
+    if not keepUnreachable then
+        match (maybeSetupModule, maybeLoopModule) with
+        | (Some setupModule, Some loopModule) ->
+            let reachable = Set.union (reachable (setupModule, "setup")) (reachable (loopModule, "loop"))
+            for modQual in valueGraph.Vertices do
+                if not (Set.contains modQual reachable) then
+                    valueGraph.RemoveVertex(modQual) |> ignore
+        | (None, _) ->
+            raise <| SemanticError [Error.ErrMsg "Unable to find program entry point. Please create a function called setup.\n fun setup() = ()"]
+        | (_, None) ->
+            raise <| SemanticError [Error.ErrMsg "Unable to find program entry point. Please create a function called loop.\n fun loop() = ()."]
 
     // Also build a dependency graph for the types
     let typeGraph = new QuikGraph.AdjacencyGraph<string*string, QuikGraph.Edge<string*string>>()

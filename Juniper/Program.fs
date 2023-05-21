@@ -41,7 +41,8 @@ let helpText =
      "    -o, --output: The file in which the compiled C++ is written";
      "    -h, --help: View this help message";
      "    --custom-placement-new: Output a custom implementation of placement new, for use in Arduino board packages that give compilation errors related to #include <new>";
-     "    --c-linkage: setup and loop functions should have C linkage instead of C++. For Arduino board packages that give compilation error related to setup() and loop() linkage issues"] |> String.concat "\n"
+     "    --c-linkage: setup and loop functions should have C linkage instead of C++. For Arduino board packages that give compilation error related to setup() and loop() linkage issues"
+     "    --keep-unreachable: keep top level functions/let statements even if they are unreachable from the main and loop functions"] |> String.concat "\n"
 
 let rec printErr errs =
     match errs with
@@ -65,6 +66,7 @@ let main argv =
     let maybeHelp = getArg ["-h"; "--help"] argMap
     let maybeCustomPlacementNew = getArg ["--custom-placement-new"] argMap
     let maybeCLinkage = getArg ["--c-linkage"] argMap
+    let maybeKeepUnused = getArg ["--keep-unreachable"] argMap
     match (maybeSourceFiles, maybeOutputFile, maybeHelp) with
         | ((_, _, Some _) | (None, _, _) | (_, None, _)) | (_, Some [], _) ->
             printfn "%s" helpText
@@ -94,7 +96,7 @@ let main argv =
                 // Run parseFromFile (the parser combinators)
                 let asts = List.map parseFromFile fnames
                 // Typecheck the ASTs
-                let typeCheckedOutput = TypeChecker.typecheckProgram asts fnames
+                let typeCheckedOutput = TypeChecker.typecheckProgram asts fnames (Option.isSome maybeKeepUnused)
                 // Compile to C++ the typechecked (and typed) ASTs
                 let compiledProgram = Compiler.compileProgram typeCheckedOutput (Option.isSome maybeCustomPlacementNew) (Option.isSome maybeCLinkage)
                 System.IO.File.WriteAllText (outputFile, compiledProgram)

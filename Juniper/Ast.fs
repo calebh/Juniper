@@ -203,10 +203,12 @@ and UnaryOps = LogicalNot | BitwiseNot | Negate | Deref
 // Mutations are changes in already declared variables, arrays, records, etc.
 and ArrayMutationRec =  { array : PosAdorn<LeftAssign>; index : PosAdorn<Expr> }
 and RecordMutationRec = { record : PosAdorn<LeftAssign>; fieldName : PosAdorn<string> }
+and RefRecordMutationRec = { recordRef : PosAdorn<Expr>; fieldName : PosAdorn<string> }
 and LeftAssign = VarMutation of PosAdorn<string>
                | ModQualifierMutation of PosAdorn<ModQualifierRec>
                | ArrayMutation of ArrayMutationRec
                | RecordMutation of RecordMutationRec
+               | RefRecordMutation of RefRecordMutationRec
                | RefMutation of PosAdorn<Expr>
 
 // Takes in a wrapped AST object, returns the object within the PosAdorn.

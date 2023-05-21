@@ -196,7 +196,7 @@ and compileType theta kappa (ty : TyExpr) : string =
             output "juniper::array"
         | RefTy ->
             output "juniper::shared_ptr"
-        | FunTy ->
+        | (FunTy | TupleTy) ->
             failwith "This should never happen"
     | RecordTy (packed, fields) ->
         let fieldOrder =
@@ -233,6 +233,8 @@ and compileLeftAssign theta kappa topLevel (left : LeftAssign) : string =
         compileLeftAssign record +
         output ")." +
         output fieldName
+    | RefRecordMutation {recordRef=recordRef; fieldName=fieldName} ->
+        output "((" + compile recordRef + output ").get())->" + output fieldName
     | ModQualifierMutation {module_=module_; name=name} ->
         output module_ + output "::" + output name
     | RefMutation exp ->
@@ -255,6 +257,15 @@ and compilePattern (pattern : TyAdorn<Pattern>) (path : TyAdorn<Expr>) =
         | (pos, _, MatchFloatVal floatLit) ->
             let check = BinaryOpExp {op=Equal; left=path; right=(pos, TyCon <| BaseTy TyFloat, FloatExp floatLit)}
             conditions <- check::conditions
+        | (pos, _, MatchFalse) ->
+            let check = BinaryOpExp {op=Equal; left=path; right=(pos, TyCon <| BaseTy TyBool, FalseExp)}
+            conditions <- check::conditions
+        | (pos, _, MatchTrue) ->
+            let check = BinaryOpExp {op=Equal; left=path; right=(pos, TyCon <| BaseTy TyBool, TrueExp)}
+            conditions <- check::conditions
+        | (pos, _, MatchUnit) ->
+            // Unit only has one constructor, so anything of type unit is equal to all other values of type unit
+            ()
         | (_, _, MatchValCon {modQualifier={module_=module_; name=name}; innerPattern=innerPattern; id=index}) ->
             let tag = CallExp {func=dummyWrap (RecordAccessExp {record=path; fieldName="id"}); args=[]}
             let check = BinaryOpExp {op=Equal; left=dummyWrap tag; right=wrapWithType (TyCon <| BaseTy TyUint8) (IntExp <| int64 index)}
@@ -787,17 +798,14 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
     let (moduleNames, opens, includes, typeDecs, inlineCodeDecs, valueSccs) = program
     let mutable setupModule = None
     let mutable loopModule = None
-    (valueSccs |> List.iter (fun scc ->
-        match scc with
-        | (decs, _, _) ->
-            decs |> List.iter (fun (module_, dec) ->
-                match dec with
-                | FunctionDec {name=name} when name = "setup" ->
-                    setupModule <- Some module_
-                | FunctionDec {name=name} when name = "loop" ->
-                    loopModule <- Some module_
-                | _ -> ())
-        | _ -> ()))
+    (valueSccs |> List.iter (fun (decs, _, _) ->
+        decs |> List.iter (fun (module_, dec) ->
+            match dec with
+            | FunctionDec {name=name} when name = "setup" ->
+                setupModule <- Some module_
+            | FunctionDec {name=name} when name = "loop" ->
+                loopModule <- Some module_
+            | _ -> ())))
 
     let compileNamespace theta kappa (module_, dec) =
         output "namespace " + output module_ + output " {" + newline() + indentId() +

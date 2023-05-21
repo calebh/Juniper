@@ -163,6 +163,8 @@ let convertToLHS expr=
                 A.RefMutation exp
             | A.RecordAccessExp { record = record; fieldName = fieldName } ->
                 A.RecordMutation { record = convertToLHSRec false record; fieldName = fieldName }
+            | A.RefRecordAccessExp {recordRef = recordRef; fieldName=fieldName } ->
+                A.RefRecordMutation {recordRef = recordRef; fieldName=fieldName }
             | A.VarExp varName ->
                 A.VarMutation varName
             | A.ModQualifierExp modQual ->

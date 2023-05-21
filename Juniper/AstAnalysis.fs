@@ -27,10 +27,15 @@ let tyRefs (menv : Map<string, string*string>) tyDec =
             Set.unionMany (t1::t2)
         | A.ArrayTy {valueType=(_, valueType)} ->
             refsInTyExpr valueType
-        | A.FunTy {args=args; returnType=(_, returnType)} ->
-            let t1 = List.map (A.unwrap >> refsInTyExpr) args
-            let t2 = refsInTyExpr returnType
-            Set.unionMany (t2::t1)
+        | A.ClosureTy (_, closureFields) ->
+            closureFields |> List.map (snd >> A.unwrap >> refsInTyExpr) |> Set.unionMany
+        | A.UnderscoreTy _ ->
+            Set.empty
+        | A.FunTy {closure=(_, closureTy); args=args; returnType=(_, returnType)} ->
+            let t1 = refsInTyExpr closureTy
+            let t2 = List.map (A.unwrap >> refsInTyExpr) args |> Set.unionMany
+            let t3 = refsInTyExpr returnType
+            Set.unionMany [t1; t2; t3]
         | A.NameTy (_, name) ->
             match Map.tryFind name menv with
             | None ->
@@ -155,6 +160,8 @@ let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
                 Set.empty
         | Ast.RecordMutation {record=(_, record)} ->
             dl' record
+        | Ast.RefRecordMutation {recordRef=(_, recordRef)} ->
+            d localVars recordRef
         | Ast.VarMutation (_, name) ->
             match Map.tryFind name menv with
             | Some modqual when Set.contains modqual valueDecs ->
@@ -336,6 +343,8 @@ let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.Capa
             freeVarsLeftAssign pos record
         | T.RefMutation exp ->
             ffv exp
+        | T.RefRecordMutation {recordRef=recordRef} ->
+            ffv recordRef
 
     let rec freeVarsPattern ((pos, _, pat) : T.TyAdorn<T.Pattern>) =
         match pat with

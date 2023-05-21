@@ -206,10 +206,12 @@ and UnaryOps = LogicalNot | BitwiseNot | Negate | Deref
 // Mutations are changes in already declared variables, arrays, records, etc.
 and ArrayMutationRec =  { array : LeftAssign; index : TyAdorn<Expr> }
 and RecordMutationRec = { record : LeftAssign; fieldName : string }
+and RefRecordMutationRec = { recordRef : TyAdorn<Expr>; fieldName : string }
 and LeftAssign = VarMutation of string
                | ModQualifierMutation of ModQualifierRec
                | ArrayMutation of ArrayMutationRec
                | RecordMutation of RecordMutationRec
+               | RefRecordMutation of RefRecordMutationRec
                | RefMutation of TyAdorn<Expr>
 
 // Takes in a wrapped AST object, returns the object within the TyAdorn.
@@ -397,6 +399,9 @@ let rec preorderMapFoldLeftAssign (exprMapper: Map<string, TyExpr> -> 'accum -> 
     | RefMutation expr ->
         let (expr', accum'') = preorderMapFold exprMapper leftAssignMapper patternMapper gamma accum' expr
         (RefMutation expr', accum'')
+    | RefRecordMutation {recordRef=recordRef; fieldName=fieldName} ->
+        let (recordRef', accum'') = preorderMapFold exprMapper leftAssignMapper patternMapper gamma accum' recordRef
+        (RefRecordMutation {recordRef=recordRef'; fieldName=fieldName}, accum'')
 
 and preorderMapFoldPattern (patternMapper : Map<string, TyExpr> -> 'accum -> TyAdorn<Pattern> -> (TyAdorn<Pattern> * 'accum))
                            (gamma : Map<string, TyExpr>) (accum : 'accum) (pat : TyAdorn<Pattern>) : (TyAdorn<Pattern> * 'accum) =
@@ -518,6 +523,8 @@ and preorderMapFold (exprMapper: Map<string, TyExpr> -> 'accum -> TyAdorn<Expr> 
     | RecordAccessExp {record=record; fieldName=fieldName} ->
         let (record', accum'') = preorderMapFold' accum' record
         (wrapLike expr' (RecordAccessExp {record=record'; fieldName=fieldName}), accum'')
+    | SizeofExp _ ->
+        (expr', accum')
     | RefRecordAccessExp {recordRef=recordRef; fieldName=fieldName} ->
         let (recordRef', accum'') = preorderMapFold' accum' recordRef
         (wrapLike expr' (RefRecordAccessExp {recordRef=recordRef'; fieldName=fieldName}), accum'')

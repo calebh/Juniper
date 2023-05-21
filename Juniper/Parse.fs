@@ -452,13 +452,20 @@ do
         pipe3
             ((attempt (skipString "if" >>. ws)) >>. skipChar '(' >>. ws >>. fatalizeAnyError (expr .>> ws) .>> ws .>> skipChar ')' .>> ws)
             (fatalizeAnyError (expr .>> ws))
-            (fatalizeAnyError (skipString "else" >>. ws >>. expr .>> ws))
-            (fun condition trueBranch falseBranch ->
-                IfElseExp {
-                    condition = condition;
-                    trueBranch = trueBranch;
-                    falseBranch = falseBranch
-                })
+            ((skipString "else" >>. ws >>. expr .>> ws) |> opt)
+            (fun condition trueBranch maybeFalseBranch ->
+                match maybeFalseBranch with
+                | Some falseBranch ->
+                    IfElseExp {
+                        condition = condition;
+                        trueBranch = trueBranch;
+                        falseBranch = falseBranch
+                    }
+                | None ->
+                    IfExp {
+                        condition = condition;
+                        trueBranch = trueBranch
+                    })
     let pLet =
         pipe2
             ((attempt (pstring "let" >>. ws1)) >>. fatalizeAnyError (pattern .>> ws .>> skipChar '=' .>> ws))

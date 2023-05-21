@@ -126,6 +126,7 @@ and ModQualifierRec = { module_ : PosAdorn<string>; name : PosAdorn<string> }
 // Binary operation
 and BinaryOpRec =     { left : PosAdorn<Expr>; op : PosAdorn<BinaryOps>; right : PosAdorn<Expr> }
 and IfElseRec =       { condition : PosAdorn<Expr>; trueBranch : PosAdorn<Expr>; falseBranch : PosAdorn<Expr> }
+and IfRec =           { condition : PosAdorn<Expr>; trueBranch : PosAdorn<Expr> }
 and LetRec =          { left : PosAdorn<Pattern>; right : PosAdorn<Expr> }
 // Variable assign
 and AssignRec =       { left : PosAdorn<LeftAssign>; right : PosAdorn<Expr>; }
@@ -152,6 +153,7 @@ and DeclVarExpRec = { varName : PosAdorn<string>; typ : PosAdorn<TyExpr> }
 and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | BinaryOpExp of BinaryOpRec
           | IfElseExp of IfElseRec
+          | IfExp of IfRec
           | LetExp of LetRec
           | InlineCode of PosAdorn<string>
           | AssignExp of AssignRec

@@ -303,6 +303,8 @@ let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
                     Set.empty
         | Ast.WhileLoopExp {condition=(_, condition); body=(_, body)} ->
             Set.union (d' condition) (d' body)
+        | Ast.IfExp {condition=(_, condition); trueBranch=(_, trueBranch)} ->
+            Set.union (d' condition) (d' trueBranch)
         | Ast.DeclVarExp _ ->
             Set.empty
         | Ast.NullExp _ ->
@@ -395,6 +397,8 @@ let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.Capa
             append2 ([freeVarsTyp (T.getPos e) typ; ffv start; ffv end_; ffv body] |> List.unzip)
         | T.ForLoopExp {loopCondition=loopCondition; loopStep=loopStep; body=body} ->
             append2 ([ffv loopCondition; ffv loopStep; ffv body] |> List.unzip)
+        | T.IfExp {condition=condition; trueBranch=trueBranch} ->
+            append2 ([ffv condition; ffv trueBranch] |> List.unzip)
         | T.IfElseExp {condition=condition; trueBranch=trueBranch; falseBranch=falseBranch} ->
             append2 (List.map ffv [condition; trueBranch; falseBranch] |> List.unzip)
         | T.LambdaExp {returnTy=returnTy; arguments=arguments; body=body} ->

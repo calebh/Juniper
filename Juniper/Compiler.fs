@@ -373,6 +373,20 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         compile topLevel falseBranch +
         output ")" +
         unindentId()
+    | IfExp {condition=condition; trueBranch=trueBranch} ->
+        output "((" + capture + "() -> " +
+        compileType unitty +
+        output " {" +
+        newline() +
+        indentId() +
+        output "if (" + compile false condition + output ") {" + newline() +
+        indentId() +
+        compile false trueBranch + newline() +
+        unindentId() +
+        output "}" + newline () +
+        output "return {};" + newline() +
+        unindentId() +
+        output "})())"
     // A sequence is a set of expressions separated by semicolons inside parentheses, where the last exp
     // is returned
     | SequenceExp sequence ->

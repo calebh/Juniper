@@ -124,6 +124,7 @@ and ModQualifierRec = { module_ : string; name : string }
 // Binary operation
 and BinaryOpRec =     { left : TyAdorn<Expr>; op : BinaryOps; right : TyAdorn<Expr> }
 and IfElseRec =       { condition : TyAdorn<Expr>; trueBranch : TyAdorn<Expr>; falseBranch : TyAdorn<Expr> }
+and IfRec =           { condition : TyAdorn<Expr>; trueBranch : TyAdorn<Expr> }
 and LetRec =          { left : TyAdorn<Pattern>; right : TyAdorn<Expr> }
 // Variable assign
 and AssignRec =       { left : TyAdorn<LeftAssign>; right : TyAdorn<Expr> }
@@ -151,6 +152,7 @@ and DeclVarExpRec = { varName : string; typ : TyExpr }
 and Expr = SequenceExp of TyAdorn<Expr> list
           | BinaryOpExp of BinaryOpRec
           | IfElseExp of IfElseRec
+          | IfExp of IfRec
           | LetExp of LetRec
           | DeclVarExp of DeclVarExpRec
           | InternalDeclareVar of InternalDeclareVarExpRec // Only used internally for declaring variables

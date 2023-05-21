@@ -171,6 +171,12 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
         | Ast.SizeofExp tyExpr ->
             let tyExpr' = convertType' tyExpr
             adorn posE T.uint32type (T.SizeofExp tyExpr') Trivial
+        | Ast.IfExp {condition = (posc, _) as condition; trueBranch=(post, _) as trueBranch} ->
+            let (exprs', c) = typesof [condition; trueBranch] dtenv menv localVars gamma
+            let [condition'; trueBranch'] = exprs'
+            let [tauC; tauT] = getTypes exprs'
+            let c' = c &&& (tauC =~= (T.booltype, errStr [posc] "Condition of if statement expected to be type bool"))
+            adorn posE T.unittype (T.IfExp {condition=condition'; trueBranch=trueBranch'}) c'
         | Ast.IfElseExp {condition=(posc, _) as condition; trueBranch=(post, _) as trueBranch; falseBranch=(posf, _) as falseBranch} ->
             let (exprs', c) = typesof [condition; trueBranch; falseBranch] dtenv menv localVars gamma
             let [condition'; trueBranch'; falseBranch'] = exprs'

@@ -268,7 +268,7 @@ and compilePattern (pattern : TyAdorn<Pattern>) (path : TyAdorn<Expr>) =
             ()
         | (_, _, MatchValCon {modQualifier={module_=module_; name=name}; innerPattern=innerPattern; id=index}) ->
             let tag = CallExp {func=dummyWrap (RecordAccessExp {record=path; fieldName="id"}); args=[]}
-            let check = BinaryOpExp {op=Equal; left=dummyWrap tag; right=wrapWithType (TyCon <| BaseTy TyUint8) (IntExp <| int64 index)}
+            let check = BinaryOpExp {op=Equal; left=wrapWithType (TyCon <| BaseTy TyUint8) tag; right=wrapWithType (TyCon <| BaseTy TyUint8) (IntExp <| int64 index)}
             let accessExp = CallExp { func=RecordAccessExp {record=path; fieldName=name} |> dummyWrap; args=[] } |> dummyWrap
             match innerPattern with
             | [] -> ()
@@ -292,11 +292,16 @@ and compilePattern (pattern : TyAdorn<Pattern>) (path : TyAdorn<Expr>) =
                                         let path' = RecordAccessExp {record=path; fieldName="e" + (sprintf "%d" (i + 1))} |> dummyWrap
                                         compilePattern' pat path')
     compilePattern' pattern path
-    let truth = dummyWrap TrueExp
-    let condition = List.foldBack (fun cond andString ->
-                                    BinaryOpExp {op = LogicalAnd;
-                                                 left = dummyWrap cond;
-                                                 right = andString} |> dummyWrap) conditions truth
+    let truth = wrapWithType booltype TrueExp
+    let condition =
+        List.foldBack
+            (fun cond andString ->
+                BinaryOpExp {
+                    op = LogicalAnd;
+                    left = wrapWithType booltype cond;
+                    right = andString
+                } |>
+                wrapWithType booltype) conditions truth
     (condition, assignments)
 
 and compileDecRef d =
@@ -527,7 +532,7 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
                     | BitshiftLeft -> "<<"
                     | BitshiftRight -> ">>"
                     | BitwiseXor -> "^"
-        output "(" + compile topLevel left + output " " + output opStr + output " " + compile topLevel right + output ")"
+        output "((" + compileType ty + output ") " + output "(" + compile topLevel left + output " " + output opStr + output " " + compile topLevel right + output "))"
     | RecordAccessExp { record=record; fieldName=fieldName} ->
         output "(" + compile topLevel record + output ")." + output fieldName
     | RefRecordAccessExp {recordRef = recordRef; fieldName=fieldName} ->
@@ -692,15 +697,7 @@ and compileFunctionSignature theta kappa (FunctionDec {name=name; template=maybe
     output "(" +
     ((clause.arguments |>
         List.map (fun (name, ty) ->
-            (*let useReference = match unwrap ty with
-                                    | BaseTy _ -> false
-                                    | _ -> true
-            (if useReference then
-                output "const "
-            else
-                output "") +*)
-            (compileType ty) + //(if useReference then output "&" else output "") +
-            output " " + (name |> output))) |> String.concat ", ") +
+            (compileType ty) + output " " + (output name))) |> String.concat ", ") +
     output ")"
 
 // Convert declarations in Juniper to C++ representations

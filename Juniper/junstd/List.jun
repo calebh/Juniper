@@ -636,7 +636,7 @@ fun unzip(lst : list<(a,b); n>) : (list<a;n>, list<b;n>) = {
         The sum of the list
 */
 fun sum(lst : list<a;n>) : a where a : num =
-    List:foldl(add, 0, lst)
+    List:foldl((+), 0, lst)
 
 /*
     Function: average

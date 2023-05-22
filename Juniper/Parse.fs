@@ -433,6 +433,10 @@ do
     let pParensNot = genParensOp "!" "notf"
     let pParensAnd = genParensOp "&&" "andf"
     let pParensOr = genParensOp "||" "orf"
+    let pParensAdd = genParensOp "+" "add"
+    let pParensSub = genParensOp "-" "sub"
+    let pParensMul = genParensOp "*" "mul"
+    let pParensDiv = genParensOp "/" "div"
     
     let pfloating = (floatParser .>>. choice [skipChar 'f' >>. preturn FloatExp; preturn DoubleExp]) |>
                     pos |>>
@@ -542,7 +546,7 @@ do
     let nullexp = (skipString "null" |> pos |>> NullExp) .>> ws
     let sizeofexp = (attempt ((skipString "sizeof") >>. ws)) >>? fatalizeAnyError (betweenChar '(' tyExpr ')') |>> SizeofExp 
     let e = choice ([punit; ptrue; pfalse;
-                    pParensEq; pParensNeq; pParensGeq; pParensGt; pParensLeq; pParensLt; pParensNot; pParensAnd; pParensOr;
+                    pParensEq; pParensNeq; pParensGeq; pParensGt; pParensLeq; pParensLt; pParensNot; pParensAnd; pParensOr; pParensAdd; pParensSub; pParensMul; pParensDiv;
                     nullexp; charlist; str;
                     attempt pfloating; pint; smartpointer; sizeofexp;
                     fn; attempt parens; quit; attempt tuple; attempt recordExpr1; recordExprMany; seq;

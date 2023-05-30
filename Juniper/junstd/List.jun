@@ -15,16 +15,16 @@ open(Prelude)
     Applies f to every element of the list and returns the new list.
 
     Type Signature:
-    | (||)((closure)(a) -> b, list<a; n>) -> list<b; n>
+    | (||)((closure)(a) -> b, list<a, n>) -> list<b, n>
 
     Parameters:
         f : (closure)(a) -> b - The mapping function
-        lst : list<t;n> - The list to map.
+        lst : list<t, n> - The list to map.
 
    Returns:
         The list obtained by applying f to every element of lst.
 */
-fun map(f : (closure)(a) -> b, lst : list<a; n>) : list<b; n> = {
+fun map(f : (closure)(a) -> b, lst : list<a, n>) : list<b, n> = {
     let mut ret = array b[n] end;
     for (i : uint32 in 0u32 to lst.length) {
         ret[i] = f(lst.data[i]);
@@ -39,17 +39,17 @@ fun map(f : (closure)(a) -> b, lst : list<a; n>) : list<b; n> = {
     argument through the computation.
 
     Type Signature:
-    | (||)((closure)(t, state) -> state, state, list<t; n>) -> state
+    | (||)((closure)(t, state) -> state, state, list<t, n>) -> state
 
     Parameters:
         f : (closure)(t, state) -> state - The function to update the state given the input elements.
         initState : state - The initial state.
-        lst : list<t; n> - The input list.
+        lst : list<t, n> - The input list.
 
     Returns:
         The final state value.
 */
-fun foldl(f : (closure)(t, state) -> state, initState : state, lst : list<t; n>) : state = {
+fun foldl(f : (closure)(t, state) -> state, initState : state, lst : list<t, n>) : state = {
     let mut s = initState;
     for (i : uint32 in 0u32 to lst.length) {
         s = f(lst.data[i], s);
@@ -64,18 +64,18 @@ fun foldl(f : (closure)(t, state) -> state, initState : state, lst : list<t; n>)
     an accumulator argument through the computation.
 
     Type Signature:
-    | (||)((closure)(t, state) -> state, state, list<t; n>) -> state
+    | (||)((closure)(t, state) -> state, state, list<t, n>) -> state
 
     Parameters:
         f : (closure)(t,state) -> state - The function to update the state given the
                                      input elements.
         initState : state - The initial state.
-        lst : list<t; n> - The input list.
+        lst : list<t, n> - The input list.
 
     Returns:
         The final state value.
 */
-fun foldr(f : (closure)(t, state) -> state, initState : state, lst : list<t; n>) : state =
+fun foldr(f : (closure)(t, state) -> state, initState : state, lst : list<t, n>) : state =
     if (lst.length == 0) {
         initState;
     } else {
@@ -103,7 +103,7 @@ fun foldr(f : (closure)(t, state) -> state, initState : state, lst : list<t; n>)
    Returns:
         The two lists appended together.
 */
-fun append(lstA : list<t;aCap>, lstB : list<t;bCap>) : list<t;retCap> = {
+fun append(lstA : list<t, aCap>, lstB : list<t, bCap>) : list<t, retCap> = {
     let mut j : uint32 = 0u32;
     let mut out = {data=array t[retCap] end, length=lstA.length + lstB.length};
     for (i : uint32 in 0u32 to lstA.length) {
@@ -123,16 +123,16 @@ fun append(lstA : list<t;aCap>, lstB : list<t;bCap>) : list<t;retCap> = {
     Returns the nth element of the given list
 
     Type Signature:
-    | (||)(uint32, list<t;n>) -> t
+    | (||)(uint32, list<t, n>) -> t
 
     Parameters:
         i : uint32 - The index of the element to be retrieved
-        lst : list<t;n> - The given list
+        lst : list<t, n> - The given list
 
     Returns:
         The element at position i in the list
 */
-fun nth(i : uint32, lst : list<t;n>) : t =
+fun nth(i : uint32, lst : list<t, n>) : t =
     if (i < (lst.length : uint32)) {
         lst.data[i];
     } else {
@@ -145,16 +145,16 @@ fun nth(i : uint32, lst : list<t;n>) : t =
     Flattens a list of lists into a single list.
 
     Type Signature:
-    | (||)(list<list<t;m>;n>) -> list<t;m*n>
+    | (||)(list<list<t;m>, n>) -> list<t;m*n>
 
     Parameters:
-        listOfLists : list<list<t;m>;n> - The list of lists
+        listOfLists : list<list<t;m>, n> - The list of lists
 
     Returns:
         The flattened list
 */
 
-fun flattenSafe(listOfLists : list<list<t;m>;n>) : list<t;m*n> = {
+fun flattenSafe(listOfLists : list<list<t, m>, n>) : list<t, m*n> = {
     let mut ret = array t[m*n] end;
     let mut index = 0u32;
     for (i : uint32 in 0u32 to listOfLists.length) {
@@ -174,15 +174,15 @@ fun flattenSafe(listOfLists : list<list<t;m>;n>) : list<t;m*n> = {
     length of the list remained unchanged.
 
     Type Signature:
-    | (||)(list<t;n>) -> list<t;m>
+    | (||)(list<t, n>) -> list<t;m>
 
     Parameters:
-        lst : list<t;n> - The list to resize
+        lst : list<t, n> - The list to resize
 
     Returns:
         The new list with capacity m
 */
-fun resize(lst : list<t;n>) : list<t;m> = {
+fun resize(lst : list<t, n>) : list<t, m> = {
     let mut ret = array t[m] end;
     for (i : uint32 in 0u32 to lst.length) {
         ret[i] = lst.data[i];
@@ -197,17 +197,17 @@ fun resize(lst : list<t;n>) : list<t;m> = {
     otherwise false.
 
     Type Signature:
-    | (||)((closure)(t) -> bool, list<t;n>) -> bool
+    | (||)((closure)(t) -> bool, list<t, n>) -> bool
 
     Parameters:
         pred : (closure)(t) -> bool - The predicate which must be satisfied
-        lst : list<t;n> - The list on which the predicate is checked
+        lst : list<t, n> - The list on which the predicate is checked
 
     Returns:
         A boolean value which determines if pred satsified for every element of
         lst.
 */
-fun all(pred : (closure)(t) -> bool, lst : list<t;n>) : bool = {
+fun all(pred : (closure)(t) -> bool, lst : list<t, n>) : bool = {
     let mut satisfied = true;
     for (i : uint32 in 0u32 to lst.length) {
         if (satisfied) {
@@ -227,17 +227,17 @@ fun all(pred : (closure)(t) -> bool, lst : list<t;n>) : bool = {
     lst, otherwise false.
 
     Type Signature:
-    | (||)((closure)(t) -> bool, list<t;n>) -> bool
+    | (||)((closure)(t) -> bool, list<t, n>) -> bool
 
     Parameters:
         pred : (closure)(t) -> bool - The predicate which must be satisfied
-        lst : list<t;n> - The list on which the predicate is checked
+        lst : list<t, n> - The list on which the predicate is checked
 
     Returns:
         A boolean value which determines if pred is satsified for some element
         of lst.
 */
-fun any(pred : (closure)(t) -> bool, lst : list<t;n>) : bool = {
+fun any(pred : (closure)(t) -> bool, lst : list<t, n>) : bool = {
     let mut satisfied = false;
     for (i : uint32 in 0u32 to lst.length) {
         if (!satisfied) {
@@ -257,18 +257,18 @@ fun any(pred : (closure)(t) -> bool, lst : list<t;n>) : bool = {
     If the element will not fit in the list, the program crashes.
 
     Type Signature:
-    | (||)(t, list<t;n>) -> list<t;n>
+    | (||)(t, list<t, n>) -> list<t, n>
 
     Parameters:
         elem : t - The element to add to the end of the list
-        lst : list<t;n> - The list
+        lst : list<t, n> - The list
 
     Returns:
         A copy of lst with elem appended to the end
 */
-fun pushBack(elem : t, lst : list<t;n>) : list<t;n> =
+fun pushBack(elem : t, lst : list<t, n>) : list<t, n> =
     if ((lst.length : uint32) >= n) {
-        quit<list<t;n>>();
+        quit<list<t, n>>();
     } else {
         let mut ret = lst;
         ret.data[lst.length : uint32] = elem;
@@ -284,20 +284,20 @@ fun pushBack(elem : t, lst : list<t;n>) : list<t;n> =
     from the back of the list.
 
     Type Signature:
-    | (||)(t, list<t;n>) -> list<t;n>
+    | (||)(t, list<t, n>) -> list<t, n>
 
     Parameters:
         elem : t - The element to add to the front of the list
-        lst : list<t;n> - The list
+        lst : list<t, n> - The list
 
     Returns:
         A copy of lst with elem appended to the front
 */
-fun pushOffFront(elem : t, lst : list<t;n>) : list<t;n> = {
+fun pushOffFront(elem : t, lst : list<t, n>) : list<t, n> = {
     if (n <= 0i32) {
         lst;
     } else {
-        var ret : list<t;n>;
+        var ret : list<t, n>;
         ret.data[0u32] = elem;
         for (i : uint32 in 0 to lst.length) {
             if ((i + 1) < n) {
@@ -323,17 +323,17 @@ fun pushOffFront(elem : t, lst : list<t;n>) : list<t;n> = {
     is the given element. The index must be less than the length of the list.
 
     Type Signature:
-    | (||)(uint32, t, list<t;n>) -> list<t;n>
+    | (||)(uint32, t, list<t, n>) -> list<t, n>
 
     Parameters:
         index : uint32 - The index to set
         elem : t - The new element
-        lst : list<t;n> - The list
+        lst : list<t, n> - The list
 
     Returns:
         A new list where the elem is at index.
 */
-fun setNth(index : uint32, elem : t, lst : list<t;n>) : list<t;n> =
+fun setNth(index : uint32, elem : t, lst : list<t, n>) : list<t, n> =
     if (index < lst.length) {
         let mut ret = lst;
         ret.data[index] = elem;
@@ -348,7 +348,7 @@ fun setNth(index : uint32, elem : t, lst : list<t;n>) : list<t;n> =
     Initializes a new list of a given length using the given element.
 
     Type Signature:
-    | (||)(uint32, t) -> list<t;n>
+    | (||)(uint32, t) -> list<t, n>
 
     Parameters:
         numOfElements : uint32 - The length of the new list
@@ -357,7 +357,7 @@ fun setNth(index : uint32, elem : t, lst : list<t;n>) : list<t;n> =
     Returns:
         A new list with elem at every position in the list.
 */
-fun replicate(numOfElements : uint32, elem : t) : list<t;n> =
+fun replicate(numOfElements : uint32, elem : t) : list<t, n> =
     {data = array t[n] of elem end, length = numOfElements}
 
 /*
@@ -367,7 +367,7 @@ fun replicate(numOfElements : uint32, elem : t) : list<t;n> =
     deleted, if there is such an element.
 
     Type Signature:
-    | (||)(t, list<t;n>) -> list<t;n>
+    | (||)(t, list<t, n>) -> list<t, n>
 
     Parameters:
         elem : t - The element to remove from the list
@@ -376,7 +376,7 @@ fun replicate(numOfElements : uint32, elem : t) : list<t;n> =
     Returns:
         A copy of lst with elem removed.
 */
-fun remove(elem : t, lst : list<t;n>) : list<t;n> = {
+fun remove(elem : t, lst : list<t, n>) : list<t, n> = {
     let mut index : uint32 = 0u32;
     let mut found = false;
     for (i : uint32 in 0u32 to lst.length) {
@@ -407,15 +407,15 @@ fun remove(elem : t, lst : list<t;n>) : list<t;n> = {
     Drops the last element of a List.
 
     Type Signature:
-    | (||)(list<t;n>) -> list<t;n>
+    | (||)(list<t, n>) -> list<t, n>
 
     Parameters:
-        lst : list<t;n> - The list
+        lst : list<t, n> - The list
 
     Returns:
         The list with the last element dropped
 */
-fun dropLast(lst : list<t;n>) : list<t;n> =
+fun dropLast(lst : list<t, n>) : list<t, n> =
     if (lst.length == 0u32) {
         lst;
     } else {
@@ -433,16 +433,16 @@ fun dropLast(lst : list<t;n>) : list<t;n> =
     elements in the list.
 
     Type Signature:
-    | (||)((closure)(t) -> unit, list<t;n>) -> unit
+    | (||)((closure)(t) -> unit, list<t, n>) -> unit
 
     Parameters:
         f : (closure)(t) -> unit - The function to call
-        lst : list<t;n> - The list
+        lst : list<t, n> - The list
 
     Returns:
         Unit
 */
-fun foreach(f : (closure)(t) -> unit, lst : list<t;n>) : unit =
+fun foreach(f : (closure)(t) -> unit, lst : list<t, n>) : unit =
     for (i : uint32 in 0u32 to lst.length) {
         f(lst.data[i]);
     }
@@ -453,15 +453,15 @@ fun foreach(f : (closure)(t) -> unit, lst : list<t;n>) : unit =
     Returns the last element of the lst.
 
     Type Signature:
-    | (||)(list<t;n>) -> maybe<t>
+    | (||)(list<t, n>) -> maybe<t>
 
     Parameters:
-        lst : list<t;n> - The list
+        lst : list<t, n> - The list
 
     Returns:
         The last element of the list
 */
-fun last(lst : list<t;n>) : maybe<t> =
+fun last(lst : list<t, n>) : maybe<t> =
     if (lst.length == 0) {
         nothing();
     } else {
@@ -474,15 +474,15 @@ fun last(lst : list<t;n>) : maybe<t> =
     Returns the maximum element of the lst. If the list is empty, nothing() is returned.
 
     Type Signature:
-    | (||)(list<t;n>) -> maybe<t> where t : num
+    | (||)(list<t, n>) -> maybe<t> where t : num
 
     Parameters:
-        lst : list<t;n> - The list
+        lst : list<t, n> - The list
 
     Returns:
         The maximum element of the list
 */
-fun max_(lst : list<t;n>) : maybe<t> where t : num =
+fun max_(lst : list<t, n>) : maybe<t> where t : num =
     if ((lst.length == 0u32) || (n == 0i32)) {
         nothing();
     } else {
@@ -505,15 +505,15 @@ fun max_(lst : list<t;n>) : maybe<t> where t : num =
     Returns the minimum element of the lst. If the list is empty, nothing() is returned.
 
     Type Signature:
-    | (||)(list<t;n>) -> maybe<t> where t : num
+    | (||)(list<t, n>) -> maybe<t> where t : num
 
     Parameters:
-        lst : list<t;n> - The list
+        lst : list<t, n> - The list
 
     Returns:
         The minimum element of the list
 */
-fun min_(lst : list<t;n>) : maybe<t> =
+fun min_(lst : list<t, n>) : maybe<t> =
     if ((lst.length == 0u32) || (n == 0i32)) {
         nothing();
     } else {
@@ -536,16 +536,16 @@ fun min_(lst : list<t;n>) : maybe<t> =
     Returns true if elem is a member of lst, otherwise false.
 
     Type Signature:
-    | (||)(t, list<t;n>) -> bool
+    | (||)(t, list<t, n>) -> bool
 
     Parameters:
         elem : t - The element to match
-        lst : list<t;n> - The list to search
+        lst : list<t, n> - The list to search
 
     Returns:
         True if elem is in the list, otherwise false.
 */
-fun member(elem : t, lst : list<t;n>) : bool = {
+fun member(elem : t, lst : list<t, n>) : bool = {
     let mut found = false;
     for (i : uint32 in 0u32 to lst.length) {
         if ((!found) && (lst.data[i] == elem)) {
@@ -567,16 +567,16 @@ fun member(elem : t, lst : list<t;n>) : bool = {
     of equal length, the elements from the shorter list are dropped.
 
     Type Signature:
-    | (||)(list<a;n>, list<b;n>) -> list<(a,b);n>
+    | (||)(list<a, n>, list<b, n>) -> list<(a,b), n>
 
     Parameters:
-        lstA : list<a;n> - The first list to zip
-        lstB : list<b;n> - The second list to zip
+        lstA : list<a, n> - The first list to zip
+        lstB : list<b, n> - The second list to zip
 
     Returns:
         The zipped lists.
 */
-fun zip(lstA : list<a;n>, lstB : list<b;n>) : list<(a,b);n> = {
+fun zip(lstA : list<a, n>, lstB : list<b, n>) : list<(a,b), n> = {
     let outLen = Math:min_(lstA.length, lstB.length);
     let mut ret = {
         data = array (a,b)[n] end,
@@ -596,15 +596,15 @@ fun zip(lstA : list<a;n>, lstB : list<b;n>) : list<(a,b);n> = {
     element of each tuple.
 
     Type Signature:
-    | (||)(list<(a*b);n>) -> (list<a;n>*list<b;n>)
+    | (||)(list<(a*b), n>) -> (list<a, n>*list<b, n>)
 
     Parameters:
-        lst : list<(a*b);n> - The list to unzip
+        lst : list<(a*b), n> - The list to unzip
 
     Returns:
         The two unzipped lists.
 */
-fun unzip(lst : list<(a,b); n>) : (list<a;n>, list<b;n>) = {
+fun unzip(lst : list<(a,b), n>) : (list<a, n>, list<b, n>) = {
     let mut retA = {
         data = array a[n] end,
         length = lst.length
@@ -627,15 +627,15 @@ fun unzip(lst : list<(a,b); n>) : (list<a;n>, list<b;n>) = {
     Computes the sum of a list of numbers
 
     Type Signature:
-    | (||)(list<a;n>) -> a where a : num
+    | (||)(list<a, n>) -> a where a : num
 
     Parameters:
-        lst : list<a;n> - The list to sum
+        lst : list<a, n> - The list to sum
 
     Returns:
         The sum of the list
 */
-fun sum(lst : list<a;n>) : a where a : num =
+fun sum(lst : list<a, n>) : a where a : num =
     List:foldl((+), 0, lst)
 
 /*
@@ -644,13 +644,13 @@ fun sum(lst : list<a;n>) : a where a : num =
     Computes the average (mean) of a list of numbers
 
     Type Signature:
-    | (||)(list<a;n>) -> a where a : num
+    | (||)(list<a, n>) -> a where a : num
 
     Parameters:
-        lst : list<a;n> - The list to average
+        lst : list<a, n> - The list to average
 
     Returns:
         The numerical mean of the list
 */
-fun average(lst : list<a;n>) : a where a : num =
+fun average(lst : list<a, n>) : a where a : num =
     sum(lst) / cast(lst.length)

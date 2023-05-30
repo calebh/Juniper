@@ -26,7 +26,7 @@ and FunctionRec = { name     : PosAdorn<string>;
                     clause   : PosAdorn<FunctionClause> }
 
 and AliasRec =   { name     : PosAdorn<string>;
-                   template : PosAdorn<Template> option;
+                   template : Template option;
                    typ : PosAdorn<TyExpr> }
 
 // Value constructor
@@ -35,7 +35,7 @@ and ValueCon =    PosAdorn<string> * (PosAdorn<TyExpr> list)
 // Union algrebraic datatype. Template is optional.
 and UnionRec =    { name     : PosAdorn<string>;
                     valCons  : PosAdorn<ValueCon list>;
-                    template : PosAdorn<Template> option }
+                    template : Template option }
 
 // Let statement for functional-style declarations.
 and LetDecRec = { varName : PosAdorn<string>;
@@ -53,26 +53,28 @@ and Declaration = FunctionDec   of FunctionRec
                 | IncludeDec    of PosAdorn<PosAdorn<string> list>
                 | InlineCodeDec of PosAdorn<string>
 
-// A template is associated with a function, record or union
-and Template = { tyVars : PosAdorn<PosAdorn<string> list>; capVars : PosAdorn<PosAdorn<string> list> option }
+and Kind = StarKind of PosAdorn<unit>
+         | IntKind of PosAdorn<unit>
 
-// Use these to apply a template (ex: when calling a function with a template)
-and TemplateApply = { tyExprs : PosAdorn<PosAdorn<TyExpr> list>; capExprs : PosAdorn<PosAdorn<CapacityExpr> list> }
+// A template is associated with an algebraic datatype or alias
+and Template = PosAdorn<(PosAdorn<string> * Kind) list>
+
+// Use these to apply a template
+and TemplateApply = PosAdorn<PosAdorn<TyExpr> list>
 
 // Capacities are used for making lists and arrays of fixed maximum sizes.
+// Due to the restrictions on the parsing process, capacities and type expressions are unified in this
+// AST. Later on in the compilation process they become separated (in the typed AST)
 and CapacityArithOp = CapAdd | CapSubtract | CapMultiply | CapDivide
 and CapacityUnaryOp = CapNegate
-and CapacityArithOpRec = { left : PosAdorn<CapacityExpr>; op : PosAdorn<CapacityArithOp>; right : PosAdorn<CapacityExpr> }
-and CapacityUnaryOpRec = { op : PosAdorn<CapacityUnaryOp>; term : PosAdorn<CapacityExpr> }
-and CapacityExpr = CapacityNameExpr of PosAdorn<string>
-                 | CapacityOp of CapacityArithOpRec
-                 | CapacityUnaryOp of CapacityUnaryOpRec
-                 | CapacityConst of PosAdorn<int64>
+and CapacityArithOpRec = { left : PosAdorn<TyExpr>; op : PosAdorn<CapacityArithOp>; right : PosAdorn<TyExpr> }
+and CapacityUnaryOpRec = { op : PosAdorn<CapacityUnaryOp>; term : PosAdorn<TyExpr> }
+                 
 
 // The language is statically typed, and so there must be support for Type Expressons and their applications
 // (applying a typed datatype, typed arrays, typed functions definitions, a list of base types).
 and TyApplyRec = { tyConstructor : PosAdorn<TyExpr>; args : PosAdorn<TemplateApply> }
-and ArrayTyRec = { valueType : PosAdorn<TyExpr>; capacity : PosAdorn<CapacityExpr> }
+and ArrayTyRec = { valueType : PosAdorn<TyExpr>; capacity : PosAdorn<TyExpr> }
 and FunTyRec = { closure : PosAdorn<TyExpr>; args : PosAdorn<TyExpr> list; returnType : PosAdorn<TyExpr> }
 and BaseTypes = TyUint8
               | TyUint16
@@ -100,6 +102,9 @@ and TyExpr = BaseTy of PosAdorn<BaseTypes>
            | RecordTy of PosAdorn<RecordRec>
            | ClosureTy of PosAdorn<(PosAdorn<string> * PosAdorn<TyExpr>) list>
            | UnderscoreTy of PosAdorn<unit>
+           | CapacityOp of CapacityArithOpRec
+           | CapacityUnaryOp of CapacityUnaryOpRec
+           | CapacityConst of PosAdorn<int64>
 
 // Pattern matching AST datatypes.
 and MatchVarRec = {varName : PosAdorn<string>; mutable_ : PosAdorn<bool>; typ : PosAdorn<TyExpr> option}

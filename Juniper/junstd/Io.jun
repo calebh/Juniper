@@ -104,15 +104,15 @@ fun printStr(str : string) : unit =
     Writes a character list to the serial output.
 
     Type Signature:
-    | (||)(list<uint8;n>) -> unit
+    | (||)(list<uint8,n>) -> unit
 
     Parameters:
-        cl : list<uint8;n> - The character list to print
+        cl : list<uint8,n> - The character list to print
 
     Returns:
         unit
 */
-fun printCharList(cl : list<uint8; n>) : unit =
+fun printCharList(cl : list<uint8, n>) : unit =
     #Serial.print((char *) &cl.data[0]);#
 
 /*

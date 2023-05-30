@@ -123,3 +123,17 @@ module Option =
         | Some x ->
             let (x', accum') = f accum x
             (Some x', accum')
+
+module Choice =
+    let splitChoice2 (lst : Choice<'a, 'b> list) =
+        List.foldBack
+            (fun elem (lstA, lstB) ->
+                match elem with
+                | Choice1Of2 a ->
+                    (a::lstA, lstB)
+                | Choice2Of2 b ->
+                    (lstA, b::lstB))
+            lst
+            ([], [])
+
+    let getChoice1Of2 (Choice1Of2 x) = x

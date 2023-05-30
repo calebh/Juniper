@@ -64,7 +64,14 @@ and tycapsubst theta kappa =
         function
         | (TyVar a) -> varsubst theta kappa a
         | (TyCon c) -> TyCon c
-        | (ConApp (tau, taus, caps)) -> ConApp (subst tau, List.map subst taus, List.map (capsubst kappa) caps)
+        | (ConApp (con, taus)) ->
+            let taus' =
+                taus |>
+                List.map
+                    (function
+                    | Choice1Of2 argTy -> Choice1Of2 (subst argTy)
+                    | Choice2Of2 capTy -> Choice2Of2 (capsubst kappa capTy))
+            ConApp (con, taus')
         | (RecordTy (packed, fields)) -> RecordTy (packed, fields |> Map.map (fun _ fieldTau -> subst fieldTau))
         | (ClosureTy fields) -> ClosureTy (fields |> Map.map (fun _ fieldTau -> subst fieldTau))
     subst
@@ -88,6 +95,13 @@ let consubstCap kappa =
         | (AndCap (c1, c2)) -> AndCap (subst c1, subst c2)
         | TrivialCap -> TrivialCap
     subst
+
+let constraintsubst theta kappa c =
+    match c with
+    | HasField (fieldName, tau) ->
+        HasField (fieldName, tycapsubst theta kappa tau)
+    | (IsNum | IsInt | IsReal | IsPacked | IsRecord) ->
+        c
 
 let isNumericalType t =
     match t with
@@ -212,10 +226,18 @@ let rec freeVars t =
         function 
         | TyVar v -> (Set.singleton v, Set.empty)
         | TyCon _ -> (Set.empty, Set.empty)
-        | ConApp (ty, tys, caps) ->
-            let (ts, c1) = List.map freeVars (ty::tys) |> List.unzip
-            let c2 = List.map freeCapVars caps
-            (Set.unionMany ts, Set.union (Set.unionMany c1) (Set.unionMany c2))
+        | ConApp (_, tys) ->
+            tys |>
+            List.fold
+                (fun (accumFreeTys, accumFreeCaps) arg ->
+                    match arg with
+                    | Choice1Of2 argTy ->
+                        let (ts, cs) = freeVars argTy
+                        (Set.union accumFreeTys ts, Set.union accumFreeCaps cs)
+                    | Choice2Of2 capTy ->
+                        let cs = freeCapVars capTy
+                        (accumFreeTys, Set.union accumFreeCaps cs))
+                (Set.empty, Set.empty)
         | RecordTy (_, fields) ->
             let (ts, cs) = fields |> Map.values |> Seq.map freeVars |> List.ofSeq |> List.unzip
             (Set.unionMany ts, Set.unionMany cs)
@@ -244,17 +266,27 @@ let (|-%->) a cap =
             failwith "non-idemptotent capacity substitution"
         else
             bind a cap emptyEnv
-    
 
-let instantiate (Forall (formals, caps, constrs, tau)) actuals capActuals =
-    let theta = Map.ofList (List.zip formals actuals)
-    let kappa = Map.ofList (List.zip caps capActuals)
-    (tycapsubst theta kappa tau, constrs |> List.map (fun (tau, conType) -> (tycapsubst theta kappa tau, conType)))
-
-let freshInstance ((Forall (bound, caps, _, _)) as input) =
-    let freshTys = List.map freshtyvar bound
-    let freshCaps = List.map freshcapvar caps
-    (instantiate input freshTys freshCaps, freshTys, freshCaps)
+// Instantiate all the variables that have been universally quantified over with fresh
+// type and capacity variables
+let freshInstance (Forall (quantifiedVars, constraints, tau)) =
+    let (freshVars, (theta, kappa)) =
+        quantifiedVars |>
+        List.mapFold
+            (fun (accumTheta, accumKappa) (varName, kind) ->
+                match kind with
+                | StarKind ->
+                    let freshVar = freshtyvar ()
+                    let accumTheta' = Map.add varName freshVar accumTheta
+                    (Choice1Of2 freshVar, (accumTheta', accumKappa))
+                | IntKind ->
+                    let freshVar = freshcapvar ()
+                    let accumKappa' = Map.add varName freshVar accumKappa
+                    (Choice2Of2 freshVar, (accumTheta, accumKappa')))
+            (Map.empty, Map.empty)
+    let constraints' = constraints |> List.map (fun (constrTau, conType) -> (tycapsubst theta kappa constrTau, constraintsubst theta kappa conType))
+    let tau' = tycapsubst theta kappa tau
+    (tau', constraints', freshVars)
 
 let instantiateRecord (bound, caps, fields) actuals capActuals =
     let substitutions = List.zip bound actuals |> Map.ofList
@@ -288,8 +320,9 @@ let canonicalize (Forall (bound, ty)) =
     Forall (newBound, tysubst (Map.ofList (List.zip bound (List.map TyVar newBound))) ty)
 *)
 
-let generalize tyvars capvars (interfaceConstraints : Map<string, ConstraintType list>) tau =
+let generalize (interfaceConstraints : Map<string, (ConstraintType * ErrorMessage) list>) tau =
     let (t, c) = freeVars tau
+    // Filter out irrelevant or superflous interface constraints
     let interfaceConstraints' =
         t |>
         Set.map
@@ -297,11 +330,13 @@ let generalize tyvars capvars (interfaceConstraints : Map<string, ConstraintType
                 match Map.tryFind tau interfaceConstraints with
                 | Some constraints ->
                     constraints |>
-                    List.map (fun constTyp -> (TyVar tau, constTyp))
+                    List.map (fun (constTyp, _) -> (TyVar tau, constTyp))
                 | None -> []) |>
         Seq.concat |>
         List.ofSeq
-    Forall (Set.difference t tyvars |> List.ofSeq, Set.difference c capvars |> List.ofSeq, interfaceConstraints', tau)
+    let t' = t |> List.ofSeq |> List.map (fun tyVarName -> (tyVarName, StarKind))
+    let c' = c |> List.ofSeq |> List.map (fun capVarName -> (capVarName, IntKind))
+    Forall (t' @ c', interfaceConstraints', tau)
 
 let solveTyvarEq a tau =
     if eqType (TyVar a) tau then
@@ -318,58 +353,6 @@ let solveCapvarEq a cap =
         None
     else
         a |-%-> cap |> Some
-
-(*
-let rec simplifyCap cap =
-    match cap with
-    | CapacityVar _ -> cap
-    | CapacityOp {left=left; op=op; right=right} ->
-        let left' = simplifyCap left
-        let right' = simplifyCap right
-        match (left', right') with
-        | (CapacityConst m, CapacityConst n) ->
-            match op with
-            | CapAdd -> CapacityConst (m + n)
-            | CapSubtract -> CapacityConst (m - n)
-            | CapMultiply -> CapacityConst (m * n)
-            | CapDivide -> CapacityConst (m / n)
-        | _ -> 
-            CapacityOp {left=left'; op=op; right=right'}
-    | CapacityConst _ -> cap
-    | CapacityUnaryOp {op=CapNegate; term=term} ->
-        let term' = simplifyCap term
-        match term' with
-        | CapacityConst n -> CapacityConst (-n)
-        | _ -> CapacityUnaryOp {op=CapNegate; term=term'}
-*)
-
-(*
-let rec solveCap con : Map<string, CapacityExpr> =
-    match con with
-    | TrivialCap -> idSubst
-    | AndCap (left, right) ->
-        let kappa1 = solveCap left
-        let kappa2 = solveCap (consubstCap kappa1 right)
-        composeKappa kappa2 kappa1
-    | EqualCap (cap, cap', err) ->
-        let failMsg = lazy (sprintf "Capacity type error: The capacities %s and %s are not equal.\n\n%s" (capacityString cap) (capacityString cap') (err.Force()))
-        match (simplifyCap cap, simplifyCap cap') with
-        | ((CapacityVar a, cap) | (cap, CapacityVar a)) ->
-            match solveCapvarEq a cap with
-            | Some answer -> answer
-            | None -> raise <| TypeError (failMsg.Force())
-        | (CapacityConst a, CapacityConst b) ->
-            if a = b then
-                idSubst
-            else
-                raise <| TypeError (failMsg.Force())
-        | (CapacityOp {left=left; op=op; right=right}, CapacityOp {left=left'; op=op'; right=right'}) when op = op' ->
-            solveCap (AndCap (EqualCap (left, left', err), EqualCap (right, right', err)))
-        | (CapacityUnaryOp {term=term; op=op}, CapacityUnaryOp {term=term'; op=op'}) when op = op' ->
-            solveCap (EqualCap (term, term', err))
-        | _ ->
-            raise <| TypeError (failMsg.Force())
-*)
 
 exception EquationConversionError of string
 
@@ -648,11 +631,21 @@ let rec solve (con : Constraint) (terminalCaps : string list) : Map<string, TyEx
                                 (idSubst, TrivialCap, [])
                             else
                                 raise <| TypeError (failMsg.Force())
-                        | (ConApp (t, ts, cs), ConApp(t', ts', cs')) ->
-                            if List.length ts = List.length ts' && List.length cs = List.length cs' then
+                        | (ConApp (t, app), ConApp(t', app')) ->
+                            // First ensure that we are applying the same number of type arguments
+                            if List.length app = List.length app' then
+                                // Now ensure that corresponding arguments have the same kind (ie, type aka * or int)
+                                List.zip app app' |>
+                                List.iter
+                                    (function
+                                    | (Choice1Of2 _, Choice1Of2 _) -> ()
+                                    | (Choice2Of2 _, Choice2Of2 _) -> ()
+                                    | _ -> raise <| TypeError (failMsg.Force()))
+                                let (ts, cs) = Choice.splitChoice2 app
+                                let (ts', cs') = Choice.splitChoice2 app'
                                 let eqAnd c t t' = And (Equal (t, t', err), c)
                                 let eqAndCap accum c c' = AndCap (EqualCap (c, c', err), accum)
-                                let (theta, capCon1, intConst) = solveTheta (List.fold2 eqAnd Trivial (t::ts) (t'::ts'))
+                                let (theta, capCon1, intConst) = solveTheta (List.fold2 eqAnd Trivial ((TyCon t)::ts) ((TyCon t')::ts'))
                                 let capCon2 = List.fold2 eqAndCap TrivialCap cs cs'
                                 (theta, AndCap (capCon1, capCon2), intConst)
                             else

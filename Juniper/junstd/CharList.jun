@@ -11,7 +11,7 @@ open(Prelude)
     Converts characters in a character list from lower case to upper case
 
     Type Signature:
-    | (||)(list<uint8; n>) -> list<uint8; n>
+    | (||)(list<uint8, n>) -> list<uint8, n>
 
     Parameters:
         str : list<uint8; n> - The string to convert to upper case
@@ -34,7 +34,7 @@ fun toUpper(str) =
     Converts characters in a character list from upper case to lower case
 
     Type Signature:
-    | (||)(list<uint8; n>) -> list<uint8; n>
+    | (||)(list<uint8, n>) -> list<uint8, n>
 
     Parameters:
         str : list<uint8; n> - The string to convert to lower case
@@ -59,7 +59,7 @@ fun toLower(str) =
     at most length n.
 
     Type Signature:
-    | (||)(int32) -> charlist<;n>
+    | (||)(int32) -> charlist<n>
 
     Parameters:
         m : int32 - The number to convert
@@ -67,7 +67,7 @@ fun toLower(str) =
     Returns:
         A list of characters
 */
-fun i32ToCharList(m : int32) : charlist<;n> = {
+fun i32ToCharList(m : int32) : charlist<n> = {
     let ret = {data=array uint8[n + 1] of 0u8 end, length=0u32};
     #
     int charsPrinted = 1 + snprintf((char *) &ret.data[0], n + 1, "%d", m);
@@ -83,15 +83,15 @@ fun i32ToCharList(m : int32) : charlist<;n> = {
     (takes into account the null byte at the end of the character list)
 
     Type Signature:
-    | (||)(list<uint8; n>) -> uint32
+    | (||)(list<uint8, n>) -> uint32
 
     Parameters:
-        s : list<uint8; n> - The character list to find the length of
+        s : list<uint8, n> - The character list to find the length of
     
     Returns:
         The length of the character list
 */
-fun length(s : list<uint8; n>) : uint32 =
+fun length(s : list<uint8, n>) : uint32 =
     s.length - 1u32
 
 /*
@@ -101,16 +101,16 @@ fun length(s : list<uint8; n>) : uint32 =
     due to the null bytes at the end of character lists.
 
     Type Signature:
-    | (||)(list<uint8;aCap>, list<uint8;bCap>) -> list<uint8;retCap>
+    | (||)(charlist<aCap>, charlist<bCap>) -> charlist<retCap>
 
     Parameters:
-        sA : list<uint8;aCap> - The first character list.
-        sB : list<uint8;bCap> - The second character list.
+        sA : charlist<aCap> - The first character list.
+        sB : charlist<bCap> - The second character list.
 
    Returns:
         The two lists appended together.
 */
-fun concat(sA : charlist<;aCap>, sB : charlist<;bCap>) : charlist<;retCap> = {
+fun concat(sA : charlist<aCap>, sB : charlist<bCap>) : charlist<retCap> = {
     let mut j : uint32 = 0;
     let lenA = length(sA);
     let lenB = length(sB);
@@ -134,13 +134,13 @@ fun concat(sA : charlist<;aCap>, sB : charlist<;bCap>) : charlist<;retCap> = {
     by the input capacities, less type annotations than normal concat are necessary.
 
     Type Signature:
-    | (||)(charlist<;aCap>, charlist<;bCap>) -> charlist<;aCap+bCap>
+    | (||)(charlist<aCap>, charlist<bCap>) -> charlist<aCap+bCap>
 
     Parameters:
-        sA : charlist<;aCap> - The first character list.
-        sB : charlist<;bCap> - The second character list.
+        sA : charlist<aCap> - The first character list.
+        sB : charlist<bCap> - The second character list.
 
    Returns:
         The two lists appended together.
 */
-fun safeConcat(sA : charlist<;aCap>, sB : charlist<;bCap>) : charlist<;aCap+bCap> = concat(sA, sB)
+fun safeConcat(sA : charlist<aCap>, sB : charlist<bCap>) : charlist<aCap+bCap> = concat(sA, sB)

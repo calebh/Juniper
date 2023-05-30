@@ -71,7 +71,7 @@ type either<a,b> = left(a)
         data : a[n] - The internal array used to store the elements.
         length : uint32 - The length of the list
 */
-alias list<a; n> = { data : a[n], length : uint32 }
+alias list<a, n : int> = { data : a[n], length : uint32 }
 
 /*
     Type: alias charlist
@@ -86,7 +86,7 @@ alias list<a; n> = { data : a[n], length : uint32 }
         data : uint8[n+1]
         length : uint32
 */
-alias charlist<;n> = list<uint8;n+1>
+alias charlist<n : int> = list<uint8, n + 1>
 
 /*
     Type: sig

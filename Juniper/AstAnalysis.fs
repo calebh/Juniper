@@ -1,6 +1,8 @@
 ﻿module AstAnalysis
 module A = Ast
 module T = TypedAst
+open Extensions
+open Error
 
 let resolveUserTyName menv (denv : Map<string * string, A.PosAdorn<A.Declaration>>) (name : string) =
     match Map.tryFind name menv with
@@ -21,7 +23,7 @@ let tyRefs (menv : Map<string, string*string>) tyDec =
             Set.empty
         | A.ModuleQualifierTy {module_=(_, module_); name=(_, name)} ->
             Set.singleton (module_, name)
-        | A.ApplyTy {tyConstructor=(_, tyConstructor); args=(_, {tyExprs=(_, tyExprs)})} ->
+        | A.ApplyTy {tyConstructor=(_, tyConstructor); args=(_, (_, tyExprs))} ->
             let t1 = refsInTyExpr tyConstructor
             let t2 = List.map (A.unwrap >> refsInTyExpr) tyExprs
             Set.unionMany (t1::t2)
@@ -48,6 +50,8 @@ let tyRefs (menv : Map<string, string*string>) tyDec =
             taus |> List.map (A.unwrap >> refsInTyExpr) |> Set.unionMany
         | A.RecordTy (_, {fields=(_, fields)}) ->
             fields |> List.map (snd >> A.unwrap >> refsInTyExpr) |> Set.unionMany
+        | (A.CapacityConst _ | A.CapacityOp _ | A.CapacityUnaryOp _) ->
+            Set.empty
 
     match tyDec with
     | A.UnionDec {valCons=(_, valCons)} ->
@@ -59,76 +63,94 @@ let tyRefs (menv : Map<string, string*string>) tyDec =
     | A.AliasDec {typ=(_, typ)} ->
         refsInTyExpr typ
 
-// Return a set containing all the named capacity variables in the given capacity expression
-let rec capVarsCap (c : Ast.CapacityExpr) : Set<Ast.PosAdorn<string>> =
-    match c with
-    | Ast.CapacityNameExpr v ->
-        Set.singleton v
-    | Ast.CapacityOp {left = (_, left); right = (_, right)} ->
-        Set.union (capVarsCap left) (capVarsCap right)
-    | Ast.CapacityUnaryOp {term = (_, term)} ->
-        capVarsCap term
-    | Ast.CapacityConst _ ->
-        Set.empty
+let getArgKinds (denv : Map<string * string, A.PosAdorn<A.Declaration>>) posQual ({module_=module_; name=name} : T.ModQualifierRec) =
+    match Map.tryFind (module_, name) denv with
+    | (Some (_, A.UnionDec {template=maybeTemplate}) | Some (_, A.AliasDec {template=maybeTemplate})) ->
+        match maybeTemplate with
+        | Some (_, template) ->
+            List.map snd template
+        | None ->
+            []
+    | Some _ ->
+        raise <| SemanticError ((errStr [posQual] (sprintf "Found a declaration with name %s:%s, but it was not an algebraic datatype or alias." module_ name)).Force())
+    | None ->
+        raise <| SemanticError ((errStr [posQual] (sprintf "Unable to find algebraic datatype or alias with module qualifier %s:%s" module_ name)).Force())
 
-// Return a set containing all the named capacity variables in the given type expression
-and capVars (ty : Ast.TyExpr) : Set<Ast.PosAdorn<string>> =
-    let capVarsMany elems = List.map (Ast.unwrap >> capVars) elems |> Set.unionMany
+// Separate the arguments by their kinds, given a type constructor and a template to apply to that constructor
+// Choice1Of2 indicates a type expression
+// Choice2Of2 indicates a capacity expression
+let separateArgsByKind (menv : Map<string, string*string>) (denv : Map<string * string, A.PosAdorn<A.Declaration>>) ((posc, tyConstructor) : A.PosAdorn<Ast.TyExpr>) ((posa, args) : Ast.TemplateApply) : (Choice<A.PosAdorn<A.TyExpr>, A.PosAdorn<A.TyExpr>> list) =
+    let (module_, name) =
+        match tyConstructor with
+        | Ast.ModuleQualifierTy {module_=(_, module_); name=(_, name)} ->
+            (module_, name)
+        | Ast.NameTy (_, name) ->
+            match Map.tryFind name menv with
+            | Some modQual ->
+                modQual
+            | None ->
+                raise <| SemanticError ((errStr [posc] (sprintf "Unable to find declaration with name %s in the current module environment." name)).Force())
+        | _ ->
+            raise <| SemanticError ((errStr [posc] "A template can only be applied to a module qualifier or qualified name.").Force())
+    let kinds = getArgKinds denv posc {module_=module_; name=name}
+    if List.length kinds = List.length args then
+        List.zip args kinds |>
+        List.map
+            (function
+            | (arg, A.StarKind _) -> Choice1Of2 arg
+            | (arg, A.IntKind _) -> Choice2Of2 arg)
+    else
+        raise <| SemanticError ((errStr [posc; posa] (sprintf "Incorrect number of template arguments. Expected %d arguments, but got %d instead." (List.length kinds) (List.length args))).Force())
+
+// Get all the variables with the given 'searchKind', given input environments, the type to search through, and the kind of the type
+let rec getVars (searchKind : T.Kind) (menv : Map<string, string*string>) (denv : Map<string * string, A.PosAdorn<A.Declaration>>) (tyKind : T.Kind) (ty : Ast.TyExpr) : List<Ast.PosAdorn<string>> =
+    let getVars' = getVars searchKind menv denv
+    let getVarsMany kind elems = List.map (Ast.unwrap >> getVars' kind) elems |> List.concat
     match ty with
-    | Ast.ApplyTy { tyConstructor = (_, tyConstructor); args = (_, {tyExprs = (_, tyExprs); capExprs = (_, capExprs)}) } ->
-        let v1 = capVars tyConstructor
-        let v2 = capVarsMany tyExprs
-        let v3 = List.map (Ast.unwrap >> capVarsCap) capExprs |> Set.unionMany
-        Set.unionMany [v1; v2; v3]
+    | Ast.ApplyTy { tyConstructor = tyConstructor; args = (_, args) } ->
+        let (tyExprs, capExprs) = Choice.splitChoice2 (separateArgsByKind menv denv tyConstructor args)
+        let v1 = getVars' T.StarKind (A.unwrap tyConstructor)
+        let v2 = getVarsMany T.StarKind tyExprs
+        let v3 = getVarsMany T.IntKind capExprs
+        List.concat [v1; v2; v3]
     | Ast.ArrayTy {valueType = (_, valueType); capacity = (_, capacity)} ->
-        let v1 = capVars valueType
-        let v2 = capVarsCap capacity
-        Set.union v1 v2
+        let v1 = getVars' T.StarKind valueType
+        let v2 = getVars' T.IntKind capacity
+        v1 @ v2
     | Ast.FunTy {closure = (_, closure); args = args; returnType = (_, returnType)} ->
-        let v1 = capVars closure
-        let v2 = capVarsMany args
-        let v3 = capVars returnType
-        Set.unionMany [v1; v2; v3]
+        let v1 = getVars' T.StarKind closure
+        let v2 = getVarsMany T.StarKind args
+        let v3 = getVars' T.StarKind returnType
+        List.concat [v1; v2; v3]
     | Ast.RefTy (_, refTy) ->
-        capVars refTy
+        getVars' T.StarKind refTy
     | Ast.TupleTy elems ->
-        capVarsMany elems
+        getVarsMany T.StarKind elems
     | Ast.RecordTy (_, {fields = (_, fields)}) ->
-        fields |> List.map snd |> capVarsMany
+        fields |> List.map snd |> getVarsMany T.StarKind
     | Ast.ClosureTy (_, fields) ->
-        fields |> List.map snd |> capVarsMany
-    | (Ast.BaseTy _ | Ast.ModuleQualifierTy _ | Ast.NameTy _ | Ast.UnderscoreTy _) ->
-        Set.empty
-
-let rec tyVars menv denv (ty : Ast.TyExpr) : Set<Ast.PosAdorn<string>> =
-    let tyVars' = tyVars menv denv
-    let tyVarsMany elems = List.map (Ast.unwrap >> tyVars') elems |> Set.unionMany
-    match ty with
-    | Ast.ApplyTy { tyConstructor = (_, tyConstructor); args = (_, {tyExprs = (_, tyExprs); capExprs = _}) } ->
-        let v1 = tyVars' tyConstructor
-        let v2 = tyVarsMany tyExprs
-        Set.union v1 v2
-    | Ast.ArrayTy {valueType = (_, valueType); capacity = _} ->
-        tyVars' valueType
-    | Ast.FunTy {closure = (_, closure); args = args; returnType = (_, returnType)} ->
-        let v1 = tyVars' closure
-        let v2 = tyVarsMany args
-        let v3 = tyVars' returnType
-        Set.unionMany [v1; v2; v3]
-    | Ast.RefTy (_, refTy) ->
-        tyVars' refTy
-    | Ast.TupleTy elems ->
-        tyVarsMany elems
-    | Ast.RecordTy (_, {fields = (_, fields)}) ->
-        fields |> List.map snd |> tyVarsMany
-    | Ast.ClosureTy (_, fields) ->
-        fields |> List.map snd |> tyVarsMany
-    | Ast.NameTy (posn, name) ->
-        match resolveUserTyName menv denv name with
-        | Some _ -> Set.empty
-        | None -> Set.singleton (posn, name)
+        fields |> List.map snd |> getVarsMany T.StarKind
     | (Ast.BaseTy _ | Ast.ModuleQualifierTy _ | Ast.UnderscoreTy _) ->
-        Set.empty
+        []
+    | Ast.NameTy name ->
+        match (searchKind, tyKind) with
+        | (T.IntKind, T.IntKind) ->
+            [name]
+        | (T.StarKind, T.StarKind) ->
+            match resolveUserTyName menv denv (A.unwrap name) with
+            | Some _ -> []
+            | None -> [name]
+        | ((T.StarKind, T.IntKind) | (T.IntKind, T.StarKind)) ->
+            []
+    | Ast.CapacityOp {left = (_, left); right = (_, right)} ->
+        (getVars' T.IntKind left) @ (getVars' T.IntKind right)
+    | Ast.CapacityUnaryOp {term = (_, term)} ->
+        getVars' T.IntKind term
+    | Ast.CapacityConst _ ->
+        []
+
+let capVars = getVars T.IntKind
+let tyVars = getVars T.StarKind
 
 // Find all top level function and let declarations (value declarations)
 // that some expression is referring to
@@ -330,7 +352,8 @@ let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.Capa
         let fc = Constraint.freeCapVars cap' |> List.ofSeq
         ([], List.zip (List.replicate (List.length fc) pos) fc)
 
-    let freeVarsTemplateApply pos ({tyExprs=tyExprs; capExprs=capExprs} : T.TemplateApply) =
+    let freeVarsTemplateApply pos (args : T.TemplateApply) =
+        let (tyExprs, capExprs) = Choice.splitChoice2 args
         let t = append2 (List.map (freeVarsTyp (T.getPos e)) tyExprs |> List.unzip)
         let c = append2 (List.map (freeVarsCap (T.getPos e)) capExprs |> List.unzip)
         append2 ([t; c] |> List.unzip)
@@ -440,7 +463,7 @@ let closure (expr : T.TyAdorn<T.Expr>) : Set<string> =
     T.preorderFold
         (fun gamma accum expr' ->
             match T.unwrap expr' with
-            | T.VarExp (name, _, _) ->
+            | T.VarExp name ->
                 if Map.containsKey name gamma then
                     accum
                 else

@@ -54,7 +54,7 @@ fun seed(n : uint32) : unit = #randomSeed(n);#
     probable to be selected.
 
     Type Signature:
-    | (||)(list<t;n>) -> t
+    | (||)(list<t, n>) -> t
 
     Parameters:
         lst : list<t;n> - The list to randomly select from
@@ -62,7 +62,7 @@ fun seed(n : uint32) : unit = #randomSeed(n);#
     Returns:
         A random element from the list
 */
-fun choice(lst : list<t;n>) : t = {
+fun choice(lst : list<t, n>) : t = {
     let i : int32 = random_(0, u32ToI32(lst.length));
     List:nth(i32ToU32(i), lst);
 }

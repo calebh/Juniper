@@ -142,7 +142,7 @@ let compileClosureEnviornment () =
 let rec getQuitExpr (ty : TyExpr) : TyAdorn<Expr> =
     let quitFun = {module_="juniper"; name="quit"}
     let appliedQuit = TemplateApplyExp { func = Choice2Of2 quitFun;
-                                         templateArgs = { tyExprs = [ty]; capExprs = []}} |> wrapWithType ty
+                                         templateArgs = [Choice1Of2 ty]} |> wrapWithType ty
     wrapWithType
         ty
         (CallExp {func = appliedQuit;
@@ -161,14 +161,21 @@ and compileType theta kappa (ty : TyExpr) : string =
                 output name
             else
                 compileType ty'
-    | ConApp (TyCon FunTy, closureTy::returnType::args, _) ->
-        output "juniper::function<" + compileType closureTy + output ", " + compileType returnType + output "(" + (args |> List.map compileType |> String.concat ", ") + output ")" + output ">"
-    | ConApp (TyCon TupleTy, taus, _) ->
+    | ConApp (FunTy, closureTy::returnType::args) ->
+        output "juniper::function<" + compileType (Choice.getChoice1Of2 closureTy) + output ", " + compileType (Choice.getChoice1Of2 returnType) + output "(" + (args |> List.map (Choice.getChoice1Of2 >> compileType) |> String.concat ", ") + output ")" + output ">"
+    | ConApp (TupleTy, taus) ->
         output (sprintf "juniper::tuple%d<" (List.length taus)) +
-            (taus |> List.map compileType |> String.concat ",") +
-            output ">"
-    | ConApp (tyCon, taus, caps) ->
-        output (compileType tyCon + "<" + ((List.append (List.map compileType taus) (List.map compileCap caps)) |> String.concat ", ") + ">")
+        (taus |> List.map (Choice.getChoice1Of2 >> compileType) |> String.concat ", ") +
+        output ">"
+    | ConApp (tyCon, taus) ->
+        compileType (TyCon tyCon) + "<" +
+        (taus |>
+        List.map
+            (function
+            | Choice1Of2 tau -> compileType tau
+            | Choice2Of2 cap -> compileCap cap) |>
+        String.concat ", ") +
+        output ">"
     | TyCon tyc ->
         match tyc with
         | BaseTy bty ->
@@ -407,14 +414,14 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
                 // Hit a let expression embedded in a sequence
                 | LetExp {left=left; right=right} ->
                     let varName = Guid.string()
-                    let (condition, assignments) = compilePattern left (dummyWrap (VarExp (varName, [], [])))
+                    let (condition, assignments) = compilePattern left (dummyWrap (VarExp varName))
                     compile false (dummyWrap (InternalDeclareVar {varName=varName; typ=getType right; right=right})) + output ";" + newline() +
                     output "if (!(" + compile false condition + output ")) {" + newline() + indentId() +
                     compile false (getQuitExpr (TyCon <| (BaseTy TyUnit))) + output ";" + newline() + unindentId() +
                     output "}" + newline() +
                     (assignments |> List.map (fun expr -> compile false (dummyWrap expr) + output ";" + newline()) |> String.concat "") +
                     (if isLastElem then
-                        output "return " + compile false (dummyWrap (VarExp (varName, [], []))) + output ";"
+                        output "return " + compile false (dummyWrap (VarExp varName)) + output ";"
                     else
                         output "")
                 | DeclVarExp {varName=varName; typ=typ} ->
@@ -439,20 +446,20 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
     | LetExp {left=left; right=right} ->
         let unitTy = TyCon <| BaseTy TyUnit
         let varName = Guid.string()
-        let (condition, assignments) = compilePattern left (dummyWrap (VarExp (varName, [], [])))
+        let (condition, assignments) = compilePattern left (dummyWrap (VarExp varName))
         output ("((" + capture + "() -> ") + compileType ty + output " {" + indentId() + newline() +
         compile false (dummyWrap (InternalDeclareVar {varName=varName; typ=ty; right=right})) + output ";" + newline() +
         output "if (!(" + compile false condition + output ")) {" + newline() + indentId() +
         compile false (getQuitExpr unitTy) + output ";" + newline() + unindentId() +
         output "}" + newline() +
-        output "return " + compile false (dummyWrap (VarExp (varName, [], []))) + output ";" +
+        output "return " + compile false (dummyWrap (VarExp varName)) + output ";" +
         unindentId() + newline() + output "})())"
     // Hit a decl var exp not embedded in a sequence
     // In this case declare the variable but return it immediately
     | DeclVarExp {varName=varName; typ=typ} ->
         output ("((" + capture + "() -> ") + compileType typ + output " {" + indentId() + newline() +
         output (compileType typ) + output " " + output varName + output ";" + newline() +
-        output "return " + compile false (dummyWrap (VarExp (varName, [], []))) + output ";" +
+        output "return " + compile false (dummyWrap (VarExp varName)) + output ";" +
         unindentId() + newline() + output "})())"
     | AssignExp {left=(_, _, left); right=right} ->
         let (_, ty, _) = right
@@ -473,13 +480,8 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         compileType ty + output "(" + compile topLevel func + output ")"
     | UnitExp _ ->
         output "juniper::unit()"
-    | VarExp (name, [], []) ->
+    | VarExp name ->
         output name
-    | VarExp (name, t, c) ->
-        let name' = output name
-        let t' = List.map (Constraint.tycapsubst theta kappa >> compileType) t
-        let c' = List.map (Constraint.capsubst kappa >> compileCap) c
-        output name + output "<" + (t' @ c' |> String.concat ", ") + output ">"
     | WhileLoopExp {condition=condition; body=body} ->
         output ("((" + capture + "() -> ") +
         compileType unitty +
@@ -495,7 +497,7 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         let equivalentExpr =
             List.foldBack
                 (fun (pattern, executeIfMatched) ifElseTree ->
-                    let (condition, assignments) = compilePattern pattern (VarExp (onVarName, [], []) |> wrapWithType onTy)
+                    let (condition, assignments) = compilePattern pattern (VarExp onVarName |> wrapWithType onTy)
                     let assignments' = List.map (wrapWithType unitty) assignments
                     let seq = SequenceExp (List.append assignments' [executeIfMatched])
                     IfElseExp {condition=condition; trueBranch=wrapWithType ty seq; falseBranch=ifElseTree} |> wrapWithType ty
@@ -553,20 +555,15 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         (closure |> Map.keys |> List.ofSeq |> List.sort |> List.map (fun varName -> compileType (Map.find varName closure) + output "& " + output varName + output " = junclosure." + output varName + output ";" + newline()) |> String.concat "") +
         output "return " + compile false body + output ";" + unindentId() + newline() +
         output " })"
-    | ModQualifierExp ({module_=module_; name=name}, [], []) ->
+    | ModQualifierExp {module_=module_; name=name} ->
         output module_ + "::" + output name
-    | ModQualifierExp ({module_=module_; name=name}, t, c) ->
-        let name' = output module_ + "::" + output name
-        let t' = List.map (Constraint.tycapsubst theta kappa >> compileType) t
-        let c' = List.map (Constraint.capsubst kappa >> compileCap) c
-        output name' + output "<" + (t' @ c' |> String.concat ", ") + output ">"
     | ArrayLitExp exprs ->
-        let (ConApp (TyCon ArrayTy, [valueType], [capacity])) = ty
+        let (ConApp (ArrayTy, [Choice1Of2 valueType; Choice2Of2 capacity])) = ty
         output "(juniper::array<" + compileType valueType + output ", " + compileCap capacity + output "> { {" +
         (exprs |> List.map (fun expr -> compile topLevel expr) |> String.concat ", ") +
         output"} })"
     | ArrayMakeExp {typ=typ; initializer=maybeInitializer} ->
-        let (ConApp (TyCon ArrayTy, [valueType], [capacity])) = typ
+        let (ConApp (ArrayTy, [Choice1Of2 valueType; Choice2Of2 capacity])) = typ
         output "(juniper::array<" + compileType valueType + output ", " + compileCap capacity + output ">()" +
         (match maybeInitializer with
                 | Some initializer -> output ".fill(" + compile topLevel initializer + output ")"
@@ -634,23 +631,25 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         output "})())"
 
 // Convert Juniper template to C++ template
-and compileTemplate theta kappa (template : Template) : string =
-    let tyVars =
-        template.tyVars |>
-        List.map (fun n ->
-            let n' = match Constraint.tycapsubst theta kappa (TyVar n) with
-                     | TyVar n' -> n'
-                     | _ -> failwith "Internal compiler error: attempting to compile template where one of the template tyVars is not actully a tyVar"
-            "typename " + n')
-    let capVars =
-        template.capVars |>
-        List.map (fun n ->
-            let (CapacityVar n') = Constraint.capsubst kappa (CapacityVar n)
-            "int " + n')
-    //let tyVars = template.tyVars |> List.map ((+) "typename ")
-    //let capVars = template.capVars |> List.map ((+) "int ")
+and compileTemplate theta kappa (templateVars : Template) : string =
+    let templateVars' =
+        templateVars |>
+        List.map
+            (function
+            | (varName, StarKind) ->
+                let varName' =
+                    match Constraint.tycapsubst theta kappa (TyVar varName) with
+                    | TyVar n' -> n'
+                    | _ -> failwith "Internal compiler error: attempting to compile template where one of the template tyVars is not actully a tyVar"
+                "typename " + varName'
+            | (varName, IntKind) ->
+                let varName' =
+                    match Constraint.capsubst kappa (CapacityVar varName) with
+                    | CapacityVar n' -> n'
+                    | _ -> failwith "Internal compiler error: attempting to compile template where one of the template capVars is not actully a capVar"
+                "int " + varName')
     output "template<" +
-    (List.append tyVars capVars |> String.concat ", " |> output) +
+    output (templateVars' |> String.concat ", ") +
     output ">"
 
 // Convert Juniper capacity values to C++ capacities (part of templates)
@@ -677,20 +676,23 @@ and compileCap kappa (cap : CapacityExpr) : string =
 
 // Convert Juniper template apply to C++ template apply
 and compileTemplateApply theta kappa (templateApp : TemplateApply) : string =
-    output "<" +
-    ((List.append
-        (templateApp.tyExprs |> List.map (compileType theta kappa))
-        (templateApp.capExprs |> List.map (compileCap kappa))) |> String.concat ", ") +
-    output ">"
+    match templateApp with
+    | [] -> ""
+    | _ ->
+        output "<" +
+        (templateApp |>
+        List.map
+            (function
+            | Choice1Of2 tau -> compileType theta kappa tau
+            | Choice2Of2 cap -> compileCap kappa cap) |>
+        String.concat ", ") +
+        output ">"
 
-and compileFunctionSignature theta kappa (FunctionDec {name=name; template=maybeTemplate; clause=clause}) =
+and compileFunctionSignature theta kappa (FunctionDec {name=name; template=template; clause=clause}) =
     let compileType = compileType theta kappa
-    (match maybeTemplate with
-        | Some template ->
-            compileTemplate theta kappa template +
-            newline()
-        | None ->
-            output "") +
+    (match template with
+    | [] -> ""
+    | _ -> compileTemplate theta kappa template + newline()) +
     (clause.returnTy |> compileType |> output) +
     output " " +
     output name +
@@ -707,6 +709,13 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
     let compileType = compileType theta kappa
     let compileCap = compileCap kappa
     let compileLeftAssign = compileLeftAssign theta kappa
+    // This is a function since compileTemplate is not pure
+    let templateStr maybeTemplate =
+        match maybeTemplate with
+        | Some template ->
+            compileTemplate theta kappa template + newline()
+        | None ->
+            ""
     match dec with
     | InlineCodeDec code ->
         output code
@@ -741,16 +750,19 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
             match taus with
             | [] -> output "uint8_t"
             | [ty] -> output (compileType ty)
-            | _ -> output (compileType (ConApp (TyCon TupleTy, taus, [])))
+            | _ -> output (compileType (tuplety taus))
         let variantType () =
             output "juniper::variant<" +
             ((valCons |> List.map (fun (_, taus) -> compileTaus taus)) |> String.concat ", ") +
             output ">"
-        (match maybeTemplate with
-        | Some template ->
-            compileTemplate theta kappa template + newline()
-        | None ->
-            output "") +
+        let retType =
+            let m = ModuleQualifierTy {module_=module_; name=name}
+            match maybeTemplate with
+            | Some template ->
+                ConApp (m, ConvertAst.convertTemplateToChoice template)
+            | None ->
+                TyCon m
+        templateStr maybeTemplate +
         output "struct " + output name + output " {" + newline() + indentId() +
         variantType() + " data;" + newline() + newline() +
         output name + output "() {}" + newline() + newline() +
@@ -772,18 +784,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
         output "};" + newline() + newline() +
         // Output the function representation of the value constructor
         (valCons |> List.mapi (fun i (valConName, taus) ->
-            let retType =
-                let m = TyCon <| ModuleQualifierTy {module_=module_; name=name}
-                match maybeTemplate with
-                | Some {tyVars=tyVars; capVars=capVars} ->
-                    ConApp (m, List.map TyVar tyVars, List.map CapacityVar capVars)
-                | None ->
-                    m
-            (match maybeTemplate with
-            | Some template ->
-                compileTemplate theta kappa template + newline()
-            | None ->
-                "") +
+            templateStr maybeTemplate +
             compileType retType + output " " + output valConName + output "(" +
             (taus |> List.mapi (fun j ty -> compileType ty + output (sprintf " data%d" j)) |> String.concat ", ") +
             output ") {" + newline() + indentId() +
@@ -794,12 +795,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
             | _ -> compileTaus taus + "(" + ((taus |> List.mapi (fun j _ -> output (sprintf "data%d" j))) |> String.concat ", ") + ")") + output "));" + newline() +
             unindentId() + output "}" + newline() + newline()) |> String.concat "")
     | AliasDec {name=name; template=maybeTemplate; typ=typ} ->
-        (match maybeTemplate with
-            | Some template ->
-                compileTemplate theta kappa template +
-                newline()
-            | None ->
-                output "") +
+        templateStr maybeTemplate +
         output "using " + output name + output " = " + compileType typ + output ";" + newline() + newline()
 
 // Program: includes, types, values

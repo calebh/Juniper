@@ -15,7 +15,7 @@ and TyAdorn<'a> = (Position * Position) * TyExpr * 'a
 
 // Top level declarations
 and FunctionRec = { name     : string;
-                    template : Template option;
+                    template : Template;
                     clause   : FunctionClause }
 
 and AliasRec  =   { name     : string
@@ -44,11 +44,14 @@ and Declaration = FunctionDec   of FunctionRec
                 | IncludeDec    of string list
                 | InlineCodeDec of string
 
+and Kind = StarKind
+         | IntKind
+
 // A template is associated with a function, record or union
-and Template = { tyVars : string list; capVars : string list }
+and Template = (string * Kind) list
 
 // Use these to apply a template (ex: when calling a function with a template)
-and TemplateApply = { tyExprs : TyExpr list; capExprs : CapacityExpr list }
+and TemplateApply = Choice<TyExpr, CapacityExpr> list
 
 // Capacities are used for making lists and arrays of fixed maximum sizes.
 and CapacityArithOp = CapAdd | CapSubtract | CapMultiply | CapDivide
@@ -83,21 +86,20 @@ and TyCons = BaseTy of BaseTypes
            | TupleTy
 and TyExpr = TyCon of TyCons
                     // For TyCon FunTy, the first element is the closure, the second element in the TyExpr list is the return type
-                    // v this must be a TyCon
-           | ConApp of TyExpr * (TyExpr list) * (CapacityExpr list)
+                    // For TyCon ArrayTy, the first element is the type of the elements in the array, the second element is the capacity
+           | ConApp of TyCons * (Choice<TyExpr, CapacityExpr> list)
            | TyVar of string
                           // The (string list) option indicates the ordering for packed records
            | RecordTy of ((string list) option * Map<string, TyExpr>)
            | ClosureTy of Map<string, TyExpr>
 and ConstraintType = IsNum | IsInt | IsReal | IsPacked | HasField of (string * TyExpr) | IsRecord
-                      // v Types       v capacities  v constraints on types
-and TyScheme = Forall of string list * string list * ((TyExpr * ConstraintType) list) * TyExpr
+// 1st elem: Variables quantified over, 2nd elem: additional constraints for this scheme, 3rd elem: resulting type
+and TyScheme = Forall of Template * ((TyExpr * ConstraintType) list) * TyExpr
 
 and DeclarationTy = FunDecTy of TyScheme
-                    //              v Types      v capacities
-                  | AliasDecTy of string list * string list * TyExpr
+                  | AliasDecTy of Template * TyExpr
                   | LetDecTy of TyExpr
-                  | UnionDecTy of string list * string list * ModQualifierRec
+                  | UnionDecTy of Template * ModQualifierRec
 
 // Pattern matching AST datatypes.
 and MatchVarRec = { varName : string; mutable_ : bool; typ : TyExpr }
@@ -170,7 +172,7 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | RecordAccessExp of RecordAccessRec
           | RefRecordAccessExp of RefRecordAccessRec
           | ArrayAccessExp of ArrayAccessRec
-          | VarExp of string * TyExpr list * CapacityExpr list
+          | VarExp of string
           | UnitExp
           | TrueExp
           | FalseExp
@@ -189,7 +191,7 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | StringExp of string
           | CallExp of CallRec
           | TemplateApplyExp of TemplateApplyExpRec
-          | ModQualifierExp of ModQualifierRec * TyExpr list * CapacityExpr list
+          | ModQualifierExp of ModQualifierRec
           | RecordExp of RecordExprRec
           | ArrayLitExp of TyAdorn<Expr> list
           | ArrayMakeExp of ArrayMakeExpRec
@@ -242,9 +244,8 @@ let rec capacityString cap =
     | CapacityConst number -> sprintf "%i" number
     | CapacityUnaryOp {op=CapNegate; term=term} -> sprintf "-%s" (capacityString term)
 
-let rec typeConString con appliedTo capExprs =
+let rec typeConString con appliedTo =
     let typeStrings tys sep = List.map typeString tys |> String.concat sep
-    let capacityStrings caps sep = List.map capacityString caps |> String.concat sep
     match con with
     | BaseTy baseTy ->
         match baseTy with
@@ -264,40 +265,58 @@ let rec typeConString con appliedTo capExprs =
         | TyString -> "string"
         | TyRawPointer -> "rawpointer"
     | ArrayTy ->
-        let [arrTy] = appliedTo
-        let size =
-            match capExprs with
-            | [size] ->
-                capacityString size
-            | _ ->
-                "???"
-        sprintf "%s[%s]" (typeString arrTy) size
+        match appliedTo with
+        | [Choice1Of2 arrTy; Choice2Of2 size] ->
+            sprintf "%s[%s]" (typeString arrTy) (capacityString size)
+        | _ ->
+            failwith "Internal compiler error when converting an array to a string"
     | FunTy ->
-        let closureTy::retTy::argsTys = appliedTo
-        sprintf "(%s)(%s) -> %s" (typeString closureTy) (typeStrings argsTys ", ") (typeString retTy)
+        match appliedTo with
+        | (Choice1Of2 closureTy)::(Choice1Of2 retTy)::argsTys ->
+            let argTys' =
+                argsTys |>
+                List.map
+                    (fun argTy ->
+                        match argTy with
+                        | Choice1Of2 argTy' -> argTy'
+                        | Choice2Of2 _ -> failwith "Internal compiler error. Argument type was a capacity expression.")
+            sprintf "(%s)(%s) -> %s" (typeString closureTy) (typeStrings argTys' ", ") (typeString retTy)
+        | _ ->
+            failwith "Internal compiler error when converting a function to a string. Closure type or return type was a capacity expression."
     | ModuleQualifierTy {module_=module_; name=name} ->
         let genericApplication =
             match appliedTo with
             | [] -> ""
             | _ ->
-                if List.length capExprs = 0 then
-                    sprintf "<%s>" (typeStrings appliedTo ", ")
-                else
-                    sprintf "<%s; %s>" (typeStrings appliedTo ", ") (capacityStrings capExprs ", ")
+                let appliedToStrs =
+                    appliedTo |>
+                    List.map
+                        (fun arg ->
+                            match arg with
+                            | Choice1Of2 tyExpr -> typeString tyExpr
+                            | Choice2Of2 capExpr -> capacityString capExpr)
+                sprintf "<%s>" (appliedToStrs |> String.concat ", ")
         sprintf "%s:%s%s" module_ name genericApplication
     | RefTy ->
         match appliedTo with
-        | [refTy] -> sprintf "%s ref" (typeString refTy)
+        | [Choice1Of2 refTy] -> sprintf "%s ref" (typeString refTy)
         | _ -> "ref"
     | TupleTy ->
-        typeStrings appliedTo " * "
+        let appliedToStrs =
+            appliedTo |>
+            List.map
+                (fun arg ->
+                    match arg with
+                    | Choice1Of2 tyExpr -> typeString tyExpr
+                    | Choice2Of2 capExpr -> failwith "Internal compiler error. Argument to tuple type was a capacity expression.")
+        sprintf "(%s)" (appliedToStrs |> String.concat ", ")
 
 and typeString (ty : TyExpr) : string =
     match ty with
     | TyCon con ->
-        typeConString con [] []
-    | ConApp (TyCon con, args, capArgs) ->
-        typeConString con args capArgs
+        typeConString con []
+    | ConApp (con, args) ->
+        typeConString con args
     | TyVar name ->
         sprintf "%s" name
     | RecordTy (Some packed, fields) ->
@@ -306,12 +325,6 @@ and typeString (ty : TyExpr) : string =
         sprintf "{%s}" (fields |> Map.toList |> List.map (fun (fieldName, fieldTau) -> sprintf "%s : %s" fieldName (typeString fieldTau)) |> String.concat ", ")
     | ClosureTy fields ->
         sprintf "|%s|" (fields |> Map.toList |> List.map (fun (fieldName, fieldTau) -> sprintf "%s : %s" fieldName (typeString fieldTau)) |> String.concat "; ")
-    | ConApp (con, args, capArgs) ->
-        match capArgs with
-        | [] ->
-            sprintf "%s<%s>" (typeString con) (args |> List.map typeString |> String.concat ", ")
-        | _ ->
-            sprintf "%s<%s; %s>" (typeString con) (args |> List.map typeString |> String.concat ", ") (capArgs |> List.map capacityString |> String.concat ", ")
 
 and interfaceConstraintString (interfaceConstraint : ConstraintType) =
     match interfaceConstraint with
@@ -325,19 +338,24 @@ and interfaceConstraintString (interfaceConstraint : ConstraintType) =
 let schemeString (scheme : TyScheme) : string =
     let s1 =
         match scheme with
-        | Forall ([], [], _, _) ->
+        | Forall ([], _, _) ->
             ""
-        | Forall (typeVars, [], _, _) ->
-            typeVars |> List.map (fun t -> "'" + t) |> String.concat ", "
-        | Forall (typeVars, capVars, _, _) ->
-            (typeVars |> List.map (fun t -> "'" + t) |> String.concat ", ") + "; " + (capVars |> String.concat ", ")
-    let (Forall (_, _, interfaceConstraints, tau)) = scheme
-    let s2 = sprintf "<%s>%s" s1 (typeString tau)
+        | Forall (varsQuantified, _, _) ->
+            "∀" +
+            (varsQuantified |>
+            List.map (fun (varName, kind) ->
+                varName +
+                match kind with
+                | StarKind -> ""
+                | IntKind -> " : int") |>
+            String.concat ", ") + " . "
+    let (Forall (_, interfaceConstraints, tau)) = scheme
+    let s2 = typeString tau
     let s3 =
         match interfaceConstraints with
         | [] -> ""
         | _ -> sprintf " where %s" (interfaceConstraints |> List.map (fun (tau, constr) -> sprintf "%s : %s" (typeString tau) (interfaceConstraintString constr)) |> String.concat ", ")
-    s2 + s3
+    sprintf "%s%s%s" s1 s2 s3
 
 let baseTy b = TyCon <| BaseTy b
 let unittype = baseTy TyUnit
@@ -356,15 +374,28 @@ let pointertype = baseTy TyPointer
 let stringtype = baseTy TyString
 let rawpointertype = baseTy TyRawPointer
 
-let closureFromFunTy (ConApp (TyCon FunTy, ClosureTy closure::_, _)) = closure
-let returnFromFunTy (ConApp (TyCon FunTy, _::retTy::_, _)) = retTy
-let argsFromFunTy (ConApp (TyCon FunTy, _::_::argsTy, _)) = argsTy
+let emptytemplate = [] : Template
+
+let emptyclosure = ClosureTy Map.empty
+
+let funty closureTy retTy argsTys =
+    ConApp (FunTy, List.map Choice1Of2 (closureTy::retTy::argsTys))
+
+let tuplety innerTaus =
+    ConApp (TupleTy, List.map Choice1Of2 innerTaus)
+
+let arrayty elemTau arrCap =
+    ConApp (ArrayTy, [Choice1Of2 elemTau; Choice2Of2 arrCap])
+
+let refty elem =
+    ConApp (RefTy, [Choice1Of2 elem])
+
+let closureFromFunTy (ConApp (FunTy, Choice1Of2 (ClosureTy closure)::_)) = closure
+let returnFromFunTy (ConApp (FunTy, _::(Choice1Of2 retTy)::_)) = retTy
+let argsFromFunTy (ConApp (FunTy, _::_::argsTy)) = argsTy |> List.map (fun (Choice1Of2 argTy) -> argTy)
 
 let wrapLike (from : TyAdorn<'a>) (to' : 'a) : TyAdorn<'a> =
     (getPos from, getType from, to')
-
-let templateToTemplateApply ({tyVars=tyVars; capVars=capVars} : Template) : TemplateApply =
-    {tyExprs=tyVars |> List.map TyVar; capExprs=capVars |> List.map CapacityVar}
 
 // Generic functions for walking and mapping a typed AST
 let rec patternToGamma (pat : TyAdorn<Pattern>) : Map<string, TyExpr> =
@@ -492,6 +523,10 @@ and preorderMapFold (exprMapper: Map<string, TyExpr> -> 'accum -> TyAdorn<Expr> 
     | FunctionWrapperEmptyClosure inner ->
         let (inner', accum'') = preorderMapFold' accum' inner
         (wrapLike expr' (FunctionWrapperEmptyClosure inner'), accum'')
+    | IfExp {condition=condition; trueBranch=trueBranch} ->
+        let (condition', accum'') = preorderMapFold' accum' condition
+        let (trueBranch', accum''') = preorderMapFold' accum'' trueBranch
+        (wrapLike expr' (IfExp {condition=condition'; trueBranch=trueBranch'}), accum''')
     | IfElseExp {condition=condition; trueBranch=trueBranch; falseBranch=falseBranch} ->
         let (condition', accum'') = preorderMapFold' accum' condition
         let (trueBranch', accum''') = preorderMapFold' accum'' trueBranch

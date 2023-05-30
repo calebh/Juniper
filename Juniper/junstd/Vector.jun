@@ -10,12 +10,12 @@ open(Prelude, List, Math)
 
     Represents a mathematical vector
 
-    | alias vector<a;n> = { data : a[n] }
+    | alias vector<a, n> = { data : a[n] }
 
     Members:
         data : a[n] - The internal data storage of the vector
 */
-alias vector<a;n> = { data : a[n] }
+alias vector<a, n : int> = { data : a[n] }
 
 /*
     Variable: x
@@ -51,7 +51,7 @@ let z : uint8 = 2
     Makes a vector from the given array
 
     Type Signature:
-    | (||)(a[n]) -> vector<a;n>
+    | (||)(a[n]) -> vector<a, n>
 
     Parameters:
         d : a[n] - The initial array of data
@@ -59,7 +59,7 @@ let z : uint8 = 2
     Returns:
         The vector
 */
-fun make(d : a[n]) : vector<a;n> =
+fun make(d : a[n]) : vector<a, n> =
     { data = d }
 
 /*
@@ -68,16 +68,16 @@ fun make(d : a[n]) : vector<a;n> =
     Gets the ith component of the given vector.
 
     Type Signautre:
-    | (||)(uint32, vector<a;n>) -> a
+    | (||)(uint32, vector<a, n>) -> a
 
     Parameters:
         i : uint32 - The index of the component of the vector
-        v : vector<a;n> - The vector to get the component of
+        v : vector<a, n> - The vector to get the component of
 
     Returns:
         The value at the ith position in the vector.
 */
-fun get(i : uint32, v : vector<a;n>) : a =
+fun get(i : uint32, v : vector<a, n>) : a =
     v.data[i]
 
 /*
@@ -86,16 +86,16 @@ fun get(i : uint32, v : vector<a;n>) : a =
     Adds two vectors and returns the results.
 
     Type Signature:
-    | (||)(vector<a;n>, vector<a;n>) -> vector<a;n> where a : num
+    | (||)(vector<a, n>, vector<a, n>) -> vector<a, n> where a : num
 
     Parameters:
-        v1 : vector<a;n> - The first vector to add
-        v2 : vector<a;n> - The second vector to add
+        v1 : vector<a, n> - The first vector to add
+        v2 : vector<a, n> - The second vector to add
 
     Returns:
         The sum of the two vectors
 */
-fun add(v1 : vector<a;n>, v2 : vector<a;n>) : vector<a;n> where a : num = {
+fun add(v1 : vector<a, n>, v2 : vector<a, n>) : vector<a, n> where a : num = {
     let mut result = v1;
     for (i : int32 in 0 to n) {
         result.data[i] = result.data[i] + v2.data[i];
@@ -107,14 +107,14 @@ fun add(v1 : vector<a;n>, v2 : vector<a;n>) : vector<a;n> where a : num = {
     Function: zero
 
     Type Signature:
-    | (||)() -> vector<a;n> where a : num
+    | (||)() -> vector<a, n> where a : num
 
     Returns the zero vector of n dimensions.
 
     Returns:
         The zero vector of n dimensions.
 */
-fun zero() : vector<a;n> where a : num =
+fun zero() : vector<a, n> where a : num =
     { data = array a[n] of 0 end }
 
 /*
@@ -123,16 +123,16 @@ fun zero() : vector<a;n> where a : num =
     The vector subtraction operation.
 
     Parameters:
-        v1 : vector<a;n> - The first vector (minuend)
-        v2 : vector<a;n> - The second vector (subtrahend)
+        v1 : vector<a, n> - The first vector (minuend)
+        v2 : vector<a, n> - The second vector (subtrahend)
 
     Type Signature:
-    | (||)(vector<a;n>, vector<a;n>) -> vector<a;n> where a : num
+    | (||)(vector<a, n>, vector<a, n>) -> vector<a, n> where a : num
 
     Returns:
         The vector difference v1-v2
 */
-fun subtract(v1 : vector<a;n>, v2 : vector<a;n>) : vector<a;n> where a : num = {
+fun subtract(v1 : vector<a, n>, v2 : vector<a, n>) : vector<a, n> where a : num = {
     let mut result = v1;
     for (i : int32 in 0 to n) {
         result.data[i] = result.data[i] - v2.data[i];
@@ -146,16 +146,16 @@ fun subtract(v1 : vector<a;n>, v2 : vector<a;n>) : vector<a;n> where a : num = {
     Scales the vector by the given scalar value.
 
     Type Signature:
-    | (||)(a, vector<a;n>) -> vector<a;n> where a : num
+    | (||)(a, vector<a, n>) -> vector<a, n> where a : num
 
     Parameters:
         scalar : a - Scaling value
-        v : vector<a;n> - The vector to scale
+        v : vector<a, n> - The vector to scale
 
     Returns:
         The result of scalar*v
 */
-fun scale(scalar : a, v : vector<a;n>) : vector<a;n> where a : num = {
+fun scale(scalar : a, v : vector<a, n>) : vector<a, n> where a : num = {
     let mut result = v;
     for (i : int32 in 0 to n) {
         result.data[i] = result.data[i] * scalar;
@@ -169,16 +169,16 @@ fun scale(scalar : a, v : vector<a;n>) : vector<a;n> where a : num = {
     Gives the dot product of two vectors
 
     Type Signature:
-    | (||)(vector<a;n>, vector<a;n>) -> a where a : num
+    | (||)(vector<a, n>, vector<a, n>) -> a where a : num
 
     Parameters:
-        v1 : vector<a;n> - The first vector
-        v2 : vector<a;n> - The second vector
+        v1 : vector<a, n> - The first vector
+        v2 : vector<a, n> - The second vector
 
     Returns:
         The result of v1 dot v2
 */
-fun dot(v1 : vector<a;n>, v2 : vector<a;n>) : a where a : num = {
+fun dot(v1 : vector<a, n>, v2 : vector<a, n>) : a where a : num = {
     let mut sum : a = 0;
     for (i : int32 in 0 to n) {
         sum = sum + (v1.data[i] * v2.data[i]);
@@ -192,15 +192,15 @@ fun dot(v1 : vector<a;n>, v2 : vector<a;n>) : a where a : num = {
     Gives the square magnitude of the vector
 
     Type Signature:
-    | (||)(vector<a;n>) -> a where a : num
+    | (||)(vector<a, n>) -> a where a : num
 
     Parameters:
-        v : vector<a;n> - The vector to find the magnitude^2 of
+        v : vector<a, n> - The vector to find the magnitude^2 of
 
     Returns:
         The square magnitude of the vector
 */
-fun magnitude2(v : vector<a;n>) : a where a : num = {
+fun magnitude2(v : vector<a, n>) : a where a : num = {
     let mut sum : a = 0;
     for (i : int32 in 0 to n) {
         sum = sum + (v.data[i] * v.data[i]);
@@ -214,15 +214,15 @@ fun magnitude2(v : vector<a;n>) : a where a : num = {
     Gives the magnitude of the vector
 
     Type Signature:
-    | (||)(vector<a;n>) -> double where a : num
+    | (||)(vector<a, n>) -> double where a : num
 
     Parameters:
-        v : vector<a;n> - The vector to find the magnitude of
+        v : vector<a, n> - The vector to find the magnitude of
 
     Returns:
         The magnitude of the vector
 */
-fun magnitude(v : vector<a;n>) : double where a : num =
+fun magnitude(v : vector<a, n>) : double where a : num =
     sqrt_(toDouble(magnitude2(v)))
 
 /*
@@ -231,16 +231,16 @@ fun magnitude(v : vector<a;n>) : double where a : num =
     Performs elementwise multiplication of two vectors.
 
     Type Signature:
-    | (||)(vector<a;n>, vector<a;n>) -> vector<a;n> where a : num
+    | (||)(vector<a, n>, vector<a, n>) -> vector<a, n> where a : num
 
     Parameters:
-        u : vector<a;n> - The first vector
-        v : vector<a;n> - The second vector
+        u : vector<a, n> - The first vector
+        v : vector<a, n> - The second vector
 
     Returns:
         The vector formed by elementwise multiplication of the two vectors
 */
-fun multiply(u : vector<a;n>, v : vector<a;n>) : vector<a;n> where a : num = {
+fun multiply(u : vector<a, n>, v : vector<a, n>) : vector<a, n> where a : num = {
     let mut result = u;
     for (i : int32 in 0 to n) {
         result.data[i] = result.data[i] * v.data[i];
@@ -254,15 +254,15 @@ fun multiply(u : vector<a;n>, v : vector<a;n>) : vector<a;n> where a : num = {
     Returns a normalized version of the given vector
 
     Type Signature:
-    | (||)(vector<a;n>) -> vector<a;n> where a : num
+    | (||)(vector<a, n>) -> vector<a, n> where a : num
 
     Parameters:
-        v : vector<a;n> - The vector to normalize
+        v : vector<a, n> - The vector to normalize
 
     Returns:
         The normalized vector
 */
-fun normalize(v : vector<a;n>) : vector<a;n> where a : num = {
+fun normalize(v : vector<a, n>) : vector<a, n> where a : num = {
     let mag = magnitude(v);
     if (mag > (0 : a)) {
         let mut result = v;
@@ -282,16 +282,16 @@ fun normalize(v : vector<a;n>) : vector<a;n> where a : num = {
     Gives the angle in radians between the two vectors.
 
     Type Signature:
-    | (||)(vector<a;n>, vector<a;n>) -> double where a : num
+    | (||)(vector<a, n>, vector<a, n>) -> double where a : num
 
     Parameters:
-        v1 : vector<a;n> - The first vector
-        v2 : vector<a;n> - The second vector
+        v1 : vector<a, n> - The first vector
+        v2 : vector<a, n> - The second vector
 
     Returns:
         The angle betweeen the two vectors.
 */
-fun angle(v1 : vector<a;n>, v2 : vector<a;n>) : double where a : num =
+fun angle(v1 : vector<a, n>, v2 : vector<a, n>) : double where a : num =
     acos_(toDouble(dot(v1, v2)) / sqrt_(toDouble((magnitude2(v1) * magnitude2(v2)))))
 
 /*
@@ -300,16 +300,16 @@ fun angle(v1 : vector<a;n>, v2 : vector<a;n>) : double where a : num =
     Gives the vector cross product of two vectors.
 
     Type Signature:
-    | (||)(vector<a;3>, vector<a;3>) -> vector<a;3> where a : num
+    | (||)(vector<a, 3>, vector<a, 3>) -> vector<a, 3> where a : num
 
     Parameters:
-        u : vector<a;3> - The first vector
-        v : vector<a;3> - The second vector
+        u : vector<a, 3> - The first vector
+        v : vector<a, 3> - The second vector
 
     Returns:
         The result of u cross v
 */
-fun cross(u : vector<a;3>, v : vector<a;3>) : vector<a;3> where a : num =
+fun cross(u : vector<a, 3>, v : vector<a, 3>) : vector<a, 3> where a : num =
     {data=[(u.data[1u32]*v.data[2u32]) - (u.data[2u32]*v.data[1u32]),
            (u.data[2u32]*v.data[0u32]) - (u.data[0u32]*v.data[2u32]),
            (u.data[0u32]*v.data[1u32]) - (u.data[1u32]*v.data[0u32])]}
@@ -320,16 +320,16 @@ fun cross(u : vector<a;3>, v : vector<a;3>) : vector<a;3> where a : num =
     Projects vector a onto another vector b
 
     Type Signature:
-    | (||)(vector<z;n>, vector<z;n>) -> vector<z;n> where z : num
+    | (||)(vector<z, n>, vector<z, n>) -> vector<z, n> where z : num
 
     Parameters:
-        a : vector<z;n> - The vector to project
-        b : vector<z;n> - The other vector
+        a : vector<z, n> - The vector to project
+        b : vector<z, n> - The other vector
 
     Returns:
         The result of projecting vector a onto vector b
 */
-fun project(a : vector<z;n>, b : vector<z;n>) : vector<z;n> where z : num = {
+fun project(a : vector<z, n>, b : vector<z, n>) : vector<z, n> where z : num = {
     let bn = normalize(b);
     scale(dot(a, bn), bn);
 }
@@ -340,14 +340,14 @@ fun project(a : vector<z;n>, b : vector<z;n>) : vector<z;n> where z : num = {
     Projects a vector onto a plane defined by a normal vector
 
     Type Signature:
-    | (||)(vector<z;n>, vector<z;n>) -> vector<z;n> where z : num
+    | (||)(vector<z, n>, vector<z, n>) -> vector<z, n> where z : num
 
     Parameters:
-        a : vector<z;n> - The vector to project
-        m : vector<z;n> - The vector normal to the plane
+        a : vector<z, n> - The vector to project
+        m : vector<z, n> - The vector normal to the plane
 
     Returns:
         Vector a projected onto the plane defined by m
 */
-fun projectPlane(a : vector<z;n>, m : vector<z;n>) : vector<z;n> where z : num =
+fun projectPlane(a : vector<z, n>, m : vector<z, n>) : vector<z, n> where z : num =
     subtract(a, project(a, m))

@@ -113,7 +113,7 @@ fun merge(sigA : sig<a>, sigB : sig<a>) : sig<a> =
     Parameters:
         sigs : list<sig<a>;n> - A list of signals to merge together.
 */
-fun mergeMany(sigs : list<sig<a>;n>) : sig<a> = {
+fun mergeMany(sigs : list<sig<a>, n>) : sig<a> = {
     let ret =
         sigs |>
         List:foldl(
@@ -316,16 +316,16 @@ fun map2(f : (closure)(a, b) -> c,
     Records values in a list as they come in through the incoming signal.
 
     Type Signature:
-    | (||)(sig<a>, list<a;n> ref) -> sig<list<a;n>>
+    | (||)(sig<a>, list<a, n> ref) -> sig<list<a, n>>
 
     Parameters:
-        pastValues : list<a;n> ref - Previous values recorded from the signal
+        pastValues : list<a, n> ref - Previous values recorded from the signal
         incoming : sig<a> - Incoming values to record
 
     Returns:
         A signal holding the list of previous values
 */
-fun record(pastValues : list<a;n> ref, incoming : sig<a>) : sig<list<a;n>> =
+fun record(pastValues : list<a, n> ref, incoming : sig<a>) : sig<list<a, n>> =
     foldP(List:pushOffFront, pastValues, incoming)
 
 /*

@@ -55,7 +55,7 @@ type LeftRecursiveExp = CallArgs of PosAdorn<PosAdorn<Expr> list>
                       | FieldAccessName of PosAdorn<string>
                       | RefFieldAccessName of PosAdorn<string>
 
-type LeftRecursiveTyp = ArrayTyCap of PosAdorn<CapacityExpr>
+type LeftRecursiveTyp = ArrayTyCap of PosAdorn<TyExpr>
                       | RefTyRef of PosAdorn<unit>
                       | ApplyTyTemplate of PosAdorn<TemplateApply>
 
@@ -65,9 +65,10 @@ let (pattern, patternRef) = createParserForwardedToRef()
 let opp = new OperatorPrecedenceParser<PosAdorn<Expr>, Position, unit>()
 let expr = opp.ExpressionParser
 
-let capOpp = new OperatorPrecedenceParser<PosAdorn<CapacityExpr>, Position, unit>()
+let tyExprOpp = new OperatorPrecedenceParser<PosAdorn<TyExpr>, Position, unit>()
+let tyExpr = tyExprOpp.ExpressionParser
 
-let tyExpr, tyExprRef = createParserForwardedToRef<PosAdorn<TyExpr>, unit>()
+//let tyExpr, tyExprRef = createParserForwardedToRef<PosAdorn<TyExpr>, unit>()
 
 let leftRecurse pterm pchain makeTree =
     pipe2
@@ -155,14 +156,14 @@ List.iter
     prefix "*" 13 Deref]
 
 List.iter
-    (fun f -> f (fun l op r -> CapacityOp {left=l; op=op; right=r}) capOpp)
+    (fun f -> f (fun l op r -> CapacityOp {left=l; op=op; right=r}) tyExprOpp)
     [infix "+" 11 CapAdd Associativity.Left;
     infix "-"  11 CapSubtract Associativity.Left;
     infix "*"  12 CapMultiply Associativity.Left;
     infix "/"  12 CapDivide Associativity.Left]
 
 List.iter
-    (fun f -> f (fun op term -> CapacityUnaryOp {op=op; term=term}) capOpp)
+    (fun f -> f (fun op term -> CapacityUnaryOp {op=op; term=term}) tyExprOpp)
     [prefix "-" 12 CapNegate]
 
 let pos p : Parser<PosAdorn<'a>, 'b> = getPosition .>>. p .>>. getPosition |>> fun ((pos1, value), pos2) -> ((pos1, pos2), value)
@@ -223,22 +224,20 @@ let moduleQualifier =
         (fun moduleName decName -> {module_=moduleName; name=decName})
 
 let templateDec =
-    pipe2
-        // Parse type variables
-        (skipChar '<' >>. ws >>. (separatedList (pos id) ',' |> pos))
-        // Parse capacity variables
-        (ws >>. opt (skipChar ';' >>. ws >>. (separatedList (pos id) ',') |> pos) .>> ws .>> skipChar '>')
-        (fun tyVars capVars ->
-            {tyVars = tyVars; capVars = capVars})
-
-// capExpr
-let capExpr = capOpp.ExpressionParser
-
-do
-    let capVar = pos id |>> CapacityNameExpr |> pos
-    let capConst = pos pint64 |>> CapacityConst |> pos
-    let capParens = skipChar '(' >>. ws >>. capExpr .>> ws .>> skipChar ')'
-    capOpp.TermParser <- (choice [capVar; capConst; capParens]) .>> ws
+    let pCapVar =
+        pipe2'
+            ((pos id) .>> ws .>> skipChar ':' .>> ws)
+            (pos (skipString "int"))
+            (fun name kind ->
+                (name, IntKind kind))
+    let pTyVar =
+        pipe2'
+            (pos id)
+            (pos ((ws >>. skipChar ':' >>. ws >>. skipChar '*') |> opt))
+            (fun name (kindpos, _) ->
+                (name, StarKind (kindpos, ())))
+    let pTemplateVar = (attempt pCapVar) <|> pTyVar
+    skipChar '<' >>. ws >>. ((separatedList1 pTemplateVar ',') |> pos) .>> ws .>> skipChar '>'
 
 let record =
     pipe2
@@ -250,7 +249,7 @@ let record =
 let leftRecursiveTyp =
     let openBracket = skipChar '[' >>. ws
     let closingBracket = ws >>. skipChar ']' >>. ws
-    let arrayTyCap = between openBracket closingBracket capExpr |>> ArrayTyCap
+    let arrayTyCap = between openBracket closingBracket tyExpr |>> ArrayTyCap
     let refTyRef = pstring "ref" >>. ws >>% () |> pos |>> RefTyRef
     let applyTyTemplate = templateApply .>> ws |>> ApplyTyTemplate
     (choice [arrayTyCap; refTyRef; applyTyTemplate]) |> pos |> many
@@ -308,8 +307,9 @@ do
             (fun tyHead tyRest ->
                 TupleTy (tyHead::tyRest))
     let recordTy = record |> pos |>> RecordTy
-    let t = choice ([attempt mQual; closureTy; attempt recordTy; attempt underscore; name; attempt fn1; attempt fn2; tuple]) |> pos .>> ws
-    tyExprRef.Value <-
+    let capConst = pos pint64 |>> CapacityConst
+    let t = choice ([capConst; attempt mQual; closureTy; attempt recordTy; attempt underscore; name; attempt fn1; attempt fn2; tuple]) |> pos .>> ws
+    tyExprOpp.TermParser <-
         leftRecurse
             t
             leftRecursiveTyp
@@ -568,16 +568,7 @@ do
 // templateApply
 do
     templateApplyRef :=
-        pipe2
-            (skipChar '<' >>. ws >>. separatedList tyExpr ',' .>> ws |> pos)
-            ((((opt (skipChar ';' >>. ws >>. separatedList (capExpr) ','))) |>>
-                fun x ->
-                    match x with
-                    | Some x -> x
-                    | None -> []
-                |> pos) .>> ws .>> skipChar '>')
-            (fun tyExprs capExprs ->
-                {tyExprs = tyExprs; capExprs = capExprs}) |> pos
+        skipChar '<' >>. ws >>. ((separatedList1 (tyExpr .>> ws) ',') |> pos |> pos) .>> ws .>> skipChar '>'
 
 let functionDec =
     let funName = skipString "fun" >>. ws >>. pos id
@@ -594,7 +585,7 @@ let moduleName = skipString "module" >>. ws >>. pos id .>> ws |>> ModuleNameDec
 let aliasDec =
     pipe3
         (skipString "alias" >>. ws >>. pos id .>> ws)
-        (templateDec |> pos |> opt .>> ws .>> skipChar '=' .>> ws)
+        (templateDec |> opt .>> ws .>> skipChar '=' .>> ws)
         (tyExpr .>> ws)
         (fun name template typ ->
             AliasDec {name=name; template=template; typ=typ})
@@ -603,7 +594,7 @@ let unionDec =
     let valueConstructor = pos id .>> ws .>>. (betweenChar '(' (separatedList (tyExpr .>> ws) ',') ')') .>> ws
     pipe3
         (skipString "type" >>. ws >>. pos id .>> ws)
-        (templateDec |> pos |> opt .>> ws .>> skipChar '=' .>> ws)
+        (templateDec |> opt .>> ws .>> skipChar '=' .>> ws)
         (separatedList valueConstructor '|' |> pos)
         (fun name template valCons ->
             UnionDec {name=name; template=template; valCons=valCons})

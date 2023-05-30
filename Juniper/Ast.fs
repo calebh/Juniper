@@ -32,10 +32,10 @@ and AliasRec =   { name     : PosAdorn<string>;
 // Value constructor
 and ValueCon =    PosAdorn<string> * (PosAdorn<TyExpr> list)
 
-// Union algrebraic datatype. Template is optional.
-and UnionRec =    { name     : PosAdorn<string>;
-                    valCons  : PosAdorn<ValueCon list>;
-                    template : Template option }
+// Algrebraic datatype. Template is optional.
+and AlgDataTypeRec = { name     : PosAdorn<string>;
+                       valCons  : PosAdorn<ValueCon list>;
+                       template : Template option }
 
 // Let statement for functional-style declarations.
 and LetDecRec = { varName : PosAdorn<string>;
@@ -44,8 +44,7 @@ and LetDecRec = { varName : PosAdorn<string>;
 
 // Declaration defined as any of the above.
 and Declaration = FunctionDec   of FunctionRec
-                // UnionDec is an algebraic datatype. TODO: rename this
-                | UnionDec      of UnionRec
+                | AlgDataTypeDec of AlgDataTypeRec
                 | AliasDec      of AliasRec
                 | LetDec        of LetDecRec
                 | ModuleNameDec of PosAdorn<string>

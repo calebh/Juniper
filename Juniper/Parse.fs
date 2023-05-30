@@ -588,14 +588,14 @@ let aliasDec =
         (fun name template typ ->
             AliasDec {name=name; template=template; typ=typ})
 
-let unionDec =
+let adtDec =
     let valueConstructor = pos id .>> ws .>>. (betweenChar '(' (separatedList (tyExpr .>> ws) ',') ')') .>> ws
     pipe3
         (skipString "type" >>. ws >>. pos id .>> ws)
         (templateDec |> opt .>> ws .>> skipChar '=' .>> ws)
         (separatedList valueConstructor '|' |> pos)
         (fun name template valCons ->
-            UnionDec {name=name; template=template; valCons=valCons})
+            AlgDataTypeDec {name=name; template=template; valCons=valCons})
 
 let letDec =
     pipe3
@@ -614,5 +614,5 @@ let includeDec = skipString "include" >>. ws >>. skipChar '(' >>. ws >>. separat
 let inlineCppDec = inlineCpp .>> ws |>> InlineCodeDec
 
 let program =
-    let declarationTypes = [functionDec; moduleName; unionDec; aliasDec; letDec; openDec; includeDec; inlineCppDec]
+    let declarationTypes = [functionDec; moduleName; adtDec; aliasDec; letDec; openDec; includeDec; inlineCppDec]
     ws >>. many (choice declarationTypes |> pos .>> ws) .>> eof

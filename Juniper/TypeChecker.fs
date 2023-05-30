@@ -713,7 +713,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) (keepUnr
             let valConNames =
                 decs |> List.map Ast.unwrap |> List.filter isUnionDec |>
                 List.map
-                    (fun (Ast.UnionDec {valCons=(_, valCons)}) -> valCons |> List.map (fun ((_, name), _) -> name)) |>
+                    (fun (Ast.AlgDataTypeDec {valCons=(_, valCons)}) -> valCons |> List.map (fun ((_, name), _) -> name)) |>
                 List.concat
             let names = typeNames @ valNames @ valConNames
             match Seq.duplicates names with
@@ -753,7 +753,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) (keepUnr
     // in the algebraic datatype declaration.
     let ienv = (Map.fold (fun accumIenv ((module_, name) as modQual) d ->
         match Ast.unwrap d with
-        | Ast.UnionDec {valCons=(_, valCons)} ->
+        | Ast.AlgDataTypeDec {valCons=(_, valCons)} ->
             (List.mapi (fun i ((_, valConName), _) ->
                 (valConName, i)
             ) valCons) |>
@@ -811,7 +811,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) (keepUnr
             let typ' = convertType menv denv Map.empty tyVarMapping capVarMapping typ
             let aliasDecTy = T.AliasDecTy (templateVars', typ')
             Map.add modQual aliasDecTy accumDtenv0
-        | Ast.UnionDec {valCons=(_, valCons); template=maybeTemplate} ->
+        | Ast.AlgDataTypeDec {valCons=(_, valCons); template=maybeTemplate} ->
             let template' =
                 match maybeTemplate with
                 | None ->
@@ -1004,12 +1004,12 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) (keepUnr
             List.map (fun (module_, (_, dec)) ->
                 let menv = Map.find module_ modNamesToMenvs
                 match dec with
-                | Ast.UnionDec {name=(_, name); valCons=(_, valCons); template=template} ->
+                | Ast.AlgDataTypeDec {name=(_, name); valCons=(_, valCons); template=template} ->
                     let valCons' =
                         valCons |> List.map (fun ((_, valConName), argTypes) ->
                             let argTypes' = List.map (convertType menv denv dtenv0 Map.empty Map.empty) argTypes
                             (valConName, argTypes'))
-                    let ret = (module_, T.UnionDec {name=name; template=Option.map convertTemplate template; valCons=valCons'})
+                    let ret = (module_, T.AlgDataTypeDec {name=name; template=Option.map convertTemplate template; valCons=valCons'})
                     ((module_, name), ret)
                 | Ast.AliasDec {name=(_, name); template=template; typ=typ} ->
                     let typ' = convertType menv denv dtenv0 Map.empty Map.empty typ
@@ -1075,7 +1075,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) (keepUnr
             let module_ = nameInModule (Ast.Module decs) |> Option.get |> Ast.unwrap
             decs |> List.map Ast.unwrap |> List.filter isUnionDec |>
             List.map
-                (fun (Ast.UnionDec {valCons=(_, valCons)}) ->
+                (fun (Ast.AlgDataTypeDec {valCons=(_, valCons)}) ->
                     valCons |> List.map (fun ((_, name), _) ->
                         let modqual = (module_, name)
                         let (T.FunDecTy scheme) = Map.find modqual dtenv0

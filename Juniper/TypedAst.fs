@@ -25,7 +25,7 @@ and AliasRec  =   { name     : string
 and ValueCon =    string * (TyExpr list)
 
 // Union algrebraic datatype
-and UnionRec =    { name     : string;
+and AlgDataTypeRec =    { name     : string;
                     valCons  : ValueCon list;
                     template : Template option }
 
@@ -37,7 +37,7 @@ and LetDecRec = { varName : string;
 // Declaration defined as any of the above.
 and Declaration = FunctionDec   of FunctionRec
                 | AliasDec      of AliasRec
-                | UnionDec      of UnionRec
+                | AlgDataTypeDec of AlgDataTypeRec
                 | LetDec        of LetDecRec
                 | ModuleNameDec of string
                 | OpenDec       of string list
@@ -47,7 +47,7 @@ and Declaration = FunctionDec   of FunctionRec
 and Kind = StarKind
          | IntKind
 
-// A template is associated with a function, record or union
+// A template is associated with a function, record or ADT
 and Template = (string * Kind) list
 
 // Use these to apply a template (ex: when calling a function with a template)

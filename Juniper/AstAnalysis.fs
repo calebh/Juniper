@@ -38,7 +38,7 @@ let resolveUserTyName menv (denv : Map<string * string, A.PosAdorn<A.Declaration
     match Map.tryFind name menv with
     | Some modQual ->
         match Map.tryFind modQual denv with
-        | (Some (_, A.AliasDec _)) | (Some (_, A.UnionDec _)) ->
+        | (Some (_, A.AliasDec _)) | (Some (_, A.AlgDataTypeDec _)) ->
             Some modQual
         | _ ->
             None
@@ -84,7 +84,7 @@ let tyRefs (menv : Map<string, string*string>) tyDec =
             Set.empty
 
     match tyDec with
-    | A.UnionDec {valCons=(_, valCons)} ->
+    | A.AlgDataTypeDec {valCons=(_, valCons)} ->
         valCons |>
         List.map
             (fun (_, tyExprs) ->
@@ -95,7 +95,7 @@ let tyRefs (menv : Map<string, string*string>) tyDec =
 
 let getArgKinds (denv : Map<string * string, A.PosAdorn<A.Declaration>>) posQual ({module_=module_; name=name} : T.ModQualifierRec) =
     match Map.tryFind (module_, name) denv with
-    | (Some (_, A.UnionDec {template=maybeTemplate}) | Some (_, A.AliasDec {template=maybeTemplate})) ->
+    | (Some (_, A.AlgDataTypeDec {template=maybeTemplate}) | Some (_, A.AliasDec {template=maybeTemplate})) ->
         match maybeTemplate with
         | Some (_, template) ->
             List.map snd template

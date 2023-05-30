@@ -703,7 +703,7 @@ and compileFunctionSignature theta kappa (FunctionDec {name=name; template=templ
     output ")"
 
 // Convert declarations in Juniper to C++ representations
-// Includes modules use, function declarations, record declaration, let declarations, and unions.
+// Includes modules use, function declarations, record declaration, let declarations, and ADTs.
 and compileDec module_ theta kappa (dec : Declaration) : string =
     let compile = compile theta kappa
     let compileType = compileType theta kappa
@@ -745,7 +745,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
         output varName +
         output " = " +
         compile true right + output ";"
-    | UnionDec { name=name; valCons=valCons; template=maybeTemplate } ->
+    | AlgDataTypeDec { name=name; valCons=valCons; template=maybeTemplate } ->
         let compileTaus taus =
             match taus with
             | [] -> output "uint8_t"

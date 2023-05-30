@@ -347,9 +347,9 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
     | IntExp num ->
         output "((" + (compileType ty) + output ") " + output (sprintf "%i" num) + output ")"
     | FloatExp num ->
-        output (sprintf "%f" num)
+        output (sprintf "%sf" num)
     | DoubleExp num ->
-        output (sprintf "%f" num)
+        output num
     | Int8Exp num ->
         output (sprintf "((int8_t) %i)" num)
     | UInt8Exp num ->

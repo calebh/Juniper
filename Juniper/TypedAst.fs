@@ -107,7 +107,7 @@ and MatchValConRec = { modQualifier : ModQualifierRec; innerPattern : TyAdorn<Pa
 
 and Pattern = MatchVar of MatchVarRec
             | MatchIntVal of int64
-            | MatchFloatVal of float
+            | MatchFloatVal of string
             | MatchValCon of MatchValConRec
             | MatchRecCon of (string * TyAdorn<Pattern>) list
             | MatchUnderscore
@@ -186,8 +186,8 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | UInt32Exp of int64
           | Int64Exp of int64
           | UInt64Exp of int64
-          | FloatExp of float
-          | DoubleExp of float
+          | FloatExp of string
+          | DoubleExp of string
           | StringExp of string
           | CallExp of CallRec
           | TemplateApplyExp of TemplateApplyExpRec

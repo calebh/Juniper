@@ -327,19 +327,23 @@ let floatParser =
                 Reply(Error, expected "floating-point number with decimal")
             else
                 try
-                    let d =
-                        if result.IsDecimal then
-                            System.Double.Parse(result.String, System.Globalization.CultureInfo.InvariantCulture)
-                        elif result.IsHexadecimal then
-                            floatOfHexString result.String
-                        elif result.IsInfinity then
-                            if result.HasMinusSign then System.Double.NegativeInfinity else System.Double.PositiveInfinity
+                    if result.IsDecimal then
+                        Reply(result.String)
+                    elif result.IsHexadecimal then
+                        // TODO: Once there is widespread support for C++17
+                        // hexadecimal floating literals, we can change this to result.String
+                        // instead of converting to decimal
+                        Reply((floatOfHexString result.String).ToString())
+                    elif result.IsInfinity then
+                        if result.HasMinusSign then
+                            Reply(FatalError, messageError "The floating-point number is negative infinity.")
                         else
-                            System.Double.NaN
-                    Reply(d)
+                            Reply(FatalError, messageError "The floating-point number is infinity.")
+                    else
+                        Reply(FatalError, messageError "The floating-point number is NaN.")
                 with 
                 | :? System.OverflowException ->
-                    Reply(if result.HasMinusSign then System.Double.NegativeInfinity else System.Double.PositiveInfinity)
+                    Reply(FatalError, messageError "Parsing the number resulted in an overflow.")
                 | :? System.FormatException ->
                     stream.Skip(-result.String.Length)
                     Reply(FatalError, messageError "The floating-point number has an invalid format (this error is unexpected, please report this error message to fparsec@quanttec.com).")

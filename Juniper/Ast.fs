@@ -111,7 +111,7 @@ and MatchValConRec = { name : PosAdorn<Choice<string, ModQualifierRec>>; innerPa
 
 and Pattern = MatchVar of MatchVarRec
             | MatchIntVal of PosAdorn<int64>
-            | MatchFloatVal of PosAdorn<float>
+            | MatchFloatVal of PosAdorn<string>
             | MatchValCon of MatchValConRec
             | MatchRecCon of PosAdorn<(PosAdorn<string> * PosAdorn<Pattern>) list>
             | MatchUnderscore of PosAdorn<unit>
@@ -185,8 +185,8 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | UInt32Exp of PosAdorn<int64>
           | Int64Exp of PosAdorn<int64>
           | UInt64Exp of PosAdorn<int64>
-          | FloatExp of PosAdorn<float>
-          | DoubleExp of PosAdorn<float>
+          | FloatExp of PosAdorn<string>
+          | DoubleExp of PosAdorn<string>
           | CharListLiteral of PosAdorn<string>
           | StringLiteral of PosAdorn<string>
           | CallExp of CallRec

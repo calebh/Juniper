@@ -290,15 +290,13 @@ do
                 (fun closure argTys retTy ->
                     FunTy { closure=closure; args = argTys; returnType = retTy})
         let fn2 =
-            pipe2
-                (* If the user does not enter a closure type for this function signature,
+            (* If the user does not enter a closure type for this function signature,
                    assume the user intended the closure to be a type wildcard. *)
-                (argsp |> pos)
-                tyExpr
-                (fun (posa, argTys) retTy ->
-                    // No closure was explicitly given. Desugar into a wildcard (underscore)
-                    let closure = (posa, UnderscoreTy (posa, ()))
-                    FunTy { closure=closure; args=argTys; returnType = retTy})
+            ((argsp .>>. tyExpr) |> pos |>>
+            (fun (post, (argTys, retTy)) ->
+                // No closure was explicitly given. Desugar into a wildcard (underscore)
+                let closure = (post, UnderscoreTy (post, ()))
+                FunTy { closure=closure; args=argTys; returnType = retTy}))
         (fn1, fn2)
     let tuple =
         pipe2

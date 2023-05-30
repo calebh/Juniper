@@ -4,6 +4,36 @@ module T = TypedAst
 open Extensions
 open Error
 
+let rec findUnderscoreTys (tyExpr : A.PosAdorn<A.TyExpr>) : List<FParsec.Position * FParsec.Position> =
+    match A.unwrap tyExpr with
+    | A.UnderscoreTy und -> [A.getPos und]
+    | (A.BaseTy _ | A.CapacityConst _ | A.ModuleQualifierTy _ | A.NameTy _) -> []
+    | A.ApplyTy {tyConstructor=tyConstructor; args=(_, args)} ->
+        let u1 = findUnderscoreTys tyConstructor
+        let u2 = List.map findUnderscoreTys (A.unwrap args)
+        u1 @ (List.concat u2)
+    | A.ArrayTy {valueType=valueType; capacity=capacity} ->
+        (findUnderscoreTys valueType) @ (findUnderscoreTys capacity)
+    | A.CapacityOp {left=left; right=right} ->
+        (findUnderscoreTys left) @ (findUnderscoreTys right)
+    | A.CapacityUnaryOp {term=term} ->
+        findUnderscoreTys term
+    | A.ClosureTy (_, closureElems) ->
+        closureElems |>
+        List.map (snd >> findUnderscoreTys) |>
+        List.concat
+    | A.FunTy {closure=closure; args=args; returnType=returnType} ->
+        let u1 = findUnderscoreTys closure
+        let u2 = List.map findUnderscoreTys args |> List.concat
+        let u3 = findUnderscoreTys returnType
+        List.concat [u1; u2; u3]
+    | A.RecordTy (_, {fields=(_, fields)}) ->
+        fields |> List.map (snd >> findUnderscoreTys) |> List.concat
+    | A.RefTy refTy ->
+        findUnderscoreTys refTy
+    | A.TupleTy elems ->
+        elems |> List.map findUnderscoreTys |> List.concat
+
 let resolveUserTyName menv (denv : Map<string * string, A.PosAdorn<A.Declaration>>) (name : string) =
     match Map.tryFind name menv with
     | Some modQual ->

@@ -641,6 +641,39 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             adorn posN T.rawpointertype T.NullExp Trivial
     ty (posE, e)
 
+let checkUnderscores typ =
+    match findUnderscoreTys typ with
+    | [] -> ()
+    | underscores ->
+        raise <| SemanticError ((errStr underscores "Underscore type expressions are not allowed in type declarations. Note that function types without an explicit closure type are desugared into a type expression containing an underscore. For example, (a) -> b is syntax sugar for (_)(a) -> b.").Force())
+
+// Check for unknown type variables on the right hand side
+let checkUnknownVars menv denv (maybeTemplate : Ast.Template option) (kind : T.Kind) typ =
+    let varsFun =
+        match kind with
+        | T.StarKind -> tyVars
+        | T.IntKind -> capVars
+    match varsFun menv denv T.StarKind (A.unwrap typ) with
+    | [] -> ()
+    | tyVarsRhs ->
+        let tyVarsLhs =
+            match maybeTemplate with
+            | Some (_, templateVars) ->
+                templateVars |> List.map (fst >> A.unwrap) |> Set.ofList
+            | None ->
+                Set.empty
+        tyVarsRhs |>
+        List.iter
+            (fun (posr, rhsVarName) ->
+                if Set.contains rhsVarName tyVarsLhs then
+                    ()
+                else
+                    let errMsg =
+                        match kind with
+                        | T.StarKind -> sprintf "Unknown type variable '%s' on right hand side of the type declaration. Did you forget to add this variable to the template on the left hand side?" rhsVarName
+                        | T.IntKind -> sprintf "Unknown capacity variable '%s' on right hand side of the type declaration. Did you forget to add this variable to the template on the left hand side?" rhsVarName
+                    raise <| SemanticError ((errStr [posr] errMsg).Force()))
+
 // This function may seem insanely complicated, but really what it's doing
 // is quite simple. To understand this function, I suggest understanding
 // how constraint based type solving works, as well as understanding some basic
@@ -735,8 +768,28 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) (keepUnr
     // and type declarations
     let dtenv0 = (Map.fold (fun accumDtenv0 ((module_, name) as modQual) d ->
         let menv = Map.find module_ modNamesToMenvs
+
         match Ast.unwrap d with
         | Ast.AliasDec {template=maybeTemplate; typ=typ} ->
+            checkUnderscores typ
+            checkUnknownVars menv denv maybeTemplate T.StarKind typ
+            checkUnknownVars menv denv maybeTemplate T.IntKind typ
+            match tyVars menv denv T.StarKind (A.unwrap typ) with
+            | [] -> ()
+            | tyVarsRhs ->
+                let tyVarsLhs =
+                    match maybeTemplate with
+                    | Some (_, templateVars) ->
+                        templateVars |> List.map (fst >> A.unwrap) |> Set.ofList
+                    | None ->
+                        Set.empty
+                tyVarsRhs |>
+                List.iter
+                    (fun (posr, rhsVarName) ->
+                        if Set.contains rhsVarName tyVarsLhs then
+                            ()
+                        else
+                            raise <| SemanticError ((errStr [posr] (sprintf "Unknown type variable %s on right hand side of the type alias. Did you forget to add this variable to the template on the left hand side?" rhsVarName)).Force()))
             let (templateVars', (tyVarMapping, capVarMapping)) =
                 match maybeTemplate with
                 | Some (_, templateVars) ->
@@ -787,6 +840,9 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) (keepUnr
             // All value constructors have empty closures
             let closureTy = T.ClosureTy Map.empty
             let accumDtenv2 = valCons |> (List.fold (fun accumDtenv1 ((_, valConName), innerTys) ->
+                innerTys |> List.iter checkUnderscores
+                innerTys |> List.iter (checkUnknownVars menv denv maybeTemplate T.StarKind)
+                innerTys |> List.iter (checkUnknownVars menv denv maybeTemplate T.IntKind)
                 // Convert the types given in each value constructor to a T.TyExpr
                 let paramTy = List.map (convertType menv denv Map.empty Map.empty Map.empty) innerTys
                 // Create the FunDecTy for this specific value constructor

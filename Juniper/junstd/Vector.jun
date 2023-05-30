@@ -1,5 +1,5 @@
 module Vector
-open(Prelude, List, Math)
+open(List, Math)
 
 /*
     Interface: Vector
@@ -115,7 +115,7 @@ fun add(v1 : vector<a, n>, v2 : vector<a, n>) : vector<a, n> where a : num = {
         The zero vector of n dimensions.
 */
 fun zero() : vector<a, n> where a : num =
-    { data = array a[n] of 0 end }
+    { data = array a[n] of 0 }
 
 /*
     Function: subtract

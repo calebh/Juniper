@@ -535,8 +535,8 @@ do
     let varReference = attempt id |> pos |>> VarExp
     let arrayMake =
         pipe2
-            (skipString "array" >>. ws >>. fatalizeAnyError (tyExpr .>> ws))
-            (fatalizeAnyError ((skipString "of" >>. ws >>. expr |> opt) .>> ws .>> skipString "end"))
+            (skipString "array" >>. ws1 >>. fatalizeAnyError (tyExpr .>> ws))
+            (fatalizeAnyError ((skipString "of" >>. ws >>. expr |> opt)))
             (fun arrTy initializer -> ArrayMakeExp {typ=arrTy; initializer=initializer})
     let inlineCpp' = inlineCpp |>> InlineCode
     let tuple = betweenChar '(' (separatedList1 expr ',') ')' |>> TupleExp

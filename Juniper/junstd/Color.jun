@@ -1,5 +1,4 @@
 module Color
-open(Prelude)
 
 /*
     Type: alias rgb

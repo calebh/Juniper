@@ -1,5 +1,4 @@
 module Maybe
-open(Prelude)
 
 /*
     Interface: Maybe

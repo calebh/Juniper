@@ -1,5 +1,4 @@
 module Random
-open(Prelude)
 include("<Arduino.h>")
 
 /*

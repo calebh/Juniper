@@ -1,5 +1,4 @@
 module Math
-open(Prelude)
 
 /*
     Interface: Math

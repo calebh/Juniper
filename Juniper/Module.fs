@@ -51,13 +51,18 @@ let typesInModule (Ast.Module decs) =
                           | (_, Ast.AlgDataTypeDec {name=name}) -> name
                           | _ -> failwith "This should never happen") >> Ast.unwrap) typeDecs
 
+let defaultOpens = [((TypedAst.dummyPos, TypedAst.dummyPos), "Prelude")]
+
 let opensInModule (Ast.Module decs) =
-    let opens = List.filter (fun dec -> match Ast.unwrap dec with
-                                        | Ast.OpenDec _ -> true
-                                        | _ -> false) decs
-    List.concat (List.map (fun dec -> match Ast.unwrap dec with
-                                      |Ast.OpenDec names -> Ast.unwrap names
-                                      | _ -> failwith "This 0should never happen") opens)
+    let userDeclaredOpens =
+        decs |>
+        List.map
+            (fun dec ->
+                match Ast.unwrap dec with
+                | Ast.OpenDec names -> Ast.unwrap names
+                | _ -> []) |>
+        List.concat
+    defaultOpens @ userDeclaredOpens
 
 let nameOfDec dec = match dec with
                         | (Ast.AliasDec {name=name} | Ast.AlgDataTypeDec {name=name} | Ast.LetDec {varName=name} | Ast.FunctionDec {name=name}) -> name
@@ -78,9 +83,9 @@ let isOpen dec = match dec with
 let isTypeDec dec = match dec with
                     | (Ast.AlgDataTypeDec _ | Ast.AliasDec _) -> true
                     | _ -> false
-let isUnionDec dec = match dec with
-                     | Ast.AlgDataTypeDec _ -> true
-                     | _ -> false
+let isADTDec dec = match dec with
+                   | Ast.AlgDataTypeDec _ -> true
+                   | _ -> false
 let isInlineCodeDec dec = match dec with
                           | Ast.InlineCodeDec _ -> true
                           | _ -> false

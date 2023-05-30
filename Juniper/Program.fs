@@ -42,7 +42,7 @@ let helpText =
      "    -h, --help: View this help message";
      "    --custom-placement-new: Output a custom implementation of placement new, for use in Arduino board packages that give compilation errors related to #include <new>";
      "    --c-linkage: setup and loop functions should have C linkage instead of C++. For Arduino board packages that give compilation error related to setup() and loop() linkage issues"
-     "    --keep-unreachable: keep top level functions/let statements even if they are unreachable from the main and loop functions"] |> String.concat "\n"
+     "    --prune-unreachable: prune top level functions/let statements if they are unreachable from the main and loop functions. Will speed up compilation time and give smaller code output, but type checking will be skipped for pruned functions."] |> String.concat "\n"
 
 let rec printErr errs =
     match errs with
@@ -66,7 +66,7 @@ let main argv =
     let maybeHelp = getArg ["-h"; "--help"] argMap
     let maybeCustomPlacementNew = getArg ["--custom-placement-new"] argMap
     let maybeCLinkage = getArg ["--c-linkage"] argMap
-    let maybeKeepUnused = getArg ["--keep-unreachable"] argMap
+    let maybePruneUnreachable = getArg ["--prune-unreachable"] argMap
     match (maybeSourceFiles, maybeOutputFile, maybeHelp) with
         | ((_, _, Some _) | (None, _, _) | (_, None, _)) | (_, Some [], _) ->
             printfn "%s" helpText
@@ -96,7 +96,7 @@ let main argv =
                 // Run parseFromFile (the parser combinators)
                 let asts = List.map parseFromFile fnames
                 // Typecheck the ASTs
-                let typeCheckedOutput = TypeChecker.typecheckProgram asts fnames (Option.isSome maybeKeepUnused)
+                let typeCheckedOutput = TypeChecker.typecheckProgram asts fnames (Option.isSome maybePruneUnreachable)
                 // Compile to C++ the typechecked (and typed) ASTs
                 let compiledProgram = Compiler.compileProgram typeCheckedOutput (Option.isSome maybeCustomPlacementNew) (Option.isSome maybeCLinkage)
                 System.IO.File.WriteAllText (outputFile, compiledProgram)

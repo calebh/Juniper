@@ -681,7 +681,7 @@ let checkUnknownVars menv denv (maybeTemplate : Ast.Template option) (kind : T.K
 // and topological ordering. The first part of this function consists of analyzing
 // the modules to build up environments used in type checking. The second part
 // involves a graph theoretical/topological ordering analysis.
-let typecheckProgram (program : Ast.Module list) (fnames : string list) (keepUnreachable : bool) =
+let typecheckProgram (program : Ast.Module list) (fnames : string list) (pruneUnreachable : bool) =
     // modNamesToMods maps module names to module contents
     let modNamesToMods =
         let names =
@@ -711,7 +711,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) (keepUnr
             let valNames = valueDecsInModule (Ast.Module decs)
             // Find the names of all of the value constructors as well
             let valConNames =
-                decs |> List.map Ast.unwrap |> List.filter isUnionDec |>
+                decs |> List.map Ast.unwrap |> List.filter isADTDec |>
                 List.map
                     (fun (Ast.AlgDataTypeDec {valCons=(_, valCons)}) -> valCons |> List.map (fun ((_, name), _) -> name)) |>
                 List.concat
@@ -917,12 +917,12 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) (keepUnr
             if Set.contains startNode visitedAlready then
                 visitedAlready
             else
-                let mutable visitedAlready' = Set.add startNode visitedAlready
+                let visitedAlready' = Set.add startNode visitedAlready
                 valueGraph.OutEdges(startNode) |>
                 Seq.fold (fun accumVisitedAlready outEdge -> reachableRec accumVisitedAlready outEdge.Target) visitedAlready'
         reachableRec Set.empty startNode
 
-    if not keepUnreachable then
+    if pruneUnreachable then
         match (maybeSetupModule, maybeLoopModule) with
         | (Some setupModule, Some loopModule) ->
             let reachable = Set.union (reachable (setupModule, "setup")) (reachable (loopModule, "loop"))
@@ -1073,7 +1073,7 @@ let typecheckProgram (program : Ast.Module list) (fnames : string list) (keepUnr
     let globalGammaInit =
         program |> List.map (fun (Ast.Module decs) ->
             let module_ = nameInModule (Ast.Module decs) |> Option.get |> Ast.unwrap
-            decs |> List.map Ast.unwrap |> List.filter isUnionDec |>
+            decs |> List.map Ast.unwrap |> List.filter isADTDec |>
             List.map
                 (fun (Ast.AlgDataTypeDec {valCons=(_, valCons)}) ->
                     valCons |> List.map (fun ((_, name), _) ->

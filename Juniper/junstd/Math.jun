@@ -73,9 +73,9 @@ fun radToDeg(radians : double) : double =
         The inverse cosine value in radians
 */
 fun acos_(x : double) : double = {
-    let ret : double = 0.0;
-    #ret = acos(x);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = acos(x);#
+    ret
 }
 
 /*
@@ -93,9 +93,9 @@ fun acos_(x : double) : double = {
         The inverse sine value in radians.
 */
 fun asin_(x : double) : double = {
-    let ret : double = 0.0;
-    #ret = asin(x);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = asin(x);#
+    ret
 }
 
 /*
@@ -113,9 +113,9 @@ fun asin_(x : double) : double = {
         The atan value, ranging in value from -pi/2 to pi/2.
 */
 fun atan_(x : double) : double = {
-    let ret : double = 0.0;
-    #ret = atan(x);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = atan(x);#
+    ret
 }
 
 /*
@@ -135,9 +135,9 @@ fun atan_(x : double) : double = {
         The atan value, ranging in value from -pi to pi.
 */
 fun atan2_(y: double, x : double) : double = {
-    let ret : double = 0.0;
-    #ret = atan2(y, x);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = atan2(y, x);#
+    ret
 }
 
 /*
@@ -155,9 +155,9 @@ fun atan2_(y: double, x : double) : double = {
         The cosine value.
 */
 fun cos_(x : double) : double = {
-    let ret : double = 0.0;
-    #ret = cos(x);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = cos(x);#
+    ret
 }
 
 /*
@@ -175,9 +175,9 @@ fun cos_(x : double) : double = {
         The hyperbolic cosine value.
 */
 fun cosh_(x : double) : double = {
-    let ret : double = 0.0;
-    #ret = cosh(x);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = cosh(x);#
+    ret
 }
 
 /*
@@ -195,9 +195,9 @@ fun cosh_(x : double) : double = {
         The sine value.
 */
 fun sin_(x : double) : double = {
-    let ret : double = 0.0;
-    #ret = sin(x);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = sin(x);#
+    ret
 }
 
 /*
@@ -215,9 +215,9 @@ fun sin_(x : double) : double = {
         The hyperbolic sine value.
 */
 fun sinh_(x : double) : double = {
-    let ret : double = 0.0;
-    #ret = sinh(x);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = sinh(x);#
+    ret
 }
 
 /*
@@ -252,9 +252,9 @@ fun tan_(x : double) : double =
         The tanh value
 */
 fun tanh_(x : double) : double = {
-    let ret : double = 0.0;
-    #ret = tanh(x);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = tanh(x);#
+    ret
 }
 
 /*
@@ -272,9 +272,9 @@ fun tanh_(x : double) : double = {
         e raised to the xth power
 */
 fun exp_(x : double) : double = {
-    let ret : double = 0.0;
-    #ret = exp(x);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = exp(x);#
+    ret
 }
 
 /*
@@ -293,12 +293,12 @@ fun exp_(x : double) : double = {
         (mantissa, exponent) as a tuple
 */
 fun frexp_(x : double) : (double, int32) = {
-    let ret = 0.0;
-    let exponent = 0i32;
+    let mut ret = 0.0
+    let mut exponent = 0i32
     #int exponent2;
     ret = frexp(x, &exponent2);
-    exponent = (int32_t) exponent2;#;
-    (ret, exponent);
+    exponent = (int32_t) exponent2;#
+    (ret, exponent)
 }
 
 /*
@@ -317,9 +317,9 @@ fun frexp_(x : double) : (double, int32) = {
         The value x multiplied by 2^x
 */
 fun ldexp_(x : double, exponent : int16) : double = {
-    let ret : double = 0.0;
-    #ret = ldexp(x, exponent);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = ldexp(x, exponent);#
+    ret
 }
 
 /*
@@ -337,9 +337,9 @@ fun ldexp_(x : double, exponent : int16) : double = {
         Returns the base e log of x.
 */
 fun log_(x : double) : double = {
-    let ret : double = 0.0;
-    #ret = log(x);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = log(x);#
+    ret
 }
 
 /*
@@ -357,9 +357,9 @@ fun log_(x : double) : double = {
         Returns the base 10 log of x.
 */
 fun log10_(x : double) : double = {
-    let ret : double = 0.0;
-    #ret = log10(x);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = log10(x);#
+    ret
 }
 
 /*
@@ -378,10 +378,10 @@ fun log10_(x : double) : double = {
         (fractionComponent, integerComponent) as a tuple value.
 */
 fun modf_(x : double) : (double, double) = {
-    let ret : double = 0.0;
-    let integer : double = 0.0;
-    #ret = modf(x, &integer);#;
-    (ret, integer);
+    let mut ret : double = 0.0
+    let integer : double = 0.0
+    #ret = modf(x, &integer);#
+    (ret, integer)
 }
 
 /*
@@ -400,9 +400,9 @@ fun modf_(x : double) : (double, double) = {
         x raised to the y power
 */
 fun pow_(x : double, y : double) : double = {
-    let ret : double = 0.0;
-    #ret = pow(x, y);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = pow(x, y);#
+    ret
 }
 
 /*
@@ -417,9 +417,9 @@ fun pow_(x : double, y : double) : double = {
         The square root of x
 */
 fun sqrt_(x : double) : double = {
-    let ret : double = 0.0;
-    #ret = sqrt(x);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = sqrt(x);#
+    ret
 }
 
 /*
@@ -437,9 +437,9 @@ fun sqrt_(x : double) : double = {
         The ceiling of x
 */
 fun ceil_(x : double) : double = {
-    let ret : double = 0.0;
-    #ret = ceil(x);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = ceil(x);#
+    ret
 }
 
 /*
@@ -457,9 +457,9 @@ fun ceil_(x : double) : double = {
         The absoulute value of x
 */
 fun fabs_(x : double) : double = {
-    let ret : double = 0.0;
-    #ret = fabs(x);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = fabs(x);#
+    ret
 }
 
 /*
@@ -477,9 +477,9 @@ fun fabs_(x : double) : double = {
         The floor of x
 */
 fun floor_(x : double) : double = {
-    let ret : double = 0.0;
-    #ret = floor(x);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = floor(x);#
+    ret
 }
 
 /*
@@ -498,9 +498,9 @@ fun floor_(x : double) : double = {
         The remainder of x divided by y.
 */
 fun fmod_(x : double, y : double) : double = {
-    let ret : double = 0.0;
-    #ret = fmod(x, y);#;
-    ret;
+    let mut ret : double = 0.0
+    #ret = fmod(x, y);#
+    ret
 }
 
 /*
@@ -537,9 +537,9 @@ fun round_(x : double) : double =
 */
 fun min_(x : a, y : a) : a where a : num =
     if (x > y) {
-        y;
+        y
     } else {
-        x;
+        x
     }
 
 /*
@@ -559,9 +559,9 @@ fun min_(x : a, y : a) : a where a : num =
 */
 fun max_(x : a, y : a) : a where a : num =
     if (x > y) {
-        x;
+        x
     } else {
-        y;
+        y
     }
 
 /*
@@ -604,11 +604,11 @@ fun mapRange(x : double, a1 : double, a2 : double, b1 : double, b2 : double) : d
 */
 fun clamp(x : a, min : a, max : a) : a where a : num =
     if (min > x) {
-        min;
+        min
     } else if (x > max) {
-        max;
+        max
     } else {
-        x;
+        x
     }
 
 /*
@@ -627,9 +627,9 @@ fun clamp(x : a, min : a, max : a) : a where a : num =
 */
 fun sign(n : a) : int8 where a : num =
     if (n == 0) {
-        0;
+        0
     } else if (n > (0 : a)) {
-        1;
+        1
     } else {
-        -1;
+        -1
     }

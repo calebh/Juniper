@@ -31,9 +31,9 @@ fun wait(time : uint32) : unit =
         The time elapsed
 */
 fun now() : uint32 = {
-    let ret : uint32 = 0u32;
-    #ret = millis();#;
-    ret;
+    let ret : uint32 = 0u32
+    #ret = millis();#
+    ret
 }
 
 /*
@@ -60,7 +60,7 @@ alias timerState = { lastPulse : uint32 }
         A <timerState> with lastPulse set to 0
 */
 fun state() : timerState ref =
-    ref { lastPulse = 0 }
+    ref { lastPulse := 0 }
 
 /*
     Function: every
@@ -80,17 +80,17 @@ fun state() : timerState ref =
         milliseconds.
 */
 fun every(interval : uint32, state : timerState ref) : sig<uint32> = {
-    let t = now();
+    let t = now()
     let lastWindow =
         if (interval == 0) {
-            t;
+            t
         } else {
-            (t / interval) * interval;
-        };
+            (t / interval) * interval
+        }
     if ((state->lastPulse : uint32) >= lastWindow) {
-        signal(nothing());
+        signal(nothing())
     } else {
-        *state = { lastPulse = t };
-        signal(just(t));
-    };
+        state->lastPulse = t
+        signal(just(t))
+    }
 }

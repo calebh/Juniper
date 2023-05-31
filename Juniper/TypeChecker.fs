@@ -681,7 +681,18 @@ let checkUnknownVars menv denv (maybeTemplate : Ast.Template option) (kind : T.K
 // and topological ordering. The first part of this function consists of analyzing
 // the modules to build up environments used in type checking. The second part
 // involves a graph theoretical/topological ordering analysis.
-let typecheckProgram (program : Ast.Module list) (fnames : string list) (pruneUnreachable : bool) =
+let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (pruneUnreachable : bool) =
+    let defaultOpenDec = Ast.dummyWrapPos (Ast.OpenDec (Ast.dummyWrapPos (List.map Ast.dummyWrapPos ["Prelude"])))
+    let program =
+        programIn |>
+        List.map (fun (Ast.Module decs as module_) ->
+            match nameInModule module_ with
+            // Don't open Prelude inside Prelude
+            | Some (_, "Prelude") -> module_
+            // Every other module should open Prelude
+            | Some _ -> Ast.Module (defaultOpenDec::decs)
+            | None -> module_)
+
     // modNamesToMods maps module names to module contents
     let modNamesToMods =
         let names =

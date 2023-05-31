@@ -33,7 +33,7 @@ alias buttonState = { actualState : pinState, lastState : pinState, lastDebounce
         A new <buttonState>
 */
 fun state() : buttonState ref =
-    ref { actualState = Io:low(), lastState = Io:low(), lastDebounceTime = 0 }
+    ref { actualState := Io:low(), lastState := Io:low(), lastDebounceTime := 0 }
 
 /*
     Function: debounceDelay
@@ -59,25 +59,25 @@ fun state() : buttonState ref =
 */
 fun debounceDelay(incoming : sig<pinState>, delay : uint16, buttonState : buttonState ref) : sig<pinState> =
     Signal:map((currentState : pinState) : pinState => {
-        let {actualState=actualState,
-             lastState=lastState,
-             lastDebounceTime=lastDebounceTime} = *buttonState;
+        let {actualState:=actualState,
+             lastState:=lastState,
+             lastDebounceTime:=lastDebounceTime} = *buttonState
         if (currentState != lastState) {
-            *buttonState = { actualState = actualState,
-                             lastState = currentState,
-                             lastDebounceTime = Time:now() };
-            actualState;
+            *buttonState = { actualState := actualState,
+                             lastState := currentState,
+                             lastDebounceTime := Time:now() }
+            actualState
         } else if ((currentState != actualState) && ((Time:now() - buttonState->lastDebounceTime) > delay)) {
-            *buttonState = { actualState = currentState,
-                             lastState = currentState,
-                             lastDebounceTime = lastDebounceTime};
-            currentState;
+            *buttonState = { actualState := currentState,
+                             lastState := currentState,
+                             lastDebounceTime := lastDebounceTime}
+            currentState
         } else {
-            *buttonState = { actualState = actualState,
-                             lastState = currentState,
-                             lastDebounceTime = lastDebounceTime };
-            actualState;
-        };
+            *buttonState = { actualState := actualState,
+                             lastState := currentState,
+                             lastDebounceTime := lastDebounceTime }
+            actualState
+        }
     }, incoming)
 
 /*

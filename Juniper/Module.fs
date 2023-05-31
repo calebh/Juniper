@@ -51,18 +51,14 @@ let typesInModule (Ast.Module decs) =
                           | (_, Ast.AlgDataTypeDec {name=name}) -> name
                           | _ -> failwith "This should never happen") >> Ast.unwrap) typeDecs
 
-let defaultOpens = [((TypedAst.dummyPos, TypedAst.dummyPos), "Prelude")]
-
 let opensInModule (Ast.Module decs) =
-    let userDeclaredOpens =
-        decs |>
-        List.map
-            (fun dec ->
-                match Ast.unwrap dec with
-                | Ast.OpenDec names -> Ast.unwrap names
-                | _ -> []) |>
-        List.concat
-    defaultOpens @ userDeclaredOpens
+    decs |>
+    List.map
+        (fun dec ->
+            match Ast.unwrap dec with
+            | Ast.OpenDec names -> Ast.unwrap names
+            | _ -> []) |>
+    List.concat
 
 let nameOfDec dec = match dec with
                         | (Ast.AliasDec {name=name} | Ast.AlgDataTypeDec {name=name} | Ast.LetDec {varName=name} | Ast.FunctionDec {name=name}) -> name

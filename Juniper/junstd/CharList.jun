@@ -22,9 +22,9 @@ fun toUpper(str) =
     str |>
     List:map((c : uint8) =>
         if (c >= 97u8 && c <= 122u8) {
-            c - 32u8;
+            c - 32u8
         } else {
-            c;
+            c
         })
 
 /*
@@ -45,9 +45,9 @@ fun toLower(str) =
     str |>
     List:map((c) =>
         if (c >= 65u8 && c <= 90u8) {
-            c + 32u8;
+            c + 32u8
         } else {
-            c;
+            c
         })
 
 /*
@@ -67,12 +67,12 @@ fun toLower(str) =
         A list of characters
 */
 fun i32ToCharList(m : int32) : charlist<n> = {
-    let ret = {data=array uint8[n + 1] of 0u8, length=0u32};
+    let mut ret = {data := array uint8[n + 1] of 0u8, length := 0u32}
     #
     int charsPrinted = 1 + snprintf((char *) &ret.data[0], n + 1, "%d", m);
     ret.length = charsPrinted >= (n + 1) ? (n + 1) : charsPrinted;
-    #;
-    ret;
+    #
+    ret
 }
 
 /*
@@ -110,20 +110,20 @@ fun length(s : list<uint8, n>) : uint32 =
         The two lists appended together.
 */
 fun concat(sA : charlist<aCap>, sB : charlist<bCap>) : charlist<retCap> = {
-    let mut j : uint32 = 0;
-    let lenA = length(sA);
-    let lenB = length(sB);
-    let mut out = {data=array uint8[retCap+1] of 0u8,
-                   length=lenA + lenB + 1};
+    let mut j : uint32 = 0
+    let lenA = length(sA)
+    let lenB = length(sB)
+    let mut out = {data := array uint8[retCap+1] of 0u8,
+                   length := lenA + lenB + 1}
     for (i : uint32 in 0 to lenA) {
-        out.data[j] = sA.data[i];
-        j = j + 1;
-    };
+        out.data[j] = sA.data[i]
+        j = j + 1
+    }
     for (i : uint32 in 0 to lenB) {
-        out.data[j] = sB.data[i];
-        j = j + 1;
-    };
-    out;
+        out.data[j] = sB.data[i]
+        j = j + 1
+    }
+    out
 }
 
 /*

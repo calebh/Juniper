@@ -123,9 +123,9 @@ type sig<a> = signal(maybe<a>)
         The extracted rawpointer
 */
 fun extractptr(p : pointer) : rawpointer = {
-    var ret : rawpointer;
-    #ret = p.get()->get();#;
-    ret;
+    var ret : rawpointer
+    #ret = p.get()->get();#
+    ret
 }
 
 /*
@@ -416,8 +416,8 @@ fun apply(f : (closure)(a) -> b, x : a) : b =
         The result of the values held in the tuple applied to f
 */
 fun apply2(f : (closure)(a, b) -> c, tup : (a,b)) : c = {
-    let (a, b) = tup;
-    f(a, b);
+    let (a, b) = tup
+    f(a, b)
 }
 
 /*
@@ -436,8 +436,8 @@ fun apply2(f : (closure)(a, b) -> c, tup : (a,b)) : c = {
         The result of the values held in the tuple applied to f
 */
 fun apply3(f : (closure)(a, b, c) -> d, tup : (a,b,c)) : d = {
-    let (a, b, c) = tup;
-    f(a, b, c);
+    let (a, b, c) = tup
+    f(a, b, c)
 }
 
 /*
@@ -456,8 +456,8 @@ fun apply3(f : (closure)(a, b, c) -> d, tup : (a,b,c)) : d = {
         The result of the values held in the tuple applied to f
 */
 fun apply4(f : (closure)(a,b,c,d) -> e, tup : (a,b,c,d)) : e = {
-    let (a, b, c, d) = tup;
-    f(a, b, c, d);
+    let (a, b, c, d) = tup
+    f(a, b, c, d)
 }
 
 /*
@@ -581,8 +581,8 @@ fun div(numA : a, numB : a) : a where a : num = numA / numB
         The tuple with swapped elements
 */
 fun swap(tup) = {
-    let (alpha, beta) = tup;
-    (beta, alpha);
+    let (alpha, beta) = tup
+    (beta, alpha)
 }
 
 /*
@@ -599,11 +599,11 @@ fun swap(tup) = {
         a0: a - The initial value to supply to the function
 */
 fun until(p : (a) -> bool, f : (a) -> a, a0 : a) : a = {
-    let mut a = a0;
+    let mut a = a0
     while (!p(a)) {
-        a = f(a);
-    };
-    a;
+        a = f(a)
+    }
+    a
 }
 
 /*
@@ -631,9 +631,9 @@ fun ignore(val : a) = ()
         The number with converted type
 */
 fun u8ToU16(n : uint8) : uint16 = {
-    var ret : uint16;
-    #ret = (uint16_t) n;#;
-    ret;
+    var ret : uint16
+    #ret = (uint16_t) n;#
+    ret
 }
 
 /*
@@ -651,9 +651,9 @@ fun u8ToU16(n : uint8) : uint16 = {
         The number with converted type
 */
 fun u8ToU32(n : uint8) : uint32 = {
-    var ret : uint32;
-    #ret = (uint32_t) n;#;
-    ret;
+    var ret : uint32
+    #ret = (uint32_t) n;#
+    ret
 }
 
 /*
@@ -671,9 +671,9 @@ fun u8ToU32(n : uint8) : uint32 = {
         The number with converted type
 */
 fun u8ToI8(n : uint8) : int8 = {
-    var ret : int8;
-    #ret = (int8_t) n;#;
-    ret;
+    var ret : int8
+    #ret = (int8_t) n;#
+    ret
 }
 
 /*
@@ -691,9 +691,9 @@ fun u8ToI8(n : uint8) : int8 = {
         The number with converted type
 */
 fun u8ToI16(n : uint8) : int16 = {
-    var ret : int16;
-    #ret = (int16_t) n;#;
-    ret;
+    var ret : int16
+    #ret = (int16_t) n;#
+    ret
 }
 
 /*
@@ -711,9 +711,9 @@ fun u8ToI16(n : uint8) : int16 = {
         The number with converted type
 */
 fun u8ToI32(n : uint8) : int32 = {
-    var ret : int32;
-    #ret = (int32_t) n;#;
-    ret;
+    var ret : int32
+    #ret = (int32_t) n;#
+    ret
 }
 
 /*
@@ -731,9 +731,9 @@ fun u8ToI32(n : uint8) : int32 = {
         The number with converted type
 */
 fun u8ToFloat(n : uint8) : float = {
-    var ret : float;
-    #ret = (float) n;#;
-    ret;
+    var ret : float
+    #ret = (float) n;#
+    ret
 }
 
 /*
@@ -751,9 +751,9 @@ fun u8ToFloat(n : uint8) : float = {
         The number with converted type
 */
 fun u8ToDouble(n : uint8) : double = {
-    var ret : double;
-    #ret = (double) n;#;
-    ret;
+    var ret : double
+    #ret = (double) n;#
+    ret
 }
 
 /*
@@ -771,9 +771,9 @@ fun u8ToDouble(n : uint8) : double = {
         The number with converted type
 */
 fun u16ToU8(n : uint16) : uint8 = {
-    var ret : uint8;
-    #ret = (uint8_t) n;#;
-    ret;
+    var ret : uint8
+    #ret = (uint8_t) n;#
+    ret
 }
 
 /*
@@ -791,9 +791,9 @@ fun u16ToU8(n : uint16) : uint8 = {
         The number with converted type
 */
 fun u16ToU32(n : uint16) : uint32 = {
-    var ret : uint32;
-    #ret = (uint32_t) n;#;
-    ret;
+    var ret : uint32
+    #ret = (uint32_t) n;#
+    ret
 }
 
 /*
@@ -811,9 +811,9 @@ fun u16ToU32(n : uint16) : uint32 = {
         The number with converted type
 */
 fun u16ToI8(n : uint16) : int8 = {
-    var ret : int8;
-    #ret = (int8_t) n;#;
-    ret;
+    var ret : int8
+    #ret = (int8_t) n;#
+    ret
 }
 
 /*
@@ -831,9 +831,9 @@ fun u16ToI8(n : uint16) : int8 = {
         The number with converted type
 */
 fun u16ToI16(n : uint16) : int16 = {
-    var ret : int16;
-    #ret = (int16_t) n;#;
-    ret;
+    var ret : int16
+    #ret = (int16_t) n;#
+    ret
 }
 
 /*
@@ -851,9 +851,9 @@ fun u16ToI16(n : uint16) : int16 = {
         The number with converted type
 */
 fun u16ToI32(n : uint16) : int32 = {
-    var ret : int32;
-    #ret = (int32_t) n;#;
-    ret;
+    var ret : int32
+    #ret = (int32_t) n;#
+    ret
 }
 
 /*
@@ -871,9 +871,9 @@ fun u16ToI32(n : uint16) : int32 = {
         The number with converted type
 */
 fun u16ToFloat(n : uint16) : float = {
-    var ret : float;
-    #ret = (float) n;#;
-    ret;
+    var ret : float
+    #ret = (float) n;#
+    ret
 }
 
 /*
@@ -891,9 +891,9 @@ fun u16ToFloat(n : uint16) : float = {
         The number with converted type
 */
 fun u16ToDouble(n : uint16) : double = {
-    var ret : double;
-    #ret = (double) n;#;
-    ret;
+    var ret : double
+    #ret = (double) n;#
+    ret
 }
 
 /*
@@ -911,9 +911,9 @@ fun u16ToDouble(n : uint16) : double = {
         The number with converted type
 */
 fun u32ToU8(n : uint32) : uint8 = {
-    var ret : uint8;
-    #ret = (uint8_t) n;#;
-    ret;
+    var ret : uint8
+    #ret = (uint8_t) n;#
+    ret
 }
 
 /*
@@ -931,9 +931,9 @@ fun u32ToU8(n : uint32) : uint8 = {
         The number with converted type
 */
 fun u32ToU16(n : uint32) : uint16 = {
-    var ret : uint16;
-    #ret = (uint16_t) n;#;
-    ret;
+    var ret : uint16
+    #ret = (uint16_t) n;#
+    ret
 }
 
 /*
@@ -951,9 +951,9 @@ fun u32ToU16(n : uint32) : uint16 = {
         The number with converted type
 */
 fun u32ToI8(n : uint32) : int8 = {
-    var ret : int8;
-    #ret = (int8_t) n;#;
-    ret;
+    var ret : int8
+    #ret = (int8_t) n;#
+    ret
 }
 
 /*
@@ -971,9 +971,9 @@ fun u32ToI8(n : uint32) : int8 = {
         The number with converted type
 */
 fun u32ToI16(n : uint32) : int16 = {
-    var ret : int16;
-    #ret = (int16_t) n;#;
-    ret;
+    var ret : int16
+    #ret = (int16_t) n;#
+    ret
 }
 
 /*
@@ -991,9 +991,9 @@ fun u32ToI16(n : uint32) : int16 = {
         The number with converted type
 */
 fun u32ToI32(n : uint32) : int32 = {
-    var ret : int32;
-    #ret = (int32_t) n;#;
-    ret;
+    var ret : int32
+    #ret = (int32_t) n;#
+    ret
 }
 
 /*
@@ -1011,9 +1011,9 @@ fun u32ToI32(n : uint32) : int32 = {
         The number with converted type
 */
 fun u32ToFloat(n : uint32) : float = {
-    var ret : float;
-    #ret = (float) n;#;
-    ret;
+    var ret : float
+    #ret = (float) n;#
+    ret
 }
 
 /*
@@ -1031,9 +1031,9 @@ fun u32ToFloat(n : uint32) : float = {
         The number with converted type
 */
 fun u32ToDouble(n : uint32) : double = {
-    var ret : double;
-    #ret = (double) n;#;
-    ret;
+    var ret : double
+    #ret = (double) n;#
+    ret
 }
 
 /*
@@ -1051,9 +1051,9 @@ fun u32ToDouble(n : uint32) : double = {
         The number with converted type
 */
 fun i8ToU8(n : int8) : uint8 = {
-    var ret : uint8;
-    #ret = (uint8_t) n;#;
-    ret;
+    var ret : uint8
+    #ret = (uint8_t) n;#
+    ret
 }
 
 /*
@@ -1071,9 +1071,9 @@ fun i8ToU8(n : int8) : uint8 = {
         The number with converted type
 */
 fun i8ToU16(n : int8) : uint16 = {
-    var ret : uint16;
-    #ret = (uint16_t) n;#;
-    ret;
+    var ret : uint16
+    #ret = (uint16_t) n;#
+    ret
 }
 
 /*
@@ -1091,9 +1091,9 @@ fun i8ToU16(n : int8) : uint16 = {
         The number with converted type
 */
 fun i8ToU32(n : int8) : uint32 = {
-    var ret : uint32;
-    #ret = (uint32_t) n;#;
-    ret;
+    var ret : uint32
+    #ret = (uint32_t) n;#
+    ret
 }
 
 /*
@@ -1111,9 +1111,9 @@ fun i8ToU32(n : int8) : uint32 = {
         The number with converted type
 */
 fun i8ToI16(n : int8) : int16 = {
-    var ret : int16;
-    #ret = (int16_t) n;#;
-    ret;
+    var ret : int16
+    #ret = (int16_t) n;#
+    ret
 }
 
 /*
@@ -1131,9 +1131,9 @@ fun i8ToI16(n : int8) : int16 = {
         The number with converted type
 */
 fun i8ToI32(n : int8) : int32 = {
-    var ret : int32;
-    #ret = (int32_t) n;#;
-    ret;
+    var ret : int32
+    #ret = (int32_t) n;#
+    ret
 }
 
 /*
@@ -1151,9 +1151,9 @@ fun i8ToI32(n : int8) : int32 = {
         The number with converted type
 */
 fun i8ToFloat(n : int8) : float = {
-    var ret : float;
-    #ret = (float) n;#;
-    ret;
+    var ret : float
+    #ret = (float) n;#
+    ret
 }
 
 /*
@@ -1171,9 +1171,9 @@ fun i8ToFloat(n : int8) : float = {
         The number with converted type
 */
 fun i8ToDouble(n : int8) : double = {
-    var ret : double;
-    #ret = (double) n;#;
-    ret;
+    var ret : double
+    #ret = (double) n;#
+    ret
 }
 
 /*
@@ -1191,9 +1191,9 @@ fun i8ToDouble(n : int8) : double = {
         The number with converted type
 */
 fun i16ToU8(n : int16) : uint8 = {
-    var ret : uint8;
-    #ret = (uint8_t) n;#;
-    ret;
+    var ret : uint8
+    #ret = (uint8_t) n;#
+    ret
 }
 
 /*
@@ -1211,9 +1211,9 @@ fun i16ToU8(n : int16) : uint8 = {
         The number with converted type
 */
 fun i16ToU16(n : int16) : uint16 = {
-    var ret : uint16;
-    #ret = (uint16_t) n;#;
-    ret;
+    var ret : uint16
+    #ret = (uint16_t) n;#
+    ret
 }
 
 /*
@@ -1231,9 +1231,9 @@ fun i16ToU16(n : int16) : uint16 = {
         The number with converted type
 */
 fun i16ToU32(n : int16) : uint32 = {
-    var ret : uint32;
-    #ret = (uint32_t) n;#;
-    ret;
+    var ret : uint32
+    #ret = (uint32_t) n;#
+    ret
 }
 
 /*
@@ -1251,9 +1251,9 @@ fun i16ToU32(n : int16) : uint32 = {
         The number with converted type
 */
 fun i16ToI8(n : int16) : int8 = {
-    var ret : int8;
-    #ret = (int8_t) n;#;
-    ret;
+    var ret : int8
+    #ret = (int8_t) n;#
+    ret
 }
 
 /*
@@ -1271,9 +1271,9 @@ fun i16ToI8(n : int16) : int8 = {
         The number with converted type
 */
 fun i16ToI32(n : int16) : int32 = {
-    var ret : int32;
-    #ret = (int32_t) n;#;
-    ret;
+    var ret : int32
+    #ret = (int32_t) n;#
+    ret
 }
 
 /*
@@ -1291,9 +1291,9 @@ fun i16ToI32(n : int16) : int32 = {
         The number with converted type
 */
 fun i16ToFloat(n : int16) : float = {
-    var ret : float;
-    #ret = (float) n;#;
-    ret;
+    var ret : float
+    #ret = (float) n;#
+    ret
 }
 
 /*
@@ -1311,9 +1311,9 @@ fun i16ToFloat(n : int16) : float = {
         The number with converted type
 */
 fun i16ToDouble(n : int16) : double = {
-    var ret : double;
-    #ret = (double) n;#;
-    ret;
+    var ret : double
+    #ret = (double) n;#
+    ret
 }
 
 /*
@@ -1331,9 +1331,9 @@ fun i16ToDouble(n : int16) : double = {
         The number with converted type
 */
 fun i32ToU8(n : int32) : uint8 = {
-    var ret : uint8;
-    #ret = (uint8_t) n;#;
-    ret;
+    var ret : uint8
+    #ret = (uint8_t) n;#
+    ret
 }
 
 /*
@@ -1351,9 +1351,9 @@ fun i32ToU8(n : int32) : uint8 = {
         The number with converted type
 */
 fun i32ToU16(n : int32) : uint16 = {
-    var ret : uint16;
-    #ret = (uint16_t) n;#;
-    ret;
+    var ret : uint16
+    #ret = (uint16_t) n;#
+    ret
 }
 
 /*
@@ -1371,9 +1371,9 @@ fun i32ToU16(n : int32) : uint16 = {
         The number with converted type
 */
 fun i32ToU32(n : int32) : uint32 = {
-    var ret : uint32;
-    #ret = (uint32_t) n;#;
-    ret;
+    var ret : uint32
+    #ret = (uint32_t) n;#
+    ret
 }
 
 /*
@@ -1391,9 +1391,9 @@ fun i32ToU32(n : int32) : uint32 = {
         The number with converted type
 */
 fun i32ToI8(n : int32) : int8 = {
-    var ret : int8;
-    #ret = (int8_t) n;#;
-    ret;
+    var ret : int8
+    #ret = (int8_t) n;#
+    ret
 }
 
 /*
@@ -1411,9 +1411,9 @@ fun i32ToI8(n : int32) : int8 = {
         The number with converted type
 */
 fun i32ToI16(n : int32) : int16 = {
-    var ret : int16;
-    #ret = (int16_t) n;#;
-    ret;
+    var ret : int16
+    #ret = (int16_t) n;#
+    ret
 }
 
 /*
@@ -1431,9 +1431,9 @@ fun i32ToI16(n : int32) : int16 = {
         The number with converted type
 */
 fun i32ToFloat(n : int32) : float = {
-    var ret : float;
-    #ret = (float) n;#;
-    ret;
+    var ret : float
+    #ret = (float) n;#
+    ret
 }
 
 /*
@@ -1451,9 +1451,9 @@ fun i32ToFloat(n : int32) : float = {
         The number with converted type
 */
 fun i32ToDouble(n : int32) : double = {
-    var ret : double;
-    #ret = (double) n;#;
-    ret;
+    var ret : double
+    #ret = (double) n;#
+    ret
 }
 
 /*
@@ -1471,9 +1471,9 @@ fun i32ToDouble(n : int32) : double = {
         The number with converted type
 */
 fun floatToU8(n : float) : uint8 = {
-    var ret : uint8;
-    #ret = (uint8_t) n;#;
-    ret;
+    var ret : uint8
+    #ret = (uint8_t) n;#
+    ret
 }
 
 /*
@@ -1491,9 +1491,9 @@ fun floatToU8(n : float) : uint8 = {
         The number with converted type
 */
 fun floatToU16(n : float) : uint16 = {
-    var ret : uint16;
-    #ret = (uint16_t) n;#;
-    ret;
+    var ret : uint16
+    #ret = (uint16_t) n;#
+    ret
 }
 
 /*
@@ -1511,9 +1511,9 @@ fun floatToU16(n : float) : uint16 = {
         The number with converted type
 */
 fun floatToU32(n : float) : uint32 = {
-    var ret : uint32;
-    #ret = (uint32_t) n;#;
-    ret;
+    var ret : uint32
+    #ret = (uint32_t) n;#
+    ret
 }
 
 /*
@@ -1531,9 +1531,9 @@ fun floatToU32(n : float) : uint32 = {
         The number with converted type
 */
 fun floatToI8(n : float) : int8 = {
-    var ret : int8;
-    #ret = (int8_t) n;#;
-    ret;
+    var ret : int8
+    #ret = (int8_t) n;#
+    ret
 }
 
 /*
@@ -1551,9 +1551,9 @@ fun floatToI8(n : float) : int8 = {
         The number with converted type
 */
 fun floatToI16(n : float) : int16 = {
-    var ret : int16;
-    #ret = (int16_t) n;#;
-    ret;
+    var ret : int16
+    #ret = (int16_t) n;#
+    ret
 }
 
 /*
@@ -1571,9 +1571,9 @@ fun floatToI16(n : float) : int16 = {
         The number with converted type
 */
 fun floatToI32(n : float) : int32 = {
-    var ret : int32;
-    #ret = (int32_t) n;#;
-    ret;
+    var ret : int32
+    #ret = (int32_t) n;#
+    ret
 }
 
 /*
@@ -1591,9 +1591,9 @@ fun floatToI32(n : float) : int32 = {
         The number with converted type
 */
 fun floatToDouble(n : float) : double = {
-    var ret : double;
-    #ret = (double) n;#;
-    ret;
+    var ret : double
+    #ret = (double) n;#
+    ret
 }
 
 /*
@@ -1611,9 +1611,9 @@ fun floatToDouble(n : float) : double = {
         The number with converted type
 */
 fun doubleToU8(n : double) : uint8 = {
-    var ret : uint8;
-    #ret = (uint8_t) n;#;
-    ret;
+    var ret : uint8
+    #ret = (uint8_t) n;#
+    ret
 }
 
 /*
@@ -1631,9 +1631,9 @@ fun doubleToU8(n : double) : uint8 = {
         The number with converted type
 */
 fun doubleToU16(n : double) : uint16 = {
-    var ret : uint16;
-    #ret = (int16_t) n;#;
-    ret;
+    var ret : uint16
+    #ret = (int16_t) n;#
+    ret
 }
 
 /*
@@ -1651,9 +1651,9 @@ fun doubleToU16(n : double) : uint16 = {
         The number with converted type
 */
 fun doubleToU32(n : double) : uint32 = {
-    var ret : uint32;
-    #ret = (uint32_t) n;#;
-    ret;
+    var ret : uint32
+    #ret = (uint32_t) n;#
+    ret
 }
 
 /*
@@ -1671,9 +1671,9 @@ fun doubleToU32(n : double) : uint32 = {
         The number with converted type
 */
 fun doubleToI8(n : double) : int8 = {
-    var ret : int8;
-    #ret = (int8_t) n;#;
-    ret;
+    var ret : int8
+    #ret = (int8_t) n;#
+    ret
 }
 
 /*
@@ -1691,9 +1691,9 @@ fun doubleToI8(n : double) : int8 = {
         The number with converted type
 */
 fun doubleToI16(n : double) : int16 = {
-    var ret : int16;
-    #ret = (int16_t) n;#;
-    ret;
+    var ret : int16
+    #ret = (int16_t) n;#
+    ret
 }
 
 /*
@@ -1711,9 +1711,9 @@ fun doubleToI16(n : double) : int16 = {
         The number with converted type
 */
 fun doubleToI32(n : double) : int32 = {
-    var ret : int32;
-    #ret = (int32_t) n;#;
-    ret;
+    var ret : int32
+    #ret = (int32_t) n;#
+    ret
 }
 
 /*
@@ -1731,9 +1731,9 @@ fun doubleToI32(n : double) : int32 = {
         The number with converted type
 */
 fun doubleToFloat(n : double) : float = {
-    var ret : float;
-    #ret = (float) n;#;
-    ret;
+    var ret : float
+    #ret = (float) n;#
+    ret
 }
 
 /*
@@ -1751,9 +1751,9 @@ fun doubleToFloat(n : double) : float = {
         The number with converted type
 */
 fun toUInt8(n : t) : uint8 where t : num = {
-    var ret : uint8;
-    #ret = (uint8_t) n;#;
-    ret;
+    var ret : uint8
+    #ret = (uint8_t) n;#
+    ret
 }
 
 /*
@@ -1771,9 +1771,9 @@ fun toUInt8(n : t) : uint8 where t : num = {
         The number with converted type
 */
 fun toInt8(n : t) : int8 where t : num = {
-    var ret : int8;
-    #ret = (int8_t) n;#;
-    ret;
+    var ret : int8
+    #ret = (int8_t) n;#
+    ret
 }
 
 /*
@@ -1791,9 +1791,9 @@ fun toInt8(n : t) : int8 where t : num = {
         The number with converted type
 */
 fun toUInt16(n : t) : uint16 where t : num = {
-    var ret : uint16;
-    #ret = (uint16_t) n;#;
-    ret;
+    var ret : uint16
+    #ret = (uint16_t) n;#
+    ret
 }
 
 /*
@@ -1811,9 +1811,9 @@ fun toUInt16(n : t) : uint16 where t : num = {
         The number with converted type
 */
 fun toInt16(n : t) : int16 where t : num = {
-    var ret : int16;
-    #ret = (int16_t) n;#;
-    ret;
+    var ret : int16
+    #ret = (int16_t) n;#
+    ret
 }
 
 /*
@@ -1831,9 +1831,9 @@ fun toInt16(n : t) : int16 where t : num = {
         The number with converted type
 */
 fun toUInt32(n : t) : uint32 where t : num = {
-    var ret : uint32;
-    #ret = (uint32_t) n;#;
-    ret;
+    var ret : uint32
+    #ret = (uint32_t) n;#
+    ret
 }
 
 /*
@@ -1851,9 +1851,9 @@ fun toUInt32(n : t) : uint32 where t : num = {
         The number with converted type
 */
 fun toInt32(n : t) : int32 where t : num = {
-    var ret : int32;
-    #ret = (int32_t) n;#;
-    ret;
+    var ret : int32
+    #ret = (int32_t) n;#
+    ret
 }
 
 /*
@@ -1871,9 +1871,9 @@ fun toInt32(n : t) : int32 where t : num = {
         The number with converted type
 */
 fun toFloat(n : t) : float where t : num = {
-    var ret : float;
-    #ret = (float) n;#;
-    ret;
+    var ret : float
+    #ret = (float) n;#
+    ret
 }
 
 /*
@@ -1891,9 +1891,9 @@ fun toFloat(n : t) : float where t : num = {
         The number with converted type
 */
 fun toDouble(n : t) : double where t : num = {
-    var ret : double;
-    #ret = (double) n;#;
-    ret;
+    var ret : double
+    #ret = (double) n;#
+    ret
 }
 
 /*
@@ -1911,9 +1911,9 @@ fun toDouble(n : t) : double where t : num = {
         The number with converted type
 */
 fun fromUInt8(n : uint8) : t where t : num = {
-    var ret : t;
-    #ret = (t) n;#;
-    ret;
+    var ret : t
+    #ret = (t) n;#
+    ret
 }
 
 /*
@@ -1931,9 +1931,9 @@ fun fromUInt8(n : uint8) : t where t : num = {
         The number with converted type
 */
 fun fromInt8(n : int8) : t where t : num = {
-    var ret : t;
-    #ret = (t) n;#;
-    ret;
+    var ret : t
+    #ret = (t) n;#
+    ret
 }
 
 /*
@@ -1951,9 +1951,9 @@ fun fromInt8(n : int8) : t where t : num = {
         The number with converted type
 */
 fun fromUInt16(n : uint16) : t where t : num = {
-    var ret : t;
-    #ret = (t) n;#;
-    ret;
+    var ret : t
+    #ret = (t) n;#
+    ret
 }
 
 /*
@@ -1971,9 +1971,9 @@ fun fromUInt16(n : uint16) : t where t : num = {
         The number with converted type
 */
 fun fromInt16(n : int16) : t where t : num = {
-    var ret : t;
-    #ret = (t) n;#;
-    ret;
+    var ret : t
+    #ret = (t) n;#
+    ret
 }
 
 /*
@@ -1991,9 +1991,9 @@ fun fromInt16(n : int16) : t where t : num = {
         The number with converted type
 */
 fun fromUInt32(n : uint32) : t where t : num = {
-    var ret : t;
-    #ret = (t) n;#;
-    ret;
+    var ret : t
+    #ret = (t) n;#
+    ret
 }
 
 /*
@@ -2011,9 +2011,9 @@ fun fromUInt32(n : uint32) : t where t : num = {
         The number with converted type
 */
 fun fromInt32(n : int32) : t where t : num = {
-    var ret : t;
-    #ret = (t) n;#;
-    ret;
+    var ret : t
+    #ret = (t) n;#
+    ret
 }
 
 /*
@@ -2031,9 +2031,9 @@ fun fromInt32(n : int32) : t where t : num = {
         The number with converted type
 */
 fun fromFloat(n : float) : t where t : num = {
-    var ret : t;
-    #ret = (t) n;#;
-    ret;
+    var ret : t
+    #ret = (t) n;#
+    ret
 }
 
 /*
@@ -2051,9 +2051,9 @@ fun fromFloat(n : float) : t where t : num = {
         The number with converted type
 */
 fun fromDouble(n : double) : t where t : num = {
-    var ret : t;
-    #ret = (t) n;#;
-    ret;
+    var ret : t
+    #ret = (t) n;#
+    ret
 }
 
 /*
@@ -2071,7 +2071,7 @@ fun fromDouble(n : double) : t where t : num = {
         The number with converted type
 */
 fun cast(x : a) : b where a : num, b : num = {
-    var ret : b;
-    #ret = (b) x;#;
-    ret;
+    var ret : b
+    #ret = (b) x;#
+    ret
 }

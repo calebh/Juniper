@@ -21,9 +21,9 @@ include("<Arduino.h>")
         A random number in the range [low, high)
 */
 fun random_(low : int32, high : int32) : int32 = {
-    let mut ret : int32 = 0;
-    #ret = random(low, high);#;
-    ret;
+    let mut ret : int32 = 0
+    #ret = random(low, high);#
+    ret
 }
 
 /*
@@ -62,6 +62,6 @@ fun seed(n : uint32) : unit = #randomSeed(n);#
         A random element from the list
 */
 fun choice(lst : list<t, n>) : t = {
-    let i : int32 = random_(0, u32ToI32(lst.length));
-    List:nth(i32ToU32(i), lst);
+    let i : int32 = random_(0, u32ToI32(lst.length))
+    List:nth(i32ToU32(i), lst)
 }

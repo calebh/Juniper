@@ -73,10 +73,10 @@ alias hsva = { h : float, s : float, v : float, a : float }
         The rgb equivalent of the hsv color
 */
 fun hsvToRgb(color : hsv) : rgb = {
-    let {h=h, s=s, v=v} = color;
-    let c : float = v * s;
-    let x : float = c * toFloat(1.0 - Math:fabs_(Math:fmod_((toDouble(h) / 60), 2.0) - 1.0));
-    let m : float = v - c;
+    let {h := h, s := s, v := v} = color
+    let c : float = v * s
+    let x : float = c * toFloat(1.0 - Math:fabs_(Math:fmod_((toDouble(h) / 60), 2.0) - 1.0))
+    let m : float = v - c
     let (rPrime, gPrime, bPrime) =
         if (0.0f <= h && h < 60.0f)
             (c, x, 0.0f)
@@ -89,11 +89,11 @@ fun hsvToRgb(color : hsv) : rgb = {
         else if (240.0f <= h && h < 300.0f)
             (x, 0.0f, c)
         else
-            (c, 0.0f, x);
-    let r = (rPrime + m) * 255.0f;
-    let g = (gPrime + m) * 255.0f;
-    let b = (bPrime + m) * 255.0f;
-    {r=toUInt8(r), g=toUInt8(g), b=toUInt8(b)};
+            (c, 0.0f, x)
+    let r = (rPrime + m) * 255.0f
+    let g = (gPrime + m) * 255.0f
+    let b = (bPrime + m) * 255.0f
+    {r := toUInt8(r), g := toUInt8(g), b := toUInt8(b)}
 }
 
 /*
@@ -111,8 +111,8 @@ fun hsvToRgb(color : hsv) : rgb = {
         The rgb equivalent of the hsv color
 */
 fun rgbToRgb565(color : rgb) : uint16 = {
-    let {r=r, g=g, b=b} = color;
-    ((u8ToU16(r) & 0xf8u16) << 8u32) | ((u8ToU16(g) & 0xfcu16) << 3u32) | (u8ToU16(b) >> 3u32);
+    let {r := r, g := g, b := b} = color
+    ((u8ToU16(r) & 0xf8u16) << 8u32) | ((u8ToU16(g) & 0xfcu16) << 3u32) | (u8ToU16(b) >> 3u32)
 }
 
 /*
@@ -123,7 +123,7 @@ fun rgbToRgb565(color : rgb) : uint16 = {
     Type:
     | rgb
 */
-let red : rgb = {r=255u8, g=0, b=0}
+let red : rgb = {r := 255u8, g := 0, b := 0}
 
 /*
     Variable: green
@@ -133,7 +133,7 @@ let red : rgb = {r=255u8, g=0, b=0}
     Type:
     | rgb
 */
-let green : rgb = {r=0, g=255u8, b=0}
+let green : rgb = {r := 0, g := 255u8, b := 0}
 
 /*
     Variable: blue
@@ -143,7 +143,7 @@ let green : rgb = {r=0, g=255u8, b=0}
     Type:
     | rgb
 */
-let blue : rgb = {r=0, g=0, b=255u8}
+let blue : rgb = {r := 0, g := 0, b := 255u8}
 
 /*
     Variable: black
@@ -153,7 +153,7 @@ let blue : rgb = {r=0, g=0, b=255u8}
     Type:
     | rgb
 */
-let black : rgb = {r=0, g=0, b=0}
+let black : rgb = {r := 0, g := 0, b := 0}
 
 /*
     Variable: white
@@ -163,7 +163,7 @@ let black : rgb = {r=0, g=0, b=0}
     Type:
     | rgb
 */
-let white : rgb = {r=255u8, g=255u8, b=255u8}
+let white : rgb = {r := 255u8, g := 255u8, b := 255u8}
 
 /*
     Variable: yellow
@@ -173,7 +173,7 @@ let white : rgb = {r=255u8, g=255u8, b=255u8}
     Type:
     | rgb
 */
-let yellow : rgb = {r=255u8, g=255u8, b=0}
+let yellow : rgb = {r := 255u8, g := 255u8, b := 0}
 
 /*
     Variable: magenta
@@ -183,7 +183,7 @@ let yellow : rgb = {r=255u8, g=255u8, b=0}
     Type:
     | rgb
 */
-let magenta : rgb = {r=255u8, g=0, b=255u8}
+let magenta : rgb = {r := 255u8, g := 0, b := 255u8}
 
 /*
     Variable: cyan
@@ -193,4 +193,4 @@ let magenta : rgb = {r=255u8, g=0, b=255u8}
     Type:
     | rgb
 */
-let cyan : rgb = {r=0, g=255u8, b=255u8}
+let cyan : rgb = {r := 0, g := 255u8, b := 255u8}

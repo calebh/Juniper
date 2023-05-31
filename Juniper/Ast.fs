@@ -221,3 +221,5 @@ and LeftAssign = VarMutation of PosAdorn<string>
 let unwrap<'a> ((_, c) : PosAdorn<'a>) = c
 // Takes in a wrapped AST object, returns the starting position.
 let getPos<'a> ((a, _) : PosAdorn<'a>) = a
+
+let dummyWrapPos x = ((TypedAst.dummyPos, TypedAst.dummyPos), x)

@@ -222,8 +222,8 @@ fun baseToInt(b) =
         unit
 */
 fun printIntBase(n : int32, b : base) : unit = {
-    let bint : int32 = baseToInt(b);
-    #Serial.print(n, bint);#;
+    let bint : int32 = baseToInt(b)
+    #Serial.print(n, bint);#
 }
 
 /*
@@ -301,9 +301,9 @@ fun pinStateToInt(value : pinState) : uint8 =
 */
 fun intToPinState(value : uint8) : pinState =
     if (value == 0u8) {
-        low();
+        low()
     } else {
-        high();
+        high()
     }
 
 /*
@@ -325,8 +325,8 @@ fun intToPinState(value : uint8) : pinState =
         <digOut>
 */
 fun digWrite(pin : uint16, value : pinState) : unit = {
-    let intVal = pinStateToInt(value);
-    #digitalWrite(pin, intVal);#;
+    let intVal = pinStateToInt(value)
+    #digitalWrite(pin, intVal);#
 }
 
 /*
@@ -347,9 +347,9 @@ fun digWrite(pin : uint16, value : pinState) : unit = {
         <digIn>
 */
 fun digRead(pin : uint16) : pinState = {
-    var intVal : uint8;
-    #intVal = digitalRead(pin);#;
-    intToPinState(intVal);
+    var intVal : uint8
+    #intVal = digitalRead(pin);#
+    intToPinState(intVal)
 }
 
 /*
@@ -413,9 +413,9 @@ fun digOut(pin : uint16, sig : sig<pinState>) : unit =
         https://www.arduino.cc/en/Reference/AnalogRead
 */
 fun anaRead(pin : uint16) : uint16 = {
-    var value : uint16;
-    #value = analogRead(pin);#;
-    value;
+    var value : uint16
+    #value = analogRead(pin);#
+    value
 }
 
 /*
@@ -529,8 +529,8 @@ fun intToPinMode(m : uint8) : mode =
         Unit
 */
 fun setPinMode(pin : uint16, m : mode) : unit = {
-    let m2 = pinModeToInt(m);
-    #pinMode(pin, m2);#;
+    let m2 = pinModeToInt(m)
+    #pinMode(pin, m2);#
 }
 
 /*
@@ -557,9 +557,9 @@ fun risingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
                 match (currState, *prevState) {
                     (high(), low()) => false,
                     _ => true
-                };
-            *prevState = currState;
-            ret;}, sig))
+                }
+            *prevState = currState
+            ret}, sig))
 
 /*
     Function: fallingEdge
@@ -585,9 +585,9 @@ fun fallingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
                 match (currState, *prevState) {
                     (low(), high()) => false,
                     _ => true
-                };
-            *prevState = currState;
-            ret;}, sig))
+                }
+            *prevState = currState
+            ret}, sig))
 
 /*
     Function: edge
@@ -613,6 +613,6 @@ fun edge(sig : sig<pinState>, prevState : pinState ref) : sig<pinState> =
                 (high(), low()) => false,
                 (low(), high()) => false,
                 _ => true
-            };
-        *prevState = currState;
-        ret;}, sig)
+            }
+        *prevState = currState
+        ret}, sig)

@@ -24,11 +24,11 @@ module List
         The list obtained by applying f to every element of lst.
 */
 fun map(f : (closure)(a) -> b, lst : list<a, n>) : list<b, n> = {
-    let mut ret = array b[n];
+    let mut ret = array b[n]
     for (i : uint32 in 0u32 to lst.length) {
-        ret[i] = f(lst.data[i]);
-    };
-    {data=ret, length=lst.length};
+        ret[i] = f(lst.data[i])
+    }
+    {data := ret, length := lst.length}
 }
 
 /*
@@ -49,11 +49,11 @@ fun map(f : (closure)(a) -> b, lst : list<a, n>) : list<b, n> = {
         The final state value.
 */
 fun foldl(f : (closure)(t, state) -> state, initState : state, lst : list<t, n>) : state = {
-    let mut s = initState;
+    let mut s = initState
     for (i : uint32 in 0u32 to lst.length) {
-        s = f(lst.data[i], s);
-    };
-    s;
+        s = f(lst.data[i], s)
+    }
+    s
 }
 
 /*
@@ -76,15 +76,15 @@ fun foldl(f : (closure)(t, state) -> state, initState : state, lst : list<t, n>)
 */
 fun foldr(f : (closure)(t, state) -> state, initState : state, lst : list<t, n>) : state =
     if (lst.length == 0) {
-        initState;
+        initState
     } else {
-        let mut s = initState;
-        let mut i : uint32 = lst.length;
+        let mut s = initState
+        let mut i : uint32 = lst.length
         do {
-            i = i - 1;
-            s = f(lst.data[i], s);
-        } while (i > 0u32);
-        s;
+            i = i - 1
+            s = f(lst.data[i], s)
+        } while (i > 0u32)
+        s
     }
 
 /*
@@ -103,17 +103,17 @@ fun foldr(f : (closure)(t, state) -> state, initState : state, lst : list<t, n>)
         The two lists appended together.
 */
 fun append(lstA : list<t, aCap>, lstB : list<t, bCap>) : list<t, retCap> = {
-    let mut j : uint32 = 0u32;
-    let mut out = {data=array t[retCap], length=lstA.length + lstB.length};
+    let mut j : uint32 = 0u32
+    let mut out = {data := array t[retCap], length := lstA.length + lstB.length}
     for (i : uint32 in 0u32 to lstA.length) {
-        out.data[j] = (lstA.data[i] : t);
-        j = j + 1u32;
-    };
+        out.data[j] = (lstA.data[i] : t)
+        j = j + 1u32
+    }
     for (i : uint32 in 0u32 to lstB.length) {
-        out.data[j] = (lstB.data[i] : t);
-        j = j + 1u32;
-    };
-    out;
+        out.data[j] = (lstB.data[i] : t)
+        j = j + 1u32
+    }
+    out
 }
 
 /*
@@ -133,9 +133,9 @@ fun append(lstA : list<t, aCap>, lstB : list<t, bCap>) : list<t, retCap> = {
 */
 fun nth(i : uint32, lst : list<t, n>) : t =
     if (i < (lst.length : uint32)) {
-        lst.data[i];
+        lst.data[i]
     } else {
-        quit<t>();
+        quit<t>()
     }
 
 /*
@@ -154,15 +154,15 @@ fun nth(i : uint32, lst : list<t, n>) : t =
 */
 
 fun flattenSafe(listOfLists : list<list<t, m>, n>) : list<t, m*n> = {
-    let mut ret = array t[m*n];
-    let mut index = 0u32;
+    let mut ret = array t[m*n]
+    let mut index = 0u32
     for (i : uint32 in 0u32 to listOfLists.length) {
         for (j : uint32 in 0u32 to listOfLists.data[i].length) {
-            ret[index] = listOfLists.data[i].data[j];
-            index = index + 1;
-        };
-    };
-    {data=ret, length=index};
+            ret[index] = listOfLists.data[i].data[j]
+            index = index + 1
+        }
+    }
+    {data := ret, length := index}
 }
 
 
@@ -182,11 +182,11 @@ fun flattenSafe(listOfLists : list<list<t, m>, n>) : list<t, m*n> = {
         The new list with capacity m
 */
 fun resize(lst : list<t, n>) : list<t, m> = {
-    let mut ret = array t[m];
+    let mut ret = array t[m]
     for (i : uint32 in 0u32 to lst.length) {
-        ret[i] = lst.data[i];
-    };
-    {data=ret, length=lst.length};
+        ret[i] = lst.data[i]
+    }
+    {data := ret, length := lst.length}
 }
 
 /*
@@ -207,16 +207,13 @@ fun resize(lst : list<t, n>) : list<t, m> = {
         lst.
 */
 fun all(pred : (closure)(t) -> bool, lst : list<t, n>) : bool = {
-    let mut satisfied = true;
+    let mut satisfied = true
     for (i : uint32 in 0u32 to lst.length) {
         if (satisfied) {
-            satisfied = pred(lst.data[i]);
-            ();
-        } else {
-            ();
-        };
-    };
-    satisfied;
+            satisfied = pred(lst.data[i])
+        }
+    }
+    satisfied
 }
 
 /*
@@ -237,16 +234,13 @@ fun all(pred : (closure)(t) -> bool, lst : list<t, n>) : bool = {
         of lst.
 */
 fun any(pred : (closure)(t) -> bool, lst : list<t, n>) : bool = {
-    let mut satisfied = false;
+    let mut satisfied = false
     for (i : uint32 in 0u32 to lst.length) {
         if (!satisfied) {
-            satisfied = pred(lst.data[i]);
-            ();
-        } else {
-            ();
-        };
-    };
-    satisfied;
+            satisfied = pred(lst.data[i])
+        }
+    }
+    satisfied
 }
 
 /*
@@ -267,12 +261,12 @@ fun any(pred : (closure)(t) -> bool, lst : list<t, n>) : bool = {
 */
 fun pushBack(elem : t, lst : list<t, n>) : list<t, n> =
     if ((lst.length : uint32) >= n) {
-        quit<list<t, n>>();
+        quit<list<t, n>>()
     } else {
-        let mut ret = lst;
-        ret.data[lst.length : uint32] = elem;
-        ret.length = lst.length + 1u32;
-        ret;
+        let mut ret = lst
+        ret.data[lst.length : uint32] = elem
+        ret.length = lst.length + 1u32
+        ret
     }
 
 /*
@@ -294,25 +288,22 @@ fun pushBack(elem : t, lst : list<t, n>) : list<t, n> =
 */
 fun pushOffFront(elem : t, lst : list<t, n>) : list<t, n> = {
     if (n <= 0i32) {
-        lst;
+        lst
     } else {
-        var ret : list<t, n>;
-        ret.data[0u32] = elem;
+        var ret : list<t, n>
+        ret.data[0u32] = elem
         for (i : uint32 in 0 to lst.length) {
             if ((i + 1) < n) {
-                ret.data[i + 1] = lst.data[i];
-                ();
-            } else {
-                ();
-            };
-        };
+                ret.data[i + 1] = lst.data[i]
+            }
+        }
         if (lst.length == cast(n)) {
-            ret.length = lst.length;
+            ret.length = lst.length
         } else {
-            ret.length = lst.length + 1;
-        };
-        ret;
-    };
+            ret.length = lst.length + 1
+        }
+        ret
+    }
 }
 
 /*
@@ -334,11 +325,11 @@ fun pushOffFront(elem : t, lst : list<t, n>) : list<t, n> = {
 */
 fun setNth(index : uint32, elem : t, lst : list<t, n>) : list<t, n> =
     if (index < lst.length) {
-        let mut ret = lst;
-        ret.data[index] = elem;
-        ret;
+        let mut ret = lst
+        ret.data[index] = elem
+        ret
     } else {
-        lst;
+        lst
     }
 
 /*
@@ -357,7 +348,7 @@ fun setNth(index : uint32, elem : t, lst : list<t, n>) : list<t, n> =
         A new list with elem at every position in the list.
 */
 fun replicate(numOfElements : uint32, elem : t) : list<t, n> =
-    {data = array t[n] of elem, length = numOfElements}
+    {data := array t[n] of elem, length := numOfElements}
 
 /*
     Function: remove
@@ -376,28 +367,25 @@ fun replicate(numOfElements : uint32, elem : t) : list<t, n> =
         A copy of lst with elem removed.
 */
 fun remove(elem : t, lst : list<t, n>) : list<t, n> = {
-    let mut index : uint32 = 0u32;
-    let mut found = false;
+    let mut index : uint32 = 0u32
+    let mut found = false
     for (i : uint32 in 0u32 to lst.length) {
         if ((!found) && (lst.data[i] == elem)) {
-            index = i;
-            found = true;
-            ();
-        } else {
-            ();
-        };
-    };
+            index = i
+            found = true
+        }
+    }
     if (found) {
         // Shift all the elements after the discovered index once to the left
-        let mut ret = lst;
-        ret.length = lst.length - 1u32;
+        let mut ret = lst
+        ret.length = lst.length - 1u32
         for (i : uint32 in index to lst.length - 1) {
-            ret.data[i] = lst.data[i + 1];
-        };
-        ret;
+            ret.data[i] = lst.data[i + 1]
+        }
+        ret
     } else {
-        lst;
-    };
+        lst
+    }
 }
 
 /*
@@ -416,12 +404,12 @@ fun remove(elem : t, lst : list<t, n>) : list<t, n> = {
 */
 fun dropLast(lst : list<t, n>) : list<t, n> =
     if (lst.length == 0u32) {
-        lst;
+        lst
     } else {
         {
-            data = lst.data,
-            length = lst.length - 1u32
-        };
+            data := lst.data,
+            length := lst.length - 1u32
+        }
     }
 
 /*
@@ -443,7 +431,7 @@ fun dropLast(lst : list<t, n>) : list<t, n> =
 */
 fun foreach(f : (closure)(t) -> unit, lst : list<t, n>) : unit =
     for (i : uint32 in 0u32 to lst.length) {
-        f(lst.data[i]);
+        f(lst.data[i])
     }
 
 /*
@@ -462,9 +450,9 @@ fun foreach(f : (closure)(t) -> unit, lst : list<t, n>) : unit =
 */
 fun last(lst : list<t, n>) : maybe<t> =
     if (lst.length == 0) {
-        nothing();
+        nothing()
     } else {
-        just(lst.data[lst.length - 1]);
+        just(lst.data[lst.length - 1])
     }
 
 /*
@@ -483,18 +471,15 @@ fun last(lst : list<t, n>) : maybe<t> =
 */
 fun max_(lst : list<t, n>) : maybe<t> where t : num =
     if ((lst.length == 0u32) || (n == 0i32)) {
-        nothing();
+        nothing()
     } else {
-        let mut maxVal : t = lst.data[0u32];
+        let mut maxVal : t = lst.data[0u32]
         for (i : uint32 in 1u32 to lst.length) {
             if (lst.data[i] > maxVal) {
-                maxVal = lst.data[i];
-                ();
-            } else {
-                ();
-            };
-        };
-        just(maxVal);
+                maxVal = lst.data[i]
+            }
+        }
+        just(maxVal)
     }
 
 
@@ -514,18 +499,15 @@ fun max_(lst : list<t, n>) : maybe<t> where t : num =
 */
 fun min_(lst : list<t, n>) : maybe<t> =
     if ((lst.length == 0u32) || (n == 0i32)) {
-        nothing();
+        nothing()
     } else {
-        let mut minVal = lst.data[0u32];
+        let mut minVal = lst.data[0u32]
         for (i : uint32 in 1u32 to lst.length) {
             if (lst.data[i] < minVal) {
-                minVal = lst.data[i];
-                ();
-            } else {
-                ();
-            };
-        };
-        just(minVal);
+                minVal = lst.data[i]
+            }
+        }
+        just(minVal)
     }
 
 
@@ -545,16 +527,13 @@ fun min_(lst : list<t, n>) : maybe<t> =
         True if elem is in the list, otherwise false.
 */
 fun member(elem : t, lst : list<t, n>) : bool = {
-    let mut found = false;
+    let mut found = false
     for (i : uint32 in 0u32 to lst.length) {
         if ((!found) && (lst.data[i] == elem)) {
-            found = true;
-            ();
-        } else {
-            ();
-        };
-    };
-    found;
+            found = true
+        }
+    }
+    found
 }
 
 /*
@@ -576,15 +555,15 @@ fun member(elem : t, lst : list<t, n>) : bool = {
         The zipped lists.
 */
 fun zip(lstA : list<a, n>, lstB : list<b, n>) : list<(a,b), n> = {
-    let outLen = Math:min_(lstA.length, lstB.length);
+    let outLen = Math:min_(lstA.length, lstB.length)
     let mut ret = {
-        data = array (a,b)[n],
-        length = outLen
-    };
+        data := array (a,b)[n],
+        length := outLen
+    }
     for (i : uint32 in 0u32 to outLen) {
-        ret.data[i] = (lstA.data[i], lstB.data[i]);
-    };
-    ret;
+        ret.data[i] = (lstA.data[i], lstB.data[i])
+    }
+    ret
 }
 
 /*
@@ -605,19 +584,19 @@ fun zip(lstA : list<a, n>, lstB : list<b, n>) : list<(a,b), n> = {
 */
 fun unzip(lst : list<(a,b), n>) : (list<a, n>, list<b, n>) = {
     let mut retA = {
-        data = array a[n],
-        length = lst.length
-    };
+        data := array a[n],
+        length := lst.length
+    }
     let mut retB = {
-        data = array b[n],
-        length = lst.length
-    };
+        data := array b[n],
+        length := lst.length
+    }
     for (i : uint32 in 0u32 to lst.length) {
-        let (a, b) = lst.data[i];
-        retA.data[i] = a;
-        retB.data[i] = b;
-    };
-    (retA, retB);
+        let (a, b) = lst.data[i]
+        retA.data[i] = a
+        retB.data[i] = b
+    }
+    (retA, retB)
 }
 
 /*

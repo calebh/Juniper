@@ -69,9 +69,9 @@ fun filter(f : (closure)(a) -> bool, s : sig<a>) : sig<a> =
     match s {
         signal(just(val)) =>
             if (f(val)) {
-                signal(nothing());
+                signal(nothing())
             } else {
-                s;
+                s
             },
         _ =>
             signal(nothing())
@@ -119,14 +119,14 @@ fun mergeMany(sigs : list<sig<a>, n>) : sig<a> = {
             (sig, accum) =>
                 match accum {
                     nothing() => {
-                        let signal(heldValue) = sig;
-                        heldValue;
+                        let signal(heldValue) = sig
+                        heldValue
                     },
                     _ => accum
                 },
             nothing()
-        );
-    signal(ret);
+        )
+    signal(ret)
 }
 
 /*
@@ -200,9 +200,9 @@ fun toUnit(s : sig<a>) : sig<unit> =
 fun foldP(f : (closure)(a,state) -> state, state0 : state ref, incoming : sig<a>) : sig<state> =
     match incoming {
         signal(just(val)) => {
-            let state1 = f(val, *state0);
-            *state0 = state1;
-            signal(just(state1));
+            let state1 = f(val, *state0)
+            *state0 = state1
+            signal(just(state1))
         },
         _ =>
             signal(nothing())
@@ -231,14 +231,11 @@ fun dropRepeats(maybePrevValue : maybe<a> ref, incoming : sig<a>) : sig<a> =
                 match *maybePrevValue {
                     nothing() => false,
                     just(prevValue) => value == prevValue
-                };
+                }
             if (!filtered) {
-                *maybePrevValue = just(value);
-                ();
-            } else {
-                ();
-            };
-            filtered;
+                *maybePrevValue = just(value)
+            }
+            filtered
         },
         incoming)
 
@@ -262,8 +259,8 @@ fun dropRepeats(maybePrevValue : maybe<a> ref, incoming : sig<a>) : sig<a> =
 fun latch(prevValue : a ref, incoming : sig<a>) : sig<a> =
     match incoming {
         signal(just(val)) => {
-            *prevValue = val;
-            incoming;
+            *prevValue = val
+            incoming
         },
         _ =>
             signal(just(*prevValue))
@@ -296,17 +293,17 @@ fun map2(f : (closure)(a, b) -> c,
         match incomingA {
             signal(just(val1 : a)) => val1,
             _ => fst(*state)
-        };
+        }
     let valB =
         match incomingB {
             signal(just(val2 : b)) => val2,
             _ => snd(*state)
-        };
-    *state = (valA, valB);
+        }
+    *state = (valA, valB)
     match (incomingA, incomingB) {
         (signal(nothing()), signal(nothing())) => signal(nothing()),
         _ => signal(just(f(valA, valB)))
-    };
+    }
 }
 
 /*
@@ -364,8 +361,8 @@ fun constant(val : a) : sig<a> =
         A signal of either nothing or just the value of the input signal
 */
 fun meta(sigA : sig<a>) : sig<maybe<a>> = {
-    let signal(val) = sigA;
-    constant(val);
+    let signal(val) = sigA
+    constant(val)
 }
 
 /*
@@ -462,8 +459,8 @@ fun toggle(val1 : a, val2 : a, state : a ref, incoming : sig<b>) : sig<a> =
     foldP(
         (event, prevVal) =>
             if (prevVal == val1) {
-                val2;
+                val2
             } else {
-                val1;
+                val1
             },
         state)

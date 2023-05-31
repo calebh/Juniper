@@ -1140,9 +1140,9 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                     | ([], []) ->
                         ()
                     | ((badPos, _)::_, _) ->
-                        raise <| TypeError ((errStr [badPos] "Too much polymorphism! The following expression has a type that was detected to contain a type variable. Consider adding a type constraint to fix the source of this problem").Force())
+                        raise <| TypeError ((errStr [badPos] "Free polymorphism detected. The following expression has a type that was detected to contain a type variable. Consider adding a type constraint on this expression to fix the source of this problem").Force())
                     | (_, (badPos, _)::_) ->
-                        raise <| TypeError ((errStr [badPos] "Too much polymorphism! The following expression has a capacity that was detected to contain a capacity variable. Consider adding a type constraint to fix the source of this problem").Force())
+                        raise <| TypeError ((errStr [badPos] "Free polymorphism detected. The following expression has a capacity that was detected to contain a capacity variable. Consider adding a type constraint on this expression to fix the source of this problem").Force())
                     let globalGamma' = Map.add modqual elabtau globalGamma
                     let dtenv' = Map.add modqual (T.LetDecTy tau) dtenv
                     let let' = T.LetDec {varName=name; typ=tau; right=right'}
@@ -1399,18 +1399,18 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 | [] -> ()
                                 | badFreeVar::_ ->
                                     let (_, errMsg)::_ = Map.find badFreeVar interfaceConstraints
-                                    raise <| TypeError ([Error.ErrMsg (sprintf "Too much polymorphism! A polymorphic interface constraint was detected containing a type variable that would not be reified by fixing either the argument types or return types. Consider adding a type constraint to fix the source of this problem.")] @ errMsg.Force())
+                                    raise <| TypeError ([Error.ErrMsg (sprintf "Free polymorphism detected. A polymorphic interface constraint was detected containing a type variable that would not be reified by fixing either the argument types or return types. Consider adding a type constraint to this expression to fix the source of this problem.")] @ errMsg.Force())
                                 let (freeTyVarsInBody, freeCapVarsInBody) = AstAnalysis.findFreeVars theta kappa body'
                                 match Set.difference (List.map A.unwrap freeTyVarsInBody |> Set.ofList) funDepsTs' |> List.ofSeq with
                                 | [] -> ()
                                 | badFreeVar::_ ->
                                     let (pos, _) = List.find (fun freeVar -> (A.unwrap freeVar) = badFreeVar) freeTyVarsInBody
-                                    raise <| TypeError ((errStr [pos] "Too much polymorphism! The following expression has a type that was detected to contain a type variable that would not be reified by fixing either the argument types or return types. Consider adding a type constraint to fix the source of this problem").Force())
+                                    raise <| TypeError ((errStr [pos] "Free polymorphism detected. The following expression has a type that was detected to contain a type variable that would not be reified by fixing either the argument types or return types. Consider adding a type constraint to this expression to fix the source of this problem").Force())
                                 match Set.difference (List.map A.unwrap freeCapVarsInBody |> Set.ofList) funDepsCs' |> List.ofSeq with
                                 | [] -> ()
                                 | badFreeVar::_ ->
                                     let (pos, _) = List.find (fun freeVar -> (A.unwrap freeVar) = badFreeVar) freeCapVarsInBody
-                                    raise <| TypeError ((errStr [pos] "Too much polymorphism! The following expression has a capacity that was detected to contain a capacity variable that would not be reified by fixing either the argument types or return types. Consider adding a type constraint to fix the source of this problem").Force())
+                                    raise <| TypeError ((errStr [pos] "Free polymorphism detected. The following expression has a capacity that was detected to contain a capacity variable that would not be reified by fixing either the argument types or return types. Consider adding a type constraint to this expression to fix the source of this problem").Force())
                                 
                                 let (Forall (template, _, _)) as funScheme = generalize interfaceConstraints funTy
 

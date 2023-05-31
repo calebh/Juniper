@@ -51,7 +51,7 @@ let z : uint8 = 2
     Makes a vector from the given array
 
     Type Signature:
-    | (||)(a[n]) -> vector<a, n>
+    | (a[n]) -> vector<a, n>
 
     Parameters:
         d : a[n] - The initial array of data
@@ -68,7 +68,7 @@ fun make(d : a[n]) : vector<a, n> =
     Gets the ith component of the given vector.
 
     Type Signautre:
-    | (||)(uint32, vector<a, n>) -> a
+    | (uint32, vector<a, n>) -> a
 
     Parameters:
         i : uint32 - The index of the component of the vector
@@ -86,7 +86,7 @@ fun get(i : uint32, v : vector<a, n>) : a =
     Adds two vectors and returns the results.
 
     Type Signature:
-    | (||)(vector<a, n>, vector<a, n>) -> vector<a, n> where a : num
+    | (vector<a, n>, vector<a, n>) -> vector<a, n> where a : num
 
     Parameters:
         v1 : vector<a, n> - The first vector to add
@@ -107,7 +107,7 @@ fun add(v1 : vector<a, n>, v2 : vector<a, n>) : vector<a, n> where a : num = {
     Function: zero
 
     Type Signature:
-    | (||)() -> vector<a, n> where a : num
+    | () -> vector<a, n> where a : num
 
     Returns the zero vector of n dimensions.
 
@@ -127,7 +127,7 @@ fun zero() : vector<a, n> where a : num =
         v2 : vector<a, n> - The second vector (subtrahend)
 
     Type Signature:
-    | (||)(vector<a, n>, vector<a, n>) -> vector<a, n> where a : num
+    | (vector<a, n>, vector<a, n>) -> vector<a, n> where a : num
 
     Returns:
         The vector difference v1-v2
@@ -146,7 +146,7 @@ fun subtract(v1 : vector<a, n>, v2 : vector<a, n>) : vector<a, n> where a : num 
     Scales the vector by the given scalar value.
 
     Type Signature:
-    | (||)(a, vector<a, n>) -> vector<a, n> where a : num
+    | (a, vector<a, n>) -> vector<a, n> where a : num
 
     Parameters:
         scalar : a - Scaling value
@@ -169,7 +169,7 @@ fun scale(scalar : a, v : vector<a, n>) : vector<a, n> where a : num = {
     Gives the dot product of two vectors
 
     Type Signature:
-    | (||)(vector<a, n>, vector<a, n>) -> a where a : num
+    | (vector<a, n>, vector<a, n>) -> a where a : num
 
     Parameters:
         v1 : vector<a, n> - The first vector
@@ -192,7 +192,7 @@ fun dot(v1 : vector<a, n>, v2 : vector<a, n>) : a where a : num = {
     Gives the square magnitude of the vector
 
     Type Signature:
-    | (||)(vector<a, n>) -> a where a : num
+    | (vector<a, n>) -> a where a : num
 
     Parameters:
         v : vector<a, n> - The vector to find the magnitude^2 of
@@ -214,7 +214,7 @@ fun magnitude2(v : vector<a, n>) : a where a : num = {
     Gives the magnitude of the vector
 
     Type Signature:
-    | (||)(vector<a, n>) -> double where a : num
+    | (vector<a, n>) -> double where a : num
 
     Parameters:
         v : vector<a, n> - The vector to find the magnitude of
@@ -231,7 +231,7 @@ fun magnitude(v : vector<a, n>) : double where a : num =
     Performs elementwise multiplication of two vectors.
 
     Type Signature:
-    | (||)(vector<a, n>, vector<a, n>) -> vector<a, n> where a : num
+    | (vector<a, n>, vector<a, n>) -> vector<a, n> where a : num
 
     Parameters:
         u : vector<a, n> - The first vector
@@ -254,7 +254,7 @@ fun multiply(u : vector<a, n>, v : vector<a, n>) : vector<a, n> where a : num = 
     Returns a normalized version of the given vector
 
     Type Signature:
-    | (||)(vector<a, n>) -> vector<a, n> where a : num
+    | (vector<a, n>) -> vector<a, n> where a : num
 
     Parameters:
         v : vector<a, n> - The vector to normalize
@@ -281,7 +281,7 @@ fun normalize(v : vector<a, n>) : vector<a, n> where a : num = {
     Gives the angle in radians between the two vectors.
 
     Type Signature:
-    | (||)(vector<a, n>, vector<a, n>) -> double where a : num
+    | (vector<a, n>, vector<a, n>) -> double where a : num
 
     Parameters:
         v1 : vector<a, n> - The first vector
@@ -299,7 +299,7 @@ fun angle(v1 : vector<a, n>, v2 : vector<a, n>) : double where a : num =
     Gives the vector cross product of two vectors.
 
     Type Signature:
-    | (||)(vector<a, 3>, vector<a, 3>) -> vector<a, 3> where a : num
+    | (vector<a, 3>, vector<a, 3>) -> vector<a, 3> where a : num
 
     Parameters:
         u : vector<a, 3> - The first vector
@@ -319,7 +319,7 @@ fun cross(u : vector<a, 3>, v : vector<a, 3>) : vector<a, 3> where a : num =
     Projects vector a onto another vector b
 
     Type Signature:
-    | (||)(vector<z, n>, vector<z, n>) -> vector<z, n> where z : num
+    | (vector<z, n>, vector<z, n>) -> vector<z, n> where z : num
 
     Parameters:
         a : vector<z, n> - The vector to project
@@ -339,7 +339,7 @@ fun project(a : vector<z, n>, b : vector<z, n>) : vector<z, n> where z : num = {
     Projects a vector onto a plane defined by a normal vector
 
     Type Signature:
-    | (||)(vector<z, n>, vector<z, n>) -> vector<z, n> where z : num
+    | (vector<z, n>, vector<z, n>) -> vector<z, n> where z : num
 
     Parameters:
         a : vector<z, n> - The vector to project

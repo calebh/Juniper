@@ -76,7 +76,7 @@ type mode = input() | output() | inputPullup()
 */
 fun toggle(p : pinState) : pinState =
     match p {
-        high() => low(),
+        high() => low()
         low() => high()
     }
 
@@ -200,9 +200,9 @@ type base = binary() | octal() | decimal() | hexadecimal()
 */
 fun baseToInt(b) =
     match b {
-        binary() => 2,
-        octal() => 8,
-        decimal() => 10,
+        binary() => 2
+        octal() => 8
+        decimal() => 10
         hexadecimal() => 16
     }
 
@@ -281,7 +281,7 @@ fun beginSerial(speed : uint32) : unit =
 */
 fun pinStateToInt(value : pinState) : uint8 =
     match value {
-        low() => 0u8,
+        low() => 0u8
         high() => 1u8
     }
 
@@ -491,8 +491,8 @@ fun anaOut(pin : uint16, sig : sig<uint8>) : unit =
 */
 fun pinModeToInt(m : mode) : uint8 =
     match m {
-        input() => 0u8,
-        output() => 1u8,
+        input() => 0u8
+        output() => 1u8
         inputPullup() => 2u8
     }
 
@@ -512,8 +512,8 @@ fun pinModeToInt(m : mode) : uint8 =
 */
 fun intToPinMode(m : uint8) : mode =
     match m {
-        0 => input(),
-        1 => output(),
+        0 => input()
+        1 => output()
         2 => inputPullup()
     }
 
@@ -555,7 +555,7 @@ fun risingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
         Signal:filter((currState : pinState) : bool => {
             let ret =
                 match (currState, *prevState) {
-                    (high(), low()) => false,
+                    (high(), low()) => false
                     _ => true
                 }
             *prevState = currState
@@ -583,7 +583,7 @@ fun fallingEdge(sig : sig<pinState>, prevState : pinState ref) : sig<unit> =
         Signal:filter((currState : pinState) : bool => {
             let ret = 
                 match (currState, *prevState) {
-                    (low(), high()) => false,
+                    (low(), high()) => false
                     _ => true
                 }
             *prevState = currState
@@ -610,8 +610,8 @@ fun edge(sig : sig<pinState>, prevState : pinState ref) : sig<pinState> =
     Signal:filter((currState : pinState) : bool => {
         let ret =
             match (currState, *prevState) {
-                (high(), low()) => false,
-                (low(), high()) => false,
+                (high(), low()) => false
+                (low(), high()) => false
                 _ => true
             }
         *prevState = currState

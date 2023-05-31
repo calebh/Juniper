@@ -21,7 +21,7 @@ module Signal
 */
 fun map(f : (closure)(a) -> b, s : sig<a>) : sig<b> =
     match s {
-        signal(just(val)) => signal(just(f(val))),
+        signal(just(val)) => signal(just(f(val)))
         _                 => signal(nothing())
     }
 
@@ -43,7 +43,7 @@ fun map(f : (closure)(a) -> b, s : sig<a>) : sig<b> =
 */
 fun sink(f : (closure)(a) -> unit, s : sig<a>) : unit =
     match s {
-        signal(just(val)) => f(val),
+        signal(just(val)) => f(val)
         _ => ()
     }
 
@@ -72,7 +72,7 @@ fun filter(f : (closure)(a) -> bool, s : sig<a>) : sig<a> =
                 signal(nothing())
             } else {
                 s
-            },
+            }
         _ =>
             signal(nothing())
     }
@@ -95,7 +95,7 @@ fun filter(f : (closure)(a) -> bool, s : sig<a>) : sig<a> =
 */
 fun merge(sigA : sig<a>, sigB : sig<a>) : sig<a> =
     match sigA {
-        signal(just(_)) => sigA,
+        signal(just(_)) => sigA
         _               => sigB
     }
 
@@ -121,7 +121,7 @@ fun mergeMany(sigs : list<sig<a>, n>) : sig<a> = {
                     nothing() => {
                         let signal(heldValue) = sig
                         heldValue
-                    },
+                    }
                     _ => accum
                 },
             nothing()
@@ -151,9 +151,9 @@ fun mergeMany(sigs : list<sig<a>, n>) : sig<a> = {
 fun join(sigA : sig<a>, sigB : sig<b>) : sig<either<a,b>> =
     match (sigA, sigB) {
         (signal(just(value)), _) =>
-            signal(just(left(value))),
+            signal(just(left(value)))
         (_, signal(just(value))) =>
-            signal(just(right(value))),
+            signal(just(right(value)))
         _ =>
             signal(nothing())
     }
@@ -203,7 +203,7 @@ fun foldP(f : (closure)(a,state) -> state, state0 : state ref, incoming : sig<a>
             let state1 = f(val, *state0)
             *state0 = state1
             signal(just(state1))
-        },
+        }
         _ =>
             signal(nothing())
     }
@@ -229,7 +229,7 @@ fun dropRepeats(maybePrevValue : maybe<a> ref, incoming : sig<a>) : sig<a> =
         (value : a) : bool => {
             let filtered =
                 match *maybePrevValue {
-                    nothing() => false,
+                    nothing() => false
                     just(prevValue) => value == prevValue
                 }
             if (!filtered) {
@@ -261,7 +261,7 @@ fun latch(prevValue : a ref, incoming : sig<a>) : sig<a> =
         signal(just(val)) => {
             *prevValue = val
             incoming
-        },
+        }
         _ =>
             signal(just(*prevValue))
     }
@@ -291,17 +291,17 @@ fun map2(f : (closure)(a, b) -> c,
          incomingB : sig<b>) : sig<c> = {
     let valA =
         match incomingA {
-            signal(just(val1 : a)) => val1,
+            signal(just(val1 : a)) => val1
             _ => fst(*state)
         }
     let valB =
         match incomingB {
-            signal(just(val2 : b)) => val2,
+            signal(just(val2 : b)) => val2
             _ => snd(*state)
         }
     *state = (valA, valB)
     match (incomingA, incomingB) {
-        (signal(nothing()), signal(nothing())) => signal(nothing()),
+        (signal(nothing()), signal(nothing())) => signal(nothing())
         _ => signal(just(f(valA, valB)))
     }
 }
@@ -385,7 +385,7 @@ fun meta(sigA : sig<a>) : sig<maybe<a>> = {
 fun unmeta(sigA : sig<maybe<a>>) : sig<a> =
     match sigA {
         signal(just(just(val))) =>
-            constant(val),
+            constant(val)
         _ =>
             signal(nothing())
     }
@@ -429,7 +429,7 @@ fun zip(state : (a, b) ref, sigA : sig<a>, sigB : sig<b>) : sig<(a, b)> =
 */
 fun unzip(incoming : sig<(a, b)>) : (sig<a>, sig<b>) =
     match incoming {
-        signal(just((x, y))) => (signal(just(x)), signal(just(y))),
+        signal(just((x, y))) => (signal(just(x)), signal(just(y)))
         _ => (signal(nothing()), signal(nothing()))
     }
 

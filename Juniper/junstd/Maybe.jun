@@ -20,7 +20,7 @@ module Maybe
 */
 fun map(f : (closure)(a) -> b, maybeVal : maybe<a>) : maybe<b> =
     match maybeVal {
-        just(val) => just(f(val)),
+        just(val) => just(f(val))
         _ => nothing()
     }
 
@@ -59,7 +59,7 @@ fun get(maybeVal : maybe<a>) : a =
 */
 fun isJust(maybeVal : maybe<a>) : bool =
     match maybeVal {
-        just(_) => true,
+        just(_) => true
         _ => false
     }
 
@@ -96,7 +96,7 @@ fun isNothing(maybeVal : maybe<a>) : bool =
 */
 fun count(maybeVal : maybe<a>) : uint8 =
     match maybeVal {
-        just(_) => 1,
+        just(_) => 1
         _ => 0
     }
 
@@ -118,7 +118,7 @@ fun count(maybeVal : maybe<a>) : uint8 =
 */
 fun foldl(f : (closure)(t, state) -> state, initState : state, maybeVal : maybe<t>) : state =
     match maybeVal {
-        just(val) => f(val, initState),
+        just(val) => f(val, initState)
         _ => initState
     }
 
@@ -158,6 +158,6 @@ fun fodlr(f : (closure)(t, state) -> state, initState : state, maybeVal : maybe<
 */
 fun iter(f : (closure)(a) -> unit, maybeVal : maybe<a>) : unit =
     match maybeVal {
-        just(val) => f(val),
+        just(val) => f(val)
         nothing => ()
     }

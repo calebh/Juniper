@@ -12,13 +12,13 @@ let fatalizeAnyError (p : Parser<'a, 'u>) : Parser<'a, 'u> =
         else
             Reply(FatalError, reply.Error)
 
-let singleLineComment = skipString "//" >>. restOfLine true >>% ()
-let multiLineComment = skipString "/*" >>. skipCharsTillString "*/" true System.Int32.MaxValue
-let ws = spaces .>> ((choice [singleLineComment; multiLineComment] >>. spaces) |> many)
-let ws1 = (spaces1 <|> singleLineComment <|> multiLineComment) .>> spaces .>> (choice [singleLineComment; multiLineComment] >>. spaces |> many)
+let singleLineComment = skipString "//" >>. restOfLine true >>% () <?> "Single line comment"
+let multiLineComment = skipString "/*" >>. skipCharsTillString "*/" true System.Int32.MaxValue <?> "Multiline comment"
+let ws = spaces .>> ((choice [singleLineComment; multiLineComment] >>. spaces) |> many) <?> "Whitespace or comment"
+let ws1 = (spaces1 <|> singleLineComment <|> multiLineComment) .>> spaces .>> (choice [singleLineComment; multiLineComment] >>. spaces |> many) <?> "Whitespace or comment (1 or more)"
 let wsNoNewline = 
     let nonNewlineWsP = anyOf [' '; '\t'] |> many
-    nonNewlineWsP .>> ((choice [singleLineComment; multiLineComment] >>. nonNewlineWsP) |> many)
+    nonNewlineWsP .>> ((choice [singleLineComment; multiLineComment] >>. nonNewlineWsP) |> many) <?> "Non-newline whitespace or comment"
 
 //let wsNewline = wsNoNewline .>> (choice [skipChar '\n'; skipChar '\r']) .>> ws
 
@@ -258,7 +258,7 @@ let leftRecursiveTyp =
     let arrayTyCap = between openBracket closingBracket tyExpr |>> ArrayTyCap
     let refTyRef = pstring "ref" >>. wsNoNewline >>% () |> pos |>> RefTyRef
     let applyTyTemplate = templateApply .>> wsNoNewline |>> ApplyTyTemplate
-    (choice [arrayTyCap; refTyRef; applyTyTemplate]) |> pos |> many
+    ((choice [arrayTyCap; refTyRef; applyTyTemplate]) |> pos |> many) <?> "Type expression chain (array, ref or template appliction)"
 
 // tyExpr
 do
@@ -303,25 +303,25 @@ do
                 // No closure was explicitly given. Desugar into a wildcard (underscore)
                 let closure = (post, UnderscoreTy (post, ()))
                 FunTy { closure=closure; args=argTys; returnType = retTy}))
-        (fn1, fn2)
+        (fn1 <?> "Function type with no closure", fn2 <?> "Function type with closure")
     let tuple =
         pipe2
             (skipChar '(' >>. ws >>. tyExpr .>> ws .>> skipChar ',' .>> ws)
             ((separatedList1 tyExpr ',') .>> ws .>> skipChar ')')
             (fun tyHead tyRest ->
-                TupleTy (tyHead::tyRest))
-    let recordTy = record |> pos |>> RecordTy
-    let capConst = pos pint64 |>> CapacityConst
+                TupleTy (tyHead::tyRest)) <?> "Tuple type"
+    let recordTy = record |> pos |>> RecordTy <?> "Record type"
+    let capConst = pos pint64 |>> CapacityConst <?> "Capacity constant"
     let t = choice ([capConst; attempt mQual; closureTy; attempt recordTy; attempt underscore; name; attempt fn1; attempt fn2; tuple]) |> pos .>> wsNoNewline
     tyExprOpp.TermParser <-
-        leftRecurse
-            t
+        (leftRecurse
+            (t <?> "Type expression")
             leftRecursiveTyp
             (fun term chainElem ->
                 match chainElem with
                 | ArrayTyCap cap -> ArrayTy {valueType=term; capacity=cap}
                 | RefTyRef _ -> RefTy term
-                | ApplyTyTemplate template -> ApplyTy {tyConstructor=term; args=template})
+                | ApplyTyTemplate template -> ApplyTy {tyConstructor=term; args=template})) <?> "Type expression"
 
 let floatParser =
     fun stream ->
@@ -390,7 +390,7 @@ do
     patternRef := choice ([attempt floatPattern; intPattern; truePattern;
                           falsePattern; attempt valConPattern; attempt valConModQualPattern;
                           underscorePattern; recordPattern; unitPattern;
-                          attempt tuplePattern; parensPattern; varPattern])
+                          attempt tuplePattern; parensPattern; varPattern]) <?> "Pattern"
 
 let functionClause delimiter =
     let arguments = betweenChar '(' (separatedList (pos id .>>. opt (ws >>. skipChar ':' >>. ws >>. tyExpr)) ',' |> pos) ')' .>> ws
@@ -402,29 +402,30 @@ let functionClause delimiter =
                                  (skipString "packed") |> pos |>> IsPacked]
     let interfaceConstraints =
         (skipString "where" >>. ws >>. (separatedList (pos (tyExpr .>> ws .>> skipChar ':' .>> ws .>>. pos constraintType) .>> ws) ',') .>> ws) |> opt |>> Option.flattenList |> pos
-    pipe4'
+    (pipe4'
         (attempt arguments)
         (attempt returnTy)
         (attempt interfaceConstraints)
         ((attempt (skipString delimiter)) >>? ws >>? (fatalizeAnyError exprws))
         (fun a r c b ->
-            {returnTy = r; arguments = a; body = b; interfaceConstraints=c})
+            {returnTy = r; arguments = a; body = b; interfaceConstraints=c})) <?> "Function clause"
 
 // leftRecursiveExp
 let leftRecursiveExp =
-    let callArgs = betweenChar '(' (separatedList exprws ',' |> pos) ')' |>> CallArgs
-    let arrayIndex = betweenChar '[' exprws ']' |>> ArrayIndex
-    let typeConstraint = skipChar ':' >>. ws >>. tyExpr |>> TypeConstraintType
-    let fieldAccessName = skipChar '.' >>. ws >>. id |> pos |>> FieldAccessName
-    let refFieldAccessName = skipString "->" >>. ws >>. id |> pos |>> RefFieldAccessName
-    ([callArgs; arrayIndex; typeConstraint; refFieldAccessName; fieldAccessName] |> choice |> pos .>> wsNoNewline) |> many
+    let callArgs = betweenChar '(' (separatedList exprws ',' |> pos) ')' |>> CallArgs <?> "Function call"
+    let arrayIndex = betweenChar '[' exprws ']' |>> ArrayIndex <?> "Array access ([])"
+    let typeConstraint = skipChar ':' >>. ws >>. tyExpr |>> TypeConstraintType <?> "Type constraint (:)"
+    let fieldAccessName = skipChar '.' >>. ws >>. id |> pos |>> FieldAccessName <?> "Record field access (.)"
+    let refFieldAccessName = skipString "->" >>. ws >>. id |> pos |>> RefFieldAccessName <?> "Record ref field access (->)"
+    (([callArgs; arrayIndex; typeConstraint; refFieldAccessName; fieldAccessName] |> choice |> pos .>> wsNoNewline) |> many) <?> "Expression chain (function call, array access, type constraint, field access or ref field access)"
 
 let inlineCpp =
     let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '#')
     let escapedChar = pstring "\\" >>. (anyOf "\\#" |>> string)
-    between (pstring "#") (pstring "#") (fatalizeAnyError (stringsSepBy normalCharSnippet escapedChar)) |> pos
+    (between (pstring "#") (pstring "#") (fatalizeAnyError (stringsSepBy normalCharSnippet escapedChar)) |> pos) <?> "Inline C++"
 
-
+// Debugging utility for some parser p. p |>> printPos will print the position of what
+// was parsed by p, assuming that p parses a PosAdorned expression
 let printPos expr =
     let pos = getPos expr
     printfn "%s" ((errStr [pos] "Here").Force() |> List.map (fun msg ->
@@ -535,7 +536,7 @@ do
         let matchClause = (pattern .>> ws) .>>. (pstring "=>" >>. ws >>. exprws)
         pipe2
             (attempt (pstring "match" >>. ws1) >>. fatalizeAnyError (exprws .>> pstring "{" .>> ws))
-            (fatalizeAnyError (sepBy1 (matchClause .>> ws) (skipString "," .>> ws)) |> pos .>> ws .>> pstring "}")
+            (fatalizeAnyError (many1 (matchClause .>> ws)) |> pos .>> ws .>> pstring "}")
             (fun on clauses ->
                 CaseExp {on=on; clauses=clauses})
     let fieldp = (pos id .>> ws) .>>. (skipString ":=" >>. ws >>. exprws)
@@ -575,8 +576,8 @@ do
                     pLet; pVar; pIf; match_;
                     arrayLiteral; pref; arrayMake; inlineCpp'; varReference]) |> pos .>> wsNoNewline
     opp.TermParser <-
-        leftRecurse
-            e
+        (leftRecurse
+            (e <?> "Expression")
             leftRecursiveExp
             (fun term chainElem ->
                 match chainElem with
@@ -584,7 +585,7 @@ do
                 | ArrayIndex index -> ArrayAccessExp {array=term; index=index}
                 | TypeConstraintType typ -> TypeConstraint {exp=term; typ=typ}
                 | FieldAccessName fieldName -> RecordAccessExp {record=term; fieldName=fieldName}
-                | RefFieldAccessName fieldName -> RefRecordAccessExp {recordRef=term; fieldName=fieldName})
+                | RefFieldAccessName fieldName -> RefRecordAccessExp {recordRef=term; fieldName=fieldName})) <?> "Expression"
 
 // templateApply
 do
@@ -594,47 +595,47 @@ do
 let functionDec =
     let funName = skipString "fun" >>. ws >>. pos id
     let clause = functionClause "=" |> pos
-    pipe2 (funName .>> ws) clause
+    (pipe2 (funName .>> ws) clause
         (fun n c ->
             FunctionDec {
                 name = n;
                 clause = c
-            })
+            })) <?> "Function declaration"
 
-let moduleName = skipString "module" >>. ws >>. pos id .>> ws |>> ModuleNameDec
+let moduleName = (skipString "module" >>. ws >>. pos id .>> ws |>> ModuleNameDec) <?> "Module name declaration"
 
 let aliasDec =
-    pipe3
+    (pipe3
         (skipString "alias" >>. ws >>. pos id .>> ws)
         (templateDec |> opt .>> ws .>> skipChar '=' .>> ws)
         (tyExpr .>> ws)
         (fun name template typ ->
-            AliasDec {name=name; template=template; typ=typ})
+            AliasDec {name=name; template=template; typ=typ})) <?> "Alias declaration"
 
 let adtDec =
-    let valueConstructor = pos id .>> ws .>>. (betweenChar '(' (separatedList (tyExpr .>> ws) ',') ')') .>> ws
-    pipe3
+    let valueConstructor = (pos id .>> ws .>>. (betweenChar '(' (separatedList (tyExpr .>> ws) ',') ')') .>> ws) <?> "Value constructor"
+    (pipe3
         (skipString "type" >>. ws >>. pos id .>> ws)
         (templateDec |> opt .>> ws .>> skipChar '=' .>> ws)
         (separatedList valueConstructor '|' |> pos)
         (fun name template valCons ->
-            AlgDataTypeDec {name=name; template=template; valCons=valCons})
+            AlgDataTypeDec {name=name; template=template; valCons=valCons})) <?> "Algebraic datatype declaration"
 
 let letDec =
-    pipe3
+    (pipe3
         (skipString "let" >>. ws >>. pos id .>> ws)
         (skipChar ':' >>. ws >>. tyExpr |> opt .>> ws)
         (skipChar '=' >>. ws >>. exprws)
         (fun name typ right ->
-            LetDec {varName=name; typ=typ; right=right})
+            LetDec {varName=name; typ=typ; right=right})) <?> "Let declaration"
 
-let openDec = skipString "open" >>. ws >>. skipChar '(' >>. ws >>. (separatedList (pos id) ',' |> pos) .>>
-                ws .>> skipChar ')' .>> ws |>> OpenDec
+let openDec = (skipString "open" >>. ws >>. skipChar '(' >>. ws >>. (separatedList (pos id) ',' |> pos) .>>
+                ws .>> skipChar ')' .>> ws |>> OpenDec) <?> "Open declaration"
 
-let includeDec = skipString "include" >>. ws >>. skipChar '(' >>. ws >>. separatedList (pos (stringLiteral '"' false)) ',' |> pos .>>
-                    ws .>> skipChar ')' .>> ws |>> IncludeDec
+let includeDec = (skipString "include" >>. ws >>. skipChar '(' >>. ws >>. separatedList (pos (stringLiteral '"' false)) ',' |> pos .>>
+                    ws .>> skipChar ')' .>> ws |>> IncludeDec) <?> "Include declaration"
 
-let inlineCppDec = inlineCpp .>> ws |>> InlineCodeDec
+let inlineCppDec = (inlineCpp .>> ws |>> InlineCodeDec) <?> "Inline C++ (#)"
 
 let program =
     let declarationTypes = [functionDec; moduleName; adtDec; aliasDec; letDec; openDec; includeDec; inlineCppDec]

@@ -25,7 +25,7 @@ module List
 */
 fun map(f : (a) -> b, lst : list<a, n>) : list<b, n> = {
     let mut ret = array b[n]
-    for (i : uint32 in 0u32 to lst.length) {
+    for (i : uint32 in 0u32 .. lst.length) {
         ret[i] = f(lst.data[i])
     }
     {data := ret, length := lst.length}
@@ -50,7 +50,7 @@ fun map(f : (a) -> b, lst : list<a, n>) : list<b, n> = {
 */
 fun foldl(f : (t, state) -> state, initState : state, lst : list<t, n>) : state = {
     let mut s = initState
-    for (i : uint32 in 0u32 to lst.length) {
+    for (i : uint32 in 0u32 .. lst.length) {
         s = f(lst.data[i], s)
     }
     s
@@ -105,11 +105,11 @@ fun foldr(f : (t, state) -> state, initState : state, lst : list<t, n>) : state 
 fun append(lstA : list<t, aCap>, lstB : list<t, bCap>) : list<t, retCap> = {
     let mut j : uint32 = 0u32
     let mut out = {data := array t[retCap], length := lstA.length + lstB.length}
-    for (i : uint32 in 0u32 to lstA.length) {
+    for (i : uint32 in 0u32 .. lstA.length) {
         out.data[j] = (lstA.data[i] : t)
         j = j + 1u32
     }
-    for (i : uint32 in 0u32 to lstB.length) {
+    for (i : uint32 in 0u32 .. lstB.length) {
         out.data[j] = (lstB.data[i] : t)
         j = j + 1u32
     }
@@ -156,8 +156,8 @@ fun nth(i : uint32, lst : list<t, n>) : maybe<t> =
 fun flattenSafe(listOfLists : list<list<t, m>, n>) : list<t, m*n> = {
     let mut ret = array t[m*n]
     let mut index = 0u32
-    for (i : uint32 in 0u32 to listOfLists.length) {
-        for (j : uint32 in 0u32 to listOfLists.data[i].length) {
+    for (i : uint32 in 0u32 .. listOfLists.length) {
+        for (j : uint32 in 0u32 .. listOfLists.data[i].length) {
             ret[index] = listOfLists.data[i].data[j]
             index = index + 1
         }
@@ -184,7 +184,7 @@ fun flattenSafe(listOfLists : list<list<t, m>, n>) : list<t, m*n> = {
 */
 fun resize(lst : list<t, n>) : list<t, m> = {
     let mut ret = array t[m]
-    for (i : uint32 in 0u32 to lst.length) {
+    for (i : uint32 in 0u32 .. lst.length) {
         ret[i] = lst.data[i]
     }
     {data := ret, length := lst.length}
@@ -209,7 +209,7 @@ fun resize(lst : list<t, n>) : list<t, m> = {
 */
 fun all(pred : (t) -> bool, lst : list<t, n>) : bool = {
     let mut satisfied = true
-    for (i : uint32 in 0u32 to lst.length) {
+    for (i : uint32 in 0u32 .. lst.length) {
         if (satisfied) {
             satisfied = pred(lst.data[i])
         }
@@ -236,7 +236,7 @@ fun all(pred : (t) -> bool, lst : list<t, n>) : bool = {
 */
 fun any(pred : (t) -> bool, lst : list<t, n>) : bool = {
     let mut satisfied = false
-    for (i : uint32 in 0u32 to lst.length) {
+    for (i : uint32 in 0u32 .. lst.length) {
         if (!satisfied) {
             satisfied = pred(lst.data[i])
         }
@@ -293,7 +293,7 @@ fun pushOffFront(elem : t, lst : list<t, n>) : list<t, n> = {
     } else {
         var ret : list<t, n>
         ret.data[0u32] = elem
-        for (i : uint32 in 0 to lst.length) {
+        for (i : uint32 in 0 .. lst.length) {
             if ((i + 1) < n) {
                 ret.data[i + 1] = lst.data[i]
             }
@@ -370,7 +370,7 @@ fun replicate(numOfElements : uint32, elem : t) : list<t, n> =
 fun remove(elem : t, lst : list<t, n>) : list<t, n> = {
     let mut index : uint32 = 0u32
     let mut found = false
-    for (i : uint32 in 0u32 to lst.length) {
+    for (i : uint32 in 0u32 .. lst.length) {
         if ((!found) && (lst.data[i] == elem)) {
             index = i
             found = true
@@ -380,7 +380,7 @@ fun remove(elem : t, lst : list<t, n>) : list<t, n> = {
         // Shift all the elements after the discovered index once to the left
         let mut ret = lst
         ret.length = lst.length - 1u32
-        for (i : uint32 in index to lst.length - 1) {
+        for (i : uint32 in index .. lst.length - 1) {
             ret.data[i] = lst.data[i + 1]
         }
         ret
@@ -409,7 +409,7 @@ fun dropLast(lst : list<t, n>) : list<t, n> =
         lst
     } else {
         var ret : list<t, n>
-        for (i : uint32 in 0 to lst.length - 1) {
+        for (i : uint32 in 0 .. lst.length - 1) {
             ret.data[i] = lst.data[i]
         }
         ret.length = lst.length - 1
@@ -434,7 +434,7 @@ fun dropLast(lst : list<t, n>) : list<t, n> =
         Unit
 */
 fun foreach(f : (t) -> unit, lst : list<t, n>) : unit =
-    for (i : uint32 in 0u32 to lst.length) {
+    for (i : uint32 in 0u32 .. lst.length) {
         f(lst.data[i])
     }
 
@@ -478,7 +478,7 @@ fun max_(lst : list<t, n>) : maybe<t> where t : num =
         nothing()
     } else {
         let mut maxVal : t = lst.data[0u32]
-        for (i : uint32 in 1u32 to lst.length) {
+        for (i : uint32 in 1u32 .. lst.length) {
             if (lst.data[i] > maxVal) {
                 maxVal = lst.data[i]
             }
@@ -506,7 +506,7 @@ fun min_(lst : list<t, n>) : maybe<t> =
         nothing()
     } else {
         let mut minVal = lst.data[0u32]
-        for (i : uint32 in 1u32 to lst.length) {
+        for (i : uint32 in 1u32 .. lst.length) {
             if (lst.data[i] < minVal) {
                 minVal = lst.data[i]
             }
@@ -532,7 +532,7 @@ fun min_(lst : list<t, n>) : maybe<t> =
 */
 fun member(elem : t, lst : list<t, n>) : bool = {
     let mut found = false
-    for (i : uint32 in 0u32 to lst.length) {
+    for (i : uint32 in 0u32 .. lst.length) {
         if ((!found) && (lst.data[i] == elem)) {
             found = true
         }
@@ -564,7 +564,7 @@ fun zip(lstA : list<a, n>, lstB : list<b, n>) : list<(a,b), n> = {
         data := array (a,b)[n],
         length := outLen
     }
-    for (i : uint32 in 0u32 to outLen) {
+    for (i : uint32 in 0u32 .. outLen) {
         ret.data[i] = (lstA.data[i], lstB.data[i])
     }
     ret
@@ -595,7 +595,7 @@ fun unzip(lst : list<(a,b), n>) : (list<a, n>, list<b, n>) = {
         data := array b[n],
         length := lst.length
     }
-    for (i : uint32 in 0u32 to lst.length) {
+    for (i : uint32 in 0u32 .. lst.length) {
         let (a, b) = lst.data[i]
         retA.data[i] = a
         retB.data[i] = b

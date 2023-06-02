@@ -415,7 +415,7 @@ let leftRecursiveExp =
     let callArgs = betweenChar '(' (separatedList exprws ',' |> pos) ')' |>> CallArgs <?> "Function call"
     let arrayIndex = betweenChar '[' exprws ']' |>> ArrayIndex <?> "Array access ([])"
     let typeConstraint = skipChar ':' >>. ws >>. tyExpr |>> TypeConstraintType <?> "Type constraint (:)"
-    let fieldAccessName = skipChar '.' >>. ws >>. id |> pos |>> FieldAccessName <?> "Record field access (.)"
+    let fieldAccessName = attempt (skipChar '.' >>. notFollowedBy (skipChar '.')) >>. ws >>. id |> pos |>> FieldAccessName <?> "Record field access (.)"
     let refFieldAccessName = skipString "->" >>. ws >>. id |> pos |>> RefFieldAccessName <?> "Record ref field access (->)"
     (([callArgs; arrayIndex; typeConstraint; refFieldAccessName; fieldAccessName] |> choice |> pos .>> wsNoNewline) |> many) <?> "Expression chain (function call, array access, type constraint, field access or ref field access)"
 
@@ -508,7 +508,7 @@ do
         pipe5'
             (attempt (pstring "for" >>. ws >>. skipChar '(' >>. ws >>. pos id .>> ws))
             (attempt (skipChar ':' >>. ws >>. tyExpr .>> ws |> opt))
-            (attempt (pstring "in" >>. ws) >>. (fatalizeAnyError (expr .>> ws .>> skipString "to" .>> ws1)))
+            (attempt (pstring "in" >>. ws1) >>. (fatalizeAnyError (expr .>> ws .>> skipString ".." .>> ws)))
             (fatalizeAnyError (expr .>> ws .>> skipChar ')' .>> ws))
             (fatalizeAnyError expr)
             (fun varName typ start end_ body ->

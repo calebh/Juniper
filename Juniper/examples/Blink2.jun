@@ -1,0 +1,28 @@
+module BlinkSimple
+open(Prelude, Io, Time)
+
+/* In this example we have two LEDs blinking at different rates */
+
+let boardLedA : uint16 = 13
+let boardLedB : uint16 = 9
+
+let timerStateA = Time:state()
+let timerStateB = Time:state()
+
+let ledStateA = ref low()
+let ledStateB = ref low()
+
+fun blink(interval, pin, timerState, ledState) =
+    Time:every(interval, timerState) |>
+    Signal:toggle(low(), high(), ledState) |>
+    Io:digOut(pin)
+
+fun loop() = {
+    blink(1000, boardLedA, timerStateA, ledStateA)
+    blink(700, boardLedB, timerStateB, ledStateB)
+}
+
+fun setup() = {
+    Io:setPinMode(boardLedA, Io:output())
+    Io:setPinMode(boardLedB, Io:output())
+}

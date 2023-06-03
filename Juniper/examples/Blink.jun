@@ -1,21 +1,23 @@
 module Blink
 open(Prelude, Io, Time)
 
+/* In this "Hello World" example, we toggle an LED on and
+   off every second. */
+
 let boardLed : uint16 = 13
 
 let tState = Time:state()
 let ledState = ref low()
 
-fun loop() = (
-    let timerSig = Time:every(1000, tState);
+fun loop() = {
+    let timerSig = Time:every(1000, tState)
     let ledSig =
         Signal:foldP(
-            fn (currentTime, lastState) ->
-                Io:toggle(lastState)
-            end,
-            ledState, timerSig);
+            (currentTime, lastState) =>
+                Io:toggle(lastState),
+            ledState, timerSig)
     Io:digOut(boardLed, ledSig)
-)
+}
 
 fun setup() =
     Io:setPinMode(boardLed, Io:output())

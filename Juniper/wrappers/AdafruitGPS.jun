@@ -5,60 +5,60 @@ include("<Adafruit_GPS.h>")
 type gpst = gps(pointer)
 
 alias fixData = {
-    latitude : float;
-    longitude : float;
-    speed : float;
-    angle : float;
-    altitude : float;
+    latitude : float,
+    longitude : float,
+    speed : float,
+    angle : float,
+    altitude : float,
     satellites : uint8
 }
 
 alias gpsData = {
-    hour : uint8;
-    minute : uint8;
-    seconds : uint8;
-    year : uint8;
-    month : uint8;
-    day : uint8;
-    milliseconds : uint16;
-    hasFix : bool;
-    fixQuality : uint8;
+    hour : uint8,
+    minute : uint8,
+    seconds : uint8,
+    year : uint8,
+    month : uint8,
+    day : uint8,
+    milliseconds : uint16,
+    hasFix : bool,
+    fixQuality : uint8,
     maybeFixData : maybe<fixData>
 }
 
-fun make() : gpst = (
-    let mutable p = null;
-    #p = (void*) new Adafruit_GPS(&Serial1);#;
-    gps(smartpointer(p, fn (gpsToDelete) -> #delete ((Adafruit_GPS *) gpsToDelete);# end))
-)
+fun make() : gpst = {
+    let mut p : rawpointer = null
+    #p = (void*) new Adafruit_GPS(&Serial1);#
+    gps(smartpointer(p, (gpsToDelete) => #delete ((Adafruit_GPS *) gpsToDelete);#))
+}
 
-fun begin(g : gpst) : unit = (
-    let gps(p) = g;
-    let rawP = extractptr(p);
-    #((Adafruit_GPS*) rawP)->begin(9600);#;
-    #((Adafruit_GPS*) rawP)->sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);#;
-    #((Adafruit_GPS*) rawP)->sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);#;
+fun begin(g : gpst) : unit = {
+    let gps(p) = g
+    let rawP : rawpointer = extractptr(p)
+    #((Adafruit_GPS*) rawP)->begin(9600);#
+    #((Adafruit_GPS*) rawP)->sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);#
+    #((Adafruit_GPS*) rawP)->sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);#
     #((Adafruit_GPS*) rawP)->sendCommand(PGCMD_ANTENNA);#
-)
+}
 
 fun read(g : gpst) : gpsData = (
     let gps(p) = g;
-    let rawP = extractptr(p);
-    let mutable hour : uint8 = 0;
-    let mutable minute : uint8 = 0;
-    let mutable seconds : uint8 = 0;
-    let mutable year : uint8 = 0;
-    let mutable month : uint8 = 0;
-    let mutable day : uint8 = 0;
-    let mutable milliseconds : uint16 = 0;
-    let mutable hasFix : bool = false;
-    let mutable fixQuality : uint8 = 0;
-    let mutable latitude : float = 0.0;
-    let mutable longitude : float = 0.0;
-    let mutable speed : float = 0.0;
-    let mutable angle : float = 0.0;
-    let mutable altitude : float = 0.0;
-    let mutable satellites : uint8 = 0;
+    let rawP = extractptr(p)
+    let mut hour : uint8 = 0
+    let mut minute : uint8 = 0
+    let mut seconds : uint8 = 0
+    let mut year : uint8 = 0
+    let mut month : uint8 = 0
+    let mut day : uint8 = 0
+    let mut milliseconds : uint16 = 0
+    let mut hasFix : bool = false
+    let mut fixQuality : uint8 = 0
+    let mut latitude : float = 0.0f
+    let mut longitude : float = 0.0f
+    let mut speed : float = 0.0f
+    let mut angle : float = 0.0f
+    let mut altitude : float = 0.0f
+    let mut satellites : uint8 = 0
     #
     auto thisGPS = (Adafruit_GPS*) rawP;
     thisGPS->read();
@@ -80,32 +80,29 @@ fun read(g : gpst) : gpsData = (
     angle = thisGPS->angle;
     altitude = thisGPS->altitude;
     satellites = thisGPS->satellites;
-    #;
+    #
     {
-        hour = hour;
-        minute = minute;
-        seconds = seconds;
-        year = year;
-        month = month;
-        day = day;
-        milliseconds = milliseconds;
-        hasFix = hasFix;
-        fixQuality = fixQuality;
-        maybeFixData =
-            if hasFix then
-                just(
-                    {
-                        latitude = latitude;
-                        longitude = longitude;
-                        speed = speed;
-                        angle = angle;
-                        altitude = altitude;
-                        satellites = satellites
-                    }
-                )
+        hour := hour,
+        minute := minute,
+        seconds := seconds,
+        year := year,
+        month := month,
+        day := day,
+        milliseconds := milliseconds,
+        hasFix := hasFix,
+        fixQuality := fixQuality,
+        maybeFixData :=
+            if (hasFix)
+                just({
+                        latitude := latitude,
+                        longitude := longitude,
+                        speed := speed,
+                        angle := angle,
+                        altitude := altitude,
+                        satellites := satellites
+                    })
             else
                 nothing()
-            end
     }
 )
 

@@ -1,6 +1,9 @@
 module NeopixelRing
 open(Prelude)
 
+/* In this example we have a neopixel ring that changes
+   colors every time the user presses a button */
+
 let ringPin : uint16 = 9
 let ringSize : uint16 = 16
 let ringType = Neopixel:GRB + Neopixel:KHZ800
@@ -10,47 +13,47 @@ let buttonPin : uint16 = 10
 let buttonState = Button:state()
 let edgeState = ref Io:low()
 
-type ringMode = red | green | blue
+type ringMode = red() | green() | blue()
 let mode = ref red()
 
 fun transitionMode(m) =
-    case m of
-    | red() => green()
-    | green() => blue()
-    | blue() => red()
-    end
+    match m {
+        red() => green()
+        green() => blue()
+        blue() => red()
+    }
 
 fun modeToColor(m) =
-    case m of
-    | red() => Neopixel:makeColor(255, 0, 0)
-    | green() => Neopixel:makeColor(0, 255, 0)
-    | blue() => Neopixel:makeColor(0, 0, 255)
-    end
+    match m {
+        red() => Neopixel:makeColor(255, 0, 0)
+        green() => Neopixel:makeColor(0, 255, 0)
+        blue() => Neopixel:makeColor(0, 0, 255)
+    }
 
-fun loop() = (
-    let buttonSig = Io:digIn(buttonPin);
+fun loop() = {
+    let buttonSig = Io:digIn(buttonPin)
     let debouncedSig = Io:risingEdge(
         Button:debounce(buttonSig, buttonState),
-        edgeState);
+        edgeState)
     let changeModeSig =
         Signal:foldP(
-            fn (u, currMode) ->
+            (u, currMode) =>
                 transitionMode(currMode)
             end,
-            mode, debouncedSig);
+            mode, debouncedSig)
     Signal:sink(
-        fn (mode) -> (
-            let color = modeToColor(mode);
-            for i in 0 to ringSize - 1 do
+        (mode) => {
+            let color = modeToColor(mode)
+            for i in 0 .. ringSize {
                 Neopixel:setPixelColor(i, color, ringStrip)
-            end;
-            Neopixel:show(ringStrip))
-        end,
+            }
+            Neopixel:show(ringStrip)
+        },
         changeModeSig)
-)
+}
 
 fun setup() = (
-    Neopixel:begin(ringStrip);
-    Io:setPinMode(buttonPin, Io:input());
+    Neopixel:begin(ringStrip)
+    Io:setPinMode(buttonPin, Io:input())
     Io:setPinMode(buttonPin, Io:inputPullup())
 )

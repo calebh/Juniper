@@ -127,8 +127,19 @@ let prefix str precidence op f opp =
             (overallPos,  f (opPos, op) term))
         opp
 
-do
-    infix "=" 1 () Associativity.Right (fun l op r -> AssignExp { left = ConvertAst.convertToLHS l; right=r}) opp
+List.iter
+    (fun f -> f (fun l op r -> AssignExp { left = ConvertAst.convertToLHS l; op=op; right=r}) opp)
+    [infix "=" 1 Assign Associativity.Right;
+    infix "+=" 1 AddAssign Associativity.Right;
+    infix "-=" 1 SubAssign Associativity.Right;
+    infix "*=" 1 MulAssign Associativity.Right;
+    infix "/=" 1 DivAssign Associativity.Right;
+    infix "%=" 1 ModAssign Associativity.Right;
+    infix "&=" 1 BitwiseAndAssign Associativity.Right;
+    infix "|=" 1 BitwiseOrAssign Associativity.Right;
+    infix "^=" 1 BitwiseXorAssign Associativity.Right;
+    infix "<<=" 1 BitwiseLShiftAssign Associativity.Right;
+    infix ">>=" 1 BitwiseRShiftAssign Associativity.Right;]
 
 List.iter
     // f here is the partially applied infix function

@@ -10,12 +10,9 @@ open(List, Math)
 
     Represents a mathematical vector
 
-    | alias vector<a, n> = { data : a[n] }
-
-    Members:
-        data : a[n] - The internal data storage of the vector
+    | alias vector<a, n> = a[n]
 */
-alias vector<a, n : int> = { data : a[n] }
+alias vector<a, n : int> = a[n]
 
 /*
     Variable: x
@@ -46,41 +43,6 @@ let y : uint8 = 1
 let z : uint8 = 2
 
 /*
-    Function: make
-
-    Makes a vector from the given array
-
-    Type Signature:
-    | (a[n]) -> vector<a, n>
-
-    Parameters:
-        d : a[n] - The initial array of data
-
-    Returns:
-        The vector
-*/
-fun make(d : a[n]) : vector<a, n> =
-    { data := d }
-
-/*
-    Function: get
-
-    Gets the ith component of the given vector.
-
-    Type Signautre:
-    | (uint32, vector<a, n>) -> a
-
-    Parameters:
-        i : uint32 - The index of the component of the vector
-        v : vector<a, n> - The vector to get the component of
-
-    Returns:
-        The value at the ith position in the vector.
-*/
-fun get(i : uint32, v : vector<a, n>) : a =
-    v.data[i]
-
-/*
     Function: add
 
     Adds two vectors and returns the results.
@@ -98,7 +60,7 @@ fun get(i : uint32, v : vector<a, n>) : a =
 fun add(v1 : vector<a, n>, v2 : vector<a, n>) : vector<a, n> where a : num = {
     let mut result = v1
     for (i : int32 in 0 .. n) {
-        result.data[i] = result.data[i] + v2.data[i]
+        result[i] += v2[i]
     }
     result
 }
@@ -115,7 +77,7 @@ fun add(v1 : vector<a, n>, v2 : vector<a, n>) : vector<a, n> where a : num = {
         The zero vector of n dimensions.
 */
 fun zero() : vector<a, n> where a : num =
-    { data := array a[n] of 0 }
+    array a[n] of 0
 
 /*
     Function: subtract
@@ -135,7 +97,7 @@ fun zero() : vector<a, n> where a : num =
 fun subtract(v1 : vector<a, n>, v2 : vector<a, n>) : vector<a, n> where a : num = {
     let mut result = v1
     for (i : int32 in 0 .. n) {
-        result.data[i] = result.data[i] - v2.data[i]
+        result[i] -= v2[i]
     }
     result
 }
@@ -158,7 +120,7 @@ fun subtract(v1 : vector<a, n>, v2 : vector<a, n>) : vector<a, n> where a : num 
 fun scale(scalar : a, v : vector<a, n>) : vector<a, n> where a : num = {
     let mut result = v
     for (i : int32 in 0 .. n) {
-        result.data[i] = result.data[i] * scalar
+        result[i] *= scalar
     }
     result
 }
@@ -181,7 +143,7 @@ fun scale(scalar : a, v : vector<a, n>) : vector<a, n> where a : num = {
 fun dot(v1 : vector<a, n>, v2 : vector<a, n>) : a where a : num = {
     let mut sum : a = 0
     for (i : int32 in 0 .. n) {
-        sum = sum + (v1.data[i] * v2.data[i])
+        sum += (v1[i] * v2[i])
     }
     sum
 }
@@ -203,7 +165,7 @@ fun dot(v1 : vector<a, n>, v2 : vector<a, n>) : a where a : num = {
 fun magnitude2(v : vector<a, n>) : a where a : num = {
     let mut sum : a = 0
     for (i : int32 in 0 .. n) {
-        sum = sum + (v.data[i] * v.data[i])
+        sum += (v[i] * v[i])
     }
     sum
 }
@@ -243,7 +205,7 @@ fun magnitude(v : vector<a, n>) : double where a : num =
 fun multiply(u : vector<a, n>, v : vector<a, n>) : vector<a, n> where a : num = {
     let mut result = u
     for (i : int32 in 0 .. n) {
-        result.data[i] = result.data[i] * v.data[i]
+        result[i] *= v[i]
     }
     result
 }
@@ -267,7 +229,7 @@ fun normalize(v : vector<a, n>) : vector<a, n> where a : num = {
     if (mag > (0 : a)) {
         let mut result = v
         for (i : int32 in 0 .. n) {
-            result.data[i] = fromDouble(toDouble(result.data[i]) / mag)
+            result[i] = fromDouble(toDouble(result[i]) / mag)
         }
         result
     } else {
@@ -309,9 +271,9 @@ fun angle(v1 : vector<a, n>, v2 : vector<a, n>) : double where a : num =
         The result of u cross v
 */
 fun cross(u : vector<a, 3>, v : vector<a, 3>) : vector<a, 3> where a : num =
-    {data := [(u.data[1u32]*v.data[2u32]) - (u.data[2u32]*v.data[1u32]),
-              (u.data[2u32]*v.data[0u32]) - (u.data[0u32]*v.data[2u32]),
-              (u.data[0u32]*v.data[1u32]) - (u.data[1u32]*v.data[0u32])]}
+    [(u[y] * v[z]) - (u[z] * v[y]),
+     (u[z] * v[x]) - (u[x] * v[z]),
+     (u[x] * v[y]) - (u[y] * v[x])]
 
 /*
     Function: project

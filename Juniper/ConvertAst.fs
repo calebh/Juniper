@@ -225,3 +225,28 @@ let convertToLHS expr=
                 raise <| SemanticError ((errStr [pose] "The left hand side of the assignment operation contained an invalid expression.").Force())
         (pose, expr')
     convertToLHSRec true expr
+
+let convertAssignOp op =
+    match op with
+    | Ast.Assign ->
+        T.Assign
+    | Ast.AddAssign ->
+        T.AddAssign
+    | Ast.SubAssign ->
+        T.SubAssign
+    | Ast.MulAssign ->
+        T.MulAssign
+    | Ast.DivAssign ->
+        T.DivAssign
+    | Ast.ModAssign ->
+        T.ModAssign
+    | Ast.BitwiseAndAssign ->
+        T.BitwiseAndAssign
+    | Ast.BitwiseOrAssign ->
+        T.BitwiseOrAssign
+    | Ast.BitwiseXorAssign ->
+        T.BitwiseXorAssign
+    | Ast.BitwiseLShiftAssign ->
+        T.BitwiseLShiftAssign
+    | Ast.BitwiseRShiftAssign ->
+        T.BitwiseRShiftAssign

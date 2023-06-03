@@ -461,11 +461,24 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         output (compileType typ) + output " " + output varName + output ";" + newline() +
         output "return " + compile false (dummyWrap (VarExp varName)) + output ";" +
         unindentId() + newline() + output "})())"
-    | AssignExp {left=(_, _, left); right=right} ->
+    | AssignExp {left=(_, _, left); op=op; right=right} ->
+        let opStr =
+            match op with
+            | Assign -> "="
+            | AddAssign -> "+="
+            | SubAssign -> "-="
+            | MulAssign -> "*="
+            | DivAssign -> "/="
+            | ModAssign -> "%="
+            | BitwiseAndAssign -> "&="
+            | BitwiseOrAssign -> "|="
+            | BitwiseXorAssign -> "^="
+            | BitwiseLShiftAssign -> "<<="
+            | BitwiseRShiftAssign -> ">>="
         let (_, ty, _) = right
         output "(" +
         compileLeftAssign left +
-        output " = " +
+        output (sprintf " %s " opStr) +
         compile topLevel right +
         output ")"
     | CallExp {func=(_, _, FunctionWrapperEmptyClosure func); args=args} ->

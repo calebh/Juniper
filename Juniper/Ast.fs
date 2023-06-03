@@ -133,7 +133,7 @@ and IfElseRec =       { condition : PosAdorn<Expr>; trueBranch : PosAdorn<Expr>;
 and IfRec =           { condition : PosAdorn<Expr>; trueBranch : PosAdorn<Expr> }
 and LetRec =          { left : PosAdorn<Pattern>; right : PosAdorn<Expr> }
 // Variable assign
-and AssignRec =       { left : PosAdorn<LeftAssign>; right : PosAdorn<Expr>; }
+and AssignRec =       { left : PosAdorn<LeftAssign>; op : PosAdorn<AssignOps>; right : PosAdorn<Expr>; }
 and ForInLoopRec =      { typ : PosAdorn<TyExpr> option; varName : PosAdorn<string>; start : PosAdorn<Expr>; end_ : PosAdorn<Expr>; body : PosAdorn<Expr> }
 and ForLoopRec =      { initLoop : PosAdorn<Expr>; loopCondition : PosAdorn<Expr>; loopStep : PosAdorn<Expr>; body : PosAdorn<Expr> }
 and WhileLoopRec =    { condition : PosAdorn<Expr>; body : PosAdorn<Expr> }
@@ -205,6 +205,8 @@ and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | Bitwis
               | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
               | BitshiftLeft | BitshiftRight | Pipe
 and UnaryOps = LogicalNot | BitwiseNot | Negate | Deref
+and AssignOps = Assign | AddAssign | SubAssign | MulAssign | DivAssign | ModAssign
+                |  BitwiseAndAssign | BitwiseOrAssign | BitwiseXorAssign | BitwiseLShiftAssign | BitwiseRShiftAssign
 
 // Mutations are changes in already declared variables, arrays, records, etc.
 and ArrayMutationRec =  { array : PosAdorn<LeftAssign>; index : PosAdorn<Expr> }

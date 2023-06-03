@@ -240,7 +240,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 adorn posE typ' (T.ArrayMakeExp {typ=typ'; initializer=maybeInitializer'}) c
             | _ ->
                 raise <| TypeError ((errStr [post] "Type declaration should be an array type").Force())
-        | Ast.AssignExp {left=(posl, left); right=(posr, _) as right; } ->
+        | Ast.AssignExp {left=(posl, left); op=(poso, op); right=(posr, _) as right; } ->
             let rec checkLeft left =
                 let ((_, retTau, left'), c) =
                     match left with
@@ -293,11 +293,32 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                         let c' = c &&& (T.getType expr' =~= (T.ConApp (T.RefTy, [Choice1Of2 tau]), errStr [pose] "The left hand side of the assignment operation is not a reference, but a dereference operation (*) was used. Are you sure you meant to set a ref cell?"))
                         adorn posl tau (T.RefMutation expr') c'
                 adorn posl retTau left' c
+
             // End checkleft
             let (right', c1) = ty right
             let (left', c2) = checkLeft left
-            let c' = c1 &&& c2 &&& (T.getType left' =~= (T.getType right', (errStr [posl; posr] "The type of the left hand side should match the type of the right hand side in a set expression.")))
-            adorn posE (T.getType right') (T.AssignExp {left=left'; right=right'}) c'
+
+            let cEq = (T.getType left' =~= (T.getType right', (errStr [posl; posr] "The type of the left hand side should match the type of the right hand side in a set expression.")))
+
+            let c3 =
+                match op with
+                | Ast.Assign ->
+                    cEq
+                | (Ast.AddAssign | Ast.SubAssign | Ast.MulAssign | Ast.DivAssign | Ast.ModAssign) ->
+                    let cLeft = InterfaceConstraint (T.getType left', IsNum, errStr [posl] "The left hand side must be a number type")
+                    let cRight = InterfaceConstraint (T.getType right', IsNum, errStr [posr] "The right hand side must be a number type")
+                    cEq &&& cLeft &&& cRight
+                | (Ast.BitwiseAndAssign | Ast.BitwiseOrAssign | Ast.BitwiseXorAssign) ->
+                    let cLeft = InterfaceConstraint (T.getType left', IsInt, errStr [posl] "The left hand side of this bitwise assignment operation must be an integer.")
+                    let cRight = InterfaceConstraint (T.getType right', IsInt, errStr [posr] "The right hand side of this bitwise assignment operation must be an integer.")
+                    cEq &&& cLeft &&& cRight
+                | (Ast.BitwiseLShiftAssign | Ast.BitwiseRShiftAssign) ->
+                    let cLeft = InterfaceConstraint (T.getType left', IsInt, errStr [posl] "The left hand side of this bitshift assignment operation must be an integer.")
+                    let cRight = InterfaceConstraint (T.getType right', IsInt, errStr [posr] "The right hand side of this bitshift assignment operation must be an integer.")
+                    cLeft &&& cRight
+
+            let c' = c1 &&& c2 &&& c3
+            adorn posE (T.getType right') (T.AssignExp {left=left'; op=convertAssignOp op; right=right'}) c'
         | Ast.BinaryOpExp {left=(posl, _) as left; op=(poso, A.Pipe); right=(posr, _) as right} ->
             match A.unwrap right with
             | A.CallExp {func=func; args=(posa, args)} ->

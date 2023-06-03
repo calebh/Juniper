@@ -129,7 +129,7 @@ and IfElseRec =       { condition : TyAdorn<Expr>; trueBranch : TyAdorn<Expr>; f
 and IfRec =           { condition : TyAdorn<Expr>; trueBranch : TyAdorn<Expr> }
 and LetRec =          { left : TyAdorn<Pattern>; right : TyAdorn<Expr> }
 // Variable assign
-and AssignRec =       { left : TyAdorn<LeftAssign>; right : TyAdorn<Expr> }
+and AssignRec =       { left : TyAdorn<LeftAssign>; op : AssignOps; right : TyAdorn<Expr> }
 and ForInLoopRec =      { typ : TyExpr; varName : string; start : TyAdorn<Expr>; end_ : TyAdorn<Expr>; body : TyAdorn<Expr> }
 and ForLoopRec =      { loopCondition : TyAdorn<Expr> ; loopStep : TyAdorn<Expr>; body : TyAdorn<Expr> }
 and WhileLoopRec =    { condition : TyAdorn<Expr>; body : TyAdorn<Expr> }
@@ -206,6 +206,8 @@ and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | Bitwis
               | LogicalOr | LogicalAnd | Equal | NotEqual | GreaterOrEqual | LessOrEqual | Greater | Less
               | BitshiftLeft | BitshiftRight
 and UnaryOps = LogicalNot | BitwiseNot | Negate | Deref
+and AssignOps = Assign | AddAssign | SubAssign | MulAssign | DivAssign | ModAssign
+                |  BitwiseAndAssign | BitwiseOrAssign | BitwiseXorAssign | BitwiseLShiftAssign | BitwiseRShiftAssign
 
 // Mutations are changes in already declared variables, arrays, records, etc.
 and ArrayMutationRec =  { array : LeftAssign; index : TyAdorn<Expr> }
@@ -473,10 +475,10 @@ and preorderMapFold (exprMapper: Map<string, TyExpr> -> 'accum -> TyAdorn<Expr> 
     | ArrayMakeExp {typ=typ; initializer=initializer} ->
         let (initializer', accum'') = Option.mapFold preorderMapFold' accum' initializer
         (wrapLike expr' (ArrayMakeExp {typ=typ; initializer=initializer'}), accum'')
-    | AssignExp {left=left; right=right} ->
+    | AssignExp {left=left; op=op; right=right} ->
         let (left', accum'') = preorderMapFoldLeftAssign' accum' (unwrap left)
         let (right', accum''') = preorderMapFold' accum'' right
-        (wrapLike expr' (AssignExp {left=wrapLike left left'; right=right'}), accum''')
+        (wrapLike expr' (AssignExp {left=wrapLike left left'; op=op; right=right'}), accum''')
     | BinaryOpExp {left=left; op=op; right=right} ->
         let (left', accum'') = preorderMapFold' accum' left
         let (right', accum''') = preorderMapFold' accum'' right

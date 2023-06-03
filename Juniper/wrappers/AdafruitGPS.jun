@@ -35,10 +35,12 @@ fun make() : gpst = {
 fun begin(g : gpst) : unit = {
     let gps(p) = g
     let rawP : rawpointer = extractptr(p)
-    #((Adafruit_GPS*) rawP)->begin(9600);#
-    #((Adafruit_GPS*) rawP)->sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);#
-    #((Adafruit_GPS*) rawP)->sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);#
-    #((Adafruit_GPS*) rawP)->sendCommand(PGCMD_ANTENNA);#
+    #
+    ((Adafruit_GPS*) rawP)->begin(9600);
+    ((Adafruit_GPS*) rawP)->sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);
+    ((Adafruit_GPS*) rawP)->sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);
+    ((Adafruit_GPS*) rawP)->sendCommand(PGCMD_ANTENNA);
+    #
 }
 
 fun read(g : gpst) : gpsData = (

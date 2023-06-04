@@ -417,7 +417,7 @@ let functionClause delimiter =
         (attempt arguments)
         (attempt returnTy)
         (attempt interfaceConstraints)
-        ((attempt (skipString delimiter)) >>? ws >>? (fatalizeAnyError exprws))
+        ((attempt (skipString delimiter)) >>? ws >>? (fatalizeAnyError expr))
         (fun a r c b ->
             {returnTy = r; arguments = a; body = b; interfaceConstraints=c})) <?> "Function clause"
 
@@ -487,7 +487,7 @@ do
     let quit = skipString "quit" >>. ws >>. (fatalizeAnyError (opt (skipChar '<' >>. ws >>. tyExpr .>> ws .>> skipChar '>') .>> ws .>> skipChar '(' .>> ws .>> skipChar ')')) |>> QuitExp
     let pIf =
         pipe3
-            ((attempt (skipString "if" >>. ws)) >>. skipChar '(' >>. ws >>. fatalizeAnyError (exprws) .>> ws .>> skipChar ')' .>> ws)
+            ((attempt (skipString "if" >>. ws1)) >>. fatalizeAnyError (exprws) .>> ws)
             (fatalizeAnyError expr)
             ((attempt (ws >>. skipString "else" >>. ws1) >>. (fatalizeAnyError expr)) |> opt)
             (fun condition trueBranch maybeFalseBranch ->
@@ -517,32 +517,32 @@ do
                 DeclVarExp { varName = varName; typ = ty} )
     let forInLoop =
         pipe5'
-            (attempt (pstring "for" >>. ws >>. skipChar '(' >>. ws >>. pos id .>> ws))
+            (attempt (pstring "for" >>. ws1 >>. pos id .>> ws))
             (attempt (skipChar ':' >>. ws >>. tyExpr .>> ws |> opt))
             (attempt (pstring "in" >>. ws1) >>. (fatalizeAnyError (expr .>> ws .>> skipString ".." .>> ws)))
-            (fatalizeAnyError (expr .>> ws .>> skipChar ')' .>> ws))
+            (fatalizeAnyError (expr .>> ws))
             (fatalizeAnyError expr)
             (fun varName typ start end_ body ->
                 ForInLoopExp {varName=varName; typ=typ; start=start; end_=end_; body=body})
     let forLoop =
         pipe4'
-            (attempt (pstring "for") >>. ws >>. fatalizeAnyError (skipChar '(' >>. ws >>. expr .>> ws .>> skipChar ';' .>> ws))
+            (attempt (pstring "for") >>. ws1 >>. fatalizeAnyError (expr .>> ws .>> skipChar ';' .>> ws))
             (fatalizeAnyError (expr .>> ws .>> skipChar ';' .>> ws))
-            (fatalizeAnyError (expr .>> ws .>> skipChar ')' .>> ws))
+            (fatalizeAnyError (expr .>> ws1))
             (fatalizeAnyError expr)
             (fun initLoop loopCondition loopStep body ->
                 ForLoopExp {initLoop = initLoop; loopCondition = loopCondition; loopStep = loopStep; body = body})
     let doWhileLoop =
         pipe2
             (attempt (pstring "do" >>. ws1) >>. fatalizeAnyError (exprws))
-            (fatalizeAnyError (pstring "while" >>. ws >>. skipChar '(' >>. ws >>. expr .>> ws .>> skipChar ')'))
+            (fatalizeAnyError (pstring "while" >>. ws1 >>. expr))
             (fun body condition -> DoWhileLoopExp {body=body; condition=condition})
     let whileLoop =
         pipe2'
-            (attempt (pstring "while" >>. ws) >>. fatalizeAnyError (skipChar '(' >>. ws >>. expr .>> ws .>> skipChar ')' .>> ws))
+            (attempt (pstring "while" >>. ws1) >>. fatalizeAnyError (expr .>> ws))
             (fatalizeAnyError expr)
             (fun condition body -> WhileLoopExp {condition=condition; body=body})
-    let fn = (functionClause "=>" .>> ws) |>> (fun clause -> LambdaExp ((TypedAst.dummyPos, TypedAst.dummyPos), clause))
+    let fn = (pos (functionClause "=>") .>> ws) |>> (fun (posc, clause) -> LambdaExp (posc, clause))
     let match_ =
         let matchClause = (pattern .>> ws) .>>. (pstring "=>" >>. ws >>. exprws)
         pipe2

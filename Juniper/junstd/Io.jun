@@ -300,11 +300,10 @@ fun pinStateToInt(value : pinState) : uint8 =
         <low> for 0 && <high> for anything else
 */
 fun intToPinState(value : uint8) : pinState =
-    if (value == 0u8) {
+    if value == 0u8 
         low()
-    } else {
+    else
         high()
-    }
 
 /*
     Function: digWrite

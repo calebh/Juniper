@@ -45,18 +45,15 @@ let helpText =
      "    --prune-unreachable: prune top level functions/let statements if they are unreachable from the main and loop functions. Will speed up compilation time and give smaller code output, but type checking will be skipped for pruned functions."] |> String.concat "\n"
 
 let rec printErr errs =
-    match errs with
-    | [] ->
-        ()
-    | e::es ->
-        match e with
-        | E.ErrMsg msg ->
-            System.Console.ForegroundColor <- System.ConsoleColor.Yellow
-            printfn "%s\n\n" msg
-            System.Console.ResetColor()
-            printErr es
-        | E.PosMsg msg ->
-            printfn "%s\n\n" msg
+    errs |> List.iter
+        (fun e ->
+            match e with
+            | E.ErrMsg msg ->
+                System.Console.ForegroundColor <- System.ConsoleColor.Yellow
+                printfn "%s\n\n" msg
+                System.Console.ResetColor()
+            | E.PosMsg msg ->
+                printfn "%s\n\n" msg)        
 
 [<EntryPoint>]
 let main argv =

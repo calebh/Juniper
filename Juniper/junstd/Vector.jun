@@ -59,7 +59,7 @@ let z : uint8 = 2
 */
 fun add(v1 : vector<a, n>, v2 : vector<a, n>) : vector<a, n> where a : num = {
     let mut result = v1
-    for (i : int32 in 0 .. n) {
+    for i : int32 in 0 .. n {
         result[i] += v2[i]
     }
     result
@@ -96,7 +96,7 @@ fun zero() : vector<a, n> where a : num =
 */
 fun subtract(v1 : vector<a, n>, v2 : vector<a, n>) : vector<a, n> where a : num = {
     let mut result = v1
-    for (i : int32 in 0 .. n) {
+    for i : int32 in 0 .. n {
         result[i] -= v2[i]
     }
     result
@@ -119,7 +119,7 @@ fun subtract(v1 : vector<a, n>, v2 : vector<a, n>) : vector<a, n> where a : num 
 */
 fun scale(scalar : a, v : vector<a, n>) : vector<a, n> where a : num = {
     let mut result = v
-    for (i : int32 in 0 .. n) {
+    for i : int32 in 0 .. n {
         result[i] *= scalar
     }
     result
@@ -142,7 +142,7 @@ fun scale(scalar : a, v : vector<a, n>) : vector<a, n> where a : num = {
 */
 fun dot(v1 : vector<a, n>, v2 : vector<a, n>) : a where a : num = {
     let mut sum : a = 0
-    for (i : int32 in 0 .. n) {
+    for i : int32 in 0 .. n {
         sum += (v1[i] * v2[i])
     }
     sum
@@ -164,7 +164,7 @@ fun dot(v1 : vector<a, n>, v2 : vector<a, n>) : a where a : num = {
 */
 fun magnitude2(v : vector<a, n>) : a where a : num = {
     let mut sum : a = 0
-    for (i : int32 in 0 .. n) {
+    for i : int32 in 0 .. n {
         sum += (v[i] * v[i])
     }
     sum
@@ -204,7 +204,7 @@ fun magnitude(v : vector<a, n>) : double where a : num =
 */
 fun multiply(u : vector<a, n>, v : vector<a, n>) : vector<a, n> where a : num = {
     let mut result = u
-    for (i : int32 in 0 .. n) {
+    for i : int32 in 0 .. n {
         result[i] *= v[i]
     }
     result
@@ -226,9 +226,9 @@ fun multiply(u : vector<a, n>, v : vector<a, n>) : vector<a, n> where a : num = 
 */
 fun normalize(v : vector<a, n>) : vector<a, n> where a : num = {
     let mag = magnitude(v)
-    if (mag > (0 : a)) {
+    if mag > (0 : a) {
         let mut result = v
-        for (i : int32 in 0 .. n) {
+        for i : int32 in 0 .. n {
             result[i] = fromDouble(toDouble(result[i]) / mag)
         }
         result

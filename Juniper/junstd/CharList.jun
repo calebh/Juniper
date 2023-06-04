@@ -21,11 +21,10 @@ module CharList
 fun toUpper(str) =
     str |>
     List:map((c : uint8) =>
-        if (c >= 97u8 && c <= 122u8) {
+        if c >= 97u8 && c <= 122u8
             c - 32u8
-        } else {
-            c
-        })
+        else
+            c)
 
 /*
     Function: toLower
@@ -44,11 +43,10 @@ fun toUpper(str) =
 fun toLower(str) =
     str |>
     List:map((c) =>
-        if (c >= 65u8 && c <= 90u8) {
+        if c >= 65u8 && c <= 90u8
             c + 32u8
-        } else {
-            c
-        })
+        else
+            c)
 
 /*
     Function: i32ToCharList
@@ -113,13 +111,13 @@ fun concat(sA : charlist<aCap>, sB : charlist<bCap>) : charlist<retCap> = {
     let mut j : uint32 = 0
     let lenA = length(sA)
     let lenB = length(sB)
-    let mut out = {data := array uint8[retCap+1] of 0u8,
+    let mut out = {data := array uint8[retCap] of 0u8,
                    length := lenA + lenB + 1}
-    for (i : uint32 in 0 .. lenA) {
+    for i : uint32 in 0 .. lenA {
         out.data[j] = sA.data[i]
         j += 1
     }
-    for (i : uint32 in 0 .. lenB) {
+    for i : uint32 in 0 .. lenB {
         out.data[j] = sB.data[i]
         j += 1
     }

@@ -483,7 +483,8 @@ let solveCap (con : ConstraintCap) (terminalCaps : string list) : Map<string, Ca
     let terminalCapsSet = Set.ofList terminalCaps
     // Convert varNamesSet to a list, such that terminalCaps are at the very end of the list
     let varNames = List.append (List.ofSeq (Set.difference varNamesSet terminalCapsSet)) (List.ofSeq (Set.intersect varNamesSet terminalCapsSet))
-    let relevantEquations varName = con' |> List.filter (fun (EqualCap (left, right, _)) -> (capacityExprContainsVar varName left) || (capacityExprContainsVar varName right))
+    let relevantEquations varName =
+        con' |> List.filter (fun (EqualCap (left, right, _)) -> (capacityExprContainsVar varName left) || (capacityExprContainsVar varName right))
     let varSymbols = varNames |> List.map (fun varName -> new Symbolism.Symbol(varName))
     let namesToSymbol = List.zip varNames varSymbols |> Map.ofList
     let rec capExprToSymbolismExpr cap : Symbolism.MathObject =
@@ -574,6 +575,8 @@ let solveCap (con : ConstraintCap) (terminalCaps : string list) : Map<string, Ca
                             else
                                 (env, symbolsSolvedSoFar)
                 with
+                | :? TypeError as exc ->
+                    raise exc
                 | :? System.Exception as exc ->
                     raise <| TypeError [Error.ErrMsg (sprintf "An exception was thrown while eliminating variables or isolating them when running the capacity solver system. The exception was: %s" (exc.ToString()))])
         (Map.empty, []) |>

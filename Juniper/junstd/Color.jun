@@ -78,15 +78,15 @@ fun hsvToRgb(color : hsv) : rgb = {
     let x : float = c * toFloat(1.0 - Math:fabs_(Math:fmod_((toDouble(h) / 60), 2.0) - 1.0))
     let m : float = v - c
     let (rPrime, gPrime, bPrime) =
-        if (0.0f <= h && h < 60.0f)
+        if 0.0f <= h && h < 60.0f
             (c, x, 0.0f)
-        else if (60.0f <= h && h < 120.0f)
+        else if 60.0f <= h && h < 120.0f
             (x, c, 0.0f)
-        else if (120.0f <= h && h < 180.0f)
+        else if 120.0f <= h && h < 180.0f
             (0.0f, c, x)
-        else if (180.0f <= h && h < 240.0f)
+        else if 180.0f <= h && h < 240.0f
             (0.0f, x, c)
-        else if (240.0f <= h && h < 300.0f)
+        else if 240.0f <= h && h < 300.0f
             (x, 0.0f, c)
         else
             (c, 0.0f, x)

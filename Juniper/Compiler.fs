@@ -631,8 +631,8 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         output ">" + output "{" + (exps |> List.map (compile topLevel) |> String.concat ", ") + output "}" + output ")"
     | RefExp exp ->
         let (_, typ, _) = exp
-        output "(juniper::shared_ptr<" + compileType typ + output ">(new " + compileType typ +
-        output "(" + compile topLevel exp  + output ")))"
+        output "(juniper::shared_ptr<" + compileType typ + output ">(" +
+        compile topLevel exp  + output "))"
     | DoWhileLoopExp {condition=condition; body=body} ->
         output ("((" + capture + "() -> ") +
         compileType unitty +

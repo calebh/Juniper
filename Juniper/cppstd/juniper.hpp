@@ -12,58 +12,61 @@ void* operator new(size_t size, void* ptr)
 
 namespace juniper
 {
+    template<typename contained>
+    struct wrapped_ptr {
+        int ref_count;
+        contained data;
+
+        wrapped_ptr(contained init_data)
+            : ref_count(1), data(init_data) {}
+    };
+
     template <typename contained>
     class shared_ptr {
     private:
-        contained* ptr_;
-        int* ref_count_;
+        wrapped_ptr<contained> *content;
 
         void inc_ref() {
-            if (ref_count_ != nullptr) {
-                ++(*ref_count_);
+            if (content != nullptr) {
+                content->ref_count++;
             }
         }
 
         void dec_ref() {
-            if (ref_count_ != nullptr) {
-                --(*ref_count_);
+            if (content != nullptr) {
+                content->ref_count--;
 
-                if (*ref_count_ <= 0)
-                {
-                    if (ptr_ != nullptr)
-                    {
-                        delete ptr_;
-                    }
-                    delete ref_count_;
+                if (content->ref_count <= 0) {
+                    delete content;
+                    content = nullptr;
                 }
             }
         }
 
     public:
         shared_ptr()
-            : ptr_(nullptr), ref_count_(new int(1))
+            : content(nullptr)
         {
         }
 
-        shared_ptr(contained* p)
-            : ptr_(p), ref_count_(new int(1))
+        shared_ptr(contained init_data)
+            : content(new wrapped_ptr<contained>(init_data))
         {
         }
 
         // Copy constructor
         shared_ptr(const shared_ptr& rhs)
-            : ptr_(rhs.ptr_), ref_count_(rhs.ref_count_)
+            : content(rhs.content)
         {
             inc_ref();
         }
 
         // Move constructor
         shared_ptr(shared_ptr&& dyingObj)
-            : ptr_(dyingObj.ptr_), ref_count_(dyingObj.ref_count_) {
+            : content(dyingObj.content) {
 
             // Clean the dying object
-            dyingObj.ptr_ = nullptr;
-            dyingObj.ref_count_ = nullptr;
+            dyingObj.content = nullptr;
         }
 
         ~shared_ptr()
@@ -71,55 +74,59 @@ namespace juniper
             dec_ref();
         }
 
-        void set(contained* p) {
-            ptr_ = p;
+        contained* get() {
+            if (content != nullptr) {
+                return &(content->data);
+            } else {
+                return nullptr;
+            }
         }
 
-        contained* get() { return ptr_; }
-        const contained* get() const { return ptr_; }
+        const contained* get() const {
+            if (content != nullptr) {
+                return &(content->data);
+            } else {
+                return nullptr;
+            }
+        }
 
         // Copy assignment
         shared_ptr& operator=(const shared_ptr& rhs) {
+            // We're overwriting the current content with new content,
+            // so decrement the current content referene count by 1.
             dec_ref();
-
-            this->ptr_ = rhs.ptr_;
-            this->ref_count_ = rhs.ref_count_;
-            if (rhs.ptr_ != nullptr)
-            {
-                inc_ref();
-            }
+            // We're now pointing to new content
+            content = rhs.content;
+            // Increment the reference count of the new content.
+            inc_ref();
 
             return *this;
         }
 
         // Move assignment
         shared_ptr& operator=(shared_ptr&& dyingObj) {
+            // We're overwriting the current content with new content,
+            // so decrement the current content referene count by 1.
             dec_ref();
 
-            this->ptr_ = dyingObj.ptr;
-            this->ref_count_ = dyingObj.refCount;
+            content = dyingObj.content;
 
             // Clean the dying object
-            dyingObj.ptr_ = nullptr;
-            dyingObj.ref_count_ = nullptr;
+            dyingObj.content = nullptr;
+            // Don't increment at all because the dying object
+            // reduces the reference count by 1, which would cancel out
+            // an increment.
 
             return *this;
         }
 
-        contained& operator*() {
-            return *ptr_;
-        }
-
-        contained* operator->() {
-            return ptr_;
-        }
-
+        // Two shared ptrs are equal if they point to the same data
         bool operator==(shared_ptr& rhs) {
-            return ptr_ == rhs.ptr_;
+            return content == rhs.content;
         }
 
         bool operator!=(shared_ptr& rhs) {
-            return ptr_ != rhs.ptr_;
+            return content != rhs.content;
         }
     };
     
@@ -212,7 +219,7 @@ namespace juniper
     using smartpointer = shared_ptr<rawpointer_container>;
 
     smartpointer make_smartpointer(void *initData, function<void, unit(void*)> callback) {
-        return smartpointer(new rawpointer_container(initData, callback));
+        return smartpointer(rawpointer_container(initData, callback));
     }
 
     template<typename T>

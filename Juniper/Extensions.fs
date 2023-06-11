@@ -26,6 +26,13 @@ module Map =
         | Some x -> x
         | None -> deflt
 
+    let rec findFixpoint k m =
+        match Map.tryFind k m with
+        | Some k' ->
+            findFixpoint k' m
+        | None ->
+            k
+
     let mapAlt f m = Map.fold (fun acc key value ->
                                 let (key', value') = f key value
                                 Map.add key' value' acc) Map.empty m
@@ -76,6 +83,14 @@ module List =
         | (w, x, y, z)::rest ->
             let (ws, xs, ys, zs) = unzip4 rest
             (w::ws, x::xs, y::ys, z::zs)
+
+    let rec unzip5 lst =
+        match lst with
+        | [] ->
+            ([], [], [], [], [])
+        | (v, w, x, y, z)::rest ->
+            let (vs, ws, xs, ys, zs) = unzip5 rest
+            (v::vs, w::ws, x::xs, y::ys, z::zs)
     
     let rec mapFilter f lst =
         match lst with

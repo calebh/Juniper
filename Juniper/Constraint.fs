@@ -269,24 +269,30 @@ let (|-%->) a cap =
 
 // Instantiate all the variables that have been universally quantified over with fresh
 // type and capacity variables
+// freshTVarMap maps fresh type variables back to their user given name
+// freshCVarMap maps fresh capacity variables back to their user given name
 let freshInstance (Forall (quantifiedVars, constraints, tau)) =
-    let (freshVars, (theta, kappa)) =
+    let (freshVars, (theta, kappa, freshTVarMap, freshCVarMap)) =
         quantifiedVars |>
         List.mapFold
-            (fun (accumTheta, accumKappa) (varName, kind) ->
+            (fun (accumTheta, accumKappa, accumFreshTVarMap, accumFreshCVarMap) (varName, kind) ->
                 match kind with
                 | StarKind ->
                     let freshVar = freshtyvar ()
+                    let (TyVar freshVarName) = freshVar
                     let accumTheta' = Map.add varName freshVar accumTheta
-                    (Choice1Of2 freshVar, (accumTheta', accumKappa))
+                    let accumFreshTVarMap' = Map.add freshVarName varName accumFreshTVarMap
+                    (Choice1Of2 freshVar, (accumTheta', accumKappa, accumFreshTVarMap', accumFreshCVarMap))
                 | IntKind ->
                     let freshVar = freshcapvar ()
+                    let (CapacityVar freshVarName) = freshVar
                     let accumKappa' = Map.add varName freshVar accumKappa
-                    (Choice2Of2 freshVar, (accumTheta, accumKappa')))
-            (Map.empty, Map.empty)
+                    let accumFreshCVarMap' = Map.add freshVarName varName accumFreshCVarMap
+                    (Choice2Of2 freshVar, (accumTheta, accumKappa', accumFreshTVarMap, accumFreshCVarMap')))
+            (Map.empty, Map.empty, Map.empty, Map.empty)
     let constraints' = constraints |> List.map (fun (constrTau, conType) -> (tycapsubst theta kappa constrTau, constraintsubst theta kappa conType))
     let tau' = tycapsubst theta kappa tau
-    (tau', constraints', freshVars)
+    (tau', constraints', freshVars, freshTVarMap, freshCVarMap)
 
 let instantiateRecord (bound, caps, fields) actuals capActuals =
     let substitutions = List.zip bound actuals |> Map.ofList
@@ -514,6 +520,24 @@ let solveCap (con : ConstraintCap) (terminalCaps : string list) : Map<string, Ca
     // be empty. The equation dummy == dummy will end up being converted to Symbolism.Bool(true) by the SymbolismExt.heuristicSimplify method
     let dummyEquation = new Symbolism.Equation(dummySymbol, dummySymbol) :> Symbolism.MathObject
     let symbolismEq = new Symbolism.And((dummyEquation::symbolismSystemOfEq) |> Array.ofList)
+
+    if List.isEmpty varSymbols then
+        match symbolismEq.SimplifyLogical() |> SymbolismExt.heuristicSimplify with
+        | :? Symbolism.Bool as b ->
+            if not (b.``val``) then
+                let allErrs = con' |> List.map (fun (EqualCap (left, right, err)) -> err.Force()) |> List.concat
+                raise <| TypeError
+                    ([Error.ErrMsg "Error while simplifying a system of capacity constraints. A contradiction in the system was detected."]
+                    @
+                    (allErrs)
+                    @
+                    [Error.ErrMsg (sprintf "The system of equations is the following: %s\n\n" (symbolismEq.ToString()))])
+            else
+                ()
+        | _ ->
+            ()
+    else
+        ()
     varSymbols |>
     List.fold
         (fun (env, symbolsSolvedSoFar) sym ->
@@ -605,11 +629,48 @@ let rec constraintTreeToList con =
     | con ->
         [con]
 
+let findDuplicates (freshTVarMap : Map<string, string>) (freshCVarMap : Map<string, string>) taus  =
+    let (freeTsList, freeCsList) = taus |> List.map freeVars |> List.unzip
+    let freeTs = freeTsList |> Set.unionMany |> List.ofSeq
+    let freeCs = freeCsList |> Set.unionMany |> List.ofSeq
+    // This function contains all the fresh var names which map to values that are duplicates
+    // of another fresh variable
+    let dups freeVars freshVarMap =
+        freeVars |>
+        List.map (fun freshName -> (freshName, Map.findFixpoint freshName freshVarMap)) |>
+        List.groupBy (fun (_, userGivenName) -> userGivenName) |>
+        List.map snd |>
+        List.filter (fun grp -> List.length grp > 1) |>
+        List.concat |>
+        List.map fst |>
+        Set.ofList
+    (dups freeTs freshTVarMap, dups freeCs freshCVarMap)
+
+let userTypeStrings (freshTVarMap : Map<string, string>) (freshCVarMap : Map<string, string>) taus =
+    let (tdups, cdups) = findDuplicates freshTVarMap freshCVarMap taus
+    let remapFreshVarMap freshVarMap dups =
+        freshVarMap |>
+        Map.map
+            (fun freshVarName userGivenName ->
+                if Set.contains freshVarName dups then
+                    sprintf "`%s@%s`" (Map.findFixpoint userGivenName freshVarMap) freshVarName
+                else
+                    userGivenName)
+    let freshTVarMap' =
+        remapFreshVarMap freshTVarMap tdups |>
+        Map.map (fun _ userGivenName -> TyVar userGivenName)
+    let freshCVarMap' =
+        remapFreshVarMap freshCVarMap cdups |>
+        Map.map (fun _ userGivenName -> CapacityVar userGivenName)
+    
+    List.map (tycapsubst freshTVarMap' freshCVarMap' >> typeString) taus
+
 // con is the constraint system we would like to solve. terminalCaps is a bit harder to explain. They are the
 // the capacity variables that we would like the other capacity variables to be written in terms of. Therefore
 // they are the last capacity variables that should be solved for (and therefore eliminated) in the Symbolism
 // equation solving process
-let rec solve (con : Constraint) (terminalCaps : string list) : Map<string, TyExpr> * Map<string, CapacityExpr> * Map<string, (ConstraintType * ErrorMessage) list> =
+let rec solve (con : Constraint) (terminalCaps : string list) (freshTVarMap : Map<string, string>) (freshCVarMap : Map<string, string>) : Map<string, TyExpr> * Map<string, CapacityExpr> * Map<string, (ConstraintType * ErrorMessage) list> =
+    let userTypeStrings' = userTypeStrings freshTVarMap freshCVarMap
     let rec innerSolve (con : Constraint) : Map<string, TyExpr> * ConstraintCap * Map<string, (ConstraintType * ErrorMessage) list> =
         match simplifyConstraint con with
         | Trivial -> (Map.empty, TrivialCap, Map.empty)
@@ -623,7 +684,10 @@ let rec solve (con : Constraint) (terminalCaps : string list) : Map<string, TyEx
                         let (theta2, capCon2, intConst2) = solveTheta (consubst theta1 Map.empty right)
                         (composeTheta theta2 theta1, AndCap (capCon1, capCon2), List.append intConst1 intConst2)
                     | Equal (tau, tau', err) ->
-                        let failMsg = lazy ([Error.ErrMsg (sprintf "Type error: The types %s and %s are not equal." (typeString tau) (typeString tau'))] @ err.Force())
+                        let failMsg = lazy (
+                            let [stau; stau'] = userTypeStrings' [tau; tau']
+                            [Error.ErrMsg (sprintf "Type error: The types %s and %s are not equal." stau stau')] @ err.Force()
+                        )
                         match (tau, tau') with
                         | ((TyVar a, tau) | (tau, TyVar a)) ->
                             match solveTyvarEq a tau with
@@ -692,7 +756,10 @@ let rec solve (con : Constraint) (terminalCaps : string list) : Map<string, TyEx
                 List.map
                     (fun (tau, constraintType, failMsg) ->
                         let tau' = tycapsubst thetaSolution Map.empty tau
-                        let failMsg' = lazy ([Error.ErrMsg (sprintf "Interface constraint error: The type %s does not satisfy the %s constraint." (typeString tau') (interfaceConstraintString constraintType))] @ failMsg.Force())
+                        let failMsg' = lazy (
+                            let [stau'] = userTypeStrings' [tau']
+                            [Error.ErrMsg (sprintf "Interface constraint error: The type %s does not satisfy the %s constraint." stau' (interfaceConstraintString constraintType))] @ failMsg.Force()
+                        )
                         match tau' with
                         | TyVar v ->
                             let constraintType' =
@@ -717,9 +784,15 @@ let rec solve (con : Constraint) (terminalCaps : string list) : Map<string, TyEx
                                         let fieldTau' = tycapsubst thetaSolution Map.empty fieldTau
                                         (None, Some (recordFieldTau =~= (fieldTau', lazy ([Error.ErrMsg (sprintf "Record interface constraint error: The concrete type of the field named %s does not match the type of the constraint." fieldName)] @ failMsg.Force()))))
                                     | None ->
-                                        raise <| TypeError ([Error.ErrMsg (sprintf "Record interface constraint error: The concrete record type %s does not contain a field named %s, as required by the record interface constraint." (typeString tau') fieldName)] @ failMsg.Force())
+                                        raise <| TypeError (
+                                            let [stau'] = userTypeStrings' [tau']
+                                            [Error.ErrMsg (sprintf "Record interface constraint error: The concrete record type %s does not contain a field named %s, as required by the record interface constraint." stau' fieldName)] @ failMsg.Force()
+                                        )
                                 | _ ->
-                                    raise <| TypeError ([Error.ErrMsg (sprintf "Record interface constraint error: The concrete type was determined to be %s, which is not a record. However there is a field constraint, requiring that this type has a field with name %s." (typeString tau') fieldName)] @ failMsg.Force())
+                                    raise <| TypeError (
+                                        let [stau'] = userTypeStrings' [tau']
+                                        [Error.ErrMsg (sprintf "Record interface constraint error: The concrete type was determined to be %s, which is not a record. However there is a field constraint, requiring that this type has a field with name %s." stau' fieldName)] @ failMsg.Force()
+                                    )
                             | _ -> raise <| TypeError (failMsg'.Force())) |>
                 List.unzip
             let extraInterfaceConstraints' = extraInterfaceConstraints |> List.filter Option.isSome |> List.map Option.get |> conjoinConstraints

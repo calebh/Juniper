@@ -111,7 +111,7 @@ fun concat(sA : charlist<aCap>, sB : charlist<bCap>) : charlist<retCap> = {
     let mut j : uint32 = 0
     let lenA = length(sA)
     let lenB = length(sB)
-    let mut out = {data := array uint8[retCap] of 0u8,
+    let mut out = {data := array uint8[retCap + 1] of 0u8,
                    length := lenA + lenB + 1}
     for i : uint32 in 0 .. lenA {
         out.data[j] = sA.data[i]

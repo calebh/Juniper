@@ -1,10 +1,12 @@
 <module>            ::= "module" <id> [<declaration> {, <declaration>}];
 <declaration>       ::= <open>
+                     |  <include>
                      |  <algebraic-type>
                      |  <function>
                      |  <let>
                      |  <alias>
                      |  "#" <inline-cpp> "#";
+<include>           ::= "include" "(" "\"" <cpp-header> "\"" [{"," "\"" <cpp-header> "\""}] ")"
 <open>              ::= "open" "(" [<id> {"," <id>}] ")";
 <ty-var-dec>        ::= <id> ":" "int"
                      |  <id> [":" "*"];

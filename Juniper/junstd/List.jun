@@ -93,11 +93,11 @@ fun foldr(f : (t, state) -> state, initState : state, lst : list<t, n>) : state 
     Appends two lists.
 
     Type Signature:
-    | (list<t;aCap>, list<t;bCap>) -> list<t;retCap>
+    | (list<t, aCap>, list<t, bCap>) -> list<t, retCap>
 
     Parameters:
-        lstA : list<t;aCap> - The first list.
-        lstB : list<t;bCap> - The second list.
+        lstA : list<t, aCap> - The first list.
+        lstB : list<t, bCap> - The second list.
 
    Returns:
         The two lists appended together.
@@ -183,7 +183,7 @@ fun flattenSafe(listOfLists : list<list<t, m>, n>) : list<t, m*n> = {
 */
 fun resize(lst : list<t, n>) : list<t, m> = {
     let mut ret = array t[m]
-    for i : uint32 in 0u32 .. lst.length {
+    for i : uint32 in 0u32 .. Math:min_(lst.length, toUInt32(m)) {
         ret[i] = lst.data[i]
     }
     {data := ret, length := lst.length}
@@ -265,7 +265,7 @@ fun pushBack(elem : t, lst : list<t, n>) : list<t, n> =
     } else {
         let mut ret = lst
         ret.data[lst.length : uint32] = elem
-        ret.length = lst.length + 1u32
+        ret.length += 1
         ret
     }
 
@@ -300,7 +300,7 @@ fun pushOffFront(elem : t, lst : list<t, n>) : list<t, n> = {
         if lst.length == cast(n) {
             ret.length = lst.length
         } else {
-            ret.length = lst.length + 1
+            ret.length += 1
         }
         ret
     }
@@ -378,10 +378,12 @@ fun remove(elem : t, lst : list<t, n>) : list<t, n> = {
     if (found) {
         // Shift all the elements after the discovered index once to the left
         let mut ret = lst
-        ret.length = lst.length - 1u32
-        for i : uint32 in index .. lst.length - 1 {
+        ret.length -= 1
+        for i : uint32 in index .. lst.length {
             ret.data[i] = lst.data[i + 1]
         }
+        var dummy : t
+        ret.data[lst.length - 1] = dummy
         ret
     } else {
         lst
@@ -391,7 +393,7 @@ fun remove(elem : t, lst : list<t, n>) : list<t, n> = {
 /*
     Function: dropLast
 
-    Drops the last element of a List. If the list has size 0,
+    Drops the last element of a List. If the list has size 0, the list remains unchanged
 
 
     Type Signature:
@@ -407,12 +409,14 @@ fun dropLast(lst : list<t, n>) : list<t, n> =
     if lst.length == 0u32 {
         lst
     } else {
-        var ret : list<t, n>
-        for i : uint32 in 0 .. lst.length - 1 {
-            ret.data[i] = lst.data[i]
-        }
-        ret.length = lst.length - 1
-        lst
+        // If t is a reference, we want to make sure that this reference is actually
+        // dropped, possibly allowing memory to be freed. This is accomplished by creating
+        // an uninitialized dummy variable and using it to overwrite the last element.
+        let mut ret = lst
+        var dummy : t
+        ret.length -= 1
+        ret.data[ret.length] = dummy
+        ret
     }
 
 /*

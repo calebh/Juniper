@@ -1,4 +1,4 @@
-<module>            ::= "module" <id> [<declaration> {, <declaration>}];
+<module>            ::= "module" <id> {<declaration>};
 <declaration>       ::= <open>
                      |  <include>
                      |  <algebraic-type>

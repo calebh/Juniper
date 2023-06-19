@@ -326,7 +326,7 @@ and typeString (ty : TyExpr) : string =
     | RecordTy (None, fields) ->
         sprintf "{%s}" (fields |> Map.toList |> List.map (fun (fieldName, fieldTau) -> sprintf "%s : %s" fieldName (typeString fieldTau)) |> String.concat ", ")
     | ClosureTy fields ->
-        sprintf "|%s|" (fields |> Map.toList |> List.map (fun (fieldName, fieldTau) -> sprintf "%s : %s" fieldName (typeString fieldTau)) |> String.concat "; ")
+        sprintf "|%s|" (fields |> Map.toList |> List.map (fun (fieldName, fieldTau) -> sprintf "%s : %s" fieldName (typeString fieldTau)) |> String.concat ", ")
 
 and interfaceConstraintString (interfaceConstraint : ConstraintType) =
     match interfaceConstraint with

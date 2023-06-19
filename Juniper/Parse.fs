@@ -295,7 +295,7 @@ do
             | _ -> NameTy (p, n))
     let underscore = skipChar '_' |> pos |>> UnderscoreTy
     let mQual = moduleQualifier |>> ModuleQualifierTy
-    let closureTy = betweenChar '|' (separatedList ((pos id .>> ws .>> skipChar ':' .>> ws) .>>. tyExpr) ';') '|' |> pos |>> ClosureTy
+    let closureTy = betweenChar '|' (separatedList ((pos id .>> ws .>> skipChar ':' .>> ws) .>>. tyExpr) ',') '|' |> pos |>> ClosureTy
     let (fn1, fn2) =
         let closurep = betweenChar '(' (choice [attempt underscore; name; closureTy]) ')' |> pos
         let argsp = skipChar '(' >>. separatedList (ws >>. tyExpr .>> ws) ',' .>> skipChar ')' .>> ws .>> skipString "->" .>> ws

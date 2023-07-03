@@ -103,7 +103,7 @@ and TyScheme = Forall of Template * ((TyExpr * ConstraintType) list) * TyExpr
 and DeclarationTy = FunDecTy of TyScheme
                   | AliasDecTy of Template * TyExpr
                   | LetDecTy of TyExpr
-                  | UnionDecTy of Template * ModQualifierRec
+                  | ADTDecTy of Template * ModQualifierRec
 
 // Pattern matching AST datatypes.
 and MatchVarRec = { varName : string; mutable_ : bool; typ : TyExpr }
@@ -139,7 +139,7 @@ and ForLoopRec =      { loopCondition : TyAdorn<Expr> ; loopStep : TyAdorn<Expr>
 and WhileLoopRec =    { condition : TyAdorn<Expr>; body : TyAdorn<Expr> }
 and DoWhileLoopRec =  { condition : TyAdorn<Expr>; body: TyAdorn<Expr> }
 // Pattern matching
-and CaseRec =         { on : TyAdorn<Expr>; clauses : (TyAdorn<Pattern> * TyAdorn<Expr>) list }
+and MatchRec =         { on : TyAdorn<Expr>; clauses : (TyAdorn<Pattern> * TyAdorn<Expr>) list }
 // Unary operation
 and UnaryOpRec =      { op : UnaryOps; exp : TyAdorn<Expr> }
 and RecordAccessRec = { record : TyAdorn<Expr>; fieldName : string }
@@ -171,7 +171,7 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | ForLoopExp of ForLoopRec
           | WhileLoopExp of WhileLoopRec
           | DoWhileLoopExp of DoWhileLoopRec
-          | CaseExp of CaseRec
+          | MatchExp of MatchRec
           | UnaryOpExp of UnaryOpRec
           | RecordAccessExp of RecordAccessRec
           | RefRecordAccessExp of RefRecordAccessRec
@@ -490,7 +490,7 @@ and preorderMapFold (exprMapper: Map<string, TyExpr> -> 'accum -> TyAdorn<Expr> 
         let (func', accum'') = preorderMapFold' accum' func
         let (args', accum''') = List.mapFold preorderMapFold' accum'' args
         (wrapLike expr' (CallExp {func=func'; args=args'}), accum''')
-    | CaseExp {on=on; clauses=clauses} ->
+    | MatchExp {on=on; clauses=clauses} ->
         let (on', accum'') = preorderMapFold' accum' on
         let (clauses', accum'''''') =
             clauses |>
@@ -501,7 +501,7 @@ and preorderMapFold (exprMapper: Map<string, TyExpr> -> 'accum -> TyAdorn<Expr> 
                     let (expr', accum''''') = preorderMapFold exprMapper leftAssignMapper patternMapper gamma' accum'''' expr
                     ((pat', expr'), accum'''''))
                 accum''
-        (wrapLike expr' (CaseExp {on=on'; clauses=clauses'}), accum'''''')
+        (wrapLike expr' (MatchExp {on=on'; clauses=clauses'}), accum'''''')
     | DeclVarExp _ ->
         (expr', accum')
     | DoWhileLoopExp {condition=condition; body=body} ->

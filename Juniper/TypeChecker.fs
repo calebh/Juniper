@@ -12,11 +12,11 @@ open TypedAst
 open System.Threading
 
 let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
-               (denv : Map<string * string, A.PosAdorn<A.Declaration>>)
-               (dtenv : Map<string * string, T.DeclarationTy>)
-               (menv : Map<string, string*string>)
+               (denv : Map<ModQualifierRec, A.PosAdorn<A.Declaration>>)
+               (dtenv : Map<ModQualifierRec, T.DeclarationTy>)
+               (menv : Map<string, ModQualifierRec>)
                (localVars : Set<string>)
-               (ienv : Map<string * string, int>)
+               (ienv : Map<ModQualifierRec, int>)
                (tyVarMapping : Map<TyVar, T.TyExpr>)
                (capVarMapping : Map<CapVar, T.CapacityExpr>)
                // First bool represents mutability
@@ -36,7 +36,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
         freshCVarMap <- Map.merge freshCVarMap freshCVarMap'
         (tau, constraints, freshVars)
 
-    let rec typeof' (posE, e) denv dtenv menv localVars ienv tyVarMapping capVarMapping gamma =
+    let rec typeof' (posE, e) (denv : Map<ModQualifierRec, A.PosAdorn<A.Declaration>>) (dtenv : Map<ModQualifierRec, T.DeclarationTy>) (menv : Map<string, ModQualifierRec>) localVars (ienv : Map<ModQualifierRec, int>) tyVarMapping capVarMapping gamma =
         // Taus is what the overall pattern's type should equal
         let rec checkPattern (posp, p) tau =
             let mutable gamma' = gamma
@@ -103,17 +103,17 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                                 raise <| TypeError ((errStr [posn] (sprintf "%s is a local variable and not a value constructor." name)).Force())
                             else
                                 match Map.tryFind name menv with
-                                | Some (mod_, name') ->
-                                    {T.ModQualifierRec.module_ = mod_; T.ModQualifierRec.name=name'}
+                                | Some modQual ->
+                                    modQual
                                 | None ->
                                     raise <| TypeError ((errStr [posn] (sprintf "Unable to find value constructor named %s." name)).Force())
                         | Choice2Of2 {module_ = mod_; name=name} ->
                             {T.ModQualifierRec.module_=Ast.unwrap mod_; T.ModQualifierRec.name=Ast.unwrap name}
                     let {T.ModQualifierRec.module_=module_; T.ModQualifierRec.name=name} = modQual
                     // Lookup a value constructor in dtenv
-                    match Map.tryFind (module_, name) dtenv with
+                    match Map.tryFind modQual dtenv with
                     | Some (T.FunDecTy valueConstructor) ->
-                        let id = Map.find (module_, name) ienv
+                        let id = Map.find modQual ienv
                         // Value constructors do not currently allow interface constraints, so just ignore that field
                         let (inst, _, _) = freshInstance' valueConstructor
                         match inst with
@@ -256,7 +256,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     let ((_, retTau, left'), c) =
                         match left with
                         | Ast.ModQualifierMutation (posmq, {module_=(posm, module_); name=(posn, name)}) ->                    
-                            match Map.tryFind (module_, name) dtenv with
+                            match Map.tryFind {module_=module_; name=name} dtenv with
                             | Some (T.LetDecTy tau) ->
                                 // TODO: Update this if we decide to make module level values mutable
                                 //adorn posl tau (T.ModQualifierMutation {module_=module_; name=name}) Trivial
@@ -405,7 +405,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                         (List.zip3 args args' placeholders)
                 let c' = c1 &&& c2 &&& c3 &&& (List.fold (&&&) Trivial c4)
                 adorn posE returnTau (T.CallExp {func=func'; args=args'}) c'
-            | Ast.CaseExp {on=(poso, _) as on; clauses=(posc, clauses)} ->
+            | Ast.MatchExp {on=(poso, _) as on; clauses=(posc, clauses)} ->
                 let (on', c1) = ty on
                 let (clauses', c2) =
                     List.map
@@ -426,7 +426,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                                 firstClauseTau =~= (clauseTau, errStr [firstClausePos; pos] "All clauses in case expression should have the same type.")) |>
                         List.fold (&&&) Trivial
                     let c' = List.fold (&&&) Trivial ((c1 &&& c3)::c2)
-                    adorn posE firstClauseTau (T.CaseExp {on=on'; clauses=clauses'}) c'
+                    adorn posE firstClauseTau (T.MatchExp {on=on'; clauses=clauses'}) c'
                 | _ ->
                     raise <| TypeError ((errStr [posc] "No clauses were found in the case statement").Force())
             | Ast.DoWhileLoopExp {condition=(posc, _) as condition; body=(posb, _) as body} ->
@@ -527,14 +527,14 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 adorn posE typ' (T.DeclVarExp {varName=A.unwrap varName; typ=typ'}) Trivial
             | Ast.ModQualifierExp (posmq, {module_=(pos, module_); name=(posn, name)}) ->
                 let (instance, interfaceConstraints, templateArgs) =
-                    match Map.tryFind (module_, name) dtenv with
+                    match Map.tryFind {module_=module_; name=name} dtenv with
                     | Some (T.FunDecTy tyscheme) ->
                         freshInstance' tyscheme
                     | Some (T.LetDecTy tau) ->
                         (tau, [], [])
                     | Some (T.AliasDecTy _) ->
                         raise <| TypeError ((errStr [posmq] (sprintf "Found declaration named %s in module %s, but it was a alias type declaration and not a value declaration." name module_)).Force())
-                    | Some (T.UnionDecTy _) ->
+                    | Some (T.ADTDecTy _) ->
                         raise <| TypeError ((errStr [posmq] (sprintf "Found declaration named %s in module %s, but it was an algebraic datatype declaration and not a value declaration." name module_)).Force())
                     | None ->
                         raise <| TypeError ((errStr [posmq] (sprintf "Unable to find declaration named %s in module %s." name module_)).Force())
@@ -754,16 +754,18 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
     
     // valueDecsSet is a set of all fully qualified value declarations in all modules
     let valueDecsSet =
-        program |> List.map (fun decs ->
-            let modName = nameInModule decs |> Option.get |> Ast.unwrap
-            let valNames = valueDecsInModule decs
-            List.zip
-                (List.map (fun _ -> modName) valNames)
-                valNames) |> List.concat |> Set.ofList
+        program |>
+        List.map
+            (fun decs ->
+                let modName = nameInModule decs |> Option.get |> Ast.unwrap
+                let valNames = valueDecsInModule decs
+                valNames |> List.map (fun vName -> {module_=modName; name=vName})) |>
+        List.concat |>
+        Set.ofList
 
     // A menv maps names in a module to their full module qualifier
     // modNamesToMenvs stores these maps for every module
-    let modNamesToMenvs =
+    let modNamesToMenvs : Map<string, Map<string, T.ModQualifierRec>> =
         // maps names to module qualifiers
         let menvs0 = (List.map (fun (Ast.Module decs) ->
             let modName = nameInModule (Ast.Module decs) |> Option.get |> Ast.unwrap
@@ -779,7 +781,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
             match Seq.duplicates names with
             | dups when Seq.length dups = 0 ->
                 List.fold (fun map2 name ->
-                    Map.add name (modName, name) map2
+                    Map.add name {module_=modName; name=name} map2
                 ) Map.empty names
             | dups ->
                 let dupsStr = String.concat ", " dups
@@ -799,34 +801,37 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
         ) modNamesToMenvs0)
     
     // Maps module qualifiers to their actual declarations
-    let denv = (List.fold (fun map (Ast.Module decs) ->
+    let denv : Map<T.ModQualifierRec, _> = (List.fold (fun map (Ast.Module decs) ->
         let modName = nameInModule (Ast.Module decs) |> Option.get
         let namedDecs = List.filter (Ast.unwrap >> isNamedDec) decs
         List.fold (fun map2 dec0 ->
             let decName = nameOfDec (Ast.unwrap dec0)
-            let qual = (Ast.unwrap modName, Ast.unwrap decName)
+            let qual = {module_=Ast.unwrap modName; name=Ast.unwrap decName}
             Map.add qual dec0 map2) map namedDecs
     ) Map.empty program)
 
     // ienv maps value constructor's module qualifiers to their index
     // the index is based on the order in which the constructor appears
     // in the algebraic datatype declaration.
-    let ienv = (Map.fold (fun accumIenv ((module_, name) as modQual) d ->
-        match Ast.unwrap d with
-        | Ast.AlgDataTypeDec {valCons=(_, valCons)} ->
-            (List.mapi (fun i ((_, valConName), _) ->
-                (valConName, i)
-            ) valCons) |>
-            (List.fold (fun accumIenv' (valConName, i) ->
-                Map.add (module_, valConName) i accumIenv')
-            accumIenv)
-        | _ ->
-            accumIenv
-    ) Map.empty denv)
+    let ienv : Map<ModQualifierRec, int> =
+        Map.fold
+            (fun accumIenv ({module_=module_; name=name}) d ->
+                match Ast.unwrap d with
+                | Ast.AlgDataTypeDec {valCons=(_, valCons)} ->
+                    (List.mapi (fun i ((_, valConName), _) ->
+                        (valConName, i)
+                    ) valCons) |>
+                    (List.fold (fun accumIenv' (valConName, i) ->
+                        Map.add {module_=module_; name=valConName} i accumIenv')
+                    accumIenv)
+                | _ ->
+                    accumIenv)
+            Map.empty
+            denv
 
     // Populate the declaration type environment with all aliases, value constructors
     // and type declarations
-    let dtenv0 = (Map.fold (fun accumDtenv0 ((module_, name) as modQual) d ->
+    let dtenv0 = (Map.fold (fun (accumDtenv0 : Map<T.ModQualifierRec, _>) ({module_=module_; name=name} as modQual) d ->
         let menv = Map.find module_ modNamesToMenvs
 
         match Ast.unwrap d with
@@ -866,7 +871,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                         (function
                         | ((_, varName), A.StarKind _) -> Choice1Of2 (T.TyVar varName)
                         | ((_, varName), A.IntKind _) -> Choice2Of2 (T.CapVar varName))
-            let udecty = T.UnionDecTy (template', {module_=module_; name=name})
+            let udecty = T.ADTDecTy (template', {module_=module_; name=name})
             // Generate the type of the algebraic datatype
             let retTyBase = T.ModuleQualifierTy {module_=module_; name=name}
             let retTy =
@@ -891,7 +896,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                 let paramTy = List.map (convertType menv denv Map.empty Map.empty Map.empty) innerTys
                 // Create the FunDecTy for this specific value constructor
                 let ts = T.FunDecTy <| T.Forall (template', [], funty closureTy retTy paramTy)
-                Map.add (module_, valConName) ts accumDtenv1
+                Map.add {module_=module_; name=valConName} ts accumDtenv1
             ) accumDtenv0)
             Map.add modQual udecty accumDtenv2
         | _ ->
@@ -899,7 +904,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
     ) Map.empty denv)
 
     // Check the dependency graph first to determine what order we need to typecheck in (topological sort)
-    let valueGraph = new QuikGraph.AdjacencyGraph<string*string, QuikGraph.Edge<string*string>>()
+    let valueGraph = new QuikGraph.AdjacencyGraph<T.ModQualifierRec, QuikGraph.Edge<T.ModQualifierRec>>()
 
     // Add vertices to the graph
     program |> List.iter (fun moduledef ->
@@ -909,7 +914,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
         let valueDecs = valueDecsInModule moduledef
         // Add all the declarations as vertices to the graph
         valueDecs |> List.iter (fun name ->
-            valueGraph.AddVertex((module_, name)) |> ignore
+            valueGraph.AddVertex({module_=module_; name=name}) |> ignore
         ))
 
     let mutable maybeSetupModule = None
@@ -924,7 +929,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
         let menv = Map.find module_ modNamesToMenvs
         // Find out what declarations this declaration refers to
         valueDecs |> List.iter (fun name ->
-            let (pos, dec) = Map.find (module_, name) denv
+            let (pos, dec) = Map.find {module_=module_; name=name} denv
             let references =
                 match dec with
                 | (Ast.FunctionDec {clause=(_, {body=(_, expr); arguments=(_, arguments)})}) ->
@@ -950,14 +955,16 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
             // Add all the edges to the graph
             references |> Set.iter (fun reference ->
                 if Map.containsKey reference denv then
-                    valueGraph.AddEdge(new QuikGraph.Edge<string*string>((module_, name), reference)) |> ignore
+                    valueGraph.AddEdge(new QuikGraph.Edge<T.ModQualifierRec>({module_=module_; name=name}, reference)) |> ignore
                 else
-                    raise <| TypeError ((errStr [pos] (sprintf "Reference made to %s:%s which could not be found" (fst reference) (snd reference))).Force())
+                    let {module_=referencedModule; name=referencedName} = reference
+                    raise <| TypeError ((errStr [pos] (sprintf "Reference made to %s:%s which could not be found" referencedModule referencedName)).Force())
             )
         )
     )
 
-    let reachable startNode =
+    // Given an input starting declaration, computes all declarations reachable from the starting declaration
+    let reachable (startNode : ModQualifierRec) : Set<ModQualifierRec> =
         let rec reachableRec visitedAlready startNode =
             if Set.contains startNode visitedAlready then
                 visitedAlready
@@ -970,7 +977,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
     if pruneUnreachable then
         match (maybeSetupModule, maybeLoopModule) with
         | (Some setupModule, Some loopModule) ->
-            let reachable = Set.union (reachable (setupModule, "setup")) (reachable (loopModule, "loop"))
+            let reachable = Set.union (reachable {module_=setupModule; name="setup"}) (reachable {module_=loopModule; name="loop"})
             for modQual in valueGraph.Vertices do
                 if not (Set.contains modQual reachable) then
                     valueGraph.RemoveVertex(modQual) |> ignore
@@ -980,7 +987,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
             raise <| SemanticError [Error.ErrMsg "Unable to find program entry point. Please create a function called loop.\n fun loop() = ()."]
 
     // Also build a dependency graph for the types
-    let typeGraph = new QuikGraph.AdjacencyGraph<string*string, QuikGraph.Edge<string*string>>()
+    let typeGraph = new QuikGraph.AdjacencyGraph<T.ModQualifierRec, QuikGraph.Edge<T.ModQualifierRec>>()
 
     program |> List.iter (fun moduledef ->
         let (Ast.Module decs) = moduledef
@@ -991,15 +998,17 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
         let menv = Map.find module_ modNamesToMenvs
         // Add all the declarations as vertices to the graph
         typeDecs |> List.iter (fun name ->
-            typeGraph.AddVertex((module_, name)) |> ignore
-            let (pos, dec) = Map.find (module_, name) denv
+            let modQual = {module_=module_; name=name}
+            typeGraph.AddVertex(modQual) |> ignore
+            let (pos, dec) = Map.find {module_=module_; name=name} denv
             let references = tyRefs menv dec
             references |> Set.iter (fun reference ->
                 match Map.tryFind reference dtenv0 with
-                | (Some (T.UnionDecTy _) | Some (T.AliasDecTy _)) ->
-                    typeGraph.AddEdge(new QuikGraph.Edge<string*string>((module_, name), reference)) |> ignore
+                | (Some (T.ADTDecTy _) | Some (T.AliasDecTy _)) ->
+                    typeGraph.AddEdge(new QuikGraph.Edge<T.ModQualifierRec>(modQual, reference)) |> ignore
                 | _ ->
-                    raise <| TypeError ((errStr [pos] (sprintf "Reference made to %s:%s which could not be found" (fst reference) (snd reference))).Force()))))                    
+                    let {module_=moduleReferenced; name=nameReferenced} = reference
+                    raise <| TypeError ((errStr [pos] (sprintf "Reference made to %s:%s which could not be found" moduleReferenced nameReferenced)).Force()))))                    
     
     // Determine what order the types should appear in (reverse topological order)
     let typeDependencyOrder =
@@ -1009,7 +1018,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
         typeCondensation.Vertices |>
         Seq.iter
             (fun scc ->
-                let sccStr = lazy (scc.Vertices |> Seq.map (fun (m, n) -> sprintf "%s:%s" m n) |> String.concat ", ")
+                let sccStr = lazy (scc.Vertices |> Seq.map (fun {module_=m; name=n} -> sprintf "%s:%s" m n) |> String.concat ", ")
                 // Check for mutually recursive types
                 if Seq.length scc.Vertices > 1 then
                     raise <| TypeError [Error.ErrMsg (sprintf "Semantic error: The following type declarations form an unresolvable dependency cycle: %s" (sccStr.Force()))]
@@ -1039,7 +1048,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
     let moduleNames = program |> List.map (fun decs -> nameInModule decs |> Option.get |> Ast.unwrap)
 
     let typeDecs =
-        let unorderedDecs =
+        let unorderedDecs : Map<ModQualifierRec, _> =
             program |>
             List.map (fun (Ast.Module decs) ->
                 let module_ = nameInModule (Ast.Module decs) |> Option.get |> Ast.unwrap
@@ -1055,11 +1064,11 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                             let argTypes' = List.map (convertType menv denv dtenv0 Map.empty Map.empty) argTypes
                             (valConName, argTypes'))
                     let ret = (module_, T.AlgDataTypeDec {name=name; template=Option.map convertTemplate template; valCons=valCons'})
-                    ((module_, name), ret)
+                    ({module_=module_; name=name}, ret)
                 | Ast.AliasDec {name=(_, name); template=template; typ=typ} ->
                     let typ' = convertType menv denv dtenv0 Map.empty Map.empty typ
                     let ret = (module_, T.AliasDec {name=name; template=Option.map convertTemplate template; typ=typ'})
-                    ((module_, name), ret))|>
+                    ({module_=module_; name=name}, ret))|>
             Map.ofList
         // Put the declarations into dependency order (reverse topological order)
         List.map (fun modQual -> Map.find modQual unorderedDecs) typeDependencyOrder
@@ -1076,7 +1085,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
         List.map (fun (module_, (_, Ast.InlineCodeDec (_, code))) ->
             (module_, T.InlineCodeDec code))
     
-    let connectedComponents = new System.Collections.Generic.Dictionary<string * string, int>()
+    let connectedComponents = new System.Collections.Generic.Dictionary<T.ModQualifierRec, int>()
     valueGraph.StronglyConnectedComponents(connectedComponents) |> ignore
 
     let sccs = connectedComponents |> Map.ofDict |> Map.invertNonInjective |> Map.toList |> List.map snd
@@ -1085,7 +1094,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
     sccs |>
     List.iter
         (fun scc ->
-            let sccStr = scc |> List.map (fun (m, n) -> sprintf "%s:%s" m n) |> String.concat ", "
+            let sccStr = lazy(scc |> List.map (fun {module_=m; name=n} -> sprintf "%s:%s" m n) |> String.concat ", ")
             match scc with
             | [x] when isLet (Ast.unwrap (Map.find x denv)) ->
                 ()
@@ -1093,8 +1102,8 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                 scc |> List.iter
                     (fun decref ->
                         if isLet (Ast.unwrap (Map.find decref denv)) then
-                            let (module_, name) = decref
-                            raise <| TypeError [Error.ErrMsg (sprintf "Semantic error: The let named '%s' in module '%s' has a self reference. The following declarations form an unresolvable dependency cycle: %s" name module_ sccStr)]
+                            let {module_=module_; name=name} = decref
+                            raise <| TypeError [Error.ErrMsg (sprintf "Semantic error: The let named '%s' in module '%s' has a self reference. The following declarations form an unresolvable dependency cycle: %s" name module_ (sccStr.Force()))]
                         else
                             ()))
     
@@ -1104,7 +1113,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
     // Given an accumulated global type environment (ie, one that maps module qualifiers
     // to type schemes), constructs a local type environment based on what that module
     // opens from other modules. The local environment maps names to type schemes
-    let localGamma (globalGamma : Map<(string * string), TyScheme>) (module_ : string) : Map<string, (bool * TyScheme)> =
+    let localGamma (globalGamma : Map<ModQualifierRec, TyScheme>) (module_ : string) : Map<string, (bool * TyScheme)> =
         let menv = Map.find module_ modNamesToMenvs
         (Map.fold (fun gammaAccum localName moduleQual ->
             match Map.tryFind moduleQual globalGamma with
@@ -1122,7 +1131,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
             List.map
                 (fun (Ast.AlgDataTypeDec {valCons=(_, valCons)}) ->
                     valCons |> List.map (fun ((_, name), _) ->
-                        let modqual = (module_, name)
+                        let modqual = {module_=module_; name=name}
                         let (T.FunDecTy scheme) = Map.find modqual dtenv0
                         (modqual, scheme))) |>
             List.concat) |> List.concat |> Map.ofList
@@ -1132,10 +1141,10 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
     // type environment called globalGamma
     let (checkedDecs : Compiler.TypeCheckedScc list, _) =
         dependencyOrder |> List.mapFold
-            (fun (dtenv, globalGamma, accFreshTVarMap, accFreshCVarMap) scc ->
+            (fun (dtenv : Map<ModQualifierRec, _>, globalGamma, accFreshTVarMap, accFreshCVarMap) scc ->
                 match scc with
                 // Found a SCC containing a single let statement
-                | [(module_, name) as modqual] when isLet (Ast.unwrap (Map.find modqual denv)) ->
+                | [{module_=module_; name=name} as modqual] when isLet (Ast.unwrap (Map.find modqual denv)) ->
                     // Look up the actual declaration of the let statement we are currently type checking
                     let (posl, Ast.LetDec {varName=varName; typ=typ; right=right}) = Map.find modqual denv
                     // Get the menv of the module containing the let statement
@@ -1197,7 +1206,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                             Map.add modqual alphaScheme globalGammaAccum
                         ) globalGamma (List.zip scc alphaSchemes)
                     // Create local gammas for every entry in the SCC
-                    let tempGammas = List.map (fst >> localGamma tempGlobalGamma) scc
+                    let tempGammas = List.map ((fun {module_=module_} -> module_) >> localGamma tempGlobalGamma) scc
                     // Create a dtenv containing all of our temporary type schemes
                     let tempdtenv =
                         List.fold (fun accumdtenv (modqual, alphaScheme) ->
@@ -1207,7 +1216,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                         List.zip3 scc tempGammas alphas |>
                         // Generate constraints for each function in the SCC
                         List.map
-                            (fun ((module_, name) as modqual, tempGamma, alpha) ->
+                            (fun ({module_=module_; name=name} as modqual, tempGamma, alpha) ->
                                 // Look up the actual function definition based on the module qualifier
                                 let (posf, Ast.FunctionDec {clause=(posc, {arguments=(posa, arguments); body=body; returnTy=maybeReturnTy; interfaceConstraints=(posi, interfaceConstraints) })}) = Map.find modqual denv
                                 // Lookup the menv (which maps local names to full module qualifiers)
@@ -1379,7 +1388,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                     let (funDecs', (dtenv', globalGamma')) =
                         funDecsInfo |>
                         List.mapFold
-                            (fun (accumDtenv', accumGlobalGamma') ((module_, name) as modqual, userTyVarMapping, userCapVarMapping, argNames, argTys, retTy, body') ->
+                            (fun (accumDtenv', accumGlobalGamma') ({module_=module_; name=name} as modqual, userTyVarMapping, userCapVarMapping, argNames, argTys, retTy, body') ->
                                 userTyVarMapping |>
                                 Map.iter
                                     (fun (TyVar userGivenName) (post, freshVar) ->

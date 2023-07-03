@@ -50,7 +50,7 @@ let rec convertCapacity (capVarMapping : Map<T.CapVar, T.CapacityExpr>) (cap : A
     | _ ->
         raise <| SemanticError ((errStr [A.getPos cap] "Expecting a capacity expression but found a type expression instead.").Force())
 
-let rec removeAliases (dtenv : Map<string * string, T.DeclarationTy>) (pos : FParsec.Position * FParsec.Position) (tau : T.TyExpr) =
+let rec removeAliases (dtenv : Map<T.ModQualifierRec, T.DeclarationTy>) (pos : FParsec.Position * FParsec.Position) (tau : T.TyExpr) =
     let removeAliases' = removeAliases dtenv pos
     let removeAliasesArgs args =
         args |>
@@ -59,8 +59,8 @@ let rec removeAliases (dtenv : Map<string * string, T.DeclarationTy>) (pos : FPa
             | Choice1Of2 argTau -> Choice1Of2 (removeAliases' argTau)
             | Choice2Of2 capExpr -> Choice2Of2 capExpr)
     match tau with
-    | T.ConApp ((T.ModuleQualifierTy {module_=module_; name=name}), args) ->
-        match Map.tryFind (module_, name) dtenv with
+    | T.ConApp ((T.ModuleQualifierTy ({module_=module_; name=name} as modQual)), args) ->
+        match Map.tryFind modQual dtenv with
         | Some (T.AliasDecTy (templateVars, aliasTau)) ->
             if not (List.length templateVars = List.length args) then
                 raise <| SemanticError ((errStr [pos] (sprintf "Error when expanding the alias declaration %s:%s. The number of type arguments passed to the alias was %d, but the alias expected %d arguments." module_ name (List.length args) (List.length templateVars))).Force())
@@ -82,9 +82,9 @@ let rec removeAliases (dtenv : Map<string * string, T.DeclarationTy>) (pos : FPa
             let tau' = Constraint.tycapsubst typeBinding capBinding aliasTau
             removeAliases' tau'
         | _ ->
-            T.ConApp ((T.ModuleQualifierTy {module_=module_; name=name}), removeAliasesArgs args)
-    | T.TyCon (T.ModuleQualifierTy {module_=module_; name=name}) ->
-        match Map.tryFind (module_, name) dtenv with
+            T.ConApp ((T.ModuleQualifierTy modQual), removeAliasesArgs args)
+    | T.TyCon (T.ModuleQualifierTy ({module_=module_; name=name} as modQual)) ->
+        match Map.tryFind modQual dtenv with
         | Some (T.AliasDecTy ([], aliasTau)) ->
             removeAliases' aliasTau
         | Some (T.AliasDecTy (template, _)) ->
@@ -103,7 +103,7 @@ let rec removeAliases (dtenv : Map<string * string, T.DeclarationTy>) (pos : FPa
 
 // The mapping parameter is used to convert explicitly given type variable parameter
 // into a non-conflicting form
-let convertType menv denv (dtenv : Map<string * string, T.DeclarationTy>) (tyVarMapping : Map<T.TyVar, T.TyExpr>) (capVarMapping : Map<T.CapVar, T.CapacityExpr>) (tau : Ast.PosAdorn<Ast.TyExpr>) : T.TyExpr =
+let convertType menv denv (dtenv : Map<T.ModQualifierRec, T.DeclarationTy>) (tyVarMapping : Map<T.TyVar, T.TyExpr>) (capVarMapping : Map<T.CapVar, T.CapacityExpr>) (tau : Ast.PosAdorn<Ast.TyExpr>) : T.TyExpr =
     let rec convertType' (tau : Ast.PosAdorn<Ast.TyExpr>) : T.TyExpr =
         let ct = convertType'
         let convertCapacity = convertCapacity capVarMapping
@@ -155,7 +155,7 @@ let convertType menv denv (dtenv : Map<string * string, T.DeclarationTy>) (tyVar
             T.TyCon <| T.ModuleQualifierTy {module_=module_; name=name}
         | Ast.NameTy (pos, name) ->
             match AstAnalysis.resolveUserTyName menv denv name with
-            | Some (module_, name) -> T.TyCon <| T.ModuleQualifierTy {module_=module_; name=name}
+            | Some {module_=module_; name=name} -> T.TyCon <| T.ModuleQualifierTy {module_=module_; name=name}
             | None -> Map.findDefault (T.TyVar name) (T.TyVarExpr (T.TyVar name)) tyVarMapping
         | Ast.RefTy tau ->
             T.refty (ct tau)

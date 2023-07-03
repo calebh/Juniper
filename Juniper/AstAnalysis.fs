@@ -34,7 +34,7 @@ let rec findUnderscoreTys (tyExpr : A.PosAdorn<A.TyExpr>) : List<FParsec.Positio
     | A.TupleTy elems ->
         elems |> List.map findUnderscoreTys |> List.concat
 
-let resolveUserTyName menv (denv : Map<string * string, A.PosAdorn<A.Declaration>>) (name : string) =
+let resolveUserTyName (menv : Map<string, T.ModQualifierRec>) (denv : Map<T.ModQualifierRec, A.PosAdorn<A.Declaration>>) (name : string) =
     match Map.tryFind name menv with
     | Some modQual ->
         match Map.tryFind modQual denv with
@@ -46,13 +46,13 @@ let resolveUserTyName menv (denv : Map<string * string, A.PosAdorn<A.Declaration
         None
 
 // Find all types that a type declaration is referring to
-let tyRefs (menv : Map<string, string*string>) tyDec =
-    let rec refsInTyExpr t =
+let tyRefs (menv : Map<string, T.ModQualifierRec>) tyDec : Set<T.ModQualifierRec> =
+    let rec refsInTyExpr t : Set<T.ModQualifierRec> =
         match t with
         | A.BaseTy _ ->
             Set.empty
         | A.ModuleQualifierTy {module_=(_, module_); name=(_, name)} ->
-            Set.singleton (module_, name)
+            Set.singleton {module_=module_; name=name}
         | A.ApplyTy {tyConstructor=(_, tyConstructor); args=(_, (_, tyExprs))} ->
             let t1 = refsInTyExpr tyConstructor
             let t2 = List.map (A.unwrap >> refsInTyExpr) tyExprs
@@ -93,8 +93,8 @@ let tyRefs (menv : Map<string, string*string>) tyDec =
     | A.AliasDec {typ=(_, typ)} ->
         refsInTyExpr typ
 
-let getArgKinds (denv : Map<string * string, A.PosAdorn<A.Declaration>>) posQual ({module_=module_; name=name} : T.ModQualifierRec) =
-    match Map.tryFind (module_, name) denv with
+let getArgKinds (denv : Map<T.ModQualifierRec, A.PosAdorn<A.Declaration>>) posQual ({module_=module_; name=name} as modQual : T.ModQualifierRec) =
+    match Map.tryFind modQual denv with
     | (Some (_, A.AlgDataTypeDec {template=maybeTemplate}) | Some (_, A.AliasDec {template=maybeTemplate})) ->
         match maybeTemplate with
         | Some (_, template) ->
@@ -109,11 +109,11 @@ let getArgKinds (denv : Map<string * string, A.PosAdorn<A.Declaration>>) posQual
 // Separate the arguments by their kinds, given a type constructor and a template to apply to that constructor
 // Choice1Of2 indicates a type expression
 // Choice2Of2 indicates a capacity expression
-let separateArgsByKind (menv : Map<string, string*string>) (denv : Map<string * string, A.PosAdorn<A.Declaration>>) ((posc, tyConstructor) : A.PosAdorn<Ast.TyExpr>) ((posa, args) : Ast.TemplateApply) : (Choice<A.PosAdorn<A.TyExpr>, A.PosAdorn<A.TyExpr>> list) =
-    let (module_, name) =
+let separateArgsByKind (menv : Map<string, T.ModQualifierRec>) (denv : Map<T.ModQualifierRec, A.PosAdorn<A.Declaration>>) ((posc, tyConstructor) : A.PosAdorn<Ast.TyExpr>) ((posa, args) : Ast.TemplateApply) : (Choice<A.PosAdorn<A.TyExpr>, A.PosAdorn<A.TyExpr>> list) =
+    let modQual =
         match tyConstructor with
         | Ast.ModuleQualifierTy {module_=(_, module_); name=(_, name)} ->
-            (module_, name)
+            ({module_=module_; name=name} : T.ModQualifierRec)
         | Ast.NameTy (_, name) ->
             match Map.tryFind name menv with
             | Some modQual ->
@@ -122,7 +122,7 @@ let separateArgsByKind (menv : Map<string, string*string>) (denv : Map<string * 
                 raise <| SemanticError ((errStr [posc] (sprintf "Unable to find declaration with name %s in the current module environment." name)).Force())
         | _ ->
             raise <| SemanticError ((errStr [posc] "A template can only be applied to a module qualifier or qualified name.").Force())
-    let kinds = getArgKinds denv posc {module_=module_; name=name}
+    let kinds = getArgKinds denv posc modQual
     if List.length kinds = List.length args then
         List.zip args kinds |>
         List.map
@@ -133,7 +133,7 @@ let separateArgsByKind (menv : Map<string, string*string>) (denv : Map<string * 
         raise <| SemanticError ((errStr [posc; posa] (sprintf "Incorrect number of template arguments. Expected %d arguments, but got %d instead." (List.length kinds) (List.length args))).Force())
 
 // Get all the variables with the given 'searchKind', given input environments, the type to search through, and the kind of the type
-let rec getVars (searchKind : T.Kind) (menv : Map<string, string*string>) (denv : Map<string * string, A.PosAdorn<A.Declaration>>) (tyKind : T.Kind) (ty : Ast.TyExpr) : List<Ast.PosAdorn<string>> =
+let rec getVars (searchKind : T.Kind) (menv : Map<string, T.ModQualifierRec>) (denv : Map<T.ModQualifierRec, A.PosAdorn<A.Declaration>>) (tyKind : T.Kind) (ty : Ast.TyExpr) : List<Ast.PosAdorn<string>> =
     let getVars' = getVars searchKind menv denv
     let getVarsMany kind elems = List.map (Ast.unwrap >> getVars' kind) elems |> List.concat
     match ty with
@@ -184,7 +184,7 @@ let tyVars menv denv tyKind ty = getVars T.StarKind menv denv tyKind ty |> List.
 
 // Find all top level function and let declarations (value declarations)
 // that some expression is referring to
-let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
+let decRefs (valueDecs : Set<T.ModQualifierRec>) (menv : Map<string, T.ModQualifierRec>) localVars e =
     let rec getVars pattern =
         match pattern with
         | (Ast.MatchFalse _ | Ast.MatchFloatVal _ | Ast.MatchIntVal _ | Ast.MatchTrue _ |
@@ -205,7 +205,7 @@ let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
         | Ast.ArrayMutation {array=(_, array); index=(_, index)} ->
             Set.union (dl' array) (d localVars index)
         | Ast.ModQualifierMutation (_, {module_=(_, module_); name=(_, name)}) ->
-            let modqual = (module_, name)
+            let modqual : T.ModQualifierRec = {module_=module_; name=name}
             if Set.contains modqual valueDecs then
                 Set.singleton modqual
             else
@@ -239,7 +239,7 @@ let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
             Set.union (d' left) (d' right)
         | Ast.CallExp {func=(_, func); args=(_, args)} ->
             Set.unionMany ((d' func)::(List.map (Ast.unwrap >> d') args))
-        | Ast.CaseExp {on=(_, on); clauses=(_, clauses)} ->
+        | Ast.MatchExp {on=(_, on); clauses=(_, clauses)} ->
             let s1 = d' on
             let s2 =
                 clauses |>
@@ -294,7 +294,7 @@ let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
         | Ast.LetExp {right=(_, right)} ->
             d' right
         | Ast.ModQualifierExp (_, {module_=(_, module_); name=(_, name)}) ->
-            let modqual = (module_, name)
+            let modqual : T.ModQualifierRec = {module_=module_; name=name}
             if Set.contains modqual valueDecs then
                 Set.singleton modqual
             else
@@ -431,7 +431,7 @@ let rec findFreeVars (theta : Constraint.ThetaT) (kappa : Constraint.KappaT) (e 
             append2 ([ffv left; ffv right] |> List.unzip)
         | T.CallExp {func=func; args=args} ->
             append2 (List.map ffv (func::args) |> List.unzip)
-        | T.CaseExp {on=on; clauses=clauses} ->
+        | T.MatchExp {on=on; clauses=clauses} ->
             let pats = append2 (List.map (fst >> freeVarsPattern) clauses |> List.unzip)
             let exprs = append2 (List.map (snd >> ffv) clauses |> List.unzip)
             append2 ([ffv on; pats; exprs] |> List.unzip)

@@ -549,7 +549,7 @@ do
             (attempt (pstring "match" >>. ws1) >>. fatalizeAnyError (exprws .>> pstring "{" .>> ws))
             (fatalizeAnyError (many1 (matchClause .>> ws)) |> pos .>> ws .>> pstring "}")
             (fun on clauses ->
-                CaseExp {on=on; clauses=clauses})
+                MatchExp {on=on; clauses=clauses})
     let fieldp = (pos id .>> ws) .>>. (skipString ":=" >>. ws >>. exprws)
     let recordExpr1 =
         pipe2

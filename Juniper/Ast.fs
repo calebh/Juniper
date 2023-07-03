@@ -139,7 +139,7 @@ and ForLoopRec =      { initLoop : PosAdorn<Expr>; loopCondition : PosAdorn<Expr
 and WhileLoopRec =    { condition : PosAdorn<Expr>; body : PosAdorn<Expr> }
 and DoWhileLoopRec =  { condition : PosAdorn<Expr>; body: PosAdorn<Expr> }
 // Pattern matching
-and CaseRec =         { on : PosAdorn<Expr>; clauses : PosAdorn<(PosAdorn<Pattern> * PosAdorn<Expr>) list> }
+and MatchRec =         { on : PosAdorn<Expr>; clauses : PosAdorn<(PosAdorn<Pattern> * PosAdorn<Expr>) list> }
 // Unary operation
 and UnaryOpRec =      { op : PosAdorn<UnaryOps>; exp : PosAdorn<Expr> }
 and RecordAccessRec = { record : PosAdorn<Expr>; fieldName : PosAdorn<string> }
@@ -165,7 +165,7 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | ForLoopExp of ForLoopRec
           | WhileLoopExp of WhileLoopRec
           | DoWhileLoopExp of DoWhileLoopRec
-          | CaseExp of CaseRec
+          | MatchExp of MatchRec
           | UnaryOpExp of UnaryOpRec
           | RecordAccessExp of RecordAccessRec
           | RefRecordAccessExp of RefRecordAccessRec

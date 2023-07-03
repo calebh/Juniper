@@ -513,7 +513,7 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         unindentId() +
         output "})())"
     // Case is used for pattern matching
-    | CaseExp {on=(poso, onTy, on); clauses=clauses} ->
+    | MatchExp {on=(poso, onTy, on); clauses=clauses} ->
         let onVarName = Guid.string()
         let equivalentExpr =
             List.foldBack

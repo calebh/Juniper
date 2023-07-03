@@ -639,3 +639,50 @@ fun sum(lst : list<a, n>) : a where a : num =
 */
 fun average(lst : list<a, n>) : a where a : num =
     sum(lst) / cast(lst.length)
+
+#
+template<typename t, typename clos, typename keyT, int n>
+void partition(list<t, n>& lst, juniper::function<clos, keyT(t)> keyF, uint32_t lo, uint32_t hi) {
+    keyT pivot = keyF(lst.data[hi]);
+    
+    uint32_t i = lo;
+
+    for (uint32_t j = lo; j < (hi - 1); j++) {
+        if (keyF(lst.data[j]) <= pivot) {
+            t tmp = lst.data[i];
+            lst.data[i] = lst.data[j];
+            lst.data[j] = tmp;
+            i++;
+        }
+    }
+
+    i++;
+
+    t tmp = lst.data[i];
+    lst.data[i] = lst.data[hi];
+    lst.data[hi] = tmp;
+
+    return i;
+}
+
+template <typename t, typename clos, typename keyT, int n>
+void quicksort(list<t, n>& lst, juniper::function<clos, keyT(t)> keyF, uint32_t lo, uint32_t hi) {
+    if (lo >= hi || lo < 0) {
+        return;
+    }
+
+    uint32_t p = partition<t, clos, keyT, n>(lst, keyF, lo, hi);
+
+    quicksort(lst, lo, p-1);
+    quicksort(lst, p+1, hi);
+}
+#
+
+fun sort(lst : list<t, n>, key : (clos)(t) -> m) : list<t, n> where m : num = {
+    let mut lstCopy = lst
+    let len = lst.length
+    #
+    quicksort<t, clos, m, n>(lstCopy, key, 0, len - 1);
+    #
+    lstCopy
+}

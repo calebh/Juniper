@@ -48,7 +48,7 @@ and Kind = StarKind
          | IntKind
 
 // A template is associated with a function, record or ADT
-and Template = (string * Kind) list
+and Template = (Choice<TyVar, CapVar>) list
 
 // Use these to apply a template (ex: when calling a function with a template)
 and TemplateApply = Choice<TyExpr, CapacityExpr> list
@@ -58,7 +58,7 @@ and CapacityArithOp = CapAdd | CapSubtract | CapMultiply | CapDivide
 and CapacityUnaryOp = CapNegate
 and CapacityArithOpRec = { left : CapacityExpr; op : CapacityArithOp; right : CapacityExpr }
 and CapacityUnaryOpRec = { op : CapacityUnaryOp; term : CapacityExpr }
-and CapacityExpr = CapacityVar of string
+and CapacityExpr = CapacityVarExpr of CapVar
                  | CapacityOp of CapacityArithOpRec
                  | CapacityUnaryOp of CapacityUnaryOpRec
                  | CapacityConst of int64
@@ -84,11 +84,15 @@ and TyCons = BaseTy of BaseTypes
            | FunTy
            | RefTy
            | TupleTy
+
+and TyVar = TyVar of string
+and CapVar = CapVar of string
+
 and TyExpr = TyCon of TyCons
                     // For TyCon FunTy, the first element is the closure, the second element in the TyExpr list is the return type
                     // For TyCon ArrayTy, the first element is the type of the elements in the array, the second element is the capacity
            | ConApp of TyCons * (Choice<TyExpr, CapacityExpr> list)
-           | TyVar of string
+           | TyVarExpr of TyVar
                           // The (string list) option indicates the ordering for packed records
            | RecordTy of ((string list) option * Map<string, TyExpr>)
            | ClosureTy of Map<string, TyExpr>
@@ -235,7 +239,7 @@ let wrapWithType<'a> t c : TyAdorn<'a> = ((dummyPos, dummyPos), t, c)
 // Turns a capacity expression into a string for debugging (printing error messages)
 let rec capacityString cap =
     match cap with
-    | CapacityVar name -> name
+    | CapacityVarExpr (CapVar name) -> name
     | CapacityOp {left=left; op=op; right=right} ->
         let opStr = match op with
                     | CapAdd -> "+"
@@ -319,7 +323,7 @@ and typeString (ty : TyExpr) : string =
         typeConString con []
     | ConApp (con, args) ->
         typeConString con args
-    | TyVar name ->
+    | TyVarExpr (TyVar name) ->
         sprintf "%s" name
     | RecordTy (Some packed, fields) ->
         sprintf "packed {%s}" (packed |> List.map (fun fieldName -> sprintf "%s : %s" fieldName (Map.find fieldName fields |> typeString)) |> String.concat ", ")
@@ -345,11 +349,10 @@ let schemeString (scheme : TyScheme) : string =
         | Forall (varsQuantified, _, _) ->
             "∀" +
             (varsQuantified |>
-            List.map (fun (varName, kind) ->
-                varName +
-                match kind with
-                | StarKind -> ""
-                | IntKind -> " : int") |>
+            List.map (fun var ->
+                match var with
+                | Choice1Of2 (TyVar varName) -> varName
+                | Choice2Of2 (CapVar varName) -> sprintf "%s : int" varName) |>
             String.concat ", ") + " . "
     let (Forall (_, interfaceConstraints, tau)) = scheme
     let s2 = typeString tau

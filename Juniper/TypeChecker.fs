@@ -17,11 +17,11 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                (menv : Map<string, string*string>)
                (localVars : Set<string>)
                (ienv : Map<string * string, int>)
-               (tyVarMapping : Map<string, T.TyExpr>)
-               (capVarMapping : Map<string, T.CapacityExpr>)
+               (tyVarMapping : Map<TyVar, T.TyExpr>)
+               (capVarMapping : Map<CapVar, T.CapacityExpr>)
                // First bool represents mutability
                (gamma : Map<string, bool * T.TyScheme>)
-               : TyAdorn<T.Expr> * Constraint * Map<string, string> * Map<string, string> =
+               : TyAdorn<T.Expr> * Constraint * Map<TyVar, TyVar> * Map<CapVar, CapVar> =
     let getTypes = List.map T.getType
 
     let convertType' = convertType menv denv dtenv tyVarMapping capVarMapping
@@ -51,7 +51,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                         (p'::ps', c &&& c')
                 match p with
                 | Ast.MatchTuple (_, pats) ->
-                    let innerTaus = List.map freshtyvar pats
+                    let innerTaus = List.map freshtyvarExpr pats
                     let c = tuplety innerTaus =~= (tau, errStr [posp] "Tuple pattern does not match the expression.")
                     let (pats', c') = checkPatterns (List.zip pats innerTaus)
                     ((posp, tau, T.MatchTuple pats'), c &&& c')
@@ -86,7 +86,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                                 (Trivial, tau)
                         ((posp, retTau, T.MatchVar { varName=varName; mutable_=mutable_; typ=tau}), c')
                 | Ast.MatchRecCon (posf, fields) ->
-                    let fieldTaus = List.map freshtyvar fields
+                    let fieldTaus = List.map freshtyvarExpr fields
                     let fieldConstraints =
                         List.zip fieldTaus fields |>
                         List.map
@@ -158,7 +158,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             | Ast.FalseExp (pos, ()) ->
                 adorn posE T.booltype T.FalseExp Trivial
             | Ast.IntExp (pos, num) ->
-                let tyVar = freshtyvar ()
+                let tyVar = freshtyvarExpr ()
                 adorn posE tyVar (T.IntExp num) (InterfaceConstraint (tyVar, IsNum, errStr [pos] "Polymorphic integer literal must be constrained to a numeric type"))
             | Ast.Int8Exp (pos, num) ->
                 adorn posE T.int8type (T.Int8Exp num) Trivial
@@ -206,7 +206,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     let expr' =
                         match freshVars with
                         | [] -> T.VarExp varName
-                        | _ -> T.TemplateApplyExp {func=Choice1Of2 varName; templateArgs=freshVars}
+                        | _ -> T.TemplateApplyExp {func=Choice1Of2 varName; templateArgs=convertTemplateToExpr freshVars}
                     let expr'' =
                         if Set.contains varName localVars then
                             expr'
@@ -223,15 +223,15 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 let (exprs', c) = typesof [array; index] dtenv menv localVars gamma
                 let [array'; index'] = exprs'
                 let [tauA; tauI] = getTypes exprs'
-                let tauElement = freshtyvar ()
-                let arraySize = freshcapvar ()
+                let tauElement = freshtyvarExpr ()
+                let arraySize = freshcapvarExpr ()
                 let tauArray = T.ConApp (T.ArrayTy, [Choice1Of2 tauElement; Choice2Of2 arraySize])
                 let c' = c &&& (tauA =~= (tauArray, errStr [posa] "An array access expression must access a value of an array type")) &&&
                                (InterfaceConstraint (tauI, IsInt, errStr [posi] "Expected index of array access expression to have integer type"))
                 adorn posE tauElement (T.ArrayAccessExp {array=array'; index=index'}) c'
             | Ast.ArrayLitExp (posa, exprs) ->
                 let (exprs', c) = typesof exprs dtenv menv localVars gamma
-                let tauElement = freshtyvar ()
+                let tauElement = freshtyvarExpr ()
                 let c' = List.fold (&&&) c (List.map (flip (T.getType >> (=~=)) (tauElement, errStr [posa] "Expected all elements of array to be of the same type")) exprs')
                 let tauArray = T.ConApp (T.ArrayTy, [Choice1Of2 tauElement; Choice2Of2 (T.CapacityConst (int64 (List.length exprs)))])
                 adorn posE tauArray (T.ArrayLitExp exprs') c'
@@ -266,8 +266,8 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                             | None ->
                                 raise <| TypeError ((errStr [posmq] (sprintf "Unable to find a let declaration named %s in module %s." name module_)).Force())
                         | Ast.ArrayMutation {array=(posa, array); index=(posi, _) as index} ->
-                            let elementTau = freshtyvar ()
-                            let capVar = freshcapvar ()
+                            let elementTau = freshtyvarExpr ()
+                            let capVar = freshcapvarExpr ()
                             let (array', c1) = checkLeft array
                             let (index', c2) = ty index
                             let c' = c1 &&& c2 &&& (InterfaceConstraint (T.getType index', IsInt, errStr [posi] "Array index must be an integer type.")) &&&
@@ -275,14 +275,14 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                             adorn posl elementTau (T.ArrayMutation {array=T.unwrap array'; index=index'}) c'
                         | Ast.RecordMutation {record=(posr, record); fieldName=(posf, fieldName)} ->
                             let (record', c) = checkLeft record
-                            let fieldTau = freshtyvar ()
+                            let fieldTau = freshtyvarExpr ()
                             let c' = c &&& InterfaceConstraint (T.getType record', HasField (fieldName, fieldTau), errStr [posE] (sprintf "Expected the expression to be a record type and have a field named %s" fieldName))
                             adorn posl fieldTau (T.RecordMutation {record=T.unwrap record'; fieldName=fieldName}) c'
                         | Ast.RefRecordMutation {recordRef=(posr, _) as recordRef; fieldName=(posf, fieldName)} ->
                             let (recordRef', c) = ty recordRef
-                            let recordTau = freshtyvar ()
+                            let recordTau = freshtyvarExpr ()
                             let refConstraint = (T.ConApp (T.RefTy, [Choice1Of2 recordTau])) =~= (T.getType recordRef', errStr [posr] "Left hand side of ref record access must be a ref")
-                            let fieldTau = freshtyvar ()
+                            let fieldTau = freshtyvarExpr ()
                             let fieldConstraint = InterfaceConstraint (recordTau, HasField (fieldName, fieldTau), errStr [posE] (sprintf "Expected the expression to be a record ref type and have a field named %s" fieldName))
                             let c' = c &&& refConstraint &&& fieldConstraint
                             adorn posl fieldTau (T.RefRecordMutation {recordRef=recordRef'; fieldName=fieldName}) c'
@@ -300,7 +300,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                                 raise <| TypeError ((errStr [posn] (sprintf "Unable to find variable named %s in the current scope." name)).Force())
                         | Ast.RefMutation ((pose, _) as expr) ->
                             let (expr', c) = ty expr
-                            let tau = freshtyvar ()
+                            let tau = freshtyvarExpr ()
                             let c' = c &&& (T.getType expr' =~= (T.ConApp (T.RefTy, [Choice1Of2 tau]), errStr [pose] "The left hand side of the assignment operation is not a reference, but a dereference operation (*) was used. Are you sure you meant to set a ref cell?"))
                             adorn posl tau (T.RefMutation expr') c'
                     adorn posl retTau left' c
@@ -394,9 +394,9 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             | Ast.CallExp {func=(posf, _) as func; args=(posa, args)} ->
                 let (func', c1) = ty func
                 let (args', c2) = typesof args dtenv menv localVars gamma
-                let closureTau = freshtyvar ()
-                let returnTau = freshtyvar ()
-                let placeholders = List.map freshtyvar args
+                let closureTau = freshtyvarExpr ()
+                let returnTau = freshtyvarExpr ()
+                let placeholders = List.map freshtyvarExpr args
                 let c3 = funty closureTau returnTau placeholders =~= (T.getType func', errStr [posf; posa] "The function being called does not have a function type or the number of parameters passed to the function is incorrect.")
                 let c4 =
                     List.map
@@ -445,7 +445,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     | Some tau ->
                         convertType' tau
                     | None ->
-                        freshtyvar ()
+                        freshtyvarExpr ()
                 let (start', c1) = ty start
                 let (end_', c2) = ty end_
                 let gamma' = Map.add varName (false, T.Forall (emptytemplate, [], tauIterator)) gamma
@@ -477,7 +477,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     arguments |>
                     List.map
                         (fun ((posa, argName), maybeArgTau) ->
-                            let tau = freshtyvar ()
+                            let tau = freshtyvarExpr ()
                             let argConstraint =
                                 match maybeArgTau with
                                 | Some tauConstraint ->
@@ -541,7 +541,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 let expr' =
                     match templateArgs with
                     | [] -> T.ModQualifierExp {module_=module_; name=name}
-                    | _ -> T.TemplateApplyExp {func=Choice2Of2 {module_=module_; name=name}; templateArgs=templateArgs}
+                    | _ -> T.TemplateApplyExp {func=Choice2Of2 {module_=module_; name=name}; templateArgs=convertTemplateToExpr templateArgs}
                 let err = errStr [posmq] "The template arguments to the function do not satisfy the interface constraints."
                 let interfaceConstraints' = interfaceConstraints |> List.map (fun (conTau, con) -> InterfaceConstraint (conTau, con, err)) |> conjoinConstraints
                 adorn posE instance expr' interfaceConstraints'
@@ -551,19 +551,19 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     | Some tau ->
                         convertType' tau
                     | None ->
-                        freshtyvar ()
+                        freshtyvarExpr ()
                 adorn posE tau (T.QuitExp tau) Trivial
             | Ast.RecordAccessExp {record=(posr, _) as record; fieldName=(posf, fieldName)} ->
                 let (record', c') = ty record
-                let tau = freshtyvar ()
+                let tau = freshtyvarExpr ()
                 let fieldConstraint = InterfaceConstraint (T.getType record', HasField (fieldName, tau), errStr [posE] (sprintf "Expected the expression to be a record type and have a field named %s" fieldName))
                 let c'' = c' &&& fieldConstraint
                 adorn posE tau (T.RecordAccessExp {record=record'; fieldName=fieldName}) c''
             | Ast.RefRecordAccessExp {recordRef=(posr, _) as recordRef; fieldName=(posf, fieldName)} ->
                 let (recordRef', c') = ty recordRef
-                let recordTau = freshtyvar ()
+                let recordTau = freshtyvarExpr ()
                 let refConstraint = (T.ConApp (T.RefTy, [Choice1Of2 recordTau])) =~= (T.getType recordRef', errStr [posr] "Left hand side of ref record access must be a ref")
-                let fieldTau = freshtyvar ()
+                let fieldTau = freshtyvarExpr ()
                 let fieldConstraint = InterfaceConstraint (recordTau, HasField (fieldName, fieldTau), errStr [posE] (sprintf "Expected the expression to be a record ref type and have a field named %s" fieldName))
                 let c'' = c' &&& refConstraint &&& fieldConstraint
                 adorn posE fieldTau (T.RefRecordAccessExp {recordRef=recordRef'; fieldName=fieldName}) c''
@@ -664,7 +664,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                         let c3 = InterfaceConstraint (T.getType exp', T.IsNum, errStr [pose] "Negation operator argument must be a number")
                         (T.Negate, c3, T.getType exp')
                     | Ast.Deref ->
-                        let retTau = freshtyvar ()
+                        let retTau = freshtyvarExpr ()
                         let c' = (T.ConApp (T.RefTy, [Choice1Of2 retTau]) =~= (T.getType exp', errStr [pose] "Attempting to dereference an expression with a non-ref type."))
                         (T.Deref, c', retTau)
                 let c' = c1 &&& c2
@@ -683,30 +683,45 @@ let checkUnderscores typ =
 
 // Check for unknown type variables on the right hand side
 let checkUnknownVars menv denv (maybeTemplate : Ast.Template option) (kind : T.Kind) typ =
-    let varsFun =
-        match kind with
-        | T.StarKind -> tyVars
-        | T.IntKind -> capVars
-    match varsFun menv denv T.StarKind (A.unwrap typ) with
-    | [] -> ()
-    | tyVarsRhs ->
-        let tyVarsLhs =
-            match maybeTemplate with
-            | Some (_, templateVars) ->
-                templateVars |> List.map (fst >> A.unwrap) |> Set.ofList
-            | None ->
-                Set.empty
-        tyVarsRhs |>
-        List.iter
-            (fun (posr, rhsVarName) ->
-                if Set.contains rhsVarName tyVarsLhs then
-                    ()
-                else
-                    let errMsg =
-                        match kind with
-                        | T.StarKind -> sprintf "Unknown type variable '%s' on right hand side of the type declaration. Did you forget to add this variable to the template on the left hand side?" rhsVarName
-                        | T.IntKind -> sprintf "Unknown capacity variable '%s' on right hand side of the type declaration. Did you forget to add this variable to the template on the left hand side?" rhsVarName
-                    raise <| SemanticError ((errStr [posr] errMsg).Force()))
+    match kind with
+    | T.StarKind ->
+        match tyVars menv denv T.StarKind (A.unwrap typ) with
+        | [] -> ()
+        | tyVarsRhs ->
+            let tyVarsLhs =
+                match maybeTemplate with
+                | Some (_, templateVars) ->
+                    templateVars |> List.map (fst >> A.unwrap >> T.TyVar) |> Set.ofList
+                | None ->
+                    Set.empty
+            tyVarsRhs |>
+            List.iter
+                (fun (posr, rhsVar) ->
+                    if Set.contains rhsVar tyVarsLhs then
+                        ()
+                    else
+                        let (T.TyVar rhsVarName) = rhsVar
+                        let errMsg = sprintf "Unknown type variable '%s' on right hand side of the type declaration. Did you forget to add this variable to the template on the left hand side?" rhsVarName
+                        raise <| SemanticError ((errStr [posr] errMsg).Force()))
+    | T.IntKind ->
+        match capVars menv denv T.StarKind (A.unwrap typ) with
+        | [] -> ()
+        | capVarsRhs ->
+            let capVarsLhs =
+                match maybeTemplate with
+                | Some (_, templateVars) ->
+                    templateVars |> List.map (fst >> A.unwrap >> T.CapVar) |> Set.ofList
+                | None ->
+                    Set.empty
+            capVarsRhs |>
+            List.iter
+                (fun (posr, rhsVar) ->
+                    if Set.contains rhsVar capVarsLhs then
+                        ()
+                    else
+                        let (T.CapVar rhsVarName) = rhsVar
+                        let errMsg = sprintf "Unknown capacity variable '%s' on right hand side of the type declaration. Did you forget to add this variable to the template on the left hand side?" rhsVarName
+                        raise <| SemanticError ((errStr [posr] errMsg).Force()))
 
 // This function may seem insanely complicated, but really what it's doing
 // is quite simple. To understand this function, I suggest understanding
@@ -819,22 +834,6 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
             checkUnderscores typ
             checkUnknownVars menv denv maybeTemplate T.StarKind typ
             checkUnknownVars menv denv maybeTemplate T.IntKind typ
-            match tyVars menv denv T.StarKind (A.unwrap typ) with
-            | [] -> ()
-            | tyVarsRhs ->
-                let tyVarsLhs =
-                    match maybeTemplate with
-                    | Some (_, templateVars) ->
-                        templateVars |> List.map (fst >> A.unwrap) |> Set.ofList
-                    | None ->
-                        Set.empty
-                tyVarsRhs |>
-                List.iter
-                    (fun (posr, rhsVarName) ->
-                        if Set.contains rhsVarName tyVarsLhs then
-                            ()
-                        else
-                            raise <| SemanticError ((errStr [posr] (sprintf "Unknown type variable %s on right hand side of the type alias. Did you forget to add this variable to the template on the left hand side?" rhsVarName)).Force()))
             let (templateVars', (tyVarMapping, capVarMapping)) =
                 match maybeTemplate with
                 | Some (_, templateVars) ->
@@ -842,13 +841,13 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                         (fun (accumTyVarMapping, accumCapVarMapping) ((_, templateVarName), kind) ->
                             match kind with
                             | A.StarKind _ ->
-                                let (T.TyVar freshName) as t' = freshtyvar ()
-                                let accumTyVarMapping' = Map.add templateVarName t' accumTyVarMapping
-                                ((freshName, T.StarKind), (accumTyVarMapping', accumCapVarMapping))
+                                let t' = freshtyvar ()
+                                let accumTyVarMapping' = Map.add (T.TyVar templateVarName) (T.TyVarExpr t') accumTyVarMapping
+                                (Choice1Of2 t', (accumTyVarMapping', accumCapVarMapping))
                             | A.IntKind _ ->
-                                let (T.CapacityVar freshName) as c' = freshcapvar ()
-                                let accumCapVarMapping' = Map.add templateVarName c' accumCapVarMapping
-                                ((freshName, T.IntKind), (accumTyVarMapping, accumCapVarMapping')))
+                                let c' = freshcapvar ()
+                                let accumCapVarMapping' = Map.add (T.CapVar templateVarName) (T.CapacityVarExpr c') accumCapVarMapping
+                                (Choice2Of2 c', (accumTyVarMapping, accumCapVarMapping')))
                         (Map.empty, Map.empty)
                         templateVars
                 | None ->
@@ -865,8 +864,8 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                     templateVars |>
                     List.map
                         (function
-                        | ((_, varName), A.StarKind _) -> (varName, T.StarKind)
-                        | ((_, varName), A.IntKind _) -> (varName, T.IntKind))
+                        | ((_, varName), A.StarKind _) -> Choice1Of2 (T.TyVar varName)
+                        | ((_, varName), A.IntKind _) -> Choice2Of2 (T.CapVar varName))
             let udecty = T.UnionDecTy (template', {module_=module_; name=name})
             // Generate the type of the algebraic datatype
             let retTyBase = T.ModuleQualifierTy {module_=module_; name=name}
@@ -878,8 +877,8 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                         templateVars |>
                         List.map
                             (function
-                            | ((_, varName), A.StarKind _) -> Choice1Of2 (T.TyVar varName)
-                            | ((_, varName), A.IntKind _) -> Choice2Of2 (T.CapacityVar varName))
+                            | ((_, varName), A.StarKind _) -> Choice1Of2 (T.TyVarExpr (T.TyVar varName))
+                            | ((_, varName), A.IntKind _) -> Choice2Of2 (T.CapacityVarExpr (T.CapVar varName)))
                     T.ConApp (retTyBase, templateVars')
             // Convert all value constructors into function declarations
             // All value constructors have empty closures
@@ -942,7 +941,8 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                     // Capacities are local variables as well!
                     let convertType' = convertType menv denv dtenv0 Map.empty Map.empty
                     let argumentsTypes = arguments |> List.map snd |> List.filter Option.isSome |> List.map (Option.get >> convertType')
-                    let a2 = argumentsTypes |> List.map (Constraint.freeVars >> snd) |> Set.unionMany
+                    let a2 = argumentsTypes |> List.map (Constraint.freeVars >> snd) |> Set.unionMany |> Set.map (fun (T.CapVar capName) -> capName)
+                    // Union on the named capacity types into localVars
                     let localVars = Set.union a1 a2
                     decRefs valueDecsSet menv localVars expr
                 | Ast.LetDec {right=(_, expr)} ->
@@ -1188,7 +1188,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                     // Create a fresh type variable for every function in the SCC. This will
                     // represent the type of each function. Note that this also means that
                     // polymorphic recursion is not supported
-                    let alphas = List.map freshtyvar scc
+                    let alphas = List.map freshtyvarExpr scc
                     // Create a scheme for each fresh type variable
                     let alphaSchemes = List.map (fun a -> T.Forall (emptytemplate, [], a)) alphas
                     // Add all of these type schemes to the global gamma
@@ -1231,12 +1231,12 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                         (fun (_, maybeTy) ->
                                             match maybeTy with
                                             | Some ((post, _) as ty) -> convertType' ty
-                                            | None -> freshtyvar ())
+                                            | None -> freshtyvarExpr ())
                                 
                                 let retTy =
                                     match maybeReturnTy with
                                     | Some ty -> convertType' ty
-                                    | None -> freshtyvar ()
+                                    | None -> freshtyvarExpr ()
 
                                 let (manyFreeTyVars, manyFreeCapVars) = (retTy::argTys) |> List.map Constraint.freeVars |> List.unzip
                                 let freeTyVars = Set.unionMany manyFreeTyVars |> List.ofSeq
@@ -1245,8 +1245,8 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 // Give fresh names to all type variables and capacity variables used in the arguments
                                 // this will remove any user defined names, which could collide if the same names are used
                                 // across multiple functions
-                                let freshTyVars = freeTyVars |> List.map freshtyvar
-                                let freshCapVars = freeCapVars |> List.map freshcapvar
+                                let freshTyVars = freeTyVars |> List.map freshtyvarExpr
+                                let freshCapVars = freeCapVars |> List.map freshcapvarExpr
 
                                 let tyVarMapping = List.zip freeTyVars freshTyVars |> Map.ofList
                                 let capVarMapping = List.zip freeCapVars freshCapVars |> Map.ofList
@@ -1285,7 +1285,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 let userCapVars = userCapVarsArgs @ userCapVarsRet
 
                                 let userTyVarsNames = userTyVars |> List.map A.unwrap |> Set.ofList
-                                let userCapVarsNames = userCapVars |> List.map A.unwrap |> Set.ofList
+                                let userCapVarsNames = userCapVars |> (List.map (A.unwrap >> (fun (T.CapVar capName) -> capName))) |> Set.ofList
 
                                 // userTyVarMapping maps user defined type variables to the fresh variable
                                 let userTyVarMapping =
@@ -1306,7 +1306,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 let terminalCaps =
                                     userCapVarMapping |>
                                     Map.values |>
-                                    Seq.map (A.unwrap >> (fun (T.CapacityVar name) -> name)) |>
+                                    Seq.map (A.unwrap >> (fun (T.CapacityVarExpr name) -> name)) |>
                                     List.ofSeq
 
                                 // Replace all user defined names in the argument types with fresh variables
@@ -1333,8 +1333,8 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 // Finally typecheck the body
                                 let (body', c1, freshTVarMap, freshCVarMap) = typeof body denv tempdtenv menv localVars ienv tyVarMapping capVarMapping tempGamma''
 
-                                let freshTyVarNames = freshTyVars |> List.map (fun (TyVar name) -> name)
-                                let freshCapVarNames = freshCapVars |> List.map (fun (CapacityVar name) -> name)
+                                let freshTyVarNames = freshTyVars |> List.map (fun (TyVarExpr name) -> name)
+                                let freshCapVarNames = freshCapVars |> List.map (fun (CapacityVarExpr name) -> name)
                                 let freshTVarMap' =
                                     Map.merge
                                         freshTVarMap
@@ -1382,9 +1382,9 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                             (fun (accumDtenv', accumGlobalGamma') ((module_, name) as modqual, userTyVarMapping, userCapVarMapping, argNames, argTys, retTy, body') ->
                                 userTyVarMapping |>
                                 Map.iter
-                                    (fun userGivenName (post, freshVar) ->
+                                    (fun (TyVar userGivenName) (post, freshVar) ->
                                         match tycapsubst theta kappa freshVar with
-                                        | T.TyVar _ ->
+                                        | T.TyVarExpr _ ->
                                             ()
                                         | x ->
                                             let [sx] = userTypeString' [x]
@@ -1392,9 +1392,9 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
 
                                 userCapVarMapping |>
                                 Map.iter
-                                    (fun userGivenName (posc, freshCapVar) ->
+                                    (fun (CapVar userGivenName) (posc, freshCapVar) ->
                                         match simplifyCap (capsubst kappa freshCapVar) with
-                                        | T.CapacityVar _ ->
+                                        | T.CapacityVarExpr _ ->
                                             ()
                                         | x ->
                                             raise <| TypeError ((errStr [posc] (sprintf "The capacity parameter '%s' was inferred to be equivalent to the non-capacity variable '%s'" userGivenName (T.capacityString x))).Force()))
@@ -1417,9 +1417,9 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 // polymorphism, we would like to take into account that fixing a type for 'a also fixes
                                 // its field type. In functional dependency terms, 'a -> 'b
 
-                                // The return type of expandFunctionalDependency is (Set<string>*Set<string>), where the first
+                                // The return type of expandFunctionalDependency is (Set<TyVar>*Set<CapVar>), where the first
                                 // set is the expanded type variables and the second is capacity variables
-                                let rec expandFunctionalDependency (tyVar: string) : Set<string>*Set<string> =
+                                let rec expandFunctionalDependency (tyVar: TyVar) : Set<TyVar>*Set<CapVar> =
                                     match Map.tryFind tyVar interfaceConstraints with
                                     | Some constraints ->
                                         let (extraTyVars, extraCapVars) =
@@ -1475,13 +1475,13 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 let tyUsings =
                                     Map.toList userTyVarMapping |>
                                     List.map
-                                        (fun (originalTyVar, (post, newTyVar)) ->
+                                        (fun ((T.TyVar originalTyVar), (post, newTyVar)) ->
                                             let resolvedTy = tycapsubst theta kappa newTyVar
                                             (post, T.unittype, T.InternalUsing {varName = originalTyVar; typ=resolvedTy}))
                                 let capUsings =
                                     Map.toList userCapVarMapping |>
                                     List.map
-                                        (fun (originalCapVar, (posc, newCapVar)) ->
+                                        (fun ((T.CapVar originalCapVar), (posc, newCapVar)) ->
                                             let resolvedCap = simplifyCap (capsubst kappa newCapVar)
                                             (posc, T.int32type, T.InternalUsingCap {varName=originalCapVar; cap=resolvedCap}))
                                 let collectedUsings = tyUsings @ capUsings

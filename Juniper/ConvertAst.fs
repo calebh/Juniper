@@ -13,25 +13,25 @@ let convertTemplate ((post, templateVars) : Ast.Template) : T.Template =
         templateVars |>
         List.map
             (function
-            | ((_, varName), A.StarKind _) -> (varName, T.StarKind)
-            | ((_, varName), A.IntKind _) -> (varName, T.IntKind))
+            | ((_, varName), A.StarKind _) -> Choice1Of2 (T.TyVar varName)
+            | ((_, varName), A.IntKind _) -> Choice2Of2 (T.CapVar varName))
     else
         raise <| SemanticError ((errStr [post] "Template contains duplicate named arguments.").Force())
 
-let convertTemplateToChoice templateVars =
+let convertTemplateToExpr templateVars =
     templateVars |>
     List.map
         (function
-        | (varName, T.StarKind) -> Choice1Of2 (T.TyVar varName)
-        | (varName, T.IntKind) -> Choice2Of2 (T.CapacityVar varName))
+        | Choice1Of2 tyVar -> Choice1Of2 (T.TyVarExpr tyVar)
+        | Choice2Of2 capVar -> Choice2Of2 (T.CapacityVarExpr capVar))
 
-let rec convertCapacity capVarMapping (cap : A.PosAdorn<Ast.TyExpr>) : T.CapacityExpr =
+let rec convertCapacity (capVarMapping : Map<T.CapVar, T.CapacityExpr>) (cap : A.PosAdorn<Ast.TyExpr>) : T.CapacityExpr =
     let convertCapacity = convertCapacity capVarMapping
     match A.unwrap cap with
     | A.CapacityConst (_, value) ->
         T.CapacityConst value
     | A.NameTy (_, name) ->
-        Map.findDefault name (T.CapacityVar name) capVarMapping
+        Map.findDefault (T.CapVar name) (T.CapacityVarExpr (T.CapVar name)) capVarMapping
     | A.CapacityOp {left=left; op=(_, op); right=right} ->
         let left' = convertCapacity left
         let right' = convertCapacity right
@@ -70,10 +70,10 @@ let rec removeAliases (dtenv : Map<string * string, T.DeclarationTy>) (pos : FPa
                 List.zip templateVars args |>
                 List.map
                     (function
-                    | ((templateVarName, T.StarKind), Choice1Of2 arg) ->
-                        Choice1Of2 (templateVarName, arg)
-                    | ((templateCapVarName, T.IntKind), Choice2Of2 capArg) ->
-                        Choice2Of2 (templateCapVarName, capArg)
+                    | (Choice1Of2 templateVar, Choice1Of2 arg) ->
+                        Choice1Of2 (templateVar, arg)
+                    | (Choice2Of2 templateCapVar, Choice2Of2 capArg) ->
+                        Choice2Of2 (templateCapVar, capArg)
                     | _ ->
                         failwith "Internal compiler error when expanding type alias. The kinds of the declaration and the arguments do not match.")
             let (typeMappings, capMappings) = Choice.splitChoice2 varMappings
@@ -103,7 +103,7 @@ let rec removeAliases (dtenv : Map<string * string, T.DeclarationTy>) (pos : FPa
 
 // The mapping parameter is used to convert explicitly given type variable parameter
 // into a non-conflicting form
-let convertType menv denv (dtenv : Map<string * string, T.DeclarationTy>) (tyVarMapping : Map<string, T.TyExpr>) (capVarMapping : Map<string, T.CapacityExpr>) (tau : Ast.PosAdorn<Ast.TyExpr>) : T.TyExpr =
+let convertType menv denv (dtenv : Map<string * string, T.DeclarationTy>) (tyVarMapping : Map<T.TyVar, T.TyExpr>) (capVarMapping : Map<T.CapVar, T.CapacityExpr>) (tau : Ast.PosAdorn<Ast.TyExpr>) : T.TyExpr =
     let rec convertType' (tau : Ast.PosAdorn<Ast.TyExpr>) : T.TyExpr =
         let ct = convertType'
         let convertCapacity = convertCapacity capVarMapping
@@ -156,7 +156,7 @@ let convertType menv denv (dtenv : Map<string * string, T.DeclarationTy>) (tyVar
         | Ast.NameTy (pos, name) ->
             match AstAnalysis.resolveUserTyName menv denv name with
             | Some (module_, name) -> T.TyCon <| T.ModuleQualifierTy {module_=module_; name=name}
-            | None -> Map.findDefault name (T.TyVar name) tyVarMapping
+            | None -> Map.findDefault (T.TyVar name) (T.TyVarExpr (T.TyVar name)) tyVarMapping
         | Ast.RefTy tau ->
             T.refty (ct tau)
         | Ast.TupleTy taus ->
@@ -177,7 +177,7 @@ let convertType menv denv (dtenv : Map<string * string, T.DeclarationTy>) (tyVar
             let fieldMap = List.zip fieldNames fieldTaus |> Map.ofList
             T.ClosureTy fieldMap
         | Ast.UnderscoreTy _ ->
-            freshtyvar ()
+            freshtyvarExpr ()
         | (A.CapacityConst _ | A.CapacityOp _ | A.CapacityUnaryOp _) ->
             raise <| SemanticError ((errStr [A.getPos tau] "Expecting a type expression but found a capacity expression instead.").Force())
                 

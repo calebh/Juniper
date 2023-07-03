@@ -179,8 +179,8 @@ let rec getVars (searchKind : T.Kind) (menv : Map<string, string*string>) (denv 
     | Ast.CapacityConst _ ->
         []
 
-let capVars = getVars T.IntKind
-let tyVars = getVars T.StarKind
+let capVars menv denv tyKind ty = getVars T.IntKind menv denv tyKind ty |> List.map (fun (pos, name) -> (pos, T.CapVar name))
+let tyVars menv denv tyKind ty = getVars T.StarKind menv denv tyKind ty |> List.map (fun (pos, name) -> (pos, T.TyVar name))
 
 // Find all top level function and let declarations (value declarations)
 // that some expression is referring to
@@ -363,7 +363,7 @@ let decRefs valueDecs (menv : Map<string, string*string>) localVars e =
             Set.empty
     d localVars e
 
-let rec findFreeVars (theta : Map<string, T.TyExpr>) (kappa : Map<string, T.CapacityExpr>) (e : T.TyAdorn<T.Expr>) : (Ast.PosAdorn<string> list) * (Ast.PosAdorn<string> list) =
+let rec findFreeVars (theta : Constraint.ThetaT) (kappa : Constraint.KappaT) (e : T.TyAdorn<T.Expr>) : (Ast.PosAdorn<T.TyVar> list) * (Ast.PosAdorn<T.CapVar> list) =
     let ffv = findFreeVars theta kappa
 
     let append2 (xs, ys) =

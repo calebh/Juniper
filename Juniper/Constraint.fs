@@ -25,6 +25,9 @@ type ConstraintCap = EqualCap of CapacityExpr * CapacityExpr * ErrorMessage
                    | AndCap of ConstraintCap * ConstraintCap
                    | TrivialCap
 
+type ThetaT = Map<TyVar, TyExpr>
+type KappaT = Map<CapVar, CapacityExpr>
+
 let (=~=) t1 (t2, err) =
     //printfn "%s =~= %s" (typeString t1) (typeString t2)
     Equal (t1, t2, err)
@@ -42,27 +45,27 @@ let idSubst = Map.empty
 
 let bind = Map.add
 
-let rec varsubstCap kappa a =
+let rec varsubstCap (kappa : KappaT) (a : CapVar) =
     match Map.tryFind a kappa with
-    | None -> CapacityVar a
+    | None -> CapacityVarExpr a
     | Some x -> capsubst kappa x
 
 and capsubst kappa =
     function
-    | (CapacityVar a) -> varsubstCap kappa a
+    | (CapacityVarExpr a) -> varsubstCap kappa a
     | (CapacityOp {op=op; left=left; right=right}) -> CapacityOp {op=op; left=capsubst kappa left; right=capsubst kappa right}
     | (CapacityConst x) -> CapacityConst x
     | (CapacityUnaryOp {op=op; term=term}) -> CapacityUnaryOp {op=op; term=capsubst kappa term}
 
-let rec varsubst theta kappa a =
+let rec varsubst (theta : ThetaT) (kappa : KappaT) (a : TyVar) =
     match Map.tryFind a theta with
-    | None -> TyVar a
+    | None -> TyVarExpr a
     | Some x -> tycapsubst theta kappa x
 
-and tycapsubst theta kappa =
+and tycapsubst (theta : ThetaT) (kappa : KappaT) =
     let rec subst =
         function
-        | (TyVar a) -> varsubst theta kappa a
+        | (TyVarExpr a) -> varsubst theta kappa a
         | (TyCon c) -> TyCon c
         | (ConApp (con, taus)) ->
             let taus' =
@@ -160,11 +163,17 @@ let freshtyvar _ =
     n := !n + 1
     ret
 
+let freshtyvarExpr _ =
+    TyVarExpr (freshtyvar ())
+
 let n2 = ref 1
 let freshcapvar _ =
-    let ret = CapacityVar (sprintf "c%i" !n2)
+    let ret = CapVar (sprintf "c%i" !n2)
     n2 := !n2 + 1
     ret
+
+let freshcapvarExpr _ =
+    CapacityVarExpr (freshcapvar ())
 
 // f(g(x)) = f o g
 // x --> g --> f -->
@@ -175,12 +184,12 @@ let composeTheta f g =
         Map.add
             x
             (match Map.tryFind x g with
-            | Some (TyVar x') ->
+            | Some (TyVarExpr x') ->
                 match Map.tryFind x' f with
                 | Some f_of_g_of_x ->
                     f_of_g_of_x
                 | None ->
-                    TyVar x'
+                    TyVarExpr x'
             | Some g_of_x ->
                 g_of_x
             | None ->
@@ -188,7 +197,7 @@ let composeTheta f g =
                 | Some f_of_x ->
                     f_of_x
                 | None ->
-                    TyVar x)
+                    TyVarExpr x)
     ) Map.empty
 
 let composeKappa f g =
@@ -198,12 +207,12 @@ let composeKappa f g =
         Map.add
             x
             (match Map.tryFind x g with
-            | Some (CapacityVar x') ->
+            | Some (CapacityVarExpr x') ->
                 match Map.tryFind x' f with
                 | Some f_of_g_of_x ->
                     f_of_g_of_x
                 | None ->
-                    CapacityVar x'
+                    CapacityVarExpr x'
             | Some g_of_x ->
                 g_of_x
             | None ->
@@ -211,12 +220,12 @@ let composeKappa f g =
                 | Some f_of_x ->
                     f_of_x
                 | None ->
-                    CapacityVar x)
+                    CapacityVarExpr x)
     ) Map.empty
 
 let rec freeCapVars =
     function
-    | CapacityVar name -> Set.singleton name
+    | CapacityVarExpr name -> Set.singleton name
     | CapacityOp {left=left; right=right} -> Set.union (freeCapVars left) (freeCapVars right)
     | CapacityConst _ -> Set.empty
     | CapacityUnaryOp {term=term} -> freeCapVars term
@@ -224,7 +233,7 @@ let rec freeCapVars =
 let rec freeVars t =
     let rec freeTyVars =
         function 
-        | TyVar v -> (Set.singleton v, Set.empty)
+        | TyVarExpr v -> (Set.singleton v, Set.empty)
         | TyCon _ -> (Set.empty, Set.empty)
         | ConApp (_, tys) ->
             tys |>
@@ -251,7 +260,7 @@ let freeTyVars t =
 
 let (|--->) a tau =
     match tau with
-    | TyVar a' -> if a = a' then idSubst else bind a tau emptyEnv
+    | TyVarExpr a' -> if a = a' then idSubst else bind a tau emptyEnv
     | _ ->
         if Set.contains a (freeTyVars tau) then
             failwith "non-idemptotent substitution"
@@ -260,7 +269,7 @@ let (|--->) a tau =
 
 let (|-%->) a cap =
     match cap with
-    | CapacityVar a' -> if a = a' then idSubst else bind a cap emptyEnv
+    | CapacityVarExpr a' -> if a = a' then idSubst else bind a cap emptyEnv
     | _ ->
         if Set.contains a (freeCapVars cap) then
             failwith "non-idemptotent capacity substitution"
@@ -275,19 +284,17 @@ let freshInstance (Forall (quantifiedVars, constraints, tau)) =
     let (freshVars, (theta, kappa, freshTVarMap, freshCVarMap)) =
         quantifiedVars |>
         List.mapFold
-            (fun (accumTheta, accumKappa, accumFreshTVarMap, accumFreshCVarMap) (varName, kind) ->
-                match kind with
-                | StarKind ->
+            (fun (accumTheta, accumKappa, accumFreshTVarMap, accumFreshCVarMap) varInfo ->
+                match varInfo with
+                | Choice1Of2 tyVar ->
                     let freshVar = freshtyvar ()
-                    let (TyVar freshVarName) = freshVar
-                    let accumTheta' = Map.add varName freshVar accumTheta
-                    let accumFreshTVarMap' = Map.add freshVarName varName accumFreshTVarMap
+                    let accumTheta' = composeTheta accumTheta (tyVar |---> (TyVarExpr freshVar))
+                    let accumFreshTVarMap' = Map.add freshVar tyVar accumFreshTVarMap
                     (Choice1Of2 freshVar, (accumTheta', accumKappa, accumFreshTVarMap', accumFreshCVarMap))
-                | IntKind ->
+                | Choice2Of2 capVar ->
                     let freshVar = freshcapvar ()
-                    let (CapacityVar freshVarName) = freshVar
-                    let accumKappa' = Map.add varName freshVar accumKappa
-                    let accumFreshCVarMap' = Map.add freshVarName varName accumFreshCVarMap
+                    let accumKappa' = composeKappa accumKappa (capVar |-%-> CapacityVarExpr freshVar)
+                    let accumFreshCVarMap' = Map.add freshVar capVar accumFreshCVarMap
                     (Choice2Of2 freshVar, (accumTheta, accumKappa', accumFreshTVarMap, accumFreshCVarMap')))
             (Map.empty, Map.empty, Map.empty, Map.empty)
     let constraints' = constraints |> List.map (fun (constrTau, conType) -> (tycapsubst theta kappa constrTau, constraintsubst theta kappa conType))
@@ -300,7 +307,7 @@ let instantiateRecord (bound, caps, fields) actuals capActuals =
     fields |> Map.map (fun (fieldName : string) tau -> tycapsubst substitutions capSubstitutions tau)
 
 let freshInstanceRecord (bound, caps, fields) =
-    instantiateRecord (bound, caps, fields) (List.map freshtyvar bound) (List.map freshcapvar caps)
+    instantiateRecord (bound, caps, fields) (List.map freshtyvarExpr bound) (List.map freshcapvarExpr caps)
 
 (*
 let canonicalize (Forall (bound, ty)) =
@@ -326,7 +333,7 @@ let canonicalize (Forall (bound, ty)) =
     Forall (newBound, tysubst (Map.ofList (List.zip bound (List.map TyVar newBound))) ty)
 *)
 
-let generalize (interfaceConstraints : Map<string, (ConstraintType * ErrorMessage) list>) tau =
+let generalize (interfaceConstraints : Map<TyVar, (ConstraintType * ErrorMessage) list>) tau =
     let (t, c) = freeVars tau
     // Filter out irrelevant or superflous interface constraints
     let interfaceConstraints' =
@@ -336,16 +343,16 @@ let generalize (interfaceConstraints : Map<string, (ConstraintType * ErrorMessag
                 match Map.tryFind tau interfaceConstraints with
                 | Some constraints ->
                     constraints |>
-                    List.map (fun (constTyp, _) -> (TyVar tau, constTyp))
+                    List.map (fun (constTyp, _) -> (TyVarExpr tau, constTyp))
                 | None -> []) |>
         Seq.concat |>
         List.ofSeq
-    let t' = t |> List.ofSeq |> List.map (fun tyVarName -> (tyVarName, StarKind))
-    let c' = c |> List.ofSeq |> List.map (fun capVarName -> (capVarName, IntKind))
+    let t' = t |> List.ofSeq |> List.map (fun tyVar -> Choice1Of2 tyVar)
+    let c' = c |> List.ofSeq |> List.map (fun capVar -> Choice2Of2 capVar)
     Forall (t' @ c', interfaceConstraints', tau)
 
 let solveTyvarEq a tau =
-    if eqType (TyVar a) tau then
+    if eqType (TyVarExpr a) tau then
         Some idSubst
     elif Set.contains a (freeTyVars tau) then
         None // error
@@ -353,7 +360,7 @@ let solveTyvarEq a tau =
         a |---> tau |> Some
 
 let solveCapvarEq a cap =
-    if eqCap (CapacityVar a) cap then
+    if eqCap (CapacityVarExpr a) cap then
         Some idSubst
     elif Set.contains a (freeCapVars cap) then
         None
@@ -428,7 +435,7 @@ let rec symbolismMathObjToCapExpr (m : Symbolism.MathObject) =
     | :? Symbolism.Integer as i ->
         CapacityConst (int64(i.``val``))
     | :? Symbolism.Symbol as sym ->
-        CapacityVar (sym.name)
+        CapacityVarExpr (CapVar sym.name)
     | :? Symbolism.Power as pwr ->
         let (numerator, denominator) =
             match symbolismMathObjToCapExpr (pwr.exp) with
@@ -446,11 +453,11 @@ let rec symbolismMathObjToCapExpr (m : Symbolism.MathObject) =
 
 let rec simplifyCap (cap : CapacityExpr) : CapacityExpr =
     let varNames = cap |> freeCapVars |> List.ofSeq
-    let varSymbols = varNames |> List.map (fun varName -> new Symbolism.Symbol(varName))
+    let varSymbols = varNames |> List.map (fun (CapVar varName) -> new Symbolism.Symbol(varName))
     let namesToSymbol = List.zip varNames varSymbols |> Map.ofList
     let rec internalSimplify (cap : CapacityExpr) =
         match cap with
-        | CapacityVar v ->
+        | CapacityVarExpr v ->
             ((Map.find v namesToSymbol) :> Symbolism.MathObject)
         | CapacityOp {left=left; op=op; right=right} ->
             let left' = internalSimplify left
@@ -474,7 +481,7 @@ let rec simplifyCap (cap : CapacityExpr) : CapacityExpr =
 
 let rec capacityExprContainsVar varName expr =
     match expr with
-    | CapacityVar v ->
+    | CapacityVarExpr v ->
         v = varName
     | CapacityOp {left=left; right=right} ->
         (capacityExprContainsVar varName left) || (capacityExprContainsVar varName right)
@@ -483,7 +490,7 @@ let rec capacityExprContainsVar varName expr =
     | CapacityConst _ ->
         false
 
-let solveCap (con : ConstraintCap) (terminalCaps : string list) : Map<string, CapacityExpr> =
+let solveCap (con : ConstraintCap) (terminalCaps : CapVar list) : KappaT =
     let con' = constraintCapTreeToList con
     let varNamesSet = con' |> List.map (fun (EqualCap (left, right, _)) -> Set.union (freeCapVars left) (freeCapVars right)) |> Set.unionMany
     let terminalCapsSet = Set.ofList terminalCaps
@@ -491,11 +498,11 @@ let solveCap (con : ConstraintCap) (terminalCaps : string list) : Map<string, Ca
     let varNames = List.append (List.ofSeq (Set.difference varNamesSet terminalCapsSet)) (List.ofSeq (Set.intersect varNamesSet terminalCapsSet))
     let relevantEquations varName =
         con' |> List.filter (fun (EqualCap (left, right, _)) -> (capacityExprContainsVar varName left) || (capacityExprContainsVar varName right))
-    let varSymbols = varNames |> List.map (fun varName -> new Symbolism.Symbol(varName))
+    let varSymbols = varNames |> List.map (fun (CapVar varName) -> new Symbolism.Symbol(varName))
     let namesToSymbol = List.zip varNames varSymbols |> Map.ofList
     let rec capExprToSymbolismExpr cap : Symbolism.MathObject =
         match cap with
-        | CapacityVar v ->
+        | CapacityVarExpr v ->
             ((Map.find v namesToSymbol) :> Symbolism.MathObject)
         | CapacityOp {left=left; op=op; right=right} ->
             let left' = capExprToSymbolismExpr left
@@ -541,7 +548,7 @@ let solveCap (con : ConstraintCap) (terminalCaps : string list) : Map<string, Ca
     varSymbols |>
     List.fold
         (fun (env, symbolsSolvedSoFar) sym ->
-            let relevantErrors = lazy (relevantEquations sym.name |> List.map (fun (EqualCap (left, right, err)) -> err.Force()) |> List.concat)
+            let relevantErrors = lazy (relevantEquations (CapVar sym.name) |> List.map (fun (EqualCap (left, right, err)) -> err.Force()) |> List.concat)
             // Todo: try catch for EliminateVariables and IsolateVariable
             try
                 let eliminatedSystem = symbolismEq.EliminateVariables(symbolsSolvedSoFar |> Array.ofList)
@@ -576,7 +583,7 @@ let solveCap (con : ConstraintCap) (terminalCaps : string list) : Map<string, Ca
                         | Some solution ->
                             try
                                 let solutionCap = symbolismMathObjToCapExpr solution
-                                let env' = Map.add sym.name solutionCap env
+                                let env' = Map.add (CapVar sym.name) solutionCap env
                                 (env', sym::symbolsSolvedSoFar)
                             with
                             | :? EquationConversionError ->
@@ -629,7 +636,10 @@ let rec constraintTreeToList con =
     | con ->
         [con]
 
-let findDuplicates (freshTVarMap : Map<string, string>) (freshCVarMap : Map<string, string>) taus  =
+// This function is used to find user named variables with duplicate names that map to different
+// fresh variables. Suppose function A uses a type variable t, and function B uses a type variable t.
+// These variables have duplicate names, but represent different type variables
+let findDuplicates (freshTVarMap : Map<TyVar, TyVar>) (freshCVarMap : Map<CapVar, CapVar>) taus  =
     let (freeTsList, freeCsList) = taus |> List.map freeVars |> List.unzip
     let freeTs = freeTsList |> Set.unionMany |> List.ofSeq
     let freeCs = freeCsList |> Set.unionMany |> List.ofSeq
@@ -646,22 +656,28 @@ let findDuplicates (freshTVarMap : Map<string, string>) (freshCVarMap : Map<stri
         Set.ofList
     (dups freeTs freshTVarMap, dups freeCs freshCVarMap)
 
-let userTypeStrings (freshTVarMap : Map<string, string>) (freshCVarMap : Map<string, string>) taus =
+let userTypeStrings (freshTVarMap : Map<TyVar, TyVar>) (freshCVarMap : Map<CapVar, CapVar>) taus =
     let (tdups, cdups) = findDuplicates freshTVarMap freshCVarMap taus
-    let remapFreshVarMap freshVarMap dups =
-        freshVarMap |>
-        Map.map
-            (fun freshVarName userGivenName ->
-                if Set.contains freshVarName dups then
-                    sprintf "`%s@%s`" (Map.findFixpoint userGivenName freshVarMap) freshVarName
-                else
-                    userGivenName)
     let freshTVarMap' =
-        remapFreshVarMap freshTVarMap tdups |>
-        Map.map (fun _ userGivenName -> TyVar userGivenName)
+        freshTVarMap |>
+        Map.map
+            (fun freshVar userGivenVar ->
+                if Set.contains freshVar tdups then
+                    let (TyVar freshVarName) = freshVar
+                    let (TyVar userGivenName) = Map.findFixpoint userGivenVar freshTVarMap
+                    TyVarExpr (TyVar (sprintf "`%s@%s`" userGivenName freshVarName))
+                else
+                    TyVarExpr userGivenVar)
     let freshCVarMap' =
-        remapFreshVarMap freshCVarMap cdups |>
-        Map.map (fun _ userGivenName -> CapacityVar userGivenName)
+        freshCVarMap |>
+        Map.map
+            (fun freshVar userGivenVar ->
+                if Set.contains freshVar cdups then
+                    let (CapVar freshVarName) = freshVar
+                    let (CapVar userGivenName) = Map.findFixpoint userGivenVar freshCVarMap
+                    CapacityVarExpr (CapVar (sprintf "`%s@%s`" userGivenName freshVarName))
+                else
+                    CapacityVarExpr userGivenVar)
     
     List.map (tycapsubst freshTVarMap' freshCVarMap' >> typeString) taus
 
@@ -669,9 +685,9 @@ let userTypeStrings (freshTVarMap : Map<string, string>) (freshCVarMap : Map<str
 // the capacity variables that we would like the other capacity variables to be written in terms of. Therefore
 // they are the last capacity variables that should be solved for (and therefore eliminated) in the Symbolism
 // equation solving process
-let rec solve (con : Constraint) (terminalCaps : string list) (freshTVarMap : Map<string, string>) (freshCVarMap : Map<string, string>) : Map<string, TyExpr> * Map<string, CapacityExpr> * Map<string, (ConstraintType * ErrorMessage) list> =
+let rec solve (con : Constraint) (terminalCaps : CapVar list) (freshTVarMap : Map<TyVar, TyVar>) (freshCVarMap : Map<CapVar, CapVar>) : ThetaT * KappaT * Map<TyVar, (ConstraintType * ErrorMessage) list> =
     let userTypeStrings' = userTypeStrings freshTVarMap freshCVarMap
-    let rec innerSolve (con : Constraint) : Map<string, TyExpr> * ConstraintCap * Map<string, (ConstraintType * ErrorMessage) list> =
+    let rec innerSolve (con : Constraint) : Map<TyVar, TyExpr> * ConstraintCap * Map<TyVar, (ConstraintType * ErrorMessage) list> =
         match simplifyConstraint con with
         | Trivial -> (Map.empty, TrivialCap, Map.empty)
         | con' ->
@@ -689,7 +705,7 @@ let rec solve (con : Constraint) (terminalCaps : string list) (freshTVarMap : Ma
                             [Error.ErrMsg (sprintf "Type error: The types %s and %s are not equal." stau stau')] @ err.Force()
                         )
                         match (tau, tau') with
-                        | ((TyVar a, tau) | (tau, TyVar a)) ->
+                        | ((TyVarExpr a, tau) | (tau, TyVarExpr a)) ->
                             match solveTyvarEq a tau with
                             | Some answer -> (answer, TrivialCap, [])
                             | None -> raise <| TypeError (failMsg.Force())
@@ -761,7 +777,7 @@ let rec solve (con : Constraint) (terminalCaps : string list) (freshTVarMap : Ma
                             [Error.ErrMsg (sprintf "Interface constraint error: The type %s does not satisfy the %s constraint." stau' (interfaceConstraintString constraintType))] @ failMsg.Force()
                         )
                         match tau' with
-                        | TyVar v ->
+                        | TyVarExpr v ->
                             let constraintType' =
                                 match constraintType with
                                 | HasField (fieldName, fieldTau) ->
@@ -853,7 +869,7 @@ let rec solve (con : Constraint) (terminalCaps : string list) (freshTVarMap : Ma
                                 Map.toList |>
                                 List.map
                                     (fun (fieldName, (t, errMsg)::_) ->
-                                        InterfaceConstraint (TyVar v, HasField (fieldName, t), errMsg))
+                                        InterfaceConstraint (TyVarExpr v, HasField (fieldName, t), errMsg))
                             // Pass all other constraints in a passthrough manner
                             let otherConstraints =
                                 constraints |>
@@ -864,7 +880,7 @@ let rec solve (con : Constraint) (terminalCaps : string list) (freshTVarMap : Ma
                                         | _ -> true) |>
                                 List.map
                                     (fun (constr, errMsg) ->
-                                        InterfaceConstraint (TyVar v, constr, errMsg))
+                                        InterfaceConstraint (TyVarExpr v, constr, errMsg))
                             (conjoinConstraints fieldConstraints) &&& (conjoinConstraints otherConstraints)) |>
                         conjoinConstraints
                 let (thetaSolution', capacityConstraints', interfaceConstraintsSolution') = innerSolve (newConstraintSystem &&& interfaceConstraints')

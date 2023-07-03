@@ -153,8 +153,8 @@ and compileType theta kappa (ty : TyExpr) : string =
     let compileType = compileType theta kappa
     let compileCap = compileCap kappa
     match ty with
-    | TyVar name ->
-        match Map.tryFind name theta with
+    | TyVarExpr ((TyVar name) as tyVar) ->
+        match Map.tryFind tyVar theta with
         | None -> output name
         | Some ty' ->
             if ty = ty' then
@@ -649,16 +649,16 @@ and compileTemplate theta kappa (templateVars : Template) : string =
         templateVars |>
         List.map
             (function
-            | (varName, StarKind) ->
+            | Choice1Of2 varName ->
                 let varName' =
-                    match Constraint.tycapsubst theta kappa (TyVar varName) with
-                    | TyVar n' -> n'
+                    match Constraint.tycapsubst theta kappa (TyVarExpr varName) with
+                    | TyVarExpr (TyVar n') -> n'
                     | _ -> failwith "Internal compiler error: attempting to compile template where one of the template tyVars is not actully a tyVar"
                 "typename " + varName'
-            | (varName, IntKind) ->
+            | Choice2Of2 varName ->
                 let varName' =
-                    match Constraint.capsubst kappa (CapacityVar varName) with
-                    | CapacityVar n' -> n'
+                    match Constraint.capsubst kappa (CapacityVarExpr varName) with
+                    | CapacityVarExpr (CapVar n') -> n'
                     | _ -> failwith "Internal compiler error: attempting to compile template where one of the template capVars is not actully a capVar"
                 "int " + varName')
     output "template<" +
@@ -669,7 +669,7 @@ and compileTemplate theta kappa (templateVars : Template) : string =
 and compileCap kappa (cap : CapacityExpr) : string =
     let rec compileCap' cap' =
         match cap' with
-        | CapacityVar name ->
+        | CapacityVarExpr (CapVar name) ->
             name
         | CapacityOp { left=left; op=op; right=right } ->
             "(" + compileCap' left + ")" +
@@ -772,7 +772,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
             let m = ModuleQualifierTy {module_=module_; name=name}
             match maybeTemplate with
             | Some template ->
-                ConApp (m, ConvertAst.convertTemplateToChoice template)
+                ConApp (m, ConvertAst.convertTemplateToExpr template)
             | None ->
                 TyCon m
         templateStr maybeTemplate +
@@ -813,7 +813,7 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
 
 // Program: includes, types, values
 //                              module names   opens                         v incudes           v mod name  v type dec             v Inline code decs                 v mod    v fun/let dec          v theta              v kappa
-and compileProgram (program : string list * ((string * Declaration) list) * Declaration list * ((string * Declaration) list) * ((string * Declaration) list) * (((string * Declaration) list) * Map<string, TyExpr> * Map<string, CapacityExpr>) list) (customPlacementNew : bool) (cLinkage : bool) : string =
+and compileProgram (program : string list * ((string * Declaration) list) * Declaration list * ((string * Declaration) list) * ((string * Declaration) list) * (((string * Declaration) list) * Constraint.ThetaT * Constraint.KappaT) list) (customPlacementNew : bool) (cLinkage : bool) : string =
     let executingDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
     let junCppStdPath = executingDir + "/cppstd/juniper.hpp"
     let junCppStd = System.IO.File.ReadAllText junCppStdPath

@@ -4,6 +4,14 @@ open System
 open TypedAst
 open Extensions
 
+// Theta is the solution for solving the system of type constraints computed from the declarations
+// Kappa is the solution for the capacity variables
+type TypeCheckedScc = { decs : (string * Declaration) list; theta : Constraint.ThetaT; kappa : Constraint.KappaT }
+
+type TypeCheckedProgram = { moduleNames : string list; opens : (string * Declaration) list; includes : Declaration list; typeDecs : (string * Declaration) list; inlineCodeDecs : (string * Declaration) list; valueSccs : TypeCheckedScc list }
+
+type CompileOptions = {customPlacementNew : bool; cLinkage: bool}
+
 // The following are used for automatically adding new lines line indentation to transpiled C++
 let mutable indentationLevel = 0
 let mutable isNewLine = true
@@ -811,16 +819,13 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
         templateStr maybeTemplate +
         output "using " + output name + output " = " + compileType typ + output ";" + newline() + newline()
 
-// Program: includes, types, values
-//                              module names   opens                         v incudes           v mod name  v type dec             v Inline code decs                 v mod    v fun/let dec          v theta              v kappa
-and compileProgram (program : string list * ((string * Declaration) list) * Declaration list * ((string * Declaration) list) * ((string * Declaration) list) * (((string * Declaration) list) * Constraint.ThetaT * Constraint.KappaT) list) (customPlacementNew : bool) (cLinkage : bool) : string =
+and compileProgram {moduleNames=moduleNames; opens=opens; includes=includes; typeDecs=typeDecs; inlineCodeDecs=inlineCodeDecs; valueSccs=valueSccs} {customPlacementNew=customPlacementNew; cLinkage=cLinkage} : string =
     let executingDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
     let junCppStdPath = executingDir + "/cppstd/juniper.hpp"
     let junCppStd = System.IO.File.ReadAllText junCppStdPath
-    let (moduleNames, opens, includes, typeDecs, inlineCodeDecs, valueSccs) = program
     let mutable setupModule = None
     let mutable loopModule = None
-    (valueSccs |> List.iter (fun (decs, _, _) ->
+    (valueSccs |> List.iter (fun {decs=decs} ->
         decs |> List.iter (fun (module_, dec) ->
             match dec with
             | FunctionDec {name=name} when name = "setup" ->
@@ -855,7 +860,7 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
         (typeDecs |> List.map (fun (module_, dec) -> compileNamespace Map.empty Map.empty (module_, dec)) |> String.concat "")
     // Compile forward declarations of all functions to enable recursion
     let compiledFunctionSignatures =
-        (valueSccs |> List.map (fun (decs, theta, kappa) ->
+        (valueSccs |> List.map (fun {decs=decs; theta=theta; kappa=kappa} ->
             decs |> 
             (List.filter (fun (_, dec) ->
                 match dec with
@@ -872,7 +877,7 @@ and compileProgram (program : string list * ((string * Declaration) list) * Decl
         (inlineCodeDecs |> List.map (fun (module_, dec) -> compileNamespace Map.empty Map.empty (module_, dec)) |> String.concat "")
     let compiledValues =
         // Compile all global variables and functions
-        (valueSccs |> List.map (fun (decs, theta, kappa) ->
+        (valueSccs |> List.map (fun {decs=decs; theta=theta; kappa=kappa} ->
             decs |> List.map (compileNamespace theta kappa) |> String.concat "") |> String.concat "")
     let compiledRecordEnvironment = compileRecordEnvironment ()
     let compiledClosureEnvironment = compileClosureEnviornment ()

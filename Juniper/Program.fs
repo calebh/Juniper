@@ -95,7 +95,7 @@ let main argv =
                 // Typecheck the ASTs
                 let typeCheckedOutput = TypeChecker.typecheckProgram asts fnames (Option.isSome maybePruneUnreachable)
                 // Compile to C++ the typechecked (and typed) ASTs
-                let compiledProgram = Compiler.compileProgram typeCheckedOutput (Option.isSome maybeCustomPlacementNew) (Option.isSome maybeCLinkage)
+                let compiledProgram = Compiler.compileProgram typeCheckedOutput {customPlacementNew=Option.isSome maybeCustomPlacementNew; cLinkage=Option.isSome maybeCLinkage}
                 System.IO.File.WriteAllText (outputFile, compiledProgram)
                 0
             with

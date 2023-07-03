@@ -730,7 +730,7 @@ let checkUnknownVars menv denv (maybeTemplate : Ast.Template option) (kind : T.K
 // and topological ordering. The first part of this function consists of analyzing
 // the modules to build up environments used in type checking. The second part
 // involves a graph theoretical/topological ordering analysis.
-let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (pruneUnreachable : bool) =
+let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (pruneUnreachable : bool) : Compiler.TypeCheckedProgram =
     let defaultOpenDec = Ast.dummyWrapPos (Ast.OpenDec (Ast.dummyWrapPos (List.map Ast.dummyWrapPos ["Prelude"])))
     let program =
         programIn |>
@@ -1130,7 +1130,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
     // We are now ready to do the type checking
     // We will do each SCC one at a time and accumulate the inferred types via a global
     // type environment called globalGamma
-    let (checkedDecs, _) =
+    let (checkedDecs : Compiler.TypeCheckedScc list, _) =
         dependencyOrder |> List.mapFold
             (fun (dtenv, globalGamma, accFreshTVarMap, accFreshCVarMap) scc ->
                 match scc with
@@ -1182,7 +1182,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                     let globalGamma' = Map.add modqual elabtau globalGamma
                     let dtenv' = Map.add modqual (T.LetDecTy tau) dtenv
                     let let' = T.LetDec {varName=name; typ=tau; right=right'}
-                    (([(module_, let')], theta, kappa), (dtenv', globalGamma', freshTVarMap', freshCVarMap'))
+                    ({decs=[(module_, let')]; theta=theta; kappa=kappa}, (dtenv', globalGamma', freshTVarMap', freshCVarMap'))
                 // Found a SCC containing mutually recursive function(s)
                 | _ ->
                     // Create a fresh type variable for every function in the SCC. This will
@@ -1501,6 +1501,6 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 let globalGamma'' = Map.add modqual funScheme accumGlobalGamma'
                                 ((module_, funDec'), (accumDtenv'', globalGamma'')))
                             (dtenv, globalGamma)
-                    ((funDecs', theta, kappa), (dtenv', globalGamma', accFreshTVarMap', accFreshCVarMap'))
+                    ({decs=funDecs'; theta=theta; kappa=kappa}, (dtenv', globalGamma', accFreshTVarMap', accFreshCVarMap'))
             ) (dtenv0, globalGammaInit, Map.empty, Map.empty)
-    (moduleNames, openDecs, includeDecs, typeDecs, inlineCodeDecs, checkedDecs)
+    {moduleNames=moduleNames; opens=openDecs; includes=includeDecs; typeDecs=typeDecs; inlineCodeDecs=inlineCodeDecs; valueSccs=checkedDecs}

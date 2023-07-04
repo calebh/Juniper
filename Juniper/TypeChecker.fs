@@ -691,7 +691,14 @@ let checkUnknownVars menv denv (maybeTemplate : Ast.Template option) (kind : T.K
             let tyVarsLhs =
                 match maybeTemplate with
                 | Some (_, templateVars) ->
-                    templateVars |> List.map (fst >> A.unwrap >> T.TyVar) |> Set.ofList
+                    templateVars |>
+                    List.filter
+                        (fun (_, kind) ->
+                            match kind with
+                            | A.StarKind _ -> true
+                            | A.IntKind _ -> false) |>
+                    List.map (fst >> A.unwrap >> T.TyVar) |>
+                    Set.ofList
                 | None ->
                     Set.empty
             tyVarsRhs |>
@@ -710,7 +717,14 @@ let checkUnknownVars menv denv (maybeTemplate : Ast.Template option) (kind : T.K
             let capVarsLhs =
                 match maybeTemplate with
                 | Some (_, templateVars) ->
-                    templateVars |> List.map (fst >> A.unwrap >> T.CapVar) |> Set.ofList
+                    templateVars |>
+                    List.filter
+                        (fun (_, kind) ->
+                            match kind with
+                            | A.StarKind _ -> false
+                            | A.IntKind _ -> true) |>
+                    List.map (fst >> A.unwrap >> T.CapVar) |>
+                    Set.ofList
                 | None ->
                     Set.empty
             capVarsRhs |>

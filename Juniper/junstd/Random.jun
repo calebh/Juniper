@@ -63,5 +63,29 @@ fun seed(n : uint32) : unit = #randomSeed(n);#
 */
 fun choice(lst : list<t, n>) : t = {
     let i : int32 = random_(0, u32ToI32(lst.length))
-    List:nth(i32ToU32(i), lst) |> Maybe:get()
+    List:get(i32ToU32(i), lst)
+}
+
+/*
+    Function: choiceSafe
+
+    Randomly chooses an element from a list, where every element is equally 
+    probable to be selected. nothing() is returned if the list has zero elements
+
+    Type Signature:
+    | (list<t, n>) -> maybe<t>
+
+    Parameters:
+        lst : list<t, n> - The list to randomly select from
+
+    Returns:
+        A random element from the list
+*/
+fun choiceSafe(lst : list<t, n>) : maybe<t> = {
+    if lst.length == 0 {
+        nothing()
+    } else {
+        let i : int32 = random_(0, u32ToI32(lst.length))
+        List:getSafe(i32ToU32(i), lst)
+    }
 }

@@ -124,7 +124,7 @@ type sig<a> = signal(maybe<a>)
 */
 fun extractptr(p : pointer) : rawpointer = {
     var ret : rawpointer
-    #ret = p.get()->get();#
+    #ret = p.get();#
     ret
 }
 
@@ -145,6 +145,22 @@ fun extractptr(p : pointer) : rawpointer = {
 */
 fun compose(f : (b) -> c, g : (a) -> b) : (a) -> c =
     (x : a) : c => f(g(x))
+
+/*
+    Function: id
+
+    The identity function.
+
+    Type signature:
+    | (a) -> a
+
+    Parameters:
+        x : a - The value to return
+    
+    Returns:
+        The input value
+*/
+fun id(x : a) : a = x
 
 /*
     Function: curry

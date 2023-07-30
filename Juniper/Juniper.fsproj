@@ -13,6 +13,7 @@
     <Compile Include="TypedAst.fs" />
     <Compile Include="Constraint.fs" />
     <Compile Include="Ast.fs" />
+    <Compile Include="Lsp.fs" />
     <Compile Include="AstAnalysis.fs" />
     <Compile Include="ConvertAst.fs" />
     <Compile Include="Compiler.fs" />

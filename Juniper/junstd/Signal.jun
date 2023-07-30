@@ -110,12 +110,12 @@ fun merge(sigA : sig<a>, sigB : sig<a>) : sig<a> =
     | (list<sig<a>, n>) -> sig<a>
 
     Parameters:
-        sigs : list<sig<a>;n> - A list of signals to merge together.
+        sigs : list<sig<a>, n> - A list of signals to merge together.
 */
 fun mergeMany(sigs : list<sig<a>, n>) : sig<a> = {
     let ret =
         sigs |>
-        List:foldl(
+        List:fold(
             (sig, accum) =>
                 match accum {
                     nothing() => {
@@ -319,7 +319,7 @@ fun map2(f : (a, b) -> c, state : (a, b) ref, incomingA : sig<a>, incomingB : si
         A signal holding the list of previous values
 */
 fun record(pastValues : list<a, n> ref, incoming : sig<a>) : sig<list<a, n>> =
-    foldP(List:pushOffFront, pastValues, incoming)
+    foldP(List:prepend, pastValues, incoming)
 
 /*
     Function: constant

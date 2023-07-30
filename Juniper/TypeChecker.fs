@@ -9,19 +9,19 @@ open Error
 open AstAnalysis
 open Module
 open TypedAst
-open System.Threading
+open Lsp
 
-let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
-               (denv : Map<ModQualifierRec, A.PosAdorn<A.Declaration>>)
-               (dtenv : Map<ModQualifierRec, T.DeclarationTy>)
-               (menv : Map<string, ModQualifierRec>)
-               (localVars : Set<string>)
-               (ienv : Map<ModQualifierRec, int>)
-               (tyVarMapping : Map<TyVar, T.TyExpr>)
-               (capVarMapping : Map<CapVar, T.CapacityExpr>)
-               // First bool represents mutability
-               (gamma : Map<string, bool * T.TyScheme>)
-               : TyAdorn<T.Expr> * Constraint * Map<TyVar, TyVar> * Map<CapVar, CapVar> =
+let typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
+           (denv : Map<ModQualifierRec, A.PosAdorn<A.Declaration>>)
+           (dtenv : Map<ModQualifierRec, T.DeclarationTy>)
+           (menv : Map<string, ModQualifierRec>)
+           (localVars : Map<string, Vid>)
+           (ienv : Map<ModQualifierRec, int>)
+           (tyVarMapping : Map<TyVar, T.TyExpr>)
+           (capVarMapping : Map<CapVar, T.CapacityExpr>)
+           // First bool represents mutability
+           (gamma : Map<string, bool * T.TyScheme>)
+               : TyAdorn<T.Expr> * Constraint * Map<TyVar, TyVar> * Map<CapVar, CapVar> * (CrossRefInfo list) =
     let getTypes = List.map T.getType
 
     let convertType' = convertType menv denv dtenv tyVarMapping capVarMapping
@@ -29,6 +29,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
 
     let mutable freshTVarMap = Map.empty
     let mutable freshCVarMap = Map.empty
+    let mutable crossRefInfo = []
 
     let freshInstance' tyScheme =
         let (tau, constraints, freshVars, freshTVarMap', freshCVarMap') = freshInstance tyScheme
@@ -36,11 +37,14 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
         freshCVarMap <- Map.merge freshCVarMap freshCVarMap'
         (tau, constraints, freshVars)
 
-    let rec typeof' (posE, e) (denv : Map<ModQualifierRec, A.PosAdorn<A.Declaration>>) (dtenv : Map<ModQualifierRec, T.DeclarationTy>) (menv : Map<string, ModQualifierRec>) localVars (ienv : Map<ModQualifierRec, int>) tyVarMapping capVarMapping gamma =
+    let addCrossRef info =
+        crossRefInfo <- info::crossRefInfo
+
+    let rec typeof' (posE, e : Ast.Expr) (localVars : Map<string, Vid>) (gamma : Map<string, bool * T.TyScheme>) =
         // Taus is what the overall pattern's type should equal
         let rec checkPattern (posp, p) tau =
             let mutable gamma' = gamma
-            let mutable localVars = Set.empty
+            let mutable localVars = Map.empty
             let rec checkPattern' (posp, p) tau =
                 let rec checkPatterns pats =
                     match pats with
@@ -68,10 +72,11 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 | Ast.MatchUnit (posu, _) ->
                     ((posp, tau, T.MatchUnit), T.unittype =~= (tau, errStr [posu] "Unit pattern does not match the type of the expression."))
                 | Ast.MatchVar { varName=(posv, varName); mutable_=(posm, mutable_); typ=typ } ->
-                    if Set.contains varName localVars then
+                    if Map.containsKey varName localVars then
                         raise <| TypeError ((errStr [posv] (sprintf "This pattern already contains a variable named %s." varName)).Force())
                     else
-                        localVars <- Set.add varName localVars
+                        let vid = freshVid ()
+                        localVars <- Map.add varName vid localVars
                         let (c', retTau) =
                             match typ with
                             | Some typ ->
@@ -84,6 +89,8 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                                 // Hindley Milner
                                 gamma' <- Map.add varName (mutable_, T.Forall (emptytemplate, [], tau)) gamma'
                                 (Trivial, tau)
+                        // Cross ref declare local variable
+                        addCrossRef (LocalVarDec { bindingSite=posv; ty=retTau; vid=vid })
                         ((posp, retTau, T.MatchVar { varName=varName; mutable_=mutable_; typ=tau}), c')
                 | Ast.MatchRecCon (posf, fields) ->
                     let fieldTaus = List.map freshtyvarExpr fields
@@ -99,16 +106,23 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     let modQual =
                         match decref with
                         | Choice1Of2 name ->
-                            if Set.contains name localVars then
+                            if Map.containsKey name localVars then
                                 raise <| TypeError ((errStr [posn] (sprintf "%s is a local variable and not a value constructor." name)).Force())
                             else
                                 match Map.tryFind name menv with
                                 | Some modQual ->
+                                    // Cross ref module qualifier
+                                    addCrossRef (ModQualRef {refSite=posn; modQual=modQual})
                                     modQual
                                 | None ->
                                     raise <| TypeError ((errStr [posn] (sprintf "Unable to find value constructor named %s." name)).Force())
                         | Choice2Of2 {module_ = mod_; name=name} ->
-                            {T.ModQualifierRec.module_=Ast.unwrap mod_; T.ModQualifierRec.name=Ast.unwrap name}
+                            let modQual = {T.ModQualifierRec.module_=Ast.unwrap mod_; T.ModQualifierRec.name=Ast.unwrap name}
+                            // Cross ref module
+                            addCrossRef (ModRef {refSite=fst mod_; module_=snd mod_})
+                            // Cross ref module qualifier
+                            addCrossRef (ModQualRef {refSite=fst name; modQual=modQual})
+                            modQual
                     let {T.ModQualifierRec.module_=module_; T.ModQualifierRec.name=name} = modQual
                     // Lookup a value constructor in dtenv
                     match Map.tryFind modQual dtenv with
@@ -138,12 +152,12 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let (pattern', c) = checkPattern' (posp, p) tau
             (pattern', c, localVars, gamma')
 
-        let rec typesof exprs dtenv menv localVars gamma =
+        let rec typesof exprs localVars gamma =
             match exprs with
             | [] -> ([], Trivial)
             | e::es ->
-                let (tau, c) = typeof' e denv dtenv menv localVars ienv tyVarMapping capVarMapping gamma
-                let (taus, c') = typesof es dtenv menv localVars gamma
+                let (tau, c) = typeof' e localVars gamma
+                let (taus, c') = typesof es localVars gamma
                 (tau::taus, c &&& c')
         and ty ((posE, expr) : Ast.PosAdorn<Ast.Expr>) : (T.TyAdorn<T.Expr> * Constraint) =
             let adorn pos tau expr con =
@@ -184,13 +198,13 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 let tyExpr' = convertType' tyExpr
                 adorn posE T.uint32type (T.SizeofExp tyExpr') Trivial
             | Ast.IfExp {condition = (posc, _) as condition; trueBranch=(post, _) as trueBranch} ->
-                let (exprs', c) = typesof [condition; trueBranch] dtenv menv localVars gamma
+                let (exprs', c) = typesof [condition; trueBranch] localVars gamma
                 let [condition'; trueBranch'] = exprs'
                 let [tauC; tauT] = getTypes exprs'
                 let c' = c &&& (tauC =~= (T.booltype, errStr [posc] "Condition of if statement expected to be type bool"))
                 adorn posE T.unittype (T.IfExp {condition=condition'; trueBranch=trueBranch'}) c'
             | Ast.IfElseExp {condition=(posc, _) as condition; trueBranch=(post, _) as trueBranch; falseBranch=(posf, _) as falseBranch} ->
-                let (exprs', c) = typesof [condition; trueBranch; falseBranch] dtenv menv localVars gamma
+                let (exprs', c) = typesof [condition; trueBranch; falseBranch] localVars gamma
                 let [condition'; trueBranch'; falseBranch'] = exprs'
                 let [tauC; tauT; tauF] = getTypes exprs'
                 let c' = c &&&
@@ -208,10 +222,16 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                         | [] -> T.VarExp varName
                         | _ -> T.TemplateApplyExp {func=Choice1Of2 varName; templateArgs=convertTemplateToExpr freshVars}
                     let expr'' =
-                        if Set.contains varName localVars then
+                        match Map.tryFind varName localVars with
+                        | Some vid -> 
+                            // Cross ref local variable
+                            addCrossRef (LocalVarRef { refSite=posn; vid=vid })
                             expr'
-                        else
-                            match Map.find (Map.find varName menv) dtenv with
+                        | None ->
+                            let modQual = Map.find varName menv
+                            // Cross ref mod qualifier
+                            addCrossRef (ModQualRef { refSite=posn; modQual=modQual })
+                            match Map.find modQual dtenv with
                             | FunDecTy _ ->
                                 T.FunctionWrapperEmptyClosure (posE, instance, expr')
                             | _ ->
@@ -220,7 +240,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 | None ->
                     raise <| TypeError ((errStr [posn] (sprintf "Variable named %s could not be found" varName)).Force())
             | Ast.ArrayAccessExp { array=(posa, _) as array; index=(posi, _) as index } ->
-                let (exprs', c) = typesof [array; index] dtenv menv localVars gamma
+                let (exprs', c) = typesof [array; index] localVars gamma
                 let [array'; index'] = exprs'
                 let [tauA; tauI] = getTypes exprs'
                 let tauElement = freshtyvarExpr ()
@@ -230,7 +250,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                                (InterfaceConstraint (tauI, IsInt, errStr [posi] "Expected index of array access expression to have integer type"))
                 adorn posE tauElement (T.ArrayAccessExp {array=array'; index=index'}) c'
             | Ast.ArrayLitExp (posa, exprs) ->
-                let (exprs', c) = typesof exprs dtenv menv localVars gamma
+                let (exprs', c) = typesof exprs localVars gamma
                 let tauElement = freshtyvarExpr ()
                 let c' = List.fold (&&&) c (List.map (flip (T.getType >> (=~=)) (tauElement, errStr [posa] "Expected all elements of array to be of the same type")) exprs')
                 let tauArray = T.ConApp (T.ArrayTy, [Choice1Of2 tauElement; Choice2Of2 (T.CapacityConst (int64 (List.length exprs)))])
@@ -255,7 +275,11 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 let rec checkLeft left =
                     let ((_, retTau, left'), c) =
                         match left with
-                        | Ast.ModQualifierMutation (posmq, {module_=(posm, module_); name=(posn, name)}) ->                    
+                        | Ast.ModQualifierMutation (posmq, {module_=(posm, module_); name=(posn, name)}) ->
+                            // Cross ref module
+                            addCrossRef (ModRef { refSite=posm; module_=module_ })
+                            // Cross ref module qualifier
+                            addCrossRef (ModQualRef {refSite=posn; modQual={module_=module_; name=name}})
                             match Map.tryFind {module_=module_; name=name} dtenv with
                             | Some (T.LetDecTy tau) ->
                                 // TODO: Update this if we decide to make module level values mutable
@@ -290,6 +314,14 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                             match Map.tryFind name gamma with
                             | Some (isMutable, tyscheme) ->
                                 if isMutable then
+                                    match Map.tryFind name localVars with
+                                    | Some vid ->
+                                        // Cross ref local variable
+                                        addCrossRef (LocalVarRef { refSite=posn; vid=vid })
+                                    | None ->
+                                        let modQual = Map.find name menv
+                                        // Cross ref mod qualifier
+                                        addCrossRef (ModQualRef { refSite=posn; modQual=modQual })
                                     let (tau, interfaceConstraints, _) = freshInstance' tyscheme
                                     let err = errStr [posn] "The interface constraints are not satisfied."
                                     let interfaceConstraints' = interfaceConstraints |> List.map (fun (conTau, con) -> InterfaceConstraint (conTau, con, err)) |> conjoinConstraints
@@ -357,6 +389,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     | Ast.Multiply -> T.Multiply
                     | Ast.NotEqual -> T.NotEqual
                     | Ast.Subtract -> T.Subtract
+                    | Ast.Pipe -> failwith "This case should be covered by a previous case clause"
                 let (left', c1) = ty left
                 let (right', c2) = ty right
                 let c' = c1 &&& c2
@@ -393,7 +426,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     adorn posE (T.getType left') b' c''
             | Ast.CallExp {func=(posf, _) as func; args=(posa, args)} ->
                 let (func', c1) = ty func
-                let (args', c2) = typesof args dtenv menv localVars gamma
+                let (args', c2) = typesof args localVars gamma
                 let closureTau = freshtyvarExpr ()
                 let returnTau = freshtyvarExpr ()
                 let placeholders = List.map freshtyvarExpr args
@@ -411,8 +444,8 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     List.map
                         (fun (pattern, ((pose, _) as expr)) ->
                             let (pattern', c1, localVars1, gamma') = checkPattern pattern (T.getType on')
-                            let localVars' = Set.union localVars localVars1
-                            let (expr', c2) = typeof' expr denv dtenv menv localVars' ienv tyVarMapping capVarMapping gamma'
+                            let localVars' = Map.merge localVars localVars1
+                            let (expr', c2) = typeof' expr localVars' gamma'
                             let c' = c1 &&& c2
                             ((pattern', expr'), c'))
                         clauses |>
@@ -448,8 +481,11 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                         freshtyvarExpr ()
                 let (start', c1) = ty start
                 let (end_', c2) = ty end_
+                let vid = freshVid ()
+                // Cross ref add local var
+                addCrossRef (LocalVarDec { bindingSite=posv; ty = tauIterator; vid=vid })
                 let gamma' = Map.add varName (false, T.Forall (emptytemplate, [], tauIterator)) gamma
-                let (body', c3) = typeof' body denv dtenv menv (Set.add varName localVars) ienv tyVarMapping capVarMapping gamma'
+                let (body', c3) = typeof' body (Map.add varName vid localVars) gamma'
                 let c' = c1 &&& c2 &&& c3 &&& (tauIterator =~= (T.getType start', errStr [posv; poss] "Type of the start expression does not match the type of the iterator")) &&&
                                               (tauIterator =~= (T.getType end_', errStr [posv; pose] "Type of the end expression doesn't match the type of the iterator")) &&&
                                               (InterfaceConstraint (tauIterator, IsInt, errStr [posv] "Variable must be of integer type"))
@@ -484,14 +520,17 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                                     convertType' tauConstraint =~= (tau, errStr [A.getPos tauConstraint] "Invalid argument type constraint")
                                 | None ->
                                     Trivial
-                            let gammaEntry = (argName, (false, T.Forall (emptytemplate, [], tau)))
-                            (gammaEntry, argConstraint, argName, (argName, tau))) |>
+                            // Cross ref add local variable
+                            let vid = freshVid ()
+                            addCrossRef (LocalVarDec {bindingSite = posa; ty=tau; vid = vid})
+                            let gammaEntry = (argName, (false,  T.Forall (emptytemplate, [], tau)))
+                            (gammaEntry, argConstraint, (argName, vid), (argName, tau))) |>
                     List.unzip4
                 let gamma'' = Map.merge gamma' (Map.ofList gamma1Lst)
                 let c1 = c1s |> conjoinConstraints            
-                let localVars' = Set.union localVars (Set.ofList localVars1)
-                let (body', c2) = typeof' body denv dtenv menv localVars' ienv tyVarMapping capVarMapping gamma''
-                let closureVariables = Set.intersect localVars (AstAnalysis.closure body')
+                let localVars' = Map.merge localVars (Map.ofList localVars1)
+                let (body', c2) = typeof' body localVars' gamma''
+                let closureVariables = Set.intersect (Map.keys localVars) (AstAnalysis.closure body')
                 let (closureList, interfaceConstraints) =
                     closureVariables |>
                     List.ofSeq |>
@@ -526,6 +565,10 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 let typ' = convertType' typ
                 adorn posE typ' (T.DeclVarExp {varName=A.unwrap varName; typ=typ'}) Trivial
             | Ast.ModQualifierExp (posmq, {module_=(pos, module_); name=(posn, name)}) ->
+                // Cross ref module
+                addCrossRef (ModRef {refSite=pos; module_=module_})
+                // Cross ref mod qualifier
+                addCrossRef (ModQualRef {refSite=posn; modQual={module_=module_; name=name}})
                 let (instance, interfaceConstraints, templateArgs) =
                     match Map.tryFind {module_=module_; name=name} dtenv with
                     | Some (T.FunDecTy tyscheme) ->
@@ -609,10 +652,13 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     | (_, Ast.LetExp {left=left; right=right}) ->
                         // The constraints are already included in c1 above
                         let (_, c2, localVars', gamma') = checkPattern left (T.getType exp')
-                        (Set.union localVars localVars', gamma', c2)
+                        (Map.merge localVars localVars', gamma', c2)
                     | (_, Ast.DeclVarExp {varName=varName; typ=typ}) ->
+                        // Cross ref var dec
+                        let vid = freshVid ()
+                        addCrossRef (LocalVarDec {bindingSite=fst varName; ty=T.getType exp'; vid=vid})
                         let gamma' = Map.add (A.unwrap varName) (true, T.Forall (emptytemplate, [], T.getType exp')) gamma
-                        (Set.add (A.unwrap varName) localVars, gamma', Trivial)
+                        (Map.add (A.unwrap varName) vid localVars, gamma', Trivial)
                     | _ ->
                         (localVars, gamma, Trivial)
 
@@ -626,7 +672,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                         // Not the last thing in the sequence
                         // so the type of the sequence is the type
                         // of the rest
-                        let ((_, tau, T.SequenceExp rest'), c3) = typeof' (poss, Ast.SequenceExp (poss, rest)) denv dtenv menv localVars' ienv tyVarMapping capVarMapping gamma'
+                        let ((_, tau, T.SequenceExp rest'), c3) = typeof' (poss, Ast.SequenceExp (poss, rest)) localVars' gamma'
                         (tau, rest', c3)
                     
                 let c' = c1 &&& c2 &&& c3
@@ -643,7 +689,7 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             | A.StringLiteral (pos, str) ->
                 adorn posE T.stringtype (T.StringExp str) Trivial
             | Ast.TupleExp exprs ->
-                let (exprs', c') = typesof exprs dtenv menv localVars gamma
+                let (exprs', c') = typesof exprs localVars gamma
                 let subTaus = List.map (T.getType >> Choice1Of2) exprs'
                 let tau = T.ConApp (T.TupleTy, subTaus)
                 adorn posE tau (T.TupleExp exprs') c'
@@ -672,8 +718,8 @@ let rec typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             | Ast.NullExp (posN, ()) ->
                 adorn posN T.rawpointertype T.NullExp Trivial
         ty (posE, e)
-    let (e', c) = typeof' (posE, e) denv dtenv menv localVars ienv tyVarMapping capVarMapping gamma
-    (e', c, freshTVarMap, freshCVarMap)
+    let (e', c) = typeof' (posE, e) localVars gamma
+    (e', c, freshTVarMap, freshCVarMap, crossRefInfo)
 
 let checkUnderscores typ =
     match findUnderscoreTys typ with
@@ -1163,10 +1209,10 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                     let (posl, Ast.LetDec {varName=varName; typ=typ; right=right}) = Map.find modqual denv
                     // Get the menv of the module containing the let statement
                     let menv = Map.find module_ modNamesToMenvs
-                    let localVars = Set.empty
+                    let localVars = Map.empty
                     let gamma = localGamma globalGamma module_
                     // Generate the constraints for the right hand side of the let statement
-                    let (right', c1, freshTVarMap, freshCVarMap) = typeof right denv dtenv menv localVars ienv Map.empty Map.empty gamma
+                    let (right', c1, freshTVarMap, freshCVarMap, crossRefInfo) = typeof right denv dtenv menv localVars ienv Map.empty Map.empty gamma
                     let freshTVarMap' = Map.merge freshTVarMap accFreshTVarMap
                     let freshCVarMap' = Map.merge freshCVarMap accFreshCVarMap
                     // If the let statement has a type constraint in its definition, we need to ensure
@@ -1220,7 +1266,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                             Map.add modqual alphaScheme globalGammaAccum
                         ) globalGamma (List.zip scc alphaSchemes)
                     // Create local gammas for every entry in the SCC
-                    let tempGammas = List.map ((fun {module_=module_} -> module_) >> localGamma tempGlobalGamma) scc
+                    let tempGammas = List.map ((fun {module_=module_; name=_} -> module_) >> localGamma tempGlobalGamma) scc
                     // Create a dtenv containing all of our temporary type schemes
                     let tempdtenv =
                         List.fold (fun accumdtenv (modqual, alphaScheme) ->
@@ -1235,26 +1281,31 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 let (posf, Ast.FunctionDec {clause=(posc, {arguments=(posa, arguments); body=body; returnTy=maybeReturnTy; interfaceConstraints=(posi, interfaceConstraints) })}) = Map.find modqual denv
                                 // Lookup the menv (which maps local names to full module qualifiers)
                                 let menv = Map.find module_ modNamesToMenvs
-                                // Extract the function parameter names and save it in a set
-                                let localArguments = List.map (fst >> Ast.unwrap) arguments |> Set.ofList
-                                // Check if all the argument names are unique
-                                if Set.count localArguments = List.length arguments then
-                                    ()
-                                else
-                                    raise <| TypeError ((errStr [posa] "There are duplicate argument names").Force())
 
                                 // Determine what the user defined free type variables and free capacities are
                                 let convertType' = convertType menv denv tempdtenv Map.empty Map.empty
 
-                                // Generate types for all arguments. If the user gave an explicit type annotation, use
-                                // that, otherwise generate a fresh type variable for that argument.
-                                let argTys =
-                                    arguments |>
-                                    List.map
-                                        (fun (_, maybeTy) ->
-                                            match maybeTy with
-                                            | Some ((post, _) as ty) -> convertType' ty
-                                            | None -> freshtyvarExpr ())
+                                // Extract the function parameter names and save it in a set
+                                let (localArguments, crossRefInfoArgs, argTys) =
+                                    List.foldBack
+                                        (fun ((posn, name), maybeTy) (accumLocalArgs, accumCrossRefInfo, accumArgTys) ->
+                                            let vid = freshVid ()
+                                            let ty = 
+                                                // Generate types for all arguments. If the user gave an explicit type annotation, use
+                                                // that, otherwise generate a fresh type variable for that argument.
+                                                match maybeTy with
+                                                | Some ((post, _) as ty) -> convertType' ty
+                                                | None -> freshtyvarExpr ()
+                                            let info = LocalVarDec { bindingSite = posn; ty=ty; vid = vid }
+                                            (Map.add name vid accumLocalArgs, info::accumCrossRefInfo, ty::accumArgTys))
+                                        arguments
+                                        (Map.empty, [], [])
+
+                                // Check if all the argument names are unique
+                                if Map.count localArguments = List.length arguments then
+                                    ()
+                                else
+                                    raise <| TypeError ((errStr [posa] "There are duplicate argument names").Force())
                                 
                                 let retTy =
                                     match maybeReturnTy with
@@ -1308,6 +1359,23 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 let userCapVars = userCapVarsArgs @ userCapVarsRet
 
                                 let userTyVarsNames = userTyVars |> List.map A.unwrap |> Set.ofList
+
+                                let (crossRefInfoCapVars, localCaps) =
+                                    userCapVars |>
+                                    List.fold
+                                        (fun (accumCrossRefInfo, capVarInfo) (posv, T.CapVar capName) ->
+                                            if Map.containsKey capName localArguments then
+                                                raise <| SemanticError ((errStr [posv] (sprintf "There is an argument and capacity with the name of '%s'. Name collisions between capacity variables and arguments are not allowed." capName)).Force())
+                                            match Map.tryFind capName capVarInfo with
+                                            | Some _ ->
+                                                (accumCrossRefInfo, capVarInfo)
+                                            | None ->
+                                                let vid = freshVid ()
+                                                let refInfo = LocalVarDec {bindingSite=posv; ty=T.int32type; vid=vid}
+                                                let capVarInfo' = Map.add capName vid capVarInfo
+                                                (refInfo::accumCrossRefInfo, capVarInfo'))
+                                        ([], Map.empty)
+
                                 let userCapVarsNames = userCapVars |> (List.map (A.unwrap >> (fun (T.CapVar capName) -> capName))) |> Set.ofList
 
                                 // userTyVarMapping maps user defined type variables to the fresh variable
@@ -1337,7 +1405,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 let retTy' = Constraint.tycapsubst tyVarMapping capVarMapping retTy
 
                                 // Add any capacity variables as local variables
-                                let localVars = Set.union localArguments userCapVarsNames
+                                let localVars = Map.merge localArguments localCaps
                                 // Add the arguments to the type environment (gamma)
                                 let tempGamma' =
                                     List.zip arguments argTys' |>
@@ -1354,7 +1422,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                             Map.add capVarName (false, T.Forall (emptytemplate, [], T.int32type)) accum)
                                         tempGamma'
                                 // Finally typecheck the body
-                                let (body', c1, freshTVarMap, freshCVarMap) = typeof body denv tempdtenv menv localVars ienv tyVarMapping capVarMapping tempGamma''
+                                let (body', c1, freshTVarMap, freshCVarMap, crossRefInfo') = typeof body denv tempdtenv menv localVars ienv tyVarMapping capVarMapping tempGamma''
 
                                 let freshTyVarNames = freshTyVars |> List.map (fun (TyVarExpr name) -> name)
                                 let freshCapVarNames = freshCapVars |> List.map (fun (CapacityVarExpr name) -> name)

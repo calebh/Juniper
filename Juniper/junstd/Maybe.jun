@@ -101,9 +101,9 @@ fun count(maybeVal : maybe<a>) : uint8 =
     }
 
 /*
-    Function: foldl
+    Function: fold
 
-    Evaluates the equivalent of List:foldl for a maybe
+    Evaluates the equivalent of List:fold for a maybe
 
     Type signature:
     | ((t, state) -> state, state, maybe<t>) -> state
@@ -116,35 +116,16 @@ fun count(maybeVal : maybe<a>) : uint8 =
     Returns:
         The final state returned by f
 */
-fun foldl(f : (t, state) -> state, initState : state, maybeVal : maybe<t>) : state =
+fun fold(f : (t, state) -> state, initState : state, maybeVal : maybe<t>) : state =
     match maybeVal {
         just(val) => f(val, initState)
         _ => initState
     }
 
 /*
-    Function: foldr
-
-    Evaluates the equivalent of List:foldr for a maybe
-
-    Type signature:
-    | ((t, state) -> state, state, maybe<t>) -> state
-
-    Parameters:
-        f : (t, state) -> state - The folding function
-        initState : state - The initial state
-        maybeVal : maybe<t> - The maybe value
-
-    Returns:
-        The final state returned by f
-*/
-fun fodlr(f : (t, state) -> state, initState : state, maybeVal : maybe<t>) : state =
-    foldl(f, initState, maybeVal)
-
-/*
     Function: iter
 
-    Executes a function for a maybe value
+    Executes a function for a maybe value for the purpose of a side effect.
 
     Type signature:
     | ((a) -> unit, maybe<a>) -> unit

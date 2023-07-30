@@ -12,6 +12,8 @@ type Module = Module of PosAdorn<Declaration> list
 // Virtually every object in the AST is a PosAdorn wrapping another object.
 and PosAdorn<'a> = (Position * Position) * 'a
 
+and PosRange = Position * Position
+
 and ConstraintType = IsNum of PosAdorn<unit>
                    | IsInt of PosAdorn<unit>
                    | IsReal of PosAdorn<unit>

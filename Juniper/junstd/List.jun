@@ -48,7 +48,7 @@ fun map(f : (a) -> b, lst : list<a, n>) : list<b, n> = {
     Returns:
         The final state value.
 */
-fun foldl(f : (t, state) -> state, initState : state, lst : list<t, n>) : state = {
+fun fold(f : (t, state) -> state, initState : state, lst : list<t, n>) : state = {
     let mut s = initState
     for i : uint32 in 0u32 .. lst.length {
         s = f(lst.data[i], s)
@@ -74,7 +74,7 @@ fun foldl(f : (t, state) -> state, initState : state, lst : list<t, n>) : state 
     Returns:
         The final state value.
 */
-fun foldr(f : (t, state) -> state, initState : state, lst : list<t, n>) : state =
+fun foldBack(f : (t, state) -> state, initState : state, lst : list<t, n>) : state =
     if lst.length == 0 {
         initState
     } else {
@@ -87,13 +87,47 @@ fun foldr(f : (t, state) -> state, initState : state, lst : list<t, n>) : state 
         s
     }
 
-/*
-    Function: append
+fun reduce(f : (t, t) -> t, lst : list<t, n>) : t = {
+    let mut s = lst.data[0u32]
+    for i in 1u32 .. lst.length {
+        s = f(lst.data[i], s)
+    }
+    s
+}
 
-    Appends two lists.
+fun reduceSafe(f : (t, t) -> t, lst : list<t, n>) : maybe<t> = {
+    if lst.length == 0 {
+        nothing()
+    } else {
+        just(reduce(f, lst))
+    }
+}
+
+fun reduceBack(f : (t, t) -> t, lst : list<t, n>) : t = {
+    let mut s = lst.data[lst.length - 1]
+    let mut i : uint32 = lst.length - 1
+    do {
+        i = i - 1
+        s = f(lst.data[i], s)
+    } while i > 0u32
+    s
+}
+
+fun reduceBackSafe(f : (t, t) -> t, lst : list<t, n>) : maybe<t> = {
+    if lst.length == 0 {
+        nothing()
+    } else {
+        just(reduceBack(f, lst))
+    }
+}
+
+/*
+    Function: concat
+
+    Concatenates two lists.
 
     Type Signature:
-    | (list<t, aCap>, list<t, bCap>) -> list<t, retCap>
+    | ∀t, aCap:int, bCap:int, retCap:int . (list<t, aCap>, list<t, bCap>) -> list<t, retCap>
 
     Parameters:
         lstA : list<t, aCap> - The first list.
@@ -102,27 +136,63 @@ fun foldr(f : (t, state) -> state, initState : state, lst : list<t, n>) : state 
    Returns:
         The two lists appended together.
 */
-fun append(lstA : list<t, aCap>, lstB : list<t, bCap>) : list<t, retCap> = {
+fun concat(lstA : list<t, aCap>, lstB : list<t, bCap>) : list<t, retCap> = {
     let mut j : uint32 = 0u32
     let mut out = {data := array t[retCap], length := lstA.length + lstB.length}
     for i : uint32 in 0u32 .. lstA.length {
-        out.data[j] = (lstA.data[i] : t)
+        out.data[j] = lstA.data[i]
         j += 1
     }
     for i : uint32 in 0u32 .. lstB.length {
-        out.data[j] = (lstB.data[i] : t)
+        out.data[j] = lstB.data[i]
         j +=1
     }
     out
 }
 
 /*
-    Function: nth
+    Function: concatSafe
+
+    Concatenates two lists, always allocating enough space in the return list to hold the items.
+
+    Type Signature:
+    | ∀t, aCap:int, bCap:int . (list<t, aCap>, list<t, bCap>) -> list<t, aCap + bCap>
+
+    Parameters:
+        lstA : list<t, aCap> - The first list.
+        lstB : list<t, bCap> - The second list.
+
+   Returns:
+        The two lists appended together.
+*/
+fun concatSafe(lstA : list<t, aCap>, lstB : list<t, bCap>) : list<t, aCap + bCap> =
+    concat(lstA, lstB)
+
+/*
+    Function: get
+
+    Returns the nth element of the given list
+
+    Type Signature:
+    | (u, list<t, n>) -> t where u : int
+
+    Parameters:
+        i : u - The index of the element to be retrieved
+        lst : list<t, n> - The given list
+
+    Returns:
+        The element at position i in the list
+*/
+fun get(i : u, lst : list<t, n>) : t where u : int =
+    lst.data[i]
+
+/*
+    Function: getSafe
 
     Returns the nth element of the given list, or nothing if the index is out of bounds
 
     Type Signature:
-    | (uint32, list<t, n>) -> maybe<t>
+    | ∀t, n:int . (uint32, list<t, n>) -> maybe<t>
 
     Parameters:
         i : uint32 - The index of the element to be retrieved
@@ -131,29 +201,14 @@ fun append(lstA : list<t, aCap>, lstB : list<t, bCap>) : list<t, retCap> = {
     Returns:
         The element at position i in the list inside a just, or nothing if the index is out of bounds.
 */
-fun nth(i : uint32, lst : list<t, n>) : maybe<t> =
+fun getSafe(i : u, lst : list<t, n>) : maybe<t> where u : int =
     if i < lst.length
         just(lst.data[i])
     else
         nothing()
 
-/*
-    Function: flattenSafe
-
-    Flattens a list of lists into a single list.
-
-    Type Signature:
-    | (list<list<t, m>, n>) -> list<t, m*n>
-
-    Parameters:
-        listOfLists : list<list<t, m>, n> - The list of lists
-
-    Returns:
-        The flattened list
-*/
-
-fun flattenSafe(listOfLists : list<list<t, m>, n>) : list<t, m*n> = {
-    let mut ret = array t[m*n]
+fun flatten(listOfLists : list<list<t, m>, n>) : list<t, retCap> = {
+    let mut ret = array t[retCap]
     let mut index = 0u32
     for i : uint32 in 0u32 .. listOfLists.length {
         for j : uint32 in 0u32 .. listOfLists.data[i].length {
@@ -163,6 +218,24 @@ fun flattenSafe(listOfLists : list<list<t, m>, n>) : list<t, m*n> = {
     }
     {data := ret, length := index}
 }
+
+/*
+    Function: flattenSafe
+
+    Flattens a list of lists into a single list.
+
+    Type Signature:
+    | ∀t,m:int,n:int . (list<list<t, m>, n>) -> list<t, m*n>
+
+    Parameters:
+        listOfLists : list<list<t, m>, n> - The list of lists
+
+    Returns:
+        The flattened list
+*/
+
+fun flattenSafe(listOfLists : list<list<t, m>, n>) : list<t, m*n> =
+    flatten(listOfLists)
 
 
 /*
@@ -244,7 +317,7 @@ fun any(pred : (t) -> bool, lst : list<t, n>) : bool = {
 }
 
 /*
-    Function: pushBack
+    Function: append
 
     Returns a copy of the given list with the element appended to the end.
     If the element will not fit in the list, nothing is inserted.
@@ -259,7 +332,7 @@ fun any(pred : (t) -> bool, lst : list<t, n>) : bool = {
     Returns:
         A copy of lst with elem appended to the end
 */
-fun pushBack(elem : t, lst : list<t, n>) : list<t, n> =
+fun append(elem : t, lst : list<t, n>) : list<t, n> =
     if lst.length >= n {
         lst
     } else {
@@ -270,9 +343,9 @@ fun pushBack(elem : t, lst : list<t, n>) : list<t, n> =
     }
 
 /*
-    Function: pushOffFront
+    Function: prepend
 
-    Returns a copy of the given list with the element appended to the front.
+    Returns a copy of the given list with the element prepended to the front.
     If the list is already full then the last element is pushed off (removed)
     from the back of the list.
 
@@ -284,9 +357,9 @@ fun pushBack(elem : t, lst : list<t, n>) : list<t, n> =
         lst : list<t, n> - The list
 
     Returns:
-        A copy of lst with elem appended to the front
+        A copy of lst with elem prepended to the front
 */
-fun pushOffFront(elem : t, lst : list<t, n>) : list<t, n> = {
+fun prepend(elem : t, lst : list<t, n>) : list<t, n> = {
     if n <= 0i32 {
         lst
     } else {
@@ -307,7 +380,7 @@ fun pushOffFront(elem : t, lst : list<t, n>) : list<t, n> = {
 }
 
 /*
-    Function: setNth
+    Function: set
 
     Returns a copy of the given list where the element at the given index
     is the given element. If the index is out of bounds the list remains unchanged.
@@ -323,7 +396,7 @@ fun pushOffFront(elem : t, lst : list<t, n>) : list<t, n> = {
     Returns:
         A new list where the elem is at index.
 */
-fun setNth(index : uint32, elem : t, lst : list<t, n>) : list<t, n> =
+fun set(index : uint32, elem : t, lst : list<t, n>) : list<t, n> =
     if index < lst.length {
         let mut ret = lst
         ret.data[index] = elem
@@ -420,7 +493,7 @@ fun dropLast(lst : list<t, n>) : list<t, n> =
     }
 
 /*
-    Function: foreach
+    Function: iter
 
     Calls f for each element in lst. This function is used for its side effects
     and the evaluation order is defined to be the same as the order of the
@@ -436,7 +509,7 @@ fun dropLast(lst : list<t, n>) : list<t, n> =
     Returns:
         Unit
 */
-fun foreach(f : (t) -> unit, lst : list<t, n>) : unit =
+fun iter(f : (t) -> unit, lst : list<t, n>) : unit =
     for i : uint32 in 0u32 .. lst.length {
         f(lst.data[i])
     }
@@ -455,7 +528,24 @@ fun foreach(f : (t) -> unit, lst : list<t, n>) : unit =
     Returns:
         The last element of the list
 */
-fun last(lst : list<t, n>) : maybe<t> =
+fun last(lst : list<t, n>) : t =
+    lst.data[lst.length - 1]
+
+/*
+    Function: lastSafe
+
+    Returns the last element of the lst.
+
+    Type Signature:
+    | (list<t, n>) -> maybe<t>
+
+    Parameters:
+        lst : list<t, n> - The list
+
+    Returns:
+        The last element of the list if the length is greater than 0, or nothing otherwise.
+*/
+fun lastSafe(lst : list<t, n>) : maybe<t> =
     if lst.length == 0 {
         nothing()
     } else {
@@ -621,7 +711,7 @@ fun unzip(lst : list<(a,b), n>) : (list<a, n>, list<b, n>) = {
         The sum of the list
 */
 fun sum(lst : list<a, n>) : a where a : num =
-    List:foldl((+), 0, lst)
+    List:fold((+), 0, lst)
 
 /*
     Function: average
@@ -642,7 +732,7 @@ fun average(lst : list<a, n>) : a where a : num =
 
 #
 template<typename t, typename clos, typename keyT, int n>
-void partition(list<t, n>& lst, juniper::function<clos, keyT(t)> keyF, uint32_t lo, uint32_t hi) {
+uint32_t partition(list<t, n>& lst, juniper::function<clos, keyT(t)> keyF, uint32_t lo, uint32_t hi) {
     keyT pivot = keyF(lst.data[hi]);
     
     uint32_t i = lo;

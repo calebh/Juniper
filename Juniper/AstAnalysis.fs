@@ -289,7 +289,7 @@ let decRefs (valueDecs : Set<T.ModQualifierRec>) (menv : Map<string, T.ModQualif
             Ast.UInt32Exp _ | Ast.Int32Exp _ | Ast.UInt64Exp _ | Ast.Int64Exp _) ->
             Set.empty
         | Ast.LambdaExp (_, {arguments=(_, arguments); body=(_, body)}) ->
-            let argNames = arguments |> List.map (fst >> Ast.unwrap) |> Set.ofList
+            let argNames = arguments |> List.map (fun (_, (_, name), _) -> name) |> Set.ofList
             d (Set.union argNames localVars) body
         | Ast.LetExp {right=(_, right)} ->
             d' right
@@ -455,7 +455,7 @@ let rec findFreeVars (theta : Constraint.ThetaT) (kappa : Constraint.KappaT) (e 
         | T.IfElseExp {condition=condition; trueBranch=trueBranch; falseBranch=falseBranch} ->
             append2 (List.map ffv [condition; trueBranch; falseBranch] |> List.unzip)
         | T.LambdaExp {returnTy=returnTy; arguments=arguments; body=body} ->
-            let a = append2 (List.map (snd >> freeVarsTyp (T.getPos e)) arguments |> List.unzip)
+            let a = append2 (List.map ((fun (varInfo : T.VarRec) -> varInfo.typ) >> freeVarsTyp (T.getPos e)) arguments |> List.unzip)
             append2 ([freeVarsTyp (T.getPos e) returnTy; a; ffv body] |> List.unzip)
         | T.LetExp {left=left; right=right} ->
             append2 ([freeVarsPattern left; ffv right] |> List.unzip)

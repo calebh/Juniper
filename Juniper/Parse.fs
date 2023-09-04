@@ -404,7 +404,18 @@ do
                           attempt tuplePattern; parensPattern; varPattern]) <?> "Pattern"
 
 let functionClause delimiter =
-    let arguments = betweenChar '(' (separatedList (pos id .>>. opt (ws >>. skipChar ':' >>. ws >>. tyExpr)) ',' |> pos) ')' .>> ws
+    let arguments =
+        betweenChar
+            '('
+            (separatedList
+                (pipe3'
+                    (opt ((pos (skipString "mut")) .>> ws1))
+                    (pos id .>> ws)
+                    (opt (skipChar ':' >>. ws >>. tyExpr))
+                    (fun maybeMut argName maybeArgTyp -> (maybeMut, argName, maybeArgTyp)))
+                ',')
+            ')'
+        .>> ws
     let returnTy = opt (skipChar ':' >>. ws >>. tyExpr .>> ws) .>> ws
     let constraintType = choice [(skipString "num" |> pos |>> IsNum);
                                  (skipString "int" |> pos |>> IsInt);
@@ -414,7 +425,7 @@ let functionClause delimiter =
     let interfaceConstraints =
         (skipString "where" >>. ws >>. (separatedList (pos (tyExpr .>> ws .>> skipChar ':' .>> ws .>>. pos constraintType) .>> ws) ',') .>> ws) |> opt |>> Option.flattenList |> pos
     (pipe4'
-        (attempt arguments)
+        (attempt (pos arguments))
         (attempt returnTy)
         (attempt interfaceConstraints)
         ((attempt (skipString delimiter)) >>? ws >>? (fatalizeAnyError expr))

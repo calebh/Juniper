@@ -192,7 +192,7 @@ fun get(i : u, lst : list<t, n>) : t where u : int =
     Returns the nth element of the given list, or nothing if the index is out of bounds
 
     Type Signature:
-    | ∀t, n:int . (uint32, list<t, n>) -> maybe<t>
+    | (uint32, list<t, n>) -> maybe<t>
 
     Parameters:
         i : uint32 - The index of the element to be retrieved
@@ -207,6 +207,20 @@ fun getSafe(i : u, lst : list<t, n>) : maybe<t> where u : int =
     else
         nothing()
 
+/*
+    Function: flatten
+
+    Flattens a list of lists into a single list.
+
+    Type Signature:
+    | (list<list<t, m>, n>) -> list<t, retCap>
+
+    Parameters:
+        listOfLists : list<list<t, m>, n> - The list of lists
+
+    Returns:
+        The flattened list
+*/
 fun flatten(listOfLists : list<list<t, m>, n>) : list<t, retCap> = {
     let mut ret = array t[retCap]
     let mut index = 0u32
@@ -225,7 +239,7 @@ fun flatten(listOfLists : list<list<t, m>, n>) : list<t, retCap> = {
     Flattens a list of lists into a single list.
 
     Type Signature:
-    | ∀t,m:int,n:int . (list<list<t, m>, n>) -> list<t, m*n>
+    | (list<list<t, m>, n>) -> list<t, m*n>
 
     Parameters:
         listOfLists : list<list<t, m>, n> - The list of lists
@@ -332,15 +346,35 @@ fun any(pred : (t) -> bool, lst : list<t, n>) : bool = {
     Returns:
         A copy of lst with elem appended to the end
 */
-fun append(elem : t, lst : list<t, n>) : list<t, n> =
-    if lst.length >= n {
-        lst
-    } else {
-        let mut ret = lst
-        ret.data[lst.length : uint32] = elem
-        ret.length += 1
-        ret
+fun append(elem : t, mut lst : list<t, n>) : list<t, n> = {
+    if lst.length < n {
+        lst.data[lst.length] = elem
+        lst.length += 1
     }
+    lst
+}
+
+/*
+    Function: appendSafe
+
+    Returns a copy of the given list with the element appended to the end.
+
+    Type Signature:
+    | (t, list<t, n>) -> list<t, n + 1>
+
+    Parameters:
+        elem : t - The element to add to the end of the list
+        lst : list<t, n> - The list
+
+    Returns:
+        A copy of lst with elem appended to the end
+*/
+fun appendSafe(elem : t, lst : list<t, n>) : list<t, n + 1> = {
+    let mut ret = resize(lst)
+    ret.data[lst.length] = elem
+    ret.length += 1
+    ret
+}
 
 /*
     Function: prepend
@@ -396,14 +430,12 @@ fun prepend(elem : t, lst : list<t, n>) : list<t, n> = {
     Returns:
         A new list where the elem is at index.
 */
-fun set(index : uint32, elem : t, lst : list<t, n>) : list<t, n> =
+fun set(index : uint32, elem : t, mut lst : list<t, n>) : list<t, n> = {
     if index < lst.length {
-        let mut ret = lst
-        ret.data[index] = elem
-        ret
-    } else {
-        lst
+        lst.data[index] = elem
     }
+    lst
+}
 
 /*
     Function: replicate
@@ -439,7 +471,7 @@ fun replicate(numOfElements : uint32, elem : t) : list<t, n> =
     Returns:
         A copy of lst with elem removed.
 */
-fun remove(elem : t, lst : list<t, n>) : list<t, n> = {
+fun remove(elem : t, mut lst : list<t, n>) : list<t, n> = {
     let mut index : uint32 = 0u32
     let mut found = false
     for i : uint32 in 0u32 .. lst.length {
@@ -448,26 +480,22 @@ fun remove(elem : t, lst : list<t, n>) : list<t, n> = {
             found = true
         }
     }
-    if (found) {
+    if found {
         // Shift all the elements after the discovered index once to the left
-        let mut ret = lst
-        ret.length -= 1
+        lst.length -= 1
         for i : uint32 in index .. lst.length {
-            ret.data[i] = lst.data[i + 1]
+            lst.data[i] = lst.data[i + 1]
         }
         var dummy : t
-        ret.data[lst.length - 1] = dummy
-        ret
-    } else {
-        lst
+        lst.data[lst.length] = dummy
     }
+    lst
 }
 
 /*
-    Function: dropLast
+    Function: pop
 
     Drops the last element of a List. If the list has size 0, the list remains unchanged
-
 
     Type Signature:
     | (list<t, n>) -> list<t, n>
@@ -478,19 +506,17 @@ fun remove(elem : t, lst : list<t, n>) : list<t, n> = {
     Returns:
         The list with the last element dropped
 */
-fun dropLast(lst : list<t, n>) : list<t, n> =
-    if lst.length == 0u32 {
-        lst
-    } else {
+fun pop(mut lst : list<t, n>) : list<t, n> = {
+    if lst.length > 0u32 {
         // If t is a reference, we want to make sure that this reference is actually
         // dropped, possibly allowing memory to be freed. This is accomplished by creating
         // an uninitialized dummy variable and using it to overwrite the last element.
-        let mut ret = lst
         var dummy : t
-        ret.length -= 1
-        ret.data[ret.length] = dummy
-        ret
+        lst.length -= 1
+        lst.data[lst.length] = dummy
     }
+    lst
+}
 
 /*
     Function: iter

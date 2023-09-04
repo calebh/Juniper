@@ -106,10 +106,10 @@ and DeclarationTy = FunDecTy of TyScheme
                   | ADTDecTy of Template * ModQualifierRec
 
 // Pattern matching AST datatypes.
-and MatchVarRec = { varName : string; mutable_ : bool; typ : TyExpr }
+and VarRec = { varName : string; mutable_ : bool; typ : TyExpr }
 and MatchValConRec = { modQualifier : ModQualifierRec; innerPattern : TyAdorn<Pattern> list; id : int }
 
-and Pattern = MatchVar of MatchVarRec
+and Pattern = MatchVar of VarRec
             | MatchIntVal of int64
             | MatchFloatVal of string
             | MatchValCon of MatchValConRec
@@ -121,7 +121,7 @@ and Pattern = MatchVar of MatchVarRec
             | MatchFalse
 
 // Elements of a function clause.
-and FunctionClause = {closure : Map<string, TyExpr>; returnTy : TyExpr; arguments : (string * TyExpr) list; body : TyAdorn<Expr>}
+and FunctionClause = {closure : Map<string, TyExpr>; returnTy : TyExpr; arguments : VarRec list; body : TyAdorn<Expr>}
 
 // Module qualifier.
 and ModQualifierRec = { module_ : string; name : string }
@@ -549,7 +549,7 @@ and preorderMapFold (exprMapper: Map<string, TyExpr> -> 'accum -> TyAdorn<Expr> 
     | InternalUsingCap _ ->
         (expr', accum')
     | LambdaExp {closure=closureTy; returnTy=returnTy; arguments=arguments; body=body} ->
-        let gamma' = Map.merge gamma (Map.ofList arguments)
+        let gamma' = Map.merge gamma (Map.ofList (arguments |> List.map (fun {varName=varName; typ=typ} -> (varName, typ))))
         let (body', accum'') = preorderMapFold exprMapper leftAssignMapper patternMapper gamma' accum' body
         (wrapLike expr' (LambdaExp {closure=closureTy; returnTy=returnTy; arguments=arguments; body=body'}), accum'')
     | LetExp {left=left; right=right} ->

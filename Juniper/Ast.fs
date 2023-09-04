@@ -123,7 +123,13 @@ and Pattern = MatchVar of MatchVarRec
             | MatchFalse of PosAdorn<unit>
 
 // Elements of a function clause.
-and FunctionClause = {returnTy : PosAdorn<TyExpr> option; arguments : PosAdorn<(PosAdorn<string> * (PosAdorn<TyExpr> option)) list>; body : PosAdorn<Expr>; interfaceConstraints : PosAdorn<PosAdorn<PosAdorn<TyExpr> * PosAdorn<ConstraintType>> list>}
+and FunctionClause = {
+    returnTy : PosAdorn<TyExpr> option;
+    // An argument consists of a mut annotation (optional), argument name, and argument type (optional)
+    arguments : PosAdorn<((PosAdorn<unit> option) * PosAdorn<string> * (PosAdorn<TyExpr> option)) list>;
+    body : PosAdorn<Expr>;
+    interfaceConstraints : PosAdorn<PosAdorn<PosAdorn<TyExpr> * PosAdorn<ConstraintType>> list>
+}
 
 // Module qualifier.
 and ModQualifierRec = { module_ : PosAdorn<string>; name : PosAdorn<string> }

@@ -405,6 +405,11 @@ let typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 | (Ast.Greater | Ast.GreaterOrEqual | Ast.Less | Ast.LessOrEqual) ->
                     let cLeft = InterfaceConstraint (T.getType left', IsNum, errStr [posl] "The left hand side must be a number type")
                     let cRight = InterfaceConstraint (T.getType right', IsNum, errStr [posr] "The right hand side must be a number type")
+                    // If at some point in the future we want to insist that the left
+                    // and right hand side must be the same type, use the following two lines.
+                    // For now it seems to be more pragmatic to allow implicit numerical conversion.
+                    //let cEq = (T.getType left' =~= (T.getType right', errStr [posl; posr] "Left hand side and right hand side of the inequlities should be the same type"))
+                    //let c'' = c' &&& cEq &&& cLeft &&& cRight
                     let c'' = c' &&& cLeft &&& cRight
                     adorn posE T.booltype b' c''
                 | (Ast.BitshiftLeft | Ast.BitshiftRight) ->
@@ -512,7 +517,8 @@ let typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 let (gamma1Lst, c1s, localVars1, arguments') =
                     arguments |>
                     List.map
-                        (fun ((posa, argName), maybeArgTau) ->
+                        (fun (maybeMut, (posa, argName), maybeArgTau) ->
+                            let isMutable = Option.isSome maybeMut
                             let tau = freshtyvarExpr ()
                             let argConstraint =
                                 match maybeArgTau with
@@ -523,8 +529,8 @@ let typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                             // Cross ref add local variable
                             let vid = freshVid ()
                             addCrossRef (LocalVarDec {bindingSite = posa; ty=tau; vid = vid})
-                            let gammaEntry = (argName, (false,  T.Forall (emptytemplate, [], tau)))
-                            (gammaEntry, argConstraint, (argName, vid), (argName, tau))) |>
+                            let gammaEntry = (argName, (isMutable,  T.Forall (emptytemplate, [], tau)))
+                            (gammaEntry, argConstraint, (argName, vid), {mutable_=isMutable; varName=argName; typ=tau})) |>
                     List.unzip4
                 let gamma'' = Map.merge gamma' (Map.ofList gamma1Lst)
                 let c1 = c1s |> conjoinConstraints            
@@ -549,7 +555,7 @@ let typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                         convertType' returnTau =~= (T.getType body', errStr [A.getPos returnTau] "Invalid return type constraint")
                     | None ->
                         Trivial
-                let lambdaTau = funty (ClosureTy closure) (T.getType body') (List.map snd arguments')
+                let lambdaTau = funty (ClosureTy closure) (T.getType body') (List.map (fun (varInfo : VarRec) -> varInfo.typ) arguments')
                 let c' = interfaceConstraints' &&& c1 &&& c2 &&& c3
                 adorn posE lambdaTau (T.LambdaExp {closure = closure; returnTy=T.getType body'; arguments=arguments'; body=body'}) c'
             // Hit a let expression that is not part of a sequence
@@ -1002,10 +1008,10 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                     // We need to determine what local variables this function declares so that we know what variables
                     // to ignore if we find a reference to that name
                     // Get the function's argument names
-                    let a1 = arguments |> List.map (fst >> Ast.unwrap) |> Set.ofList
+                    let a1 = arguments |> List.map (fun (_, (_, name), _) -> name) |> Set.ofList
                     // Capacities are local variables as well!
                     let convertType' = convertType menv denv dtenv0 Map.empty Map.empty
-                    let argumentsTypes = arguments |> List.map snd |> List.filter Option.isSome |> List.map (Option.get >> convertType')
+                    let argumentsTypes = arguments |> List.map (fun (_, _, typ) -> typ) |> List.filter Option.isSome |> List.map (Option.get >> convertType')
                     let a2 = argumentsTypes |> List.map (Constraint.freeVars >> snd) |> Set.unionMany |> Set.map (fun (T.CapVar capName) -> capName)
                     // Union on the named capacity types into localVars
                     let localVars = Set.union a1 a2
@@ -1288,7 +1294,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 // Extract the function parameter names and save it in a set
                                 let (localArguments, crossRefInfoArgs, argTys) =
                                     List.foldBack
-                                        (fun ((posn, name), maybeTy) (accumLocalArgs, accumCrossRefInfo, accumArgTys) ->
+                                        (fun (_, (posn, name), maybeTy) (accumLocalArgs, accumCrossRefInfo, accumArgTys) ->
                                             let vid = freshVid ()
                                             let ty = 
                                                 // Generate types for all arguments. If the user gave an explicit type annotation, use
@@ -1330,7 +1336,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 let userTyVarsArgs =
                                     arguments |>
                                     List.map
-                                        (fun (_, maybeTy) ->
+                                        (fun (_, _, maybeTy) ->
                                             match maybeTy with
                                             | Some ty -> AstAnalysis.tyVars menv denv T.StarKind (A.unwrap ty)
                                             | None -> []) |>
@@ -1344,7 +1350,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 let userCapVarsArgs =
                                     arguments |>
                                     List.map
-                                        (fun (_, maybeTy) ->
+                                        (fun (_, _, maybeTy) ->
                                             match maybeTy with
                                             | Some ty -> AstAnalysis.capVars menv denv T.StarKind (A.unwrap ty)
                                             | None -> []) |>
@@ -1410,9 +1416,9 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 let tempGamma' =
                                     List.zip arguments argTys' |>
                                     List.fold
-                                        (fun accumTempGamma' (((_, name), _), argTy) ->
+                                        (fun accumTempGamma' ((maybeMut, (_, name), _), argTy) ->
                                             let argTyScheme = T.Forall (emptytemplate, [], argTy)
-                                            Map.add name (false, argTyScheme) accumTempGamma')
+                                            Map.add name (Option.isSome maybeMut, argTyScheme) accumTempGamma')
                                         tempGamma
                                 // Add the capacities to the type environment
                                 let tempGamma'' =
@@ -1454,8 +1460,9 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                         conjoinConstraints)
                                 let c4 = conjoinConstraints c4s
                                 let c = c1 &&& c2 &&& c3 &&& c4
-                                let argNames = arguments |> List.map (fst >> Ast.unwrap)
-                                ((modqual, userTyVarMapping, userCapVarMapping, argNames, argTys', T.getType body', body'), terminalCaps, c, freshTVarMap', freshCVarMap'))
+                                let argMut = arguments |> List.map (fun (maybeMut, _, _) -> Option.isSome maybeMut)
+                                let argNames = arguments |> List.map (fun (_, (_, name), _) -> name)
+                                ((modqual, userTyVarMapping, userCapVarMapping, argMut, argNames, argTys', T.getType body', body'), terminalCaps, c, freshTVarMap', freshCVarMap'))
                             |> List.unzip5
                     
                     let accFreshTVarMap' = Map.mergeMany (accFreshTVarMap::freshTVarMapLst)
@@ -1470,7 +1477,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                     let (funDecs', (dtenv', globalGamma')) =
                         funDecsInfo |>
                         List.mapFold
-                            (fun (accumDtenv', accumGlobalGamma') ({module_=module_; name=name} as modqual, userTyVarMapping, userCapVarMapping, argNames, argTys, retTy, body') ->
+                            (fun (accumDtenv', accumGlobalGamma') ({module_=module_; name=name} as modqual, userTyVarMapping, userCapVarMapping, argMut, argNames, argTys, retTy, body') ->
                                 userTyVarMapping |>
                                 Map.iter
                                     (fun (TyVar userGivenName) (post, freshVar) ->
@@ -1492,7 +1499,9 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 
                                 let retTy' = tycapsubst theta kappa retTy
                                 let argTys' = argTys |> List.map (tycapsubst theta kappa)
-                                let arguments' = List.zip argNames argTys'
+                                let arguments' =
+                                    List.zip3 argMut argNames argTys' |>
+                                    List.map (fun (mutable_, name, typ) -> {mutable_=mutable_; varName=name; typ=typ})
 
                                 let funTy = funty emptyclosure retTy' argTys'
                                 let (freets, freecs) = freeVars funTy

@@ -561,7 +561,7 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
     | RefRecordAccessExp {recordRef = recordRef; fieldName=fieldName} ->
         output "((" + compile topLevel recordRef + output ").get())->" + output fieldName
     | LambdaExp {closure=closure; returnTy=returnTy; arguments=args; body=body} ->
-        output "juniper::function<" + compileType (ClosureTy closure) + ", " + compileType returnTy + "(" + (args |> List.map (snd >> compileType) |> String.concat ",") + ")>(" +
+        output "juniper::function<" + compileType (ClosureTy closure) + ", " + compileType returnTy + "(" + (args |> List.map ((fun varInfo -> varInfo.typ) >> compileType) |> String.concat ",") + ")>(" +
         (if Map.count closure = 0 then
             ""
         else
@@ -571,7 +571,7 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
             ""
         else
             (compileType (ClosureTy closure)) + "& junclosure, ") +
-        (args |> List.map (fun (name, ty) -> compileType ty + output " " + output name) |> String.concat ", ") +
+        (args |> List.map (fun {varName=name; typ=ty} -> compileType ty + output " " + output name) |> String.concat ", ") +
         output ") -> " + compileType returnTy + output " { " + newline() + indentId() +
         (closure |> Map.keys |> List.ofSeq |> List.sort |> List.map (fun varName -> compileType (Map.find varName closure) + output "& " + output varName + output " = junclosure." + output varName + output ";" + newline()) |> String.concat "") +
         output "return " + compile false body + output ";" + unindentId() + newline() +
@@ -719,7 +719,7 @@ and compileFunctionSignature theta kappa (FunctionDec {name=name; template=templ
     output name +
     output "(" +
     ((clause.arguments |>
-        List.map (fun (name, ty) ->
+        List.map (fun {varName=name; typ=ty} ->
             (compileType ty) + output " " + (output name))) |> String.concat ", ") +
     output ")"
 

@@ -159,6 +159,8 @@ let convertType menv denv (dtenv : Map<T.ModQualifierRec, T.DeclarationTy>) (tyV
             | None -> Map.findDefault (T.TyVar name) (T.TyVarExpr (T.TyVar name)) tyVarMapping
         | Ast.RefTy tau ->
             T.refty (ct tau)
+        | Ast.InOutTy tau ->
+            T.inOutTy (ct tau)
         | Ast.TupleTy taus ->
             T.tuplety (List.map ct taus)
         | Ast.RecordTy (_, {packed=packed; fields=(_, fields)}) ->
@@ -203,7 +205,7 @@ let convertInterfaceConstraint menv denv dtenv interfaceConstraint =
         T.IsRecord::(cs1 @ cs2)
     | A.IsPacked _ -> [T.IsPacked]
 
-let convertToLHS expr=
+let convertToLHS errMsg expr =
     // Converts an expression into a valid left hand side (LHS) form
     let rec convertToLHSRec topLevel expr =
         let pose = A.getPos expr
@@ -222,7 +224,7 @@ let convertToLHS expr=
             | A.ArrayAccessExp { array = arr; index = index } ->
                 A.ArrayMutation { array = convertToLHSRec false arr; index = index }
             | _ ->
-                raise <| SemanticError ((errStr [pose] "The left hand side of the assignment operation contained an invalid expression.").Force())
+                raise <| SemanticError ((errStr [pose] errMsg).Force())
         (pose, expr')
     convertToLHSRec true expr
 

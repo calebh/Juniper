@@ -31,6 +31,8 @@ let rec findUnderscoreTys (tyExpr : A.PosAdorn<A.TyExpr>) : List<FParsec.Positio
         fields |> List.map (snd >> findUnderscoreTys) |> List.concat
     | A.RefTy refTy ->
         findUnderscoreTys refTy
+    | A.InOutTy inner ->
+        findUnderscoreTys inner
     | A.TupleTy elems ->
         elems |> List.map findUnderscoreTys |> List.concat
 
@@ -75,6 +77,8 @@ let tyRefs (menv : Map<string, T.ModQualifierRec>) tyDec : Set<T.ModQualifierRec
             | Some modQual ->
                 Set.singleton modQual
         | A.RefTy (_, tau) ->
+            refsInTyExpr tau
+        | A.InOutTy (_, tau) ->
             refsInTyExpr tau
         | A.TupleTy taus ->
             taus |> List.map (A.unwrap >> refsInTyExpr) |> Set.unionMany
@@ -154,6 +158,8 @@ let rec getVars (searchKind : T.Kind) (menv : Map<string, T.ModQualifierRec>) (d
         List.concat [v1; v2; v3]
     | Ast.RefTy (_, refTy) ->
         getVars' T.StarKind refTy
+    | Ast.InOutTy (_, inner) ->
+        getVars' T.StarKind inner
     | Ast.TupleTy elems ->
         getVarsMany T.StarKind elems
     | Ast.RecordTy (_, {fields = (_, fields)}) ->
@@ -238,7 +244,9 @@ let decRefs (valueDecs : Set<T.ModQualifierRec>) (menv : Map<string, T.ModQualif
         | Ast.BinaryOpExp {left=(_, left); right=(_, right)} ->
             Set.union (d' left) (d' right)
         | Ast.CallExp {func=(_, func); args=(_, args)} ->
-            Set.unionMany ((d' func)::(List.map (Ast.unwrap >> d') args))
+            Set.unionMany ((d' func)::(List.map (fun arg -> match arg with
+                                                            | A.InOutArg (_, lhs) -> dl localVars lhs
+                                                            | A.ExprArg (_, expr) -> d' expr) args))
         | Ast.MatchExp {on=(_, on); clauses=(_, clauses)} ->
             let s1 = d' on
             let s2 =
@@ -289,7 +297,7 @@ let decRefs (valueDecs : Set<T.ModQualifierRec>) (menv : Map<string, T.ModQualif
             Ast.UInt32Exp _ | Ast.Int32Exp _ | Ast.UInt64Exp _ | Ast.Int64Exp _) ->
             Set.empty
         | Ast.LambdaExp (_, {arguments=(_, arguments); body=(_, body)}) ->
-            let argNames = arguments |> List.map (fun (_, (_, name), _) -> name) |> Set.ofList
+            let argNames = arguments |> List.map (fun (_, (_, (_, name), _)) -> name) |> Set.ofList
             d (Set.union argNames localVars) body
         | Ast.LetExp {right=(_, right)} ->
             d' right
@@ -413,6 +421,13 @@ let rec findFreeVars (theta : Constraint.ThetaT) (kappa : Constraint.KappaT) (e 
             append2 (fields |> List.map (snd >> freeVarsPattern) |> List.unzip)
         | T.MatchTuple pats ->
             append2 (List.map freeVarsPattern pats |> List.unzip)
+
+    let rec freeVarsCallArg callArg =
+        match callArg with
+        | T.InOutArg (pos, _, leftAssign) ->
+            freeVarsLeftAssign pos leftAssign
+        | T.ExprArg innerExpr ->
+            ffv innerExpr
     
     let (freeTaus, freeCaps) = freeVarsTyp (T.getPos e) (T.getType e)
     let (freeTaus', freeCaps') =
@@ -430,7 +445,8 @@ let rec findFreeVars (theta : Constraint.ThetaT) (kappa : Constraint.KappaT) (e 
         | T.BinaryOpExp {left=left; right=right} ->
             append2 ([ffv left; ffv right] |> List.unzip)
         | T.CallExp {func=func; args=args} ->
-            append2 (List.map ffv (func::args) |> List.unzip)
+            let a = append2 (List.map freeVarsCallArg args |> List.unzip)
+            append2 ([ffv func; a] |> List.unzip)
         | T.MatchExp {on=on; clauses=clauses} ->
             let pats = append2 (List.map (fst >> freeVarsPattern) clauses |> List.unzip)
             let exprs = append2 (List.map (snd >> ffv) clauses |> List.unzip)
@@ -455,8 +471,9 @@ let rec findFreeVars (theta : Constraint.ThetaT) (kappa : Constraint.KappaT) (e 
         | T.IfElseExp {condition=condition; trueBranch=trueBranch; falseBranch=falseBranch} ->
             append2 (List.map ffv [condition; trueBranch; falseBranch] |> List.unzip)
         | T.LambdaExp {returnTy=returnTy; arguments=arguments; body=body} ->
-            let a = append2 (List.map ((fun (varInfo : T.VarRec) -> varInfo.typ) >> freeVarsTyp (T.getPos e)) arguments |> List.unzip)
-            append2 ([freeVarsTyp (T.getPos e) returnTy; a; ffv body] |> List.unzip)
+            let a1 = append2 (List.map ((fun (_, _, (_, varInfo : T.VarRec)) -> varInfo.typ) >> freeVarsTyp (T.getPos e)) arguments |> List.unzip)
+            let a2 = append2 (List.map ((fun (_, typ, _) -> typ) >> freeVarsTyp (T.getPos e)) arguments |> List.unzip)
+            append2 ([freeVarsTyp (T.getPos e) returnTy; a1; a2; ffv body] |> List.unzip)
         | T.LetExp {left=left; right=right} ->
             append2 ([freeVarsPattern left; ffv right] |> List.unzip)
         | T.QuitExp typ ->
@@ -513,3 +530,28 @@ let closure (expr : T.TyAdorn<T.Expr>) : Set<string> =
         Map.empty
         Set.empty
         expr
+
+let rec returnExprs ((_, _, expr) as inExpr : T.TyAdorn<T.Expr>) : List<T.TyAdorn<T.Expr>> =
+    match expr with
+    | T.SequenceExp seqExprs ->
+        returnExprs (List.last seqExprs)
+    | T.IfElseExp {trueBranch=trueBranch; falseBranch=falseBranch} ->
+        (returnExprs trueBranch) @ (returnExprs falseBranch)
+    | T.MatchExp {clauses=clauses} ->
+        List.map (snd >> returnExprs) clauses |> List.concat
+    | (T.BinaryOpExp _ | T.ArrayAccessExp _ | T.ArrayLitExp _ | T.ArrayMakeExp _ | T.AssignExp _ |
+        T.CallExp _ | T.DeclVarExp _ | T.DoWhileLoopExp _ | T.DoubleExp _ | T.FalseExp | T.FloatExp _ |
+        T.ForInLoopExp _ | T.ForLoopExp _ | T.FunctionWrapperEmptyClosure _ | T.IfExp _ | T.InlineCode _ |
+        T.Int16Exp _ | T.Int32Exp _ | T.Int64Exp _ | T.Int8Exp _ | T.IntExp _ | T.InternalDeclareVar _ |
+        T.InternalUsing _ | T.InternalUsingCap _ | T.LambdaExp _ | T.LetExp _ | T.ModQualifierExp _ |
+        T.NullExp _ | T.QuitExp _ | T.RecordAccessExp _ | T.RecordExp _ | T.RefExp _ | T.RefRecordAccessExp _ |
+        T.SizeofExp _ | T.Smartpointer _ | T.StringExp _ | T.TemplateApplyExp _ | T.TrueExp | T.TupleExp _ |
+        T.UInt16Exp _ | T.UInt32Exp _ | T.UInt64Exp _ | T.UInt8Exp _ | T.UnaryOpExp _ | T.UnitExp _ |
+        T.VarExp _ | T.WhileLoopExp _) ->
+        [inExpr]
+
+
+let isMutable (maybeAnn : Ast.ArgAnnotation option) : bool =
+    match maybeAnn with
+    | (Some (Ast.InOutAnn _) | Some (Ast.MutAnn _)) -> true
+    | None -> false

@@ -57,6 +57,12 @@ and Declaration = FunctionDec   of FunctionRec
 and Kind = StarKind of PosAdorn<unit>
          | IntKind of PosAdorn<unit>
 
+and CallArg = InOutArg of PosAdorn<LeftAssign>
+            | ExprArg of PosAdorn<Expr>
+
+and ArgAnnotation = InOutAnn of PosAdorn<unit>
+                  | MutAnn of PosAdorn<unit>
+
 // A template is associated with an algebraic datatype or alias
 and Template = PosAdorn<(PosAdorn<string> * Kind) list>
 
@@ -106,6 +112,7 @@ and TyExpr = BaseTy of PosAdorn<BaseTypes>
            | CapacityOp of CapacityArithOpRec
            | CapacityUnaryOp of CapacityUnaryOpRec
            | CapacityConst of PosAdorn<int64>
+           | InOutTy of PosAdorn<TyExpr>
 
 // Pattern matching AST datatypes.
 and MatchVarRec = {varName : PosAdorn<string>; mutable_ : PosAdorn<bool>; typ : PosAdorn<TyExpr> option}
@@ -126,7 +133,7 @@ and Pattern = MatchVar of MatchVarRec
 and FunctionClause = {
     returnTy : PosAdorn<TyExpr> option;
     // An argument consists of a mut annotation (optional), argument name, and argument type (optional)
-    arguments : PosAdorn<((PosAdorn<unit> option) * PosAdorn<string> * (PosAdorn<TyExpr> option)) list>;
+    arguments : PosAdorn<PosAdorn<(ArgAnnotation option) * PosAdorn<string> * (PosAdorn<TyExpr> option)> list>;
     body : PosAdorn<Expr>;
     interfaceConstraints : PosAdorn<PosAdorn<PosAdorn<TyExpr> * PosAdorn<ConstraintType>> list>
 }
@@ -157,7 +164,7 @@ and InternalDeclareVarExpRec = { varName : PosAdorn<string>; typ : PosAdorn<TyEx
 and InternalValConAccessRec = { valCon : PosAdorn<Expr>; typ : PosAdorn<TyExpr> }
 and InternalTupleAccessRec = { tuple : PosAdorn<Expr>; index : int }
 // Function call/apply
-and CallRec =         { func : PosAdorn<Expr>; args : PosAdorn<PosAdorn<Expr> list> }
+and CallRec =         { func : PosAdorn<Expr>; args : PosAdorn<CallArg list> }
 and RecordExprRec =   { packed : PosAdorn<unit> option; initFields : PosAdorn<(PosAdorn<string> * PosAdorn<Expr>) list> }
 and ArrayMakeExpRec = { typ : PosAdorn<TyExpr>; initializer : PosAdorn<Expr> option }
 and TypeConstraintRec = { exp : PosAdorn<Expr>; typ : PosAdorn<TyExpr> }

@@ -55,7 +55,7 @@ let stringLiteral containingChar asciiOnly =
     between (skipChar containingChar) (skipChar containingChar)
             (stringsSepBy normalCharSnippet escapedChar)
 
-type LeftRecursiveExp = CallArgs of PosAdorn<PosAdorn<Expr> list>
+type LeftRecursiveExp = CallArgs of PosAdorn<CallArg list>
                       | ArrayIndex of PosAdorn<Expr>
                       | TypeConstraintType of PosAdorn<TyExpr>
                       | FieldAccessName of PosAdorn<string>
@@ -128,7 +128,7 @@ let prefix str precidence op f opp =
         opp
 
 List.iter
-    (fun f -> f (fun l op r -> AssignExp { left = ConvertAst.convertToLHS l; op=op; right=r}) opp)
+    (fun f -> f (fun l op r -> AssignExp { left = ConvertAst.convertToLHS "The left hand side of the assignment operation contained an invalid expression." l; op=op; right=r}) opp)
     [infix "=" 1 Assign Associativity.Right;
     infix "+=" 1 AddAssign Associativity.Right;
     infix "-=" 1 SubAssign Associativity.Right;
@@ -323,7 +323,8 @@ do
                 TupleTy (tyHead::tyRest)) <?> "Tuple type"
     let recordTy = record |> pos |>> RecordTy <?> "Record type"
     let capConst = pos pint64 |>> CapacityConst <?> "Capacity constant"
-    let t = choice ([capConst; attempt mQual; closureTy; attempt recordTy; attempt underscore; name; attempt fn1; attempt fn2; tuple]) |> pos .>> wsNoNewline
+    let inoutTy = (attempt (skipString "inout" .>> ws1)) >>. (fatalizeAnyError tyExpr) |>> InOutTy <?> "inout type"
+    let t = choice ([capConst; inoutTy; attempt mQual; closureTy; attempt recordTy; attempt underscore; name; attempt fn1; attempt fn2; tuple]) |> pos .>> wsNoNewline
     tyExprOpp.TermParser <-
         (leftRecurse
             (t <?> "Type expression")
@@ -408,11 +409,11 @@ let functionClause delimiter =
         betweenChar
             '('
             (separatedList
-                (pipe3'
-                    (opt ((pos (skipString "mut")) .>> ws1))
+                ((pipe3'
+                    (opt (((attempt (pos (skipString "mut") .>> ws1)) |>> MutAnn) <|> (((attempt (pos (skipString "inout") .>> ws1))) |>> InOutAnn)))
                     (pos id .>> ws)
                     (opt (skipChar ':' >>. ws >>. tyExpr))
-                    (fun maybeMut argName maybeArgTyp -> (maybeMut, argName, maybeArgTyp)))
+                    (fun maybeMut argName maybeArgTyp -> (maybeMut, argName, maybeArgTyp))) |> pos)
                 ',')
             ')'
         .>> ws
@@ -434,7 +435,10 @@ let functionClause delimiter =
 
 // leftRecursiveExp
 let leftRecursiveExp =
-    let callArgs = betweenChar '(' (separatedList exprws ',' |> pos) ')' |>> CallArgs <?> "Function call"
+    let callArg =
+        ((attempt ((pstring "inout") .>> ws1)) >>. fatalizeAnyError (exprws |>> (ConvertAst.convertToLHS "Illegal expression inside inout parameter. The argument must be a left hand side expression."))) |>> InOutArg <|>
+        (exprws |>> ExprArg)
+    let callArgs = betweenChar '(' (separatedList callArg ',' |> pos) ')' |>> CallArgs <?> "Function call"
     let arrayIndex = betweenChar '[' exprws ']' |>> ArrayIndex <?> "Array access ([])"
     let typeConstraint = skipChar ':' >>. ws >>. tyExpr |>> TypeConstraintType <?> "Type constraint (:)"
     let fieldAccessName = attempt (skipChar '.' >>. notFollowedBy (skipChar '.')) >>. ws >>. id |> pos |>> FieldAccessName <?> "Record field access (.)"

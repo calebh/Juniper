@@ -47,6 +47,12 @@ and Declaration = FunctionDec   of FunctionRec
 and Kind = StarKind
          | IntKind
 
+and ArgAnnotation = InOutAnn
+                  | NormalArg
+
+and CallArg = InOutArg of TyAdorn<LeftAssign>
+            | ExprArg of TyAdorn<Expr>
+
 // A template is associated with a function, record or ADT
 and Template = (Choice<TyVar, CapVar>) list
 
@@ -84,6 +90,7 @@ and TyCons = BaseTy of BaseTypes
            | FunTy
            | RefTy
            | TupleTy
+           | InOutTy
 
 and TyVar = TyVar of string
 and CapVar = CapVar of string
@@ -121,7 +128,8 @@ and Pattern = MatchVar of VarRec
             | MatchFalse
 
 // Elements of a function clause.
-and FunctionClause = {closure : Map<string, TyExpr>; returnTy : TyExpr; arguments : VarRec list; body : TyAdorn<Expr>}
+// The outer TyAdorn for an argument may be an InOut type, the typ field contained in the VarRec info doesn't have the InOutType
+and FunctionClause = {closure : Map<string, TyExpr>; returnTy : TyExpr; arguments : TyAdorn<ArgAnnotation * VarRec> list; body : TyAdorn<Expr>}
 
 // Module qualifier.
 and ModQualifierRec = { module_ : string; name : string }
@@ -149,7 +157,7 @@ and InternalDeclareVarExpRec = { varName : string; typ : TyExpr; right : TyAdorn
 and InternalUsingRec = { varName : string; typ : TyExpr }
 and InternalUsingCapRec = { varName : string; cap : CapacityExpr }
 // Function call/apply
-and CallRec =         { func : TyAdorn<Expr>; args : TyAdorn<Expr> list }
+and CallRec =         { func : TyAdorn<Expr>; args : CallArg list }
 // Applying the template of a function
 and TemplateApplyExpRec = { func : Choice<string, ModQualifierRec>; templateArgs : TemplateApply }
 and RecordExprRec =   { packed : bool; initFields : (string * TyAdorn<Expr>) list }
@@ -316,6 +324,10 @@ let rec typeConString con appliedTo =
                     | Choice1Of2 tyExpr -> typeString tyExpr
                     | Choice2Of2 capExpr -> failwith "Internal compiler error. Argument to tuple type was a capacity expression.")
         sprintf "(%s)" (appliedToStrs |> String.concat ", ")
+    | InOutTy ->
+        match appliedTo with
+        | [Choice1Of2 argTy] -> sprintf "inout %s" (typeString argTy)
+        | _ -> "inout"
 
 and typeString (ty : TyExpr) : string =
     match ty with
@@ -394,6 +406,9 @@ let arrayty elemTau arrCap =
 
 let refty elem =
     ConApp (RefTy, [Choice1Of2 elem])
+
+let inOutTy tau =
+    ConApp (InOutTy, [Choice1Of2 tau])
 
 let closureFromFunTy (ConApp (FunTy, Choice1Of2 (ClosureTy closure)::_)) = closure
 let returnFromFunTy (ConApp (FunTy, _::(Choice1Of2 retTy)::_)) = retTy
@@ -488,8 +503,19 @@ and preorderMapFold (exprMapper: Map<string, TyExpr> -> 'accum -> TyAdorn<Expr> 
         (wrapLike expr' (BinaryOpExp {left=left'; op=op; right=right'}), accum''')
     | CallExp {func=func; args=args} ->
         let (func', accum'') = preorderMapFold' accum' func
-        let (args', accum''') = List.mapFold preorderMapFold' accum'' args
-        (wrapLike expr' (CallExp {func=func'; args=args'}), accum''')
+        let (args', accum'''') =
+            List.mapFold
+                (fun accumArg callArg ->
+                    match callArg with
+                    | InOutArg leftAssign ->
+                        let (leftAssign', accumArg') = (preorderMapFoldLeftAssign' accumArg (unwrap leftAssign))
+                        (InOutArg (wrapLike leftAssign leftAssign'), accumArg')
+                    | ExprArg expr ->
+                        let (expr', accumArg') = preorderMapFold' accumArg expr
+                        (ExprArg expr', accumArg'))
+                accum''
+                args
+        (wrapLike expr' (CallExp {func=func'; args=args'}), accum'''')
     | MatchExp {on=on; clauses=clauses} ->
         let (on', accum'') = preorderMapFold' accum' on
         let (clauses', accum'''''') =
@@ -549,7 +575,10 @@ and preorderMapFold (exprMapper: Map<string, TyExpr> -> 'accum -> TyAdorn<Expr> 
     | InternalUsingCap _ ->
         (expr', accum')
     | LambdaExp {closure=closureTy; returnTy=returnTy; arguments=arguments; body=body} ->
-        let gamma' = Map.merge gamma (Map.ofList (arguments |> List.map (fun {varName=varName; typ=typ} -> (varName, typ))))
+        let argInfo =
+            arguments |>
+            List.map (unwrap >> (fun (_, {varName=varName; typ=typ}) -> (varName, typ)))
+        let gamma' = Map.merge gamma (Map.ofList argInfo)
         let (body', accum'') = preorderMapFold exprMapper leftAssignMapper patternMapper gamma' accum' body
         (wrapLike expr' (LambdaExp {closure=closureTy; returnTy=returnTy; arguments=arguments; body=body'}), accum'')
     | LetExp {left=left; right=right} ->

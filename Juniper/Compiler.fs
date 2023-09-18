@@ -175,7 +175,9 @@ and compileType theta kappa (ty : TyExpr) : string =
         output (sprintf "juniper::tuple%d<" (List.length taus)) +
         (taus |> List.map (Choice.getChoice1Of2 >> compileType) |> String.concat ", ") +
         output ">"
-    | ConApp (tyCon, taus) ->
+    | ConApp (InOutTy, [Choice1Of2 tau]) ->
+        compileType tau + "&"
+    | (ConApp (tyCon, taus)) ->
         compileType (TyCon tyCon) + "<" +
         (taus |>
         List.map
@@ -211,8 +213,8 @@ and compileType theta kappa (ty : TyExpr) : string =
             output "juniper::array"
         | RefTy ->
             output "juniper::shared_ptr"
-        | (FunTy | TupleTy) ->
-            failwith "This should never happen"
+        | (FunTy | TupleTy | InOutTy) ->
+            failwith "Unable to convert type constructor to string. Are the arguments to the type constructor missing?"
     | RecordTy (packed, fields) ->
         let fieldOrder =
             match packed with
@@ -493,8 +495,14 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         // Optimization: ignore any function wrapper that is embedded in a call
         compile topLevel (pose, ty, CallExp {func=func; args=args})
     | CallExp {func=func; args=args} ->
+        let compileArg topLevel (arg : CallArg) =
+            match arg with
+            | InOutArg (_, _, innerLeftAssign) ->
+                compileLeftAssign innerLeftAssign
+            | ExprArg innerExpr ->
+                compile topLevel innerExpr
         compile topLevel func + output "(" +
-        (args |> List.map (compile topLevel) |> String.concat ", ") +
+        (args |> List.map (compileArg topLevel) |> String.concat ", ") +
         output ")"
     | FunctionWrapperEmptyClosure func ->
         // Compile to juniper::function<void, RetTy(Arg0, ... ArgN)>(func)
@@ -561,7 +569,7 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
     | RefRecordAccessExp {recordRef = recordRef; fieldName=fieldName} ->
         output "((" + compile topLevel recordRef + output ").get())->" + output fieldName
     | LambdaExp {closure=closure; returnTy=returnTy; arguments=args; body=body} ->
-        output "juniper::function<" + compileType (ClosureTy closure) + ", " + compileType returnTy + "(" + (args |> List.map ((fun varInfo -> varInfo.typ) >> compileType) |> String.concat ",") + ")>(" +
+        output "juniper::function<" + compileType (ClosureTy closure) + ", " + compileType returnTy + "(" + (args |> List.map ((fun (_, typ, _) -> typ) >> compileType) |> String.concat ",") + ")>(" +
         (if Map.count closure = 0 then
             ""
         else
@@ -571,7 +579,7 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
             ""
         else
             (compileType (ClosureTy closure)) + "& junclosure, ") +
-        (args |> List.map (fun {varName=name; typ=ty} -> compileType ty + output " " + output name) |> String.concat ", ") +
+        (args |> List.map (fun (_, ty, (_, {varName=name})) -> compileType ty + output " " + output name) |> String.concat ", ") +
         output ") -> " + compileType returnTy + output " { " + newline() + indentId() +
         (closure |> Map.keys |> List.ofSeq |> List.sort |> List.map (fun varName -> compileType (Map.find varName closure) + output "& " + output varName + output " = junclosure." + output varName + output ";" + newline()) |> String.concat "") +
         output "return " + compile false body + output ";" + unindentId() + newline() +
@@ -719,7 +727,7 @@ and compileFunctionSignature theta kappa (FunctionDec {name=name; template=templ
     output name +
     output "(" +
     ((clause.arguments |>
-        List.map (fun {varName=name; typ=ty} ->
+        List.map (fun (_, ty, (_, {varName=name})) ->
             (compileType ty) + output " " + (output name))) |> String.concat ", ") +
     output ")"
 

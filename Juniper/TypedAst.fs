@@ -109,7 +109,7 @@ and TyScheme = Forall of Template * ((TyExpr * ConstraintType) list) * TyExpr
 
 and DeclarationTy = FunDecTy of TyScheme
                   | AliasDecTy of Template * TyExpr
-                  | LetDecTy of TyExpr
+                  | LetDecTy of bool * TyExpr // The bool here is for mutability
                   | ADTDecTy of Template * ModQualifierRec
 
 // Pattern matching AST datatypes.

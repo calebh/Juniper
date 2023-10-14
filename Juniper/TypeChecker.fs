@@ -172,10 +172,11 @@ let typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 // Cross ref module qualifier
                 addCrossRef (ModQualRef {refSite=posn; modQual={module_=module_; name=name}})
                 match Map.tryFind {module_=module_; name=name} dtenv with
-                | Some (T.LetDecTy tau) ->
-                    // TODO: Update this if we decide to make module level values mutable
-                    //adorn posl tau (T.ModQualifierMutation {module_=module_; name=name}) Trivial
-                    raise <| TypeError ((errStr [posmq] "Top level let declarations are not mutable. Did you mean to use a derefence set (ie *x = ...) instead?").Force())
+                | Some (T.LetDecTy (mutable_, tau)) ->
+                    if mutable_ then
+                        adorn posl tau (T.ModQualifierMutation {module_=module_; name=name}) Trivial
+                    else
+                        raise <| TypeError ((errStr [posmq] "Top level let declaration %s:%s is not mutable. Did you mean to use a derefence set (ie *x = ...) instead?").Force())
                 | Some _ ->
                     raise <| TypeError ((errStr [posn] (sprintf "Found a declaration named %s in module %s, but it was not a let declaration." name module_)).Force())
                 | None ->
@@ -614,7 +615,7 @@ let typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 match Map.tryFind {module_=module_; name=name} dtenv with
                 | Some (T.FunDecTy tyscheme) ->
                     freshInstance' tyscheme
-                | Some (T.LetDecTy tau) ->
+                | Some (T.LetDecTy (_, tau)) ->
                     (tau, [], [])
                 | Some (T.AliasDecTy _) ->
                     raise <| TypeError ((errStr [posmq] (sprintf "Found declaration named %s in module %s, but it was a alias type declaration and not a value declaration." name module_)).Force())
@@ -766,6 +767,62 @@ let checkUnderscores typ =
     | [] -> ()
     | underscores ->
         raise <| SemanticError ((errStr underscores "Underscore type expressions are not allowed in type declarations. Note that function types without an explicit closure type are desugared into a type expression containing an underscore. For example, (a) -> b is syntax sugar for (_)(a) -> b.").Force())
+
+let checkInOut denv dtenv theta kappa dec =
+    let inOutOkay isFunArg typ = AstAnalysis.inOutOkay denv dtenv isFunArg (tycapsubst theta kappa typ)
+    let substTypeStr typ = typeString (tycapsubst theta kappa typ)
+    let checkTopLevelFunClauseDetails {closure=closure; returnTy=returnTy; arguments=arguments; body=body} =
+        // Check the closure
+        closure |>
+        Map.iter
+            (fun captureName captureTy ->
+                if inOutOkay false captureTy then
+                    ()
+                else
+                    raise <| TypeError ((errStr [T.getPos body] (sprintf "Function body captures variable '%s' with type %s. The type of this variable contains an inout in an invalid location. The inout type may only be used top level in function arguments." captureName (substTypeStr captureTy))).Force()))
+        // Check the return type
+        if inOutOkay false returnTy then
+            ()
+        else
+            raise <| TypeError ((errStr [T.getPos body] (sprintf "Function body has return type %s. This type contains an inout in an invalid location. The inout type may only be used top level in function arguments." (substTypeStr returnTy))).Force())
+        // Check the type of the arguments
+        arguments |>
+            List.iter
+                (fun arg ->
+                    if inOutOkay true (T.getType arg) then
+                        ()
+                    else
+                        raise <| TypeError ((errStr [T.getPos arg] (sprintf "Argument has type %s. This type contains an inout in an invalid location. The inout type may only be used top level in function arguments." (substTypeStr (T.getType arg)))).Force()))
+    let checkExpr =
+        T.preorderFold
+            (fun _ _ expr' ->
+                if inOutOkay false (T.getType expr') then
+                    match T.unwrap expr' with
+                    | T.LambdaExp clause ->
+                        checkTopLevelFunClauseDetails clause
+                    | _ ->
+                        ()
+                else
+                    raise <| TypeError ((errStr [T.getPos expr'] (sprintf "Expression has type %s. This type contains an inout in an invalid location. The inout type may only be used top level in function arguments." (substTypeStr (T.getType expr')))).Force()))
+            (fun _ _ _ -> ())
+            (fun _ _ pattern ->
+                if inOutOkay false (T.getType pattern) then
+                    ()
+                else
+                    raise <| TypeError ((errStr [T.getPos pattern] (sprintf "Pattern has type %s. This type contains an inout in an invalid location. The inout type may only be used top level in function arguments." (substTypeStr (T.getType pattern)))).Force()))
+            Map.empty
+            ()
+    match dec with
+    | FunctionDec {clause={body=body} as funcClause} ->
+        checkTopLevelFunClauseDetails funcClause
+        checkExpr body
+    | LetDec {typ=typ; right=right} ->
+        if inOutOkay false typ then
+            ()
+        else
+            raise <| TypeError ((errStr [T.getPos right] (sprintf "Let declaration has type %s. This type contains an inout in an invalid location. The inout type may only be used top level in function arguments." (substTypeStr typ))).Force())
+        checkExpr right
+    
 
 // Check for unknown type variables on the right hand side
 let checkUnknownVars menv denv (maybeTemplate : Ast.Template option) (kind : T.Kind) typ =
@@ -1213,12 +1270,12 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
     // Given an accumulated global type environment (ie, one that maps module qualifiers
     // to type schemes), constructs a local type environment based on what that module
     // opens from other modules. The local environment maps names to type schemes
-    let localGamma (globalGamma : Map<ModQualifierRec, TyScheme>) (module_ : string) : Map<string, (bool * TyScheme)> =
+    let localGamma (globalGamma : Map<ModQualifierRec, (bool * TyScheme)>) (module_ : string) : Map<string, (bool * TyScheme)> =
         let menv = Map.find module_ modNamesToMenvs
         (Map.fold (fun gammaAccum localName moduleQual ->
             match Map.tryFind moduleQual globalGamma with
-            | Some ty ->
-                Map.add localName (false, ty) gammaAccum
+            | Some (mut, ty) ->
+                Map.add localName (mut, ty) gammaAccum
             | None ->
                 gammaAccum
         ) Map.empty menv)
@@ -1233,7 +1290,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                     valCons |> List.map (fun ((_, name), _) ->
                         let modqual = {module_=module_; name=name}
                         let (T.FunDecTy scheme) = Map.find modqual dtenv0
-                        (modqual, scheme))) |>
+                        (modqual, (false, scheme)))) |>
             List.concat) |> List.concat |> Map.ofList
 
     // We are now ready to do the type checking
@@ -1246,7 +1303,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                 // Found a SCC containing a single let statement
                 | [{module_=module_; name=name} as modqual] when isLet (Ast.unwrap (Map.find modqual denv)) ->
                     // Look up the actual declaration of the let statement we are currently type checking
-                    let (posl, Ast.LetDec {varName=varName; typ=typ; right=right}) = Map.find modqual denv
+                    let (posl, Ast.LetDec {varName=varName; mutable_=(_, mutable_); typ=typ; right=right}) = Map.find modqual denv
                     // Get the menv of the module containing the let statement
                     let menv = Map.find module_ modNamesToMenvs
                     let localVars = Map.empty
@@ -1288,9 +1345,10 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                         raise <| TypeError ((errStr [badPos] "Free polymorphism detected. The following expression has a type that was detected to contain a type variable. Consider adding a type constraint on this expression to fix the source of this problem").Force())
                     | (_, (badPos, _)::_) ->
                         raise <| TypeError ((errStr [badPos] "Free polymorphism detected. The following expression has a capacity that was detected to contain a capacity variable. Consider adding a type constraint on this expression to fix the source of this problem").Force())
-                    let globalGamma' = Map.add modqual elabtau globalGamma
-                    let dtenv' = Map.add modqual (T.LetDecTy tau) dtenv
+                    let globalGamma' = Map.add modqual (mutable_, elabtau) globalGamma
+                    let dtenv' = Map.add modqual (T.LetDecTy (mutable_, tau)) dtenv
                     let let' = T.LetDec {varName=name; typ=tau; right=right'}
+                    checkInOut denv dtenv0 theta kappa let'
                     ({decs=[(module_, let')]; theta=theta; kappa=kappa}, (dtenv', globalGamma', freshTVarMap', freshCVarMap'))
                 // Found a SCC containing mutually recursive function(s)
                 | _ ->
@@ -1303,7 +1361,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                     // Add all of these type schemes to the global gamma
                     let tempGlobalGamma =
                         List.fold (fun globalGammaAccum (modqual, alphaScheme) ->
-                            Map.add modqual alphaScheme globalGammaAccum
+                            Map.add modqual (false, alphaScheme) globalGammaAccum
                         ) globalGamma (List.zip scc alphaSchemes)
                     // Create local gammas for every entry in the SCC
                     let tempGammas = List.map ((fun {module_=module_; name=_} -> module_) >> localGamma tempGlobalGamma) scc
@@ -1660,9 +1718,11 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                         let innerBody' = T.SequenceExp (collectedUsings @ [body'])
                                         (pos, tau, innerBody')
                                 let closure = Map.empty
-                                let funDec' = T.FunctionDec {name=name; template=template; clause={closure=closure; returnTy=retTy'; arguments=arguments'; body=body''}}
+                                let clause = {closure=closure; returnTy=retTy'; arguments=arguments'; body=body''}
+                                let funDec' = T.FunctionDec {name=name; template=template; clause=clause}
+                                checkInOut denv dtenv0 theta kappa funDec'
                                 let accumDtenv'' = Map.add modqual (T.FunDecTy funScheme) accumDtenv'
-                                let globalGamma'' = Map.add modqual funScheme accumGlobalGamma'
+                                let globalGamma'' = Map.add modqual (false, funScheme) accumGlobalGamma'
                                 ((module_, funDec'), (accumDtenv'', globalGamma'')))
                             (dtenv, globalGamma)
                     ({decs=funDecs'; theta=theta; kappa=kappa}, (dtenv', globalGamma', accFreshTVarMap', accFreshCVarMap'))

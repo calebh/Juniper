@@ -648,12 +648,13 @@ let adtDec =
             AlgDataTypeDec {name=name; template=template; valCons=valCons})) <?> "Algebraic datatype declaration"
 
 let letDec =
-    (pipe3
-        (skipString "let" >>. ws >>. pos id .>> ws)
+    (pipe4
+        (skipString "let" >>. ws1 >>. ((((skipString "mut" .>> ws1) |> opt |>> Option.isSome |> pos))))
+        (pos id .>> ws)
         (skipChar ':' >>. ws >>. tyExpr |> opt .>> ws)
         (skipChar '=' >>. ws >>. exprws)
-        (fun name typ right ->
-            LetDec {varName=name; typ=typ; right=right})) <?> "Let declaration"
+        (fun mutable_ name typ right ->
+            LetDec {varName=name; mutable_=mutable_; typ=typ; right=right})) <?> "Let declaration"
 
 let openDec = (skipString "open" >>. ws >>. skipChar '(' >>. ws >>. (separatedList (pos id) ',' |> pos) .>>
                 ws .>> skipChar ')' .>> ws |>> OpenDec) <?> "Open declaration"

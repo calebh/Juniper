@@ -531,6 +531,77 @@ let closure (expr : T.TyAdorn<T.Expr>) : Set<string> =
         Set.empty
         expr
 
+// This function will return true when there are no inout type annotations in invalid positions.
+// inout annotations are only allowed at the top level in function arguments
+let rec inOutOkay (denv : Map<T.ModQualifierRec, A.PosAdorn<A.Declaration>>) (dtenv : Map<T.ModQualifierRec, T.DeclarationTy>) isFunArg (tyExpr : T.TyExpr) : bool =
+    let tyArgs args =
+        args |>
+        List.mapFilter
+            (function
+            | Choice1Of2 ty -> Some ty
+            | Choice2Of2 _ -> None)
+    let constraintOkay c =
+        match c with
+        | T.HasField (_, tau) ->
+            inOutOkay denv dtenv false tau
+        | (T.IsNum | T.IsInt | T.IsReal | T.IsPacked | T.IsRecord) ->
+            true
+    match tyExpr with
+    | T.ConApp (T.FunTy, (Choice1Of2 closureTy)::(Choice1Of2 retTy)::argsTy) ->
+        (inOutOkay denv dtenv false closureTy) && (inOutOkay denv dtenv false retTy) && (List.forall id (List.map (inOutOkay denv dtenv true) (tyArgs argsTy)))
+    | T.ConApp (T.InOutTy, args) ->
+        if isFunArg then
+            List.forall id (List.map (inOutOkay denv dtenv false) (tyArgs args))
+        else
+            false
+    // This case is for where the type is an algebraic datatype
+    | T.ConApp (T.ModuleQualifierTy ({module_=module_} as modQual), args) ->
+        // Here we check that the inouts by checking the type signatures of all the instantiated value constructors
+        let (_, A.AlgDataTypeDec {valCons=(_, valCons)}) = Map.find modQual denv
+        List.forall id
+            (List.map
+                (fun ((_, valConName), _) ->
+                    let (T.FunDecTy scheme) = Map.find ({ module_=module_; name=valConName } : T.ModQualifierRec) dtenv
+                    // Note that we can not directly recurse on the return type from instantiate since the return
+                    // type of the value constructor is exactly the type we are checking. Doing so would lead
+                    // to infinite recursion. Instead we must check just the arguments
+                    let (T.ConApp (T.FunTy, _::_::argsTy), constraints) = Constraint.instantiate scheme args
+                    // Note that it is not okay to pass an inout to top level value constructor. For example, the following
+                    // is not okay:
+                    //
+                    // type myType<a> = myCon(a)
+                    // fun loop() = {
+                    //     let mut myNum = 0u8
+                    //     let myBar = myCon(inout myNum)
+                    // }
+                    //
+                    // But this is okay:
+                    // type myType<a, c> = myCon((c)(a) -> unit)
+                    // fun loop() = {
+                    //     let myBar = myCon(
+                    //         (inout x : uint8) => {
+                    //             x = x + 1
+                    //             ()
+                    //         }
+                    //     )
+                    //     ()
+                    // }
+                    let valConOkay = List.forall id (List.map (inOutOkay denv dtenv false) (tyArgs argsTy))
+                    let constraintsOkay =
+                        List.forall id
+                            (List.map
+                                (fun (tau, con) ->
+                                    inOutOkay denv dtenv false tau && constraintOkay con)
+                                constraints)
+                    valConOkay && constraintsOkay)
+                valCons)
+    | T.ConApp (_, args) ->
+        List.forall id (List.map (inOutOkay denv dtenv false) (tyArgs args))
+    | (T.TyVarExpr _ | T.TyCon _) ->
+        true
+    | ((T.RecordTy (_, fieldMap)) | (T.ClosureTy fieldMap)) ->
+        Seq.forall id (Seq.map (inOutOkay denv dtenv false) (Map.values fieldMap))
+
 let rec returnExprs ((_, _, expr) as inExpr : T.TyAdorn<T.Expr>) : List<T.TyAdorn<T.Expr>> =
     match expr with
     | T.SequenceExp seqExprs ->

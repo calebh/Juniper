@@ -301,6 +301,24 @@ let freshInstance (Forall (quantifiedVars, constraints, tau)) =
     let tau' = tycapsubst theta kappa tau
     (tau', constraints', freshVars, freshTVarMap, freshCVarMap)
 
+let instantiate (scheme : TyScheme) (actuals : Choice<TyExpr, CapacityExpr> list) =
+    let (tau, constraints, freshVars, _, _) = freshInstance scheme
+    let (theta, kappa) =
+        List.zip freshVars actuals |>
+        List.fold
+            (fun (accumTheta, accumKappa) binding ->
+                match binding with
+                | (Choice1Of2 tyVar, Choice1Of2 tyExpr) ->
+                    (Map.add tyVar tyExpr accumTheta, accumKappa)
+                | (Choice2Of2 capVar, Choice2Of2 capExpr) ->
+                    (accumTheta, Map.add capVar capExpr accumKappa)
+                | _ ->
+                    failwith "Invalid substitution")
+            (Map.empty, Map.empty)
+    let tau' = tycapsubst theta kappa tau
+    let constraints' = constraints |> List.map (fun (ty, con) -> (tycapsubst theta kappa ty, constraintsubst theta kappa con))
+    (tau', constraints')
+
 let instantiateRecord (bound, caps, fields) actuals capActuals =
     let substitutions = List.zip bound actuals |> Map.ofList
     let capSubstitutions = List.zip caps capActuals |> Map.ofList

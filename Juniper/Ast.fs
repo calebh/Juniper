@@ -41,6 +41,7 @@ and AlgDataTypeRec = { name     : PosAdorn<string>;
 
 // Let statement for functional-style declarations.
 and LetDecRec = { varName : PosAdorn<string>;
+                  mutable_ : PosAdorn<bool>;
                   typ     : PosAdorn<TyExpr> option;
                   right   : PosAdorn<Expr>; }
 

@@ -197,11 +197,11 @@ fun toUnit(s : sig<a>) : sig<unit> =
         A signal containing the state just returned by f, or nothing if
         the input signal contained nothing.
 */
-fun foldP(f : (a, state) -> state, state0 : state ref, incoming : sig<a>) : sig<state> =
+fun foldP(f : (a, state) -> state, inout state0 : state, incoming : sig<a>) : sig<state> =
     match incoming {
         signal(just(val)) => {
-            let state1 = f(val, *state0)
-            *state0 = state1
+            let state1 = f(val, state0)
+            state0 = state1
             signal(just(state1))
         }
         _ =>
@@ -256,14 +256,14 @@ fun dropRepeats(maybePrevValue : maybe<a> ref, incoming : sig<a>) : sig<a> =
         A signal which constantly emmits the value last received on the incoming
         signal.
 */
-fun latch(prevValue : a ref, incoming : sig<a>) : sig<a> =
+fun latch(inout prevValue : a, incoming : sig<a>) : sig<a> =
     match incoming {
         signal(just(val)) => {
-            *prevValue = val
+            prevValue = val
             incoming
         }
         _ =>
-            signal(just(*prevValue))
+            signal(just(prevValue))
     }
 
 /*
@@ -318,8 +318,8 @@ fun map2(f : (a, b) -> c, state : (a, b) ref, incomingA : sig<a>, incomingB : si
     Returns:
         A signal holding the list of previous values
 */
-fun record(pastValues : list<a, n> ref, incoming : sig<a>) : sig<list<a, n>> =
-    foldP(List:prepend, pastValues, incoming)
+fun record(inout pastValues : list<a, n>, incoming : sig<a>) : sig<list<a, n>> =
+    foldP(List:prepend, inout pastValues, incoming)
 
 /*
     Function: constant
@@ -451,7 +451,7 @@ fun unzip(incoming : sig<(a, b)>) : (sig<a>, sig<b>) =
         A signal containing either val1 or val2, depending on what was
         previously value carried on the output signal.
 */
-fun toggle(val1 : a, val2 : a, state : a ref, incoming : sig<b>) : sig<a> =
+fun toggle(val1 : a, val2 : a, inout state : a, incoming : sig<b>) : sig<a> =
     incoming |>
     foldP(
         (event, prevVal) =>
@@ -460,4 +460,4 @@ fun toggle(val1 : a, val2 : a, state : a ref, incoming : sig<b>) : sig<a> =
             } else {
                 val1
             },
-        state)
+        inout state)

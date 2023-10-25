@@ -86,6 +86,6 @@ fun choiceSafe(lst : list<t, n>) : maybe<t> = {
         nothing()
     } else {
         let i : int32 = random_(0, u32ToI32(lst.length))
-        List:getSafe(i32ToU32(i), lst)
+        List:tryGet(i32ToU32(i), lst)
     }
 }

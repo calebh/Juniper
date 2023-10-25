@@ -632,6 +632,23 @@ fun until(p : (a) -> bool, f : (a) -> a, a0 : a) : a = {
 */
 fun ignore(val : a) = ()
 
+fun clear(inout val : a) : unit =
+    #memset(&val, 0, sizeof(val));#
+
+fun array(val : a) : a[n] = {
+    var ret
+    for i in 0 .. n {
+        ret[i] = val
+    }
+    ret
+}
+
+fun zeros() : a[n] = {
+    var ret
+    clear(inout ret)
+    ret
+}
+
 /*
     Function: u8ToU16
 

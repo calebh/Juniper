@@ -235,10 +235,6 @@ let decRefs (valueDecs : Set<T.ModQualifierRec>) (menv : Map<string, T.ModQualif
             Set.union (d' array) (d' index)
         | Ast.ArrayLitExp (_, exprs) ->
             Set.unionMany (List.map (Ast.unwrap >> d') exprs)
-        | Ast.ArrayMakeExp {initializer=Some (_, initializer)} ->
-            d' initializer
-        | Ast.ArrayMakeExp _ ->
-            Set.empty
         | Ast.AssignExp {left=(_, left); right=(_, right)} ->
             Set.union (dl localVars left) (d' right)
         | Ast.BinaryOpExp {left=(_, left); right=(_, right)} ->
@@ -436,10 +432,6 @@ let rec findFreeVars (theta : Constraint.ThetaT) (kappa : Constraint.KappaT) (e 
             append2 (List.map ffv exprs |> List.unzip)
         | T.ArrayAccessExp {array=array; index=index} ->
             append2 (List.map ffv [array; index] |> List.unzip)
-        | T.ArrayMakeExp {typ=typ; initializer=Some initializer} ->
-            append2 ([freeVarsTyp (T.getPos e) typ; ffv initializer] |> List.unzip)
-        | T.ArrayMakeExp {typ=typ; initializer=None} ->
-            freeVarsTyp (T.getPos e) typ
         | T.AssignExp {left=left; right=right} ->
             append2 ([ffv right; freeVarsLeftAssign (T.getPos left) (T.unwrap left)] |> List.unzip)
         | T.BinaryOpExp {left=left; right=right} ->
@@ -610,7 +602,7 @@ let rec returnExprs ((_, _, expr) as inExpr : T.TyAdorn<T.Expr>) : List<T.TyAdor
         (returnExprs trueBranch) @ (returnExprs falseBranch)
     | T.MatchExp {clauses=clauses} ->
         List.map (snd >> returnExprs) clauses |> List.concat
-    | (T.BinaryOpExp _ | T.ArrayAccessExp _ | T.ArrayLitExp _ | T.ArrayMakeExp _ | T.AssignExp _ |
+    | (T.BinaryOpExp _ | T.ArrayAccessExp _ | T.ArrayLitExp _ | T.AssignExp _ |
         T.CallExp _ | T.DeclVarExp _ | T.DoWhileLoopExp _ | T.DoubleExp _ | T.FalseExp | T.FloatExp _ |
         T.ForInLoopExp _ | T.ForLoopExp _ | T.FunctionWrapperEmptyClosure _ | T.IfExp _ | T.InlineCode _ |
         T.Int16Exp _ | T.Int32Exp _ | T.Int64Exp _ | T.Int8Exp _ | T.IntExp _ | T.InternalDeclareVar _ |

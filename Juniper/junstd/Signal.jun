@@ -319,7 +319,7 @@ fun map2(f : (a, b) -> c, state : (a, b) ref, incomingA : sig<a>, incomingB : si
         A signal holding the list of previous values
 */
 fun record(inout pastValues : list<a, n>, incoming : sig<a>) : sig<list<a, n>> =
-    foldP(List:prepend, inout pastValues, incoming)
+    foldP(List:prependPure, inout pastValues, incoming)
 
 /*
     Function: constant

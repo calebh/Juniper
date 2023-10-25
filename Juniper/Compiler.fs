@@ -12,6 +12,34 @@ type TypeCheckedProgram = { moduleNames : string list; opens : (string * Declara
 
 type CompileOptions = {customPlacementNew : bool; cLinkage: bool}
 
+type StringTree = Concat of StringTree * StringTree | SingletonString of string
+
+let stringTreeToStr strTree =
+    let builder = System.Text.StringBuilder()
+    let rec stringTreeToStr' strTree =
+        match strTree with
+        | Concat (left, right) ->
+            stringTreeToStr' left
+            stringTreeToStr' right
+        | SingletonString str ->
+            builder.Append(str) |> ignore
+    stringTreeToStr' strTree
+    builder.ToString()
+
+let rec concatMany strTreeLst =
+    match strTreeLst with
+    | [] -> SingletonString ""
+    | [strTree] -> strTree
+    | strTree::strTreeLst' -> Concat (strTree, concatMany strTreeLst')
+
+let rec concatManySep sep strTreeLst =
+    match strTreeLst with
+    | [] -> SingletonString ""
+    | [strTree] -> strTree
+    | strTree::strTreeLst' -> Concat (strTree, Concat (SingletonString sep, concatManySep sep strTreeLst'))
+
+let (.+.) left right = Concat (left, right)
+
 // The following are used for automatically adding new lines line indentation to transpiled C++
 let mutable indentationLevel = 0
 let mutable isNewLine = true
@@ -20,22 +48,22 @@ let unindent () = indentationLevel <- indentationLevel - 1
 
 let indentId () =
     indent()
-    ""
+    SingletonString ""
 
 let unindentId () =
     unindent()
-    ""
+    SingletonString ""
 
-let output (str : string) : string =
+let output (str : string) : StringTree =
     if isNewLine then
         isNewLine <- false
-        (String.replicate indentationLevel "    ") + str
+        (SingletonString (String.replicate indentationLevel "    ")) .+. (SingletonString str)
     else
-        str
+        SingletonString str
 
 let newline () =
     isNewLine <- true
-    "\n"
+    SingletonString "\n"
 
 let mutable recordNames : Map<(bool * (string list)), string> = Map.empty
 let mutable recordI = 0
@@ -62,86 +90,86 @@ let getClosureName fields =
         name
 
 let compileRecordEnvironment () =
-    output "namespace juniper {" + newline() + indentId() +
-    output "namespace records {" + newline() + indentId() +
+    output "namespace juniper {" .+. newline() .+. indentId() .+.
+    output "namespace records {" .+. newline() .+. indentId() .+.
     (
     recordNames |>
     Map.toList |>
     List.map
         (fun ((isPacked, fieldNames), recordName) ->
             let tyNames = [1 .. List.length fieldNames] |> List.map (sprintf "T%d")
-            output "template<" +
-            output (tyNames |> List.map (sprintf "typename %s") |> String.concat ",") +
-            output ">" + newline() +
-            output "struct " +
-            (if isPacked then output "__attribute__((__packed__)) " else "") +
-            output recordName +
-            output " {" +
-            newline() +
-            indentId() +
+            output "template<" .+.
+            output (tyNames |> List.map (sprintf "typename %s") |> String.concat ",") .+.
+            output ">" .+. newline() .+.
+            output "struct " .+.
+            (if isPacked then output "__attribute__((__packed__)) " else SingletonString "") .+.
+            output recordName .+.
+            output " {" .+.
+            newline() .+.
+            indentId() .+.
             ((
                 (List.zip tyNames fieldNames) |>
                 List.map (fun (tyName, fieldName) ->
-                    output tyName + output " " + output fieldName + output ";" +
-                    newline())) |> String.concat "") + newline() +
-            output recordName + output "() {}" + newline() + newline() +
-            output recordName + output "(" + (List.zip tyNames fieldNames |> List.map (fun (tyName, fieldName) -> output tyName + output " " + output ("init_" + fieldName)) |> String.concat ", ") + output ")" + indentId() + newline() +
-            output ": " + (fieldNames |> List.map (fun fieldName -> output fieldName + output "(" + output ("init_" + fieldName) + output ")") |> String.concat ", ") + output " {}" + unindentId() + newline() + newline() +
-            output "bool operator==(" +
-            output recordName + output "<" +
-            output (String.concat ", " tyNames) +
-            output ">" +
-            output " rhs) {" + newline() + indentId() +
-            output "return " +
+                    output tyName .+. output " " .+. output fieldName .+. output ";" .+.
+                    newline())) |> concatMany) .+. newline() .+.
+            output recordName .+. output "() {}" .+. newline() .+. newline() .+.
+            output recordName .+. output "(" .+. (List.zip tyNames fieldNames |> List.map (fun (tyName, fieldName) -> output tyName .+. output " " .+. output ("init_" + fieldName)) |> concatManySep ", ") .+. output ")" .+. indentId() .+. newline() .+.
+            output ": " .+. (fieldNames |> List.map (fun fieldName -> output fieldName .+. output "(" .+. output ("init_" + fieldName) .+. output ")") |> concatManySep ", ") .+. output " {}" .+. unindentId() .+. newline() .+. newline() .+.
+            output "bool operator==(" .+.
+            output recordName .+. output "<" .+.
+            output (String.concat ", " tyNames) .+.
+            output ">" .+.
+            output " rhs) {" .+. newline() .+. indentId() .+.
+            output "return " .+.
             (
                 fieldNames |>
                 List.map (fun fieldName ->
-                    output fieldName + output " == rhs." + output fieldName) |>
+                    output fieldName .+. output " == rhs." .+. output fieldName) |>
                 List.cons2 (output "true") |>
-                String.concat " && "
-            ) +
-            output ";" + newline() + unindentId() +
-            output "}" + newline() + newline() +
-            output "bool operator!=(" +
-            output recordName + output "<" +
-            output (String.concat ", " tyNames) +
-            output ">" + output " rhs) {" + newline() + indentId() +
-            output "return !(rhs == *this);" + unindentId() + newline() + output "}" + newline() +
-            unindentId() + output "};" + newline() + newline()) |>
-    String.concat ""
-    ) + newline() + unindentId() +
-    output "}" + unindentId() + newline() +
-    output "}" + newline() + newline()
+                concatManySep " && "
+            ) .+.
+            output ";" .+. newline() .+. unindentId() .+.
+            output "}" .+. newline() .+. newline() .+.
+            output "bool operator!=(" .+.
+            output recordName .+. output "<" .+.
+            output (String.concat ", " tyNames) .+.
+            output ">" .+. output " rhs) {" .+. newline() .+. indentId() .+.
+            output "return !(rhs == *this);" .+. unindentId() .+. newline() .+. output "}" .+. newline() .+.
+            unindentId() .+. output "};" .+. newline() .+. newline()) |>
+    concatMany
+    ) .+. newline() .+. unindentId() .+.
+    output "}" .+. unindentId() .+. newline() .+.
+    output "}" .+. newline() .+. newline()
 
 let compileClosureEnviornment () =
-    output "namespace juniper {" + newline() + indentId() + 
-    output "namespace closures {" + newline() + indentId() +
+    output "namespace juniper {" .+. newline() .+. indentId() .+. 
+    output "namespace closures {" .+. newline() .+. indentId() .+.
     (
     closureNames |>
     Map.toList |>
     List.map
         (fun (fieldNames, closureName) ->
             let tyNames = [1 .. List.length fieldNames] |> List.map (sprintf "T%d")
-            output "template<" +
-            output (tyNames |> List.map (sprintf "typename %s") |> String.concat ",") +
-            output ">" + newline() +
-            output "struct " +
-            output closureName +
-            output " {" +
-            newline() +
-            indentId() +
+            output "template<" .+.
+            output (tyNames |> List.map (sprintf "typename %s") |> String.concat ",") .+.
+            output ">" .+. newline() .+.
+            output "struct " .+.
+            output closureName .+.
+            output " {" .+.
+            newline() .+.
+            indentId() .+.
             ((
                 (List.zip tyNames fieldNames) |>
                 List.map (fun (tyName, fieldName) ->
-                    output tyName + output " " + output fieldName + output ";" +
-                    newline())) |> String.concat "") + newline() + newline() +
-            output closureName + output "(" + ((List.zip tyNames fieldNames) |> List.map (fun (tyName, fieldName) -> output tyName + output " " + output (sprintf "init_%s" fieldName)) |> String.concat ", ") + output ") :" + newline() + indentId() +
-            (fieldNames |> List.map (fun fieldName -> output fieldName + output "(" + output (sprintf "init_%s" fieldName) + output ")") |> String.concat ", ") + output " {}" + newline() + unindentId() + unindentId() +
-            output "};" + newline() + newline()) |>
-    String.concat ""
-    ) + newline() + unindentId() +
-    output "}" + newline() + unindentId() +
-    output "}" + newline() + newline()
+                    output tyName .+. output " " .+. output fieldName .+. output ";" .+.
+                    newline())) |> concatMany) .+. newline() .+. newline() .+.
+            output closureName .+. output "(" .+. ((List.zip tyNames fieldNames) |> List.map (fun (tyName, fieldName) -> output tyName .+. output " " .+. output (sprintf "init_%s" fieldName)) |> concatManySep ", ") .+. output ") :" .+. newline() .+. indentId() .+.
+            (fieldNames |> List.map (fun fieldName -> output fieldName .+. output "(" .+. output (sprintf "init_%s" fieldName) .+. output ")") |> concatManySep ", ") .+. output " {}" .+. newline() .+. unindentId() .+. unindentId() .+.
+            output "};" .+. newline() .+. newline()) |>
+    concatMany
+    ) .+. newline() .+. unindentId() .+.
+    output "}" .+. newline() .+. unindentId() .+.
+    output "}" .+. newline() .+. newline()
 
 // In Juniper, quit is a templated function that calls exit(1)
 // They are templated so they can be wrapped in a type so they can have return values consistent in typing
@@ -157,7 +185,7 @@ let rec getQuitExpr (ty : TyExpr) : TyAdorn<Expr> =
                   args = []})
 
 // Converts type from Juniper representation to C++ representation.
-and compileType theta kappa (ty : TyExpr) : string =
+and compileType theta kappa (ty : TyExpr) : StringTree =
     let compileType = compileType theta kappa
     let compileCap = compileCap kappa
     match ty with
@@ -170,21 +198,21 @@ and compileType theta kappa (ty : TyExpr) : string =
             else
                 compileType ty'
     | ConApp (FunTy, closureTy::returnType::args) ->
-        output "juniper::function<" + compileType (Choice.getChoice1Of2 closureTy) + output ", " + compileType (Choice.getChoice1Of2 returnType) + output "(" + (args |> List.map (Choice.getChoice1Of2 >> compileType) |> String.concat ", ") + output ")" + output ">"
+        output "juniper::function<" .+. compileType (Choice.getChoice1Of2 closureTy) .+. output ", " .+. compileType (Choice.getChoice1Of2 returnType) .+. output "(" .+. (args |> List.map (Choice.getChoice1Of2 >> compileType) |> concatManySep ", ") .+. output ")" .+. output ">"
     | ConApp (TupleTy, taus) ->
-        output (sprintf "juniper::tuple%d<" (List.length taus)) +
-        (taus |> List.map (Choice.getChoice1Of2 >> compileType) |> String.concat ", ") +
+        output (sprintf "juniper::tuple%d<" (List.length taus)) .+.
+        (taus |> List.map (Choice.getChoice1Of2 >> compileType) |> concatManySep ", ") .+.
         output ">"
     | ConApp (InOutTy, [Choice1Of2 tau]) ->
-        compileType tau + "&"
+        compileType tau .+. output "&"
     | (ConApp (tyCon, taus)) ->
-        compileType (TyCon tyCon) + "<" +
+        compileType (TyCon tyCon) .+. output "<" .+.
         (taus |>
         List.map
             (function
             | Choice1Of2 tau -> compileType tau
             | Choice2Of2 cap -> compileCap cap) |>
-        String.concat ", ") +
+        concatManySep ", ") .+.
         output ">"
     | TyCon tyc ->
         match tyc with
@@ -206,8 +234,8 @@ and compileType theta kappa (ty : TyExpr) : string =
             | TyString -> output "const char *"
             | TyRawPointer -> output "void *"
         | ModuleQualifierTy {module_ = module_; name=name} ->
-            output module_ +
-            output "::" +
+            output module_ .+.
+            output "::" .+.
             output name
         | ArrayTy ->
             output "juniper::array"
@@ -223,40 +251,40 @@ and compileType theta kappa (ty : TyExpr) : string =
             | None ->
                 Map.keys fields |> List.ofSeq |> List.sort
         let recordName = getRecordName (Option.isSome packed) fieldOrder
-        output "juniper::records::" + recordName + "<" + (fieldOrder |> List.map (((flip Map.find) fields) >> compileType) |> String.concat ", ") + ">"
+        output "juniper::records::" .+. output recordName .+. output "<" .+. (fieldOrder |> List.map (((flip Map.find) fields) >> compileType) |> concatManySep ", ") .+. output ">"
     | ClosureTy fields ->
         if Map.count fields = 0 then
             output "void"
         else
             let fieldOrder = fields |> Map.keys |> List.ofSeq |> List.sort
             let closureName = getClosureName fieldOrder
-            output "juniper::closures::" + closureName + "<" + (fieldOrder |> List.map (((flip Map.find) fields) >> compileType) |> String.concat ", ") + ">"
+            output "juniper::closures::" .+. output closureName .+. output "<" .+. (fieldOrder |> List.map (((flip Map.find) fields) >> compileType) |> concatManySep ", ") .+. output ">"
 
 // Converts left side of a variable assignment to the C++ representation.
-and compileLeftAssign theta kappa topLevel (left : LeftAssign) : string =
+and compileLeftAssign theta kappa topLevel (left : LeftAssign) : StringTree =
     let compileLeftAssign = compileLeftAssign theta kappa topLevel
     let compile = compile theta kappa topLevel
     match left with
     | VarMutation varName ->
         output varName
     | ArrayMutation {array=array; index=index} ->
-        output "(" +
-        compileLeftAssign array +
-        output ")[" +
-        compile index +
+        output "(" .+.
+        compileLeftAssign array .+.
+        output ")[" .+.
+        compile index .+.
         output "]"
     | RecordMutation {record=record; fieldName=fieldName} ->
-        output "(" +
-        compileLeftAssign record +
-        output ")." +
+        output "(" .+.
+        compileLeftAssign record .+.
+        output ")." .+.
         output fieldName
     | RefRecordMutation {recordRef=recordRef; fieldName=fieldName} ->
-        output "((" + compile recordRef + output ").get())->" + output fieldName
+        output "((" .+. compile recordRef .+. output ").get())->" .+. output fieldName
     | ModQualifierMutation {module_=module_; name=name} ->
-        output module_ + output "::" + output name
+        output module_ .+. output "::" .+. output name
     | RefMutation exp ->
-        output "*((" +
-        compile exp +
+        output "*((" .+.
+        compile exp .+.
         output ").get())"
 
 // Converts a pattern match statement in Juniper to the appropriate representation in C++
@@ -324,14 +352,14 @@ and compilePattern (pattern : TyAdorn<Pattern>) (path : TyAdorn<Expr>) =
 and compileDecRef d =
     match d with
     | Choice1Of2 name -> output name
-    | Choice2Of2 {module_=module_; name=name} -> output module_ + output "::" + output name
+    | Choice2Of2 {module_=module_; name=name} -> output module_ .+. output "::" .+. output name
 
 // Technically "compile expression"--converts an expression in Juniper to the C++ representation
 // topLevel determines if the expression is being compiled at the top level of a C++ module
 // for the purpose of determining whether or not C++ lambdas should capture anything.
 // topLevel is needed since capturing by reference (&) in the right hand side of an assignment
 // expression is not allowed.
-and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : string =
+and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : StringTree =
     let compile = compile theta kappa
     let compileType = compileType theta kappa
     let compileCap = compileCap kappa
@@ -344,18 +372,18 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
     | QuitExp ty ->
         getQuitExpr ty |> compile topLevel
     | Smartpointer (ptr, destructor) ->
-        output "juniper::make_smartpointer(" + compile topLevel ptr + output ", " + compile topLevel destructor + output ")"
+        output "juniper::make_smartpointer(" .+. compile topLevel ptr .+. output ", " .+. compile topLevel destructor .+. output ")"
     // Convert inline C++ code from Juniper directly to C++
     | InlineCode code ->
-        output ("((" + capture + "() -> ") + compileType (TyCon <| (BaseTy TyUnit)) + " {" + newline() + indentId() +
-        output code + newline() + output "return {};" + newline() + unindentId() +
+        output ("((" + capture + "() -> ") .+. compileType (TyCon <| (BaseTy TyUnit)) .+. output " {" .+. newline() .+. indentId() .+.
+        output code .+. newline() .+. output "return {};" .+. newline() .+. unindentId() .+.
         output "})())"
     | TrueExp _ ->
         output "true"
     | FalseExp _ ->
         output "false"
     | IntExp num ->
-        output "((" + (compileType ty) + output ") " + output (sprintf "%i" num) + output ")"
+        output "((" .+. (compileType ty) .+. output ") " .+. output (sprintf "%i" num) .+. output ")"
     | FloatExp num ->
         output (sprintf "%sf" num)
     | DoubleExp num ->
@@ -379,45 +407,45 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
     | NullExp ->
         output "nullptr"
     | SizeofExp typ ->
-        output "sizeof(" + compileType typ + ")"
+        output "sizeof(" .+. compileType typ .+. output ")"
     | IfElseExp {condition=condition; trueBranch=trueBranch; falseBranch=falseBranch} ->
-        output "(" +
-        compile topLevel condition +
-        output " ? " +
-        newline() +
-        indentId() +
-        compile topLevel trueBranch +
-        unindentId() +
-        newline() +
-        output ":" +
-        newline() +
-        indentId() +
-        compile topLevel falseBranch +
-        output ")" +
+        output "(" .+.
+        compile topLevel condition .+.
+        output " ? " .+.
+        newline() .+.
+        indentId() .+.
+        compile topLevel trueBranch .+.
+        unindentId() .+.
+        newline() .+.
+        output ":" .+.
+        newline() .+.
+        indentId() .+.
+        compile topLevel falseBranch .+.
+        output ")" .+.
         unindentId()
     | IfExp {condition=condition; trueBranch=trueBranch} ->
-        output "((" + capture + "() -> " +
-        compileType unitty +
-        output " {" +
-        newline() +
-        indentId() +
-        output "if (" + compile false condition + output ") {" + newline() +
-        indentId() +
-        compile false trueBranch + output ";" + newline() +
-        unindentId() +
-        output "}" + newline () +
-        output "return {};" + newline() +
-        unindentId() +
+        output ("((" + capture + "() -> ") .+.
+        compileType unitty .+.
+        output " {" .+.
+        newline() .+.
+        indentId() .+.
+        output "if (" .+. compile false condition .+. output ") {" .+. newline() .+.
+        indentId() .+.
+        compile false trueBranch .+. output ";" .+. newline() .+.
+        unindentId() .+.
+        output "}" .+. newline () .+.
+        output "return {};" .+. newline() .+.
+        unindentId() .+.
         output "})())"
     // A sequence is a set of expressions separated by semicolons inside parentheses, where the last exp
     // is returned
     | SequenceExp sequence ->
         let len = List.length sequence
-        output "((" + capture + "() -> " +
-        compileType ty +
-        output " {" +
-        newline() +
-        indentId() +
+        output ("((" + capture + "() -> ") .+.
+        compileType ty .+.
+        output " {" .+.
+        newline() .+.
+        indentId() .+.
         ((List.mapi (fun i seqElement ->
             let isLastElem = (i = len - 1)
             (match unwrap seqElement with
@@ -425,30 +453,30 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
                 | LetExp {left=left; right=right} ->
                     let varName = Guid.string()
                     let (condition, assignments) = compilePattern left (dummyWrap (VarExp varName))
-                    compile false (dummyWrap (InternalDeclareVar {varName=varName; typ=getType right; right=right})) + output ";" + newline() +
-                    output "if (!(" + compile false condition + output ")) {" + newline() + indentId() +
-                    compile false (getQuitExpr (TyCon <| (BaseTy TyUnit))) + output ";" + newline() + unindentId() +
-                    output "}" + newline() +
-                    (assignments |> List.map (fun expr -> compile false (dummyWrap expr) + output ";" + newline()) |> String.concat "") +
+                    compile false (dummyWrap (InternalDeclareVar {varName=varName; typ=getType right; right=right})) .+. output ";" .+. newline() .+.
+                    output "if (!(" .+. compile false condition .+. output ")) {" .+. newline() .+. indentId() .+.
+                    compile false (getQuitExpr (TyCon <| (BaseTy TyUnit))) .+. output ";" .+. newline() .+. unindentId() .+.
+                    output "}" .+. newline() .+.
+                    (assignments |> List.map (fun expr -> compile false (dummyWrap expr) .+. output ";" .+. newline()) |> concatMany) .+.
                     (if isLastElem then
-                        output "return " + compile false (dummyWrap (VarExp varName)) + output ";"
+                        output "return " .+. compile false (dummyWrap (VarExp varName)) .+. output ";"
                     else
                         output "")
                 | DeclVarExp {varName=varName; typ=typ} ->
-                    output (compileType typ) + output " " + output varName + output ";" + newline() +
+                    compileType typ .+. output " " .+. output varName .+. output ";" .+. newline() .+.
                     (if isLastElem then
-                        output "return " + output varName + output ";"
+                        output "return " .+. output varName .+. output ";"
                     else    
                         output "")
                 | _ ->
                     (if isLastElem then
                         output "return "
                     else
-                        output "") +
-                    compile false seqElement + output ";") +
+                        output "") .+.
+                    compile false seqElement .+. output ";") .+.
             newline()
-        ) sequence) |> String.concat "") +
-        unindentId() +
+        ) sequence) |> concatMany) .+.
+        unindentId() .+.
         output "})())"
     // Hit a let expression not embedded in a sequence
     // In this case the bindings are useless but the right side might still produce side effects
@@ -457,20 +485,20 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         let unitTy = TyCon <| BaseTy TyUnit
         let varName = Guid.string()
         let (condition, assignments) = compilePattern left (dummyWrap (VarExp varName))
-        output ("((" + capture + "() -> ") + compileType ty + output " {" + indentId() + newline() +
-        compile false (dummyWrap (InternalDeclareVar {varName=varName; typ=ty; right=right})) + output ";" + newline() +
-        output "if (!(" + compile false condition + output ")) {" + newline() + indentId() +
-        compile false (getQuitExpr unitTy) + output ";" + newline() + unindentId() +
-        output "}" + newline() +
-        output "return " + compile false (dummyWrap (VarExp varName)) + output ";" +
-        unindentId() + newline() + output "})())"
+        output ("((" + capture + "() -> ") .+. compileType ty .+. output " {" .+. indentId() .+. newline() .+.
+        compile false (dummyWrap (InternalDeclareVar {varName=varName; typ=ty; right=right})) .+. output ";" .+. newline() .+.
+        output "if (!(" .+. compile false condition .+. output ")) {" .+. newline() .+. indentId() .+.
+        compile false (getQuitExpr unitTy) .+. output ";" .+. newline() .+. unindentId() .+.
+        output "}" .+. newline() .+.
+        output "return " .+. compile false (dummyWrap (VarExp varName)) .+. output ";" .+.
+        unindentId() .+. newline() .+. output "})())"
     // Hit a decl var exp not embedded in a sequence
     // In this case declare the variable but return it immediately
     | DeclVarExp {varName=varName; typ=typ} ->
-        output ("((" + capture + "() -> ") + compileType typ + output " {" + indentId() + newline() +
-        output (compileType typ) + output " " + output varName + output ";" + newline() +
-        output "return " + compile false (dummyWrap (VarExp varName)) + output ";" +
-        unindentId() + newline() + output "})())"
+        output ("((" + capture + "() -> ") .+. compileType typ .+. output " {" .+. indentId() .+. newline() .+.
+        compileType typ .+. output " " .+. output varName .+. output ";" .+. newline() .+.
+        output "return " .+. compile false (dummyWrap (VarExp varName)) .+. output ";" .+.
+        unindentId() .+. newline() .+. output "})())"
     | AssignExp {left=(_, _, left); op=op; right=right} ->
         let opStr =
             match op with
@@ -486,10 +514,10 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
             | BitwiseLShiftAssign -> "<<="
             | BitwiseRShiftAssign -> ">>="
         let (_, ty, _) = right
-        output "(" +
-        compileLeftAssign left +
-        output (sprintf " %s " opStr) +
-        compile topLevel right +
+        output "(" .+.
+        compileLeftAssign left .+.
+        output (sprintf " %s " opStr) .+.
+        compile topLevel right .+.
         output ")"
     | CallExp {func=(_, _, FunctionWrapperEmptyClosure func); args=args} ->
         // Optimization: ignore any function wrapper that is embedded in a call
@@ -501,24 +529,24 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
                 compileLeftAssign innerLeftAssign
             | ExprArg innerExpr ->
                 compile topLevel innerExpr
-        compile topLevel func + output "(" +
-        (args |> List.map (compileArg topLevel) |> String.concat ", ") +
+        compile topLevel func .+. output "(" .+.
+        (args |> List.map (compileArg topLevel) |> concatManySep ", ") .+.
         output ")"
     | FunctionWrapperEmptyClosure func ->
         // Compile to juniper::function<void, RetTy(Arg0, ... ArgN)>(func)
-        compileType ty + output "(" + compile topLevel func + output ")"
+        compileType ty .+. output "(" .+. compile topLevel func .+. output ")"
     | UnitExp _ ->
         output "juniper::unit()"
     | VarExp name ->
         output name
     | WhileLoopExp {condition=condition; body=body} ->
-        output ("((" + capture + "() -> ") +
-        compileType unitty +
-        output " {" + newline() + indentId() +
-        output "while (" + compile false condition + ") {" + indentId() + newline() +
-        compile false body + output ";" + unindentId() + newline() + output "}" + newline() +
-        output "return {};" + newline() +
-        unindentId() +
+        output ("((" + capture + "() -> ") .+.
+        compileType unitty .+.
+        output " {" .+. newline() .+. indentId() .+.
+        output "while (" .+. compile false condition .+. output ") {" .+. indentId() .+. newline() .+.
+        compile false body .+. output ";" .+. unindentId() .+. newline() .+. output "}" .+. newline() .+.
+        output "return {};" .+. newline() .+.
+        unindentId() .+.
         output "})())"
     // Case is used for pattern matching
     | MatchExp {on=(poso, onTy, on); clauses=clauses} ->
@@ -535,14 +563,14 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
         compile topLevel (wrapWithType ty (SequenceExp [decOn; equivalentExpr]))
     // Internal declarations are used only by the compiler, not the user, for hidden variables
     | InternalDeclareVar {varName=varName; typ=typ; right=right} ->
-        output (compileType typ) + output " " + output varName + output " = " + output (compile topLevel right)
+        compileType typ .+. output " " .+. output varName .+. output " = " .+. compile topLevel right
         //output "auto " + output varName + output " = " + output (compile right)
     | InternalUsing {varName=varName; typ=typ} ->
-        output "using " + output varName + output " = " + output (compileType typ)
+        output "using " .+. output varName .+. output " = " .+. compileType typ
     | InternalUsingCap {varName=varName; cap=cap} ->
-        output "constexpr int32_t " + output varName + output " = " + output (compileCap cap)
+        output "constexpr int32_t " .+. output varName .+. output " = " .+. compileCap cap
     | TemplateApplyExp {func=func; templateArgs=templateArgs} ->
-        output (compileDecRef func) + output (compileTemplateApply theta kappa templateArgs)
+        compileDecRef func .+. compileTemplateApply theta kappa templateArgs
     | BinaryOpExp {left=left; op=op; right=right} ->
         let opStr = match op with
                     | Add -> "+"
@@ -563,104 +591,97 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : s
                     | BitshiftLeft -> "<<"
                     | BitshiftRight -> ">>"
                     | BitwiseXor -> "^"
-        output "((" + compileType ty + output ") " + output "(" + compile topLevel left + output " " + output opStr + output " " + compile topLevel right + output "))"
+        output "((" .+. compileType ty .+. output ") " .+. output "(" .+. compile topLevel left .+. output " " .+. output opStr .+. output " " .+. compile topLevel right .+. output "))"
     | RecordAccessExp { record=record; fieldName=fieldName} ->
-        output "(" + compile topLevel record + output ")." + output fieldName
+        output "(" .+. compile topLevel record .+. output ")." .+. output fieldName
     | RefRecordAccessExp {recordRef = recordRef; fieldName=fieldName} ->
-        output "((" + compile topLevel recordRef + output ").get())->" + output fieldName
+        output "((" .+. compile topLevel recordRef .+. output ").get())->" .+. output fieldName
     | LambdaExp {closure=closure; returnTy=returnTy; arguments=args; body=body} ->
-        output "juniper::function<" + compileType (ClosureTy closure) + ", " + compileType returnTy + "(" + (args |> List.map ((fun (_, typ, _) -> typ) >> compileType) |> String.concat ",") + ")>(" +
+        output "juniper::function<" .+. compileType (ClosureTy closure) .+. output ", " .+. compileType returnTy .+. output "(" .+. (args |> List.map ((fun (_, typ, _) -> typ) >> compileType) |> concatManySep ",") .+. output ")>(" .+.
         (if Map.count closure = 0 then
-            ""
+            SingletonString ""
         else
-            compileType (ClosureTy closure) + output "(" + (closure |> Map.keys |> List.ofSeq |> List.sort |> String.concat ", ") + output "), ") +
-        output "[](" +
+            compileType (ClosureTy closure) .+. output "(" .+. (closure |> Map.keys |> List.ofSeq |> List.sort |> List.map SingletonString |> concatManySep ", ") .+. output "), ") .+.
+        output "[](" .+.
         (if Map.count closure = 0 then
-            ""
+            SingletonString ""
         else
-            (compileType (ClosureTy closure)) + "& junclosure, ") +
-        (args |> List.map (fun (_, ty, (_, {varName=name})) -> compileType ty + output " " + output name) |> String.concat ", ") +
-        output ") -> " + compileType returnTy + output " { " + newline() + indentId() +
-        (closure |> Map.keys |> List.ofSeq |> List.sort |> List.map (fun varName -> compileType (Map.find varName closure) + output "& " + output varName + output " = junclosure." + output varName + output ";" + newline()) |> String.concat "") +
-        output "return " + compile false body + output ";" + unindentId() + newline() +
+            (compileType (ClosureTy closure)) .+. output "& junclosure, ") .+.
+        (args |> List.map (fun (_, ty, (_, {varName=name})) -> compileType ty .+. output " " .+. output name) |> concatManySep ", ") .+.
+        output ") -> " .+. compileType returnTy .+. output " { " .+. newline() .+. indentId() .+.
+        (closure |> Map.keys |> List.ofSeq |> List.sort |> List.map (fun varName -> compileType (Map.find varName closure) .+. output "& " .+. output varName .+. output " = junclosure." .+. output varName .+. output ";" .+. newline()) |> concatMany) .+.
+        output "return " .+. compile false body .+. output ";" .+. unindentId() .+. newline() .+.
         output " })"
     | ModQualifierExp {module_=module_; name=name} ->
-        output module_ + "::" + output name
+        output module_ .+. output "::" .+. output name
     | ArrayLitExp exprs ->
         let (ConApp (ArrayTy, [Choice1Of2 valueType; Choice2Of2 capacity])) = ty
-        output "(juniper::array<" + compileType valueType + output ", " + compileCap capacity + output "> { {" +
-        (exprs |> List.map (fun expr -> compile topLevel expr) |> String.concat ", ") +
-        output"} })"
-    | ArrayMakeExp {typ=typ; initializer=maybeInitializer} ->
-        let (ConApp (ArrayTy, [Choice1Of2 valueType; Choice2Of2 capacity])) = typ
-        output "(juniper::array<" + compileType valueType + output ", " + compileCap capacity + output ">()" +
-        (match maybeInitializer with
-                | Some initializer -> output ".fill(" + compile topLevel initializer + output ")"
-                | None -> output "") +
-        output ")"
+        output "(juniper::array<" .+. compileType valueType .+. output ", " .+. compileCap capacity .+. output "> { {" .+.
+        (exprs |> List.map (fun expr -> compile topLevel expr) |> concatManySep ", ") .+.
+        output "} })"
     | UnaryOpExp {op=op; exp=exp} ->
         match op with
-        | Deref -> output "(*((" + compile topLevel exp + output ").get()))"
+        | Deref -> output "(*((" .+. compile topLevel exp .+. output ").get()))"
         | _ ->
             (match op with
             | Negate -> output "-"
             | LogicalNot -> output "!"
-            | BitwiseNot -> output "~") + output "(" + compile topLevel exp + output ")"
+            | BitwiseNot -> output "~") .+. output "(" .+. compile topLevel exp .+. output ")"
     | ForInLoopExp {typ=typ; varName=varName; start=start; end_=end_; body=body} ->
         let startName = Guid.string()
         let endName = Guid.string()
-        output ("((" + capture + "() -> ") +
-        compileType unitty +
-        output " {" + newline() + indentId() +
-        compileType typ + output " " + output startName + output " = " + compile topLevel start + output ";" + newline() +
-        compileType typ + output " " + output endName + output " = " + compile topLevel end_ + output ";" + newline() +
-        output "for (" + compileType typ + output " " + output varName + output " = " + output startName + output "; " +
-        output varName + output " < " + output endName + output "; " +
-        output varName + output "++" + output ") {" + indentId() + newline() +
-        compile false body + output ";" + unindentId() + newline() +
-        output "}" + newline() +
-        output "return {};" + newline() +
-        unindentId() +
+        output ("((" + capture + "() -> ") .+.
+        compileType unitty .+.
+        output " {" .+. newline() .+. indentId() .+.
+        compileType typ .+. output " " .+. output startName .+. output " = " .+. compile topLevel start .+. output ";" .+. newline() .+.
+        compileType typ .+. output " " .+. output endName .+. output " = " .+. compile topLevel end_ .+. output ";" .+. newline() .+.
+        output "for (" .+. compileType typ .+. output " " .+. output varName .+. output " = " .+. output startName .+. output "; " .+.
+        output varName .+. output " < " .+. output endName .+. output "; " .+.
+        output varName .+. output "++" .+. output ") {" .+. indentId() .+. newline() .+.
+        compile false body .+. output ";" .+. unindentId() .+. newline() .+.
+        output "}" .+. newline() .+.
+        output "return {};" .+. newline() .+.
+        unindentId() .+.
         output "})())"
     | ForLoopExp {loopCondition=loopCondition; loopStep = loopStep; body=body} ->
-        output ("((" + capture + "() -> ") +
-        compileType unitty + output " {" + newline() + indentId() +
-        output "for (; " + compile false loopCondition + output "; " +
-        compile false loopStep + output ") {" + indentId() + newline() +
-        compile false body + output ";" + unindentId() + newline() +
-        output "}" + newline() +
-        output "return {};" + newline() +
-        unindentId() +
+        output ("((" + capture + "() -> ") .+.
+        compileType unitty .+. output " {" .+. newline() .+. indentId() .+.
+        output "for (; " .+. compile false loopCondition .+. output "; " .+.
+        compile false loopStep .+. output ") {" .+. indentId() .+. newline() .+.
+        compile false body .+. output ";" .+. unindentId() .+. newline() .+.
+        output "}" .+. newline() .+.
+        output "return {};" .+. newline() .+.
+        unindentId() .+.
         output "})())"
     | ArrayAccessExp {array=array; index=index} ->
-        output "(" + compile topLevel array + output ")[" + compile topLevel index + "]"
+        output "(" .+. compile topLevel array .+. output ")[" .+. compile topLevel index .+. output "]"
     | RecordExp {packed=_; initFields=initFields} ->
         let retName = Guid.string()
-        output ("((" + capture + "() -> ") + compileType ty + output "{" + newline() + indentId() +
-        compileType ty + output " " + output retName + output ";" + newline() +
+        output ("((" + capture + "() -> ") .+. compileType ty .+. output "{" .+. newline() .+. indentId() .+.
+        compileType ty .+. output " " .+. output retName .+. output ";" .+. newline() .+.
         (initFields |> List.map (fun (fieldName, fieldExpr) ->
-                                        output retName + output "." + output fieldName + output " = " + compile false fieldExpr + output ";" + newline()) |> String.concat "") +
-        output "return " + output retName + output ";" + unindentId() + newline() + output "})())"
+                                        output retName .+. output "." .+. output fieldName .+. output " = " .+. compile false fieldExpr .+. output ";" .+. newline()) |> concatMany) .+.
+        output "return " .+. output retName .+. output ";" .+. unindentId() .+. newline() .+. output "})())"
     | TupleExp exps ->
-        output "(juniper::tuple" + output (sprintf "%d" (List.length exps)) + output "<" +
-        (exps |> List.map (fun (_, typ, _) -> compileType typ) |> String.concat ",") +
-        output ">" + output "{" + (exps |> List.map (compile topLevel) |> String.concat ", ") + output "}" + output ")"
+        output "(juniper::tuple" .+. output (sprintf "%d" (List.length exps)) .+. output "<" .+.
+        (exps |> List.map (fun (_, typ, _) -> compileType typ) |> concatManySep ",") .+.
+        output ">" .+. output "{" .+. (exps |> List.map (compile topLevel) |> concatManySep ", ") .+. output "}" .+. output ")"
     | RefExp exp ->
         let (_, typ, _) = exp
-        output "(juniper::shared_ptr<" + compileType typ + output ">(" +
-        compile topLevel exp  + output "))"
+        output "(juniper::shared_ptr<" .+. compileType typ .+. output ">(" .+.
+        compile topLevel exp .+. output "))"
     | DoWhileLoopExp {condition=condition; body=body} ->
-        output ("((" + capture + "() -> ") +
-        compileType unitty +
-        output " {" + indentId() + newline() +
-        output "do {" + indentId() + newline() +
-        compile false body + output ";" + unindentId() + newline() +
-        output "} while(" + compile false condition + output ");" + newline() +
-        output "return {};" + unindentId() + newline() +
+        output ("((" + capture + "() -> ") .+.
+        compileType unitty .+.
+        output " {" .+. indentId() .+. newline() .+.
+        output "do {" .+. indentId() .+. newline() .+.
+        compile false body .+. output ";" .+. unindentId() .+. newline() .+.
+        output "} while(" .+. compile false condition .+. output ");" .+. newline() .+.
+        output "return {};" .+. unindentId() .+. newline() .+.
         output "})())"
 
 // Convert Juniper template to C++ template
-and compileTemplate theta kappa (templateVars : Template) : string =
+and compileTemplate theta kappa (templateVars : Template) : StringTree =
     let templateVars' =
         templateVars |>
         List.map
@@ -677,63 +698,63 @@ and compileTemplate theta kappa (templateVars : Template) : string =
                     | CapacityVarExpr (CapVar n') -> n'
                     | _ -> failwith "Internal compiler error: attempting to compile template where one of the template capVars is not actully a capVar"
                 "int " + varName')
-    output "template<" +
-    output (templateVars' |> String.concat ", ") +
+    output "template<" .+.
+    output (templateVars' |> String.concat ", ") .+.
     output ">"
 
 // Convert Juniper capacity values to C++ capacities (part of templates)
-and compileCap kappa (cap : CapacityExpr) : string =
+and compileCap kappa (cap : CapacityExpr) : StringTree =
     let rec compileCap' cap' =
         match cap' with
         | CapacityVarExpr (CapVar name) ->
-            name
+            SingletonString name
         | CapacityOp { left=left; op=op; right=right } ->
-            "(" + compileCap' left + ")" +
-            (match op with
+            SingletonString "(" .+. compileCap' left .+. SingletonString ")" .+.
+            ((match op with
             | CapAdd -> "+"
             | CapSubtract -> "-"
             | CapMultiply -> "*"
-            | CapDivide -> "/") +
-            "(" + compileCap' right + ")"
+            | CapDivide -> "/") |> SingletonString) .+.
+            SingletonString "(" .+. compileCap' right .+. SingletonString ")"
         | CapacityConst constant ->
-            sprintf "%i" constant
+            sprintf "%i" constant |> SingletonString
         | CapacityUnaryOp {op=op; term=term} ->
-            (match op with
-            | CapNegate -> "-") +
-            "(" + compileCap' term + ")"
+            ((match op with
+            | CapNegate -> "-") |> SingletonString) .+.
+            SingletonString "(" .+. compileCap' term .+. SingletonString ")"
     compileCap' (Constraint.simplifyCap (Constraint.capsubst kappa cap))
 
 // Convert Juniper template apply to C++ template apply
-and compileTemplateApply theta kappa (templateApp : TemplateApply) : string =
+and compileTemplateApply theta kappa (templateApp : TemplateApply) : StringTree =
     match templateApp with
-    | [] -> ""
+    | [] -> SingletonString ""
     | _ ->
-        output "<" +
+        output "<" .+.
         (templateApp |>
         List.map
             (function
             | Choice1Of2 tau -> compileType theta kappa tau
             | Choice2Of2 cap -> compileCap kappa cap) |>
-        String.concat ", ") +
+        concatManySep ", ") .+.
         output ">"
 
 and compileFunctionSignature theta kappa (FunctionDec {name=name; template=template; clause=clause}) =
     let compileType = compileType theta kappa
     (match template with
-    | [] -> ""
-    | _ -> compileTemplate theta kappa template + newline()) +
-    (clause.returnTy |> compileType |> output) +
-    output " " +
-    output name +
-    output "(" +
+    | [] -> output ""
+    | _ -> compileTemplate theta kappa template .+. newline()) .+.
+    (clause.returnTy |> compileType) .+.
+    output " " .+.
+    output name .+.
+    output "(" .+.
     ((clause.arguments |>
         List.map (fun (_, ty, (_, {varName=name})) ->
-            (compileType ty) + output " " + (output name))) |> String.concat ", ") +
+            (compileType ty) .+. output " " .+. (output name))) |> concatManySep ", ") .+.
     output ")"
 
 // Convert declarations in Juniper to C++ representations
 // Includes modules use, function declarations, record declaration, let declarations, and ADTs.
-and compileDec module_ theta kappa (dec : Declaration) : string =
+and compileDec module_ theta kappa (dec : Declaration) : StringTree =
     let compile = compile theta kappa
     let compileType = compileType theta kappa
     let compileCap = compileCap kappa
@@ -742,47 +763,47 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
     let templateStr maybeTemplate =
         match maybeTemplate with
         | Some template ->
-            compileTemplate theta kappa template + newline()
+            compileTemplate theta kappa template .+. newline()
         | None ->
-            ""
+            output ""
     match dec with
     | InlineCodeDec code ->
         output code
     | ModuleNameDec _ ->
-        ""
+        output ""
     | IncludeDec inc ->
-        inc |> List.map (fun i -> output "#include " + output i + newline()) |> String.concat ""
+        inc |> List.map (fun i -> output "#include " .+. output i .+. newline()) |> concatMany
     | OpenDec openDecs ->
         openDecs |> (List.map (fun modName ->
-            output "using namespace " +
-            output modName +
-            output ";" +
-            newline())) |> String.concat ""
+            output "using namespace " .+.
+            output modName .+.
+            output ";" .+.
+            newline())) |> concatMany
     | FunctionDec {name=name; template=maybeTemplate; clause=clause} ->
-        compileFunctionSignature theta kappa dec + " {" +
-        newline() +
-        indentId() +
-        output "return " +
-        compile false clause.body +
-        output ";" +
-        unindentId() +
-        newline() +
+        compileFunctionSignature theta kappa dec .+. output " {" .+.
+        newline() .+.
+        indentId() .+.
+        output "return " .+.
+        compile false clause.body .+.
+        output ";" .+.
+        unindentId() .+.
+        newline() .+.
         output "}"
     | LetDec {varName=varName; right=right} ->
-        compileType (getType right) +
-        output " " +
-        output varName +
-        output " = " +
-        compile true right + output ";"
+        compileType (getType right) .+.
+        output " " .+.
+        output varName .+.
+        output " = " .+.
+        compile true right .+. output ";"
     | AlgDataTypeDec { name=name; valCons=valCons; template=maybeTemplate } ->
         let compileTaus taus =
             match taus with
             | [] -> output "uint8_t"
-            | [ty] -> output (compileType ty)
-            | _ -> output (compileType (tuplety taus))
+            | [ty] -> compileType ty
+            | _ -> compileType (tuplety taus)
         let variantType () =
-            output "juniper::variant<" +
-            ((valCons |> List.map (fun (_, taus) -> compileTaus taus)) |> String.concat ", ") +
+            output "juniper::variant<" .+.
+            ((valCons |> List.map (fun (_, taus) -> compileTaus taus)) |> concatManySep ", ") .+.
             output ">"
         let retType =
             let m = ModuleQualifierTy {module_=module_; name=name}
@@ -791,41 +812,41 @@ and compileDec module_ theta kappa (dec : Declaration) : string =
                 ConApp (m, ConvertAst.convertTemplateToExpr template)
             | None ->
                 TyCon m
-        templateStr maybeTemplate +
-        output "struct " + output name + output " {" + newline() + indentId() +
-        variantType() + " data;" + newline() + newline() +
-        output name + output "() {}" + newline() + newline() +
-        output name + output "(" + variantType() + " initData) : data(initData) {}" + newline() + newline() +
+        templateStr maybeTemplate .+.
+        output "struct " .+. output name .+. output " {" .+. newline() .+. indentId() .+.
+        variantType() .+. output " data;" .+. newline() .+. newline() .+.
+        output name .+. output "() {}" .+. newline() .+. newline() .+.
+        output name .+. output "(" .+. variantType() .+. output " initData) : data(initData) {}" .+. newline() .+. newline() .+.
         ((valCons |> List.mapi
             (fun i (valConName, taus) ->
-                compileTaus taus + output " " + output valConName + output "() {" + newline() + indentId() +
-                output "return data.template get<" + output (sprintf "%d" i) + output ">();" + newline() + unindentId() +
-                output "}" + newline() + newline())) |> String.concat "") +
-        output "uint8_t id() {" + newline() + indentId() +
-        output "return data.id();" + newline() + unindentId() +
-        output "}" + newline() + newline() +
-        output "bool operator==(" + output name + output " rhs) {" + newline() + indentId() +
-        output "return data == rhs.data;" + newline() + unindentId() +
-        output "}" + newline() + newline() +
-        output "bool operator!=(" + output name + output " rhs) {" + newline() + indentId() +
-        output "return !(this->operator==(rhs));" + newline() + unindentId() +
-        output "}" + newline() + unindentId() +
-        output "};" + newline() + newline() +
+                compileTaus taus .+. output " " .+. output valConName .+. output "() {" .+. newline() .+. indentId() .+.
+                output "return data.template get<" .+. output (sprintf "%d" i) .+. output ">();" .+. newline() .+. unindentId() .+.
+                output "}" .+. newline() .+. newline())) |> concatMany) .+.
+        output "uint8_t id() {" .+. newline() .+. indentId() .+.
+        output "return data.id();" .+. newline() .+. unindentId() .+.
+        output "}" .+. newline() .+. newline() .+.
+        output "bool operator==(" .+. output name .+. output " rhs) {" .+. newline() .+. indentId() .+.
+        output "return data == rhs.data;" .+. newline() .+. unindentId() .+.
+        output "}" .+. newline() .+. newline() .+.
+        output "bool operator!=(" .+. output name .+. output " rhs) {" .+. newline() .+. indentId() .+.
+        output "return !(this->operator==(rhs));" .+. newline() .+. unindentId() .+.
+        output "}" .+. newline() .+. unindentId() .+.
+        output "};" .+. newline() .+. newline() .+.
         // Output the function representation of the value constructor
         (valCons |> List.mapi (fun i (valConName, taus) ->
-            templateStr maybeTemplate +
-            compileType retType + output " " + output valConName + output "(" +
-            (taus |> List.mapi (fun j ty -> compileType ty + output (sprintf " data%d" j)) |> String.concat ", ") +
-            output ") {" + newline() + indentId() +
-            output "return " + compileType retType + output "(" + output (variantType ()) + output "::template create<" + output (sprintf "%d" i) + output ">(" +
+            templateStr maybeTemplate .+.
+            compileType retType .+. output " " .+. output valConName .+. output "(" .+.
+            (taus |> List.mapi (fun j ty -> compileType ty .+. output (sprintf " data%d" j)) |> concatManySep ", ") .+.
+            output ") {" .+. newline() .+. indentId() .+.
+            output "return " .+. compileType retType .+. output "(" .+. variantType () .+. output "::template create<" .+. output (sprintf "%d" i) .+. output ">(" .+.
             (match taus with
             | [] -> output "0" 
             | [_] -> output "data0"
-            | _ -> compileTaus taus + "(" + ((taus |> List.mapi (fun j _ -> output (sprintf "data%d" j))) |> String.concat ", ") + ")") + output "));" + newline() +
-            unindentId() + output "}" + newline() + newline()) |> String.concat "")
+            | _ -> compileTaus taus .+. output "(" .+. ((taus |> List.mapi (fun j _ -> output (sprintf "data%d" j))) |> concatManySep ", ") .+. output ")") .+. output "));" .+. newline() .+.
+            unindentId() .+. output "}" .+. newline() .+. newline()) |> concatMany)
     | AliasDec {name=name; template=maybeTemplate; typ=typ} ->
-        templateStr maybeTemplate +
-        output "using " + output name + output " = " + compileType typ + output ";" + newline() + newline()
+        templateStr maybeTemplate .+.
+        output "using " .+. output name .+. output " = " .+. compileType typ .+. output ";" .+. newline() .+. newline()
 
 and compileProgram {moduleNames=moduleNames; opens=opens; includes=includes; typeDecs=typeDecs; inlineCodeDecs=inlineCodeDecs; valueSccs=valueSccs} {customPlacementNew=customPlacementNew; cLinkage=cLinkage} : string =
     let executingDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
@@ -843,29 +864,29 @@ and compileProgram {moduleNames=moduleNames; opens=opens; includes=includes; typ
             | _ -> ())))
 
     let compileNamespace theta kappa (module_, dec) =
-        output "namespace " + output module_ + output " {" + newline() + indentId() +
-        compileDec module_ theta kappa dec + newline() + unindentId() +
-        output "}" + newline() + newline()
+        output "namespace " .+. output module_ .+. output " {" .+. newline() .+. indentId() .+.
+        compileDec module_ theta kappa dec .+. newline() .+. unindentId() .+.
+        output "}" .+. newline() .+. newline()
     
     let compiledIncludes =
-        output "//Compiled on " + DateTime.Now.ToString() + newline() +
-        output "#include <inttypes.h>" + newline() +
-        output "#include <stdbool.h>" + newline() +
+        output "//Compiled on " .+. output (DateTime.Now.ToString()) .+. newline() .+.
+        output "#include <inttypes.h>" .+. newline() .+.
+        output "#include <stdbool.h>" .+. newline() .+.
         (if customPlacementNew then
             output "#define JUN_CUSTOM_PLACEMENT_NEW"
         else
-            output "#include <new>") + newline() + newline() +
-        junCppStd + newline() +
-        (includes |> List.map (compileDec "" Map.empty Map.empty) |> String.concat "") + newline()
+            output "#include <new>") .+. newline() .+. newline() .+.
+        output junCppStd .+. newline() .+.
+        (includes |> List.map (compileDec "" Map.empty Map.empty) |> concatMany) .+. newline()
     // Introduce all the namespaces
     let compiledNamespaces =
-        (moduleNames |> List.map (fun name -> output "namespace " + output name + output " {}" + newline()) |> String.concat "")
+        (moduleNames |> List.map (fun name -> output "namespace " .+. output name .+. output " {}" .+. newline()) |> concatMany)
     // Now insert all the usings
     let compiledOpens =
-        (opens |> List.map (fun (module_, dec) -> compileNamespace Map.empty Map.empty (module_, dec)) |> String.concat "")
+        (opens |> List.map (fun (module_, dec) -> compileNamespace Map.empty Map.empty (module_, dec)) |> concatMany)
     // Compile all the types
     let compiledTypeDecs =
-        (typeDecs |> List.map (fun (module_, dec) -> compileNamespace Map.empty Map.empty (module_, dec)) |> String.concat "")
+        (typeDecs |> List.map (fun (module_, dec) -> compileNamespace Map.empty Map.empty (module_, dec)) |> concatMany)
     // Compile forward declarations of all functions to enable recursion
     let compiledFunctionSignatures =
         (valueSccs |> List.map (fun {decs=decs; theta=theta; kappa=kappa} ->
@@ -875,23 +896,23 @@ and compileProgram {moduleNames=moduleNames; opens=opens; includes=includes; typ
                 | FunctionDec _ -> true
                 | _ -> false)) |>
             List.map (fun (module_, dec) ->
-                output "namespace " + output module_ + output " {" + newline() + indentId() +
-                compileFunctionSignature theta kappa dec + ";" + newline() + unindentId() +
-                output "}" + newline() + newline()) |>
-            String.concat ""
-        ) |> String.concat "")
+                output "namespace " .+. output module_ .+. output " {" .+. newline() .+. indentId() .+.
+                compileFunctionSignature theta kappa dec .+. output ";" .+. newline() .+. unindentId() .+.
+                output "}" .+. newline() .+. newline()) |>
+            concatMany
+        ) |> concatMany)
         // Compile all global inline code
     let compiledInlineCode =
-        (inlineCodeDecs |> List.map (fun (module_, dec) -> compileNamespace Map.empty Map.empty (module_, dec)) |> String.concat "")
+        (inlineCodeDecs |> List.map (fun (module_, dec) -> compileNamespace Map.empty Map.empty (module_, dec)) |> concatMany)
     let compiledValues =
         // Compile all global variables and functions
         (valueSccs |> List.map (fun {decs=decs; theta=theta; kappa=kappa} ->
-            decs |> List.map (compileNamespace theta kappa) |> String.concat "") |> String.concat "")
+            decs |> List.map (compileNamespace theta kappa) |> concatMany) |> concatMany)
     let compiledRecordEnvironment = compileRecordEnvironment ()
     let compiledClosureEnvironment = compileClosureEnviornment ()
     
-    compiledIncludes + compiledNamespaces + compiledOpens + compiledRecordEnvironment + compiledClosureEnvironment + compiledTypeDecs + compiledFunctionSignatures +
-    compiledInlineCode + compiledValues +
+    compiledIncludes .+. compiledNamespaces .+. compiledOpens .+. compiledRecordEnvironment .+. compiledClosureEnvironment .+. compiledTypeDecs .+. compiledFunctionSignatures .+.
+    compiledInlineCode .+. compiledValues .+.
     (*
         void setup() {
           Blink::setup();
@@ -902,20 +923,20 @@ and compileProgram {moduleNames=moduleNames; opens=opens; includes=includes; typ
             raise <| SemanticError [Error.ErrMsg "Unable to find program entry point. Please create a function called setup.\n fun setup() = ()"]
         | Some module_ ->
             (if cLinkage then
-                output "#ifdef __cplusplus" + newline() +
-                output "extern \"C\" {" + newline() +
-                output "#endif" + newline()
+                output "#ifdef __cplusplus" .+. newline() .+.
+                output "extern \"C\" {" .+. newline() .+.
+                output "#endif" .+. newline()
             else
-                "") +
-            output "void setup() {" + newline() +
-            indentId() + output module_ + output "::" + output "setup();" + newline() + unindentId() +
-            "}" + newline()) +
+                output "") .+.
+            output "void setup() {" .+. newline() .+.
+            indentId() .+. output module_ .+. output "::" .+. output "setup();" .+. newline() .+. unindentId() .+.
+            output "}" .+. newline()) .+.
             (if cLinkage then
-                output "#ifdef __cplusplus" + newline() +
-                output "}" + newline() +
-                output "#endif" + newline() + newline()
+                output "#ifdef __cplusplus" .+. newline() .+.
+                output "}" .+. newline() .+.
+                output "#endif" .+. newline() .+. newline()
             else
-                "") +
+                output "") .+.
 
     (*
         void loop() {
@@ -927,17 +948,17 @@ and compileProgram {moduleNames=moduleNames; opens=opens; includes=includes; typ
             raise <| SemanticError [Error.ErrMsg "Unable to find program entry point. Please create a function called loop.\n fun loop() = ()."]
         | Some module_ ->
             (if cLinkage then
-                output "#ifdef __cplusplus" + newline() +
-                output "extern \"C\" {" + newline() +
-                output "#endif" + newline()
+                output "#ifdef __cplusplus" .+. newline() .+.
+                output "extern \"C\" {" .+. newline() .+.
+                output "#endif" .+. newline()
             else
-                "") +
-            output "void loop() {" + newline() +
-            indentId() + output module_ + output "::" + output "loop();" + newline() + unindentId()
-            + "}") + newline() +
+                output "") .+.
+            output "void loop() {" .+. newline() .+.
+            indentId() .+. output module_ .+. output "::" .+. output "loop();" .+. newline() .+. unindentId()
+            .+. output "}") .+. newline() .+.
             (if cLinkage then
-                output "#ifdef __cplusplus" + newline() +
-                output "}" + newline() +
+                output "#ifdef __cplusplus" .+. newline() .+.
+                output "}" .+. newline() .+.
                 output "#endif"
             else
-                "")
+                output "") |> stringTreeToStr

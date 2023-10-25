@@ -143,6 +143,7 @@ and LetRec =          { left : TyAdorn<Pattern>; right : TyAdorn<Expr> }
 // Variable assign
 and AssignRec =       { left : TyAdorn<LeftAssign>; op : AssignOps; right : TyAdorn<Expr> }
 and ForInLoopRec =      { typ : TyExpr; varName : string; start : TyAdorn<Expr>; end_ : TyAdorn<Expr>; body : TyAdorn<Expr> }
+// Note that the loop initializer is hoisted outside of the loop head by the typechecker
 and ForLoopRec =      { loopCondition : TyAdorn<Expr> ; loopStep : TyAdorn<Expr>; body : TyAdorn<Expr> }
 and WhileLoopRec =    { condition : TyAdorn<Expr>; body : TyAdorn<Expr> }
 and DoWhileLoopRec =  { condition : TyAdorn<Expr>; body: TyAdorn<Expr> }
@@ -161,7 +162,6 @@ and CallRec =         { func : TyAdorn<Expr>; args : CallArg list }
 // Applying the template of a function
 and TemplateApplyExpRec = { func : Choice<string, ModQualifierRec>; templateArgs : TemplateApply }
 and RecordExprRec =   { packed : bool; initFields : (string * TyAdorn<Expr>) list }
-and ArrayMakeExpRec = { typ : TyExpr; initializer : TyAdorn<Expr> option }
 and DeclVarExpRec = { varName : string; typ : TyExpr }
 and Expr = SequenceExp of TyAdorn<Expr> list
           | BinaryOpExp of BinaryOpRec
@@ -206,7 +206,6 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | ModQualifierExp of ModQualifierRec
           | RecordExp of RecordExprRec
           | ArrayLitExp of TyAdorn<Expr> list
-          | ArrayMakeExp of ArrayMakeExpRec
           | RefExp of TyAdorn<Expr>
           | TupleExp of TyAdorn<Expr> list
           | QuitExp of TyExpr
@@ -490,9 +489,6 @@ and preorderMapFold (exprMapper: Map<string, TyExpr> -> 'accum -> TyAdorn<Expr> 
     | ArrayLitExp literals ->
         let (literals', accum'') = List.mapFold preorderMapFold' accum' literals
         (wrapLike expr' (ArrayLitExp literals'), accum'')
-    | ArrayMakeExp {typ=typ; initializer=initializer} ->
-        let (initializer', accum'') = Option.mapFold preorderMapFold' accum' initializer
-        (wrapLike expr' (ArrayMakeExp {typ=typ; initializer=initializer'}), accum'')
     | AssignExp {left=left; op=op; right=right} ->
         let (left', accum'') = preorderMapFoldLeftAssign' accum' (unwrap left)
         let (right', accum''') = preorderMapFold' accum'' right

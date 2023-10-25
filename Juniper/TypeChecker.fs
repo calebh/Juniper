@@ -324,22 +324,6 @@ let typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let c' = List.fold (&&&) c (List.map (flip (T.getType >> (=~=)) (tauElement, errStr [posa] "Expected all elements of array to be of the same type")) exprs')
             let tauArray = T.ConApp (T.ArrayTy, [Choice1Of2 tauElement; Choice2Of2 (T.CapacityConst (int64 (List.length exprs)))])
             adorn posE tauArray (T.ArrayLitExp exprs') c'
-        | Ast.ArrayMakeExp {typ=typ; initializer=maybeInitializer} ->
-            let post = A.getPos typ
-            let typ' = convertType' typ
-            match typ' with
-            | T.ConApp (T.ArrayTy, [Choice1Of2 tauElement; Choice2Of2 cap]) ->
-                let (maybeInitializer', c) =
-                    match maybeInitializer with
-                    | Some ((posi, _) as initializer) ->
-                        let (initializer', c) = ty initializer
-                        let c' = c &&& (T.getType initializer' =~= (tauElement, errStr [post; posi] "Expected initializer to have the same type as the type declaration."))
-                        (Some initializer', c')
-                    | None ->
-                        (None, Trivial)
-                adorn posE typ' (T.ArrayMakeExp {typ=typ'; initializer=maybeInitializer'}) c
-            | _ ->
-                raise <| TypeError ((errStr [post] "Type declaration should be an array type").Force())
         | Ast.AssignExp {left=(posl, _) as left; op=(poso, op); right=(posr, _) as right; } ->
             let (right', c1) = ty right
             let (left', c2) = checkLeft left localVars gamma
@@ -603,8 +587,13 @@ let typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let (left', c2, _, _) = checkPattern left (T.getType right') gamma
             let c' = c1 &&& c2
             adorn posE (T.getType left') (T.LetExp {left=left'; right=right'}) c'
-        | Ast.DeclVarExp {varName=varName; typ=typ} ->
-            let typ' = convertType' typ
+        | Ast.DeclVarExp {varName=varName; typ=maybeTyp} ->
+            let typ' =
+                match maybeTyp with
+                | Some typ ->
+                    convertType' typ
+                | None ->
+                    freshtyvarExpr ()
             adorn posE typ' (T.DeclVarExp {varName=A.unwrap varName; typ=typ'}) Trivial
         | Ast.ModQualifierExp (posmq, {module_=(pos, module_); name=(posn, name)}) ->
             // Cross ref module

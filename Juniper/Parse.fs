@@ -527,7 +527,7 @@ do
     let pVar =
         pipe2
             ((attempt (pstring "var" >>. ws1)) >>. fatalizeAnyError (pos id .>> ws))
-            (fatalizeAnyError (skipChar ':' >>. ws >>. tyExpr))
+            (opt (skipChar ':' >>. ws >>. tyExpr))
             (fun varName ty ->
                 DeclVarExp { varName = varName; typ = ty} )
     let forInLoop =
@@ -583,11 +583,6 @@ do
     let pref = (attempt (pstring "ref" >>. ws1)) >>. (fatalizeAnyError expr) |>> RefExp
     let modQual = moduleQualifier |> pos |>> ModQualifierExp
     let varReference = attempt id |> pos |>> VarExp
-    let arrayMake =
-        pipe2
-            (skipString "array" >>. ws1 >>. fatalizeAnyError tyExpr .>> wsNoNewline)
-            ((skipString "of" >>. ws1 >>. expr) |> opt)
-            (fun arrTy initializer -> ArrayMakeExp {typ=arrTy; initializer=initializer})
     let inlineCpp' = inlineCpp |>> InlineCode
     let tuple = betweenChar '(' (separatedList1 exprws ',') ')' |>> TupleExp
     let smartpointer = (skipString "smartpointer" >>. ws >>. fatalizeAnyError ((skipChar '(' >>. exprws .>> ws .>> skipChar ',' .>> ws) .>>. (exprws .>> ws .>> skipChar ')'))) |>> Smartpointer
@@ -600,7 +595,7 @@ do
                     fn; attempt parens; quit; attempt tuple; attempt recordExpr1; recordExprMany; seq;
                     attempt modQual; forInLoop; forLoop; doWhileLoop; whileLoop;
                     pLet; pVar; pIf; match_;
-                    arrayLiteral; pref; arrayMake; inlineCpp'; varReference]) |> pos .>> wsNoNewline
+                    arrayLiteral; pref; inlineCpp'; varReference]) |> pos .>> wsNoNewline
     opp.TermParser <-
         (leftRecurse
             (e <?> "Expression")

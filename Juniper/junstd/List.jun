@@ -24,7 +24,7 @@ module List
         The list obtained by applying f to every element of lst.
 */
 fun map(f : (a) -> b, lst : list<a, n>) : list<b, n> = {
-    let mut ret = array b[n]
+    let mut ret = zeros()
     for i : uint32 in 0u32 .. lst.length {
         ret[i] = f(lst.data[i])
     }
@@ -95,7 +95,7 @@ fun reduce(f : (t, t) -> t, lst : list<t, n>) : t = {
     s
 }
 
-fun reduceSafe(f : (t, t) -> t, lst : list<t, n>) : maybe<t> = {
+fun tryReduce(f : (t, t) -> t, lst : list<t, n>) : maybe<t> = {
     if lst.length == 0 {
         nothing()
     } else {
@@ -113,7 +113,7 @@ fun reduceBack(f : (t, t) -> t, lst : list<t, n>) : t = {
     s
 }
 
-fun reduceBackSafe(f : (t, t) -> t, lst : list<t, n>) : maybe<t> = {
+fun tryReduceBack(f : (t, t) -> t, lst : list<t, n>) : maybe<t> = {
     if lst.length == 0 {
         nothing()
     } else {
@@ -138,7 +138,7 @@ fun reduceBackSafe(f : (t, t) -> t, lst : list<t, n>) : maybe<t> = {
 */
 fun concat(lstA : list<t, aCap>, lstB : list<t, bCap>) : list<t, retCap> = {
     let mut j : uint32 = 0u32
-    let mut out = {data := array t[retCap], length := lstA.length + lstB.length}
+    let mut out = {data := zeros(), length := lstA.length + lstB.length}
     for i : uint32 in 0u32 .. lstA.length {
         out.data[j] = lstA.data[i]
         j += 1
@@ -187,7 +187,7 @@ fun get(i : u, lst : list<t, n>) : t where u : int =
     lst.data[i]
 
 /*
-    Function: getSafe
+    Function: tryGet
 
     Returns the nth element of the given list, or nothing if the index is out of bounds
 
@@ -201,7 +201,7 @@ fun get(i : u, lst : list<t, n>) : t where u : int =
     Returns:
         The element at position i in the list inside a just, or nothing if the index is out of bounds.
 */
-fun getSafe(i : u, lst : list<t, n>) : maybe<t> where u : int =
+fun tryGet(i : u, lst : list<t, n>) : maybe<t> where u : int =
     if i < lst.length
         just(lst.data[i])
     else
@@ -222,7 +222,7 @@ fun getSafe(i : u, lst : list<t, n>) : maybe<t> where u : int =
         The flattened list
 */
 fun flatten(listOfLists : list<list<t, m>, n>) : list<t, retCap> = {
-    let mut ret = array t[retCap]
+    let mut ret = zeros()
     let mut index = 0u32
     for i : uint32 in 0u32 .. listOfLists.length {
         for j : uint32 in 0u32 .. listOfLists.data[i].length {
@@ -269,7 +269,7 @@ fun flattenSafe(listOfLists : list<list<t, m>, n>) : list<t, m*n> =
         The new list with capacity m
 */
 fun resize(lst : list<t, n>) : list<t, m> = {
-    let mut ret = array t[m]
+    let mut ret = zeros()
     for i : uint32 in 0u32 .. Math:min_(lst.length, toUInt32(m)) {
         ret[i] = lst.data[i]
     }
@@ -333,6 +333,28 @@ fun any(pred : (t) -> bool, lst : list<t, n>) : bool = {
 /*
     Function: append
 
+    Mutates the given list with the element appended to the end.
+    If the element will not fit in the list, nothing is inserted.
+
+    Type Signature:
+    | (t, inout list<t, n>) -> list<t, n>
+
+    Parameters:
+        elem : t - The element to add to the end of the list
+        lst : inout list<t, n> - The list
+
+    Returns:
+        A copy of lst with elem appended to the end
+*/
+fun append(elem : t, inout lst : list<t, n>) : unit =
+    if lst.length < n {
+        lst.data[lst.length] = elem
+        lst.length += 1
+    }
+
+/*
+    Function: appendPure
+
     Returns a copy of the given list with the element appended to the end.
     If the element will not fit in the list, nothing is inserted.
 
@@ -346,7 +368,7 @@ fun any(pred : (t) -> bool, lst : list<t, n>) : bool = {
     Returns:
         A copy of lst with elem appended to the end
 */
-fun append(elem : t, mut lst : list<t, n>) : list<t, n> = {
+fun appendPure(elem : t, mut lst : list<t, n>) : list<t, n> = {
     if lst.length < n {
         lst.data[lst.length] = elem
         lst.length += 1
@@ -379,6 +401,39 @@ fun appendSafe(elem : t, lst : list<t, n>) : list<t, n + 1> = {
 /*
     Function: prepend
 
+    Mutates a list, adding and element to the front. If the list is already full then the
+    last element is pushed off (removed) from the back of the list.
+
+    Type Signature:
+    | (t, inout list<t, n>) -> unit
+
+    Parameters:
+        elem : t - The element to add to the front of the list
+        lst : inout list<t, n> - The list
+
+    Returns:
+        unit
+*/
+fun prepend(elem : t, inout lst : list<t, n>) : unit = {
+    if n <= 0i32 {
+        ()
+    } else {
+        let mut i = lst.length
+        do {
+            if i < n {
+                lst.data[i] = lst.data[i - 1]
+            }
+        } while lst.length > 0u32
+        lst.data[0u32] = elem
+        if lst.length < n {
+            lst.length += 1
+        }
+    }
+}
+
+/*
+    Function: prependPure
+
     Returns a copy of the given list with the element prepended to the front.
     If the list is already full then the last element is pushed off (removed)
     from the back of the list.
@@ -393,7 +448,7 @@ fun appendSafe(elem : t, lst : list<t, n>) : list<t, n + 1> = {
     Returns:
         A copy of lst with elem prepended to the front
 */
-fun prepend(elem : t, lst : list<t, n>) : list<t, n> = {
+fun prependPure(elem : t, lst : list<t, n>) : list<t, n> = {
     if n <= 0i32 {
         lst
     } else {
@@ -416,6 +471,28 @@ fun prepend(elem : t, lst : list<t, n>) : list<t, n> = {
 /*
     Function: set
 
+    Mutates the given list where the element at the given index is the given element.
+    If the index is out of bounds the list remains unchanged.
+
+    Type Signature:
+    | (uint32, t, inout list<t, n>) -> unit
+
+    Parameters:
+        index : uint32 - The index to set
+        elem : t - The new element
+        lst : inout list<t, n> - The list
+
+    Returns:
+        unit
+*/
+fun set(index : uint32, elem : t, inout lst : list<t, n>) : unit =
+    if index < lst.length {
+        lst.data[index] = elem
+    }
+
+/*
+    Function: setPure
+
     Returns a copy of the given list where the element at the given index
     is the given element. If the index is out of bounds the list remains unchanged.
 
@@ -430,7 +507,7 @@ fun prepend(elem : t, lst : list<t, n>) : list<t, n> = {
     Returns:
         A new list where the elem is at index.
 */
-fun set(index : uint32, elem : t, mut lst : list<t, n>) : list<t, n> = {
+fun setPure(index : uint32, elem : t, mut lst : list<t, n>) : list<t, n> = {
     if index < lst.length {
         lst.data[index] = elem
     }
@@ -452,8 +529,13 @@ fun set(index : uint32, elem : t, mut lst : list<t, n>) : list<t, n> = {
     Returns:
         A new list with elem at every position in the list.
 */
-fun replicate(numOfElements : uint32, elem : t) : list<t, n> =
-    {data := array t[n] of elem, length := numOfElements}
+fun replicate(numOfElements : uint32, elem : t) : list<t, n> = {
+    let mut ret = {data := zeros(), length := numOfElements}
+    for i in 0 .. numOfElements {
+        ret.data[i] = elem
+    }
+    ret
+}
 
 /*
     Function: remove
@@ -680,7 +762,7 @@ fun member(elem : t, lst : list<t, n>) : bool = {
 fun zip(lstA : list<a, n>, lstB : list<b, n>) : list<(a,b), n> = {
     let outLen = Math:min_(lstA.length, lstB.length)
     let mut ret = {
-        data := array (a,b)[n],
+        data := zeros(),
         length := outLen
     }
     for i : uint32 in 0u32 .. outLen {
@@ -707,11 +789,11 @@ fun zip(lstA : list<a, n>, lstB : list<b, n>) : list<(a,b), n> = {
 */
 fun unzip(lst : list<(a,b), n>) : (list<a, n>, list<b, n>) = {
     let mut retA = {
-        data := array a[n],
+        data := zeros(),
         length := lst.length
     }
     let mut retB = {
-        data := array b[n],
+        data := zeros(),
         length := lst.length
     }
     for i : uint32 in 0u32 .. lst.length {

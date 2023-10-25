@@ -169,7 +169,7 @@ and CallRec =         { func : PosAdorn<Expr>; args : PosAdorn<CallArg list> }
 and RecordExprRec =   { packed : PosAdorn<unit> option; initFields : PosAdorn<(PosAdorn<string> * PosAdorn<Expr>) list> }
 and ArrayMakeExpRec = { typ : PosAdorn<TyExpr>; initializer : PosAdorn<Expr> option }
 and TypeConstraintRec = { exp : PosAdorn<Expr>; typ : PosAdorn<TyExpr> }
-and DeclVarExpRec = { varName : PosAdorn<string>; typ : PosAdorn<TyExpr> }
+and DeclVarExpRec = { varName : PosAdorn<string>; typ : PosAdorn<TyExpr> option }
 and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | BinaryOpExp of BinaryOpRec
           | IfElseExp of IfElseRec
@@ -209,7 +209,6 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | ModQualifierExp of PosAdorn<ModQualifierRec>
           | RecordExp of RecordExprRec
           | ArrayLitExp of PosAdorn<PosAdorn<Expr> list>
-          | ArrayMakeExp of ArrayMakeExpRec
           | RefExp of PosAdorn<Expr>
           | TupleExp of PosAdorn<Expr> list
           | QuitExp of PosAdorn<TyExpr> option

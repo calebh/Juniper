@@ -77,7 +77,7 @@ fun add(v1 : vector<a, n>, v2 : vector<a, n>) : vector<a, n> where a : num = {
         The zero vector of n dimensions.
 */
 fun zero() : vector<a, n> where a : num =
-    array a[n] of 0
+    array(0)
 
 /*
     Function: subtract

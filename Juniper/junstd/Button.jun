@@ -21,19 +21,15 @@ open(Io)
 alias buttonState = { actualState : pinState, lastState : pinState, lastDebounceTime : uint32 }
 
 /*
-    Function: state
+    Variable: state
 
-    Returns a new <buttonState>, initializing the actualState to Io:low(),
+    Useful for initializing a <buttonState>, initializing the actualState to Io:low(),
     lastState to Io:low() && lastDebounceTime to 0
 
-    Type Signature:
-    | () -> buttonState ref
-
-    Returns:
-        A new <buttonState>
+    Type:
+    | buttonState
 */
-fun state() : buttonState ref =
-    ref { actualState := Io:low(), lastState := Io:low(), lastDebounceTime := 0 }
+let state : buttonState = { actualState := Io:low(), lastState := Io:low(), lastDebounceTime := 0 }
 
 /*
     Function: debounceDelay
@@ -42,13 +38,14 @@ fun state() : buttonState ref =
     period of time to make sure the pushbutton is definitely pressed.
 
     Type Signature:
-    | (sig<pinState>, uint16, buttonState ref) -> sig<pinState>
+    
+        | (sig<pinState>, uint16, inout buttonState) -> sig<pinState>
 
     Parameters:
         incoming : sig<pinState> - The incoming signal
         delay : uint16 - The amount of time to wait in milliseconds before
             checking the pushbutton again
-        buttonState : buttonState ref - Used to keep track of state between
+        buttonState : inout buttonState - Used to keep track of state between
             debounce calls
 
     Returns:
@@ -57,28 +54,30 @@ fun state() : buttonState ref =
     See Also:
         Io:risingEdge, Io:fallingEdge, Io:edge
 */
-fun debounceDelay(incoming : sig<pinState>, delay : uint16, buttonState : buttonState ref) : sig<pinState> =
-    Signal:map((currentState : pinState) : pinState => {
-        let {actualState:=actualState,
-             lastState:=lastState,
-             lastDebounceTime:=lastDebounceTime} = *buttonState
-        if currentState != lastState {
-            *buttonState = { actualState := actualState,
-                             lastState := currentState,
-                             lastDebounceTime := Time:now() }
-            actualState
-        } else if (currentState != actualState) && ((Time:now() - buttonState->lastDebounceTime) > delay) {
-            *buttonState = { actualState := currentState,
-                             lastState := currentState,
-                             lastDebounceTime := lastDebounceTime}
-            currentState
-        } else {
-            *buttonState = { actualState := actualState,
-                             lastState := currentState,
-                             lastDebounceTime := lastDebounceTime }
-            actualState
+fun debounceDelay(incoming : sig<pinState>, delay : uint16, inout buttonState : buttonState) : sig<pinState> =
+    match incoming {
+        signal(just(currentState)) => {
+            let {actualState:=actualState,
+                lastState:=lastState,
+                lastDebounceTime:=lastDebounceTime} = buttonState
+            let retState =
+                if currentState != lastState {
+                    buttonState.lastState = currentState
+                    buttonState.lastDebounceTime = Time:now()
+                    actualState
+                } else if (currentState != actualState) && ((Time:now() - buttonState.lastDebounceTime) > delay) {
+                    buttonState.actualState = currentState
+                    buttonState.lastState = currentState
+                    currentState
+                } else {
+                    buttonState.lastState = currentState
+                    actualState
+                }
+            signal(just(retState))
         }
-    }, incoming)
+        _ =>
+            incoming
+    }
 
 /*
     Function: debounce
@@ -87,11 +86,12 @@ fun debounceDelay(incoming : sig<pinState>, delay : uint16, buttonState : button
     sure the pushbutton is definitely pressed.
 
     Type Signature:
-    | (sig<pinState>, buttonState ref) -> sig<pinState>
+    
+        | (sig<pinState>, inout buttonState) -> sig<pinState>
 
     Parameters:
         incoming : sig<pinState> - The incoming signal
-        buttonState : buttonState ref - Used to keep track of state between
+        buttonState : inout buttonState - Used to keep track of state between
             debounce calls
 
     Returns:
@@ -100,5 +100,5 @@ fun debounceDelay(incoming : sig<pinState>, delay : uint16, buttonState : button
     See Also:
         Io:risingEdge, Io:fallingEdge, Io:edge
 */
-fun debounce(incoming : sig<pinState>, buttonState : buttonState ref) : sig<pinState> =
-    debounceDelay(incoming, 50, buttonState)
+fun debounce(incoming : sig<pinState>, inout buttonState) : sig<pinState> =
+    debounceDelay(incoming, 50, inout buttonState)

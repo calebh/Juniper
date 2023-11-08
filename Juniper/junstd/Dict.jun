@@ -1,0 +1,286 @@
+module Dict
+
+#
+static inline uint32_t murmur_32_scramble(uint32_t k) {
+    k *= 0xcc9e2d51;
+    k = (k << 15) | (k >> 17);
+    k *= 0x1b873593;
+    return k;
+}
+uint32_t murmur3_32(const uint8_t* key, size_t len)
+{
+    uint32_t seed = 7; // Chosen by fair dice roll. Guaranteed to be random.
+	uint32_t h = seed;
+    uint32_t k;
+    /* Read in groups of 4. */
+    for (size_t i = len >> 2; i; i--) {
+        // Here is a source of differing results across endiannesses.
+        // A swap here has no effects on hash properties though.
+        memcpy(&k, key, sizeof(uint32_t));
+        key += sizeof(uint32_t);
+        h ^= murmur_32_scramble(k);
+        h = (h << 13) | (h >> 19);
+        h = h * 5 + 0xe6546b64;
+    }
+    /* Read the rest. */
+    k = 0;
+    for (size_t i = len & 3; i; i--) {
+        k <<= 8;
+        k |= key[i - 1];
+    }
+    // A swap is *not* necessary here because the preceding loop already
+    // places the low bytes in the low places according to whatever endianness
+    // we use. Swaps only apply when the memory is copied in a chunk.
+    h ^= murmur_32_scramble(k);
+    /* Finalize. */
+	h ^= len;
+	h ^= h >> 16;
+	h *= 0x85ebca6b;
+	h ^= h >> 13;
+	h *= 0xc2b2ae35;
+	h ^= h >> 16;
+	return h;
+}
+#
+
+fun hash(x : a) : uint32 = {
+    let size = sizeof(a)
+    var ret
+    #ret = murmur3_32((uint8_t *) &x, size);#
+    ret
+}
+
+fun empty() : dict<k, v, n> =
+    array(nothing())
+
+fun tryGet(key : k, d : dict<k, v, n>) : maybe<v> = {
+    let mut ret = nothing()
+    let mut done = false
+    let start = hash(key) % cast(n)
+    let mut idx = start
+    while !done {
+        match d[idx] {
+            just((key2, val2, _)) =>
+                if key == key2 {
+                    done = true
+                    ret = just(val2)
+                }
+            nothing() => {
+                done = true
+                ()
+            }
+        }
+        idx = (idx + 1) % cast(n)
+        if idx == start {
+            done = true
+        }
+    }
+    ret
+}
+
+fun get(key : k, d : dict<k, v, n>) : v =
+    Maybe:get(tryGet(key, d))
+
+fun set(key : k, val : v, inout d : dict<k, v, n>) : bool = {
+    let mut success = false
+    let mut done = false
+    let start = hash(key) % cast(n)
+    let mut idx = start
+    while !done {
+        match d[idx] {
+            just((key2, val2, _)) =>
+                if key == key2 {
+                    done = true
+                    success = true
+                    d[idx] = just((key, val, start))
+                }
+            nothing() => {
+                done = true
+                success = true
+                d[idx] = just((key, val, start))
+                ()
+            }
+        }
+        idx = (idx + 1) % cast(n)
+        if idx == start {
+            done = true
+        }
+    }
+    success
+}
+
+fun remove(key : k, inout d : dict<k, v, n>) : bool = {
+    let mut removed = false
+    let mut foundIdx = 0
+    let start = hash(key) % cast(n)
+    {
+        // Search for the cell containing the key
+        let mut done = false
+        let mut idx = start
+        while !done {
+            match d[idx] {
+                just((key2, val2, _)) =>
+                    if key == key2 {
+                        d[idx] = nothing()
+                        done = true
+                        removed = true
+                        foundIdx = idx
+                    }
+                _ => ()
+            }
+            idx = (idx + 1) % cast(n)
+            if idx == start {
+                done = true
+            }
+        }
+    }
+    let ret = removed
+    while removed {
+        // Search forward to find a cell that we can swap back
+        // to the location we just removed from
+        let mut done = false
+        let mut idx = (foundIdx + 1) % cast(n)
+        while !done {
+            match d[idx] {
+                just((key2, val2, start2)) =>
+                    if start2 <= foundIdx {
+                        d[foundIdx] = just((key2, val2, start2))
+                        d[idx] = nothing()
+                        done = true
+                        removed = true
+                        foundIdx = idx
+                        ()
+                    } else {
+                        done = true
+                        removed = false
+                        ()
+                    }
+                _ => {
+                    done = true
+                    removed = false
+                    ()
+                }
+            }
+            idx = (idx + 1) % cast(n)
+            if idx == start {
+                done = true
+            }
+        }
+    }
+    ret
+}
+
+fun contains(key : k, d : dict<k, v, n>) : bool =
+    Maybe:isJust(tryGet(key, d))
+
+fun count(d : dict<k, v, n>) : uint32 = {
+    let mut n = 0
+    for i : uint32 in 0u32 .. cast(n) {
+        if Maybe:isJust(d[i]) {
+            n += 1
+        }
+    }
+    n
+}
+
+fun isEmpty(d : dict<k, v, n>) : bool =
+    count(d) == 0
+
+fun fromList(lst : list<(k, v), n>) : dict<k, v, m> = {
+    let mut ret = empty()
+    for i in 0 .. lst.length {
+        let (key, val) = lst.data[i]
+        set(key, val, inout ret)
+    }
+    ret
+}
+
+fun toList(d : dict<k, v, n>) : list<(k, v), m> = {
+    let mut ret = List:empty()
+    for i : uint32 in 0u32 .. cast(n) {
+        match d[i] {
+            just((key, value, _)) =>
+                List:append((key, value), inout ret)
+            _ => ()
+        }
+    }
+    ret
+}
+
+fun keys(d : dict<k, v, n>) : list<k, m> = {
+    let mut ret = List:empty()
+    for i : uint32 in 0u32 .. cast(n) {
+        match d[i] {
+            just((key, _, _)) =>
+                List:append(key, inout ret)
+            _ => ()
+        }
+    }
+    ret
+}
+
+fun values(d : dict<k, v, n>) : list<v, m> = {
+    let mut ret = List:empty()
+    for i : uint32 in 0u32 .. cast(n) {
+        match d[i] {
+            just((_, value, _)) =>
+                List:append(value, inout ret)
+            _ => ()
+        }
+    }
+    ret
+}
+
+fun fold(f : (k, v, accum) -> accum, accum0 : accum, d : dict<k, v, n>) = {
+    let mut ret = accum0
+    for i : uint32 in 0u32 .. cast(n) {
+        match d[i] {
+            just((key, val, _)) => {
+                ret = f(key, val, ret)
+                ()
+            }
+            _ =>
+                ()
+        }
+    }
+    ret
+}
+
+fun map(f : (k, v) -> u, d : dict<k, v, n>) : dict<k, u, n> = {
+    let mut ret = empty()
+    for i : uint32 in 0u32 .. cast(n) {
+        match d[i] {
+            just((key, val, idx)) => {
+                ret[i] = just((key, f(key, val), idx))
+                ()
+            }
+            _ => ()
+        }
+    }
+    ret
+}
+
+fun filter(f : (k, v) -> bool, d : dict<k, v, n>) : dict<k, v, n> = {
+    let mut ret = empty()
+    for i : uint32 in 0u32 .. cast(n) {
+        match d[i] {
+            just((key, val, _)) =>
+                if f(key, val) {
+                    set(key, val, inout ret)
+                }
+            _ =>
+                ()
+        }
+    }
+    ret
+}
+
+fun iter(f : (k, v) -> unit, d : dict<k, v, n>) : unit =
+    for i : uint32 in 0u32 .. cast(n) {
+        match d[i] {
+            just((key, val, _)) =>
+                f(key, val)
+            _ =>
+                ()
+        }
+    }

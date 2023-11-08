@@ -8,13 +8,17 @@ module List
     Interface: List
 */
 
+fun empty() : list<a, n> =
+    {data := zeros(), length := 0}
+
 /*
     Function: map
 
     Applies f to every element of the list and returns the new list.
 
     Type Signature:
-    | ((a) -> b, list<a, n>) -> list<b, n>
+    
+        | ((a) -> b, list<a, n>) -> list<b, n>
 
     Parameters:
         f : (a) -> b - The mapping function
@@ -38,7 +42,8 @@ fun map(f : (a) -> b, lst : list<a, n>) : list<b, n> = {
     argument through the computation.
 
     Type Signature:
-    | ((t, state) -> state, state, list<t, n>) -> state
+    
+        | ((t, state) -> state, state, list<t, n>) -> state
 
     Parameters:
         f : (t, state) -> state - The function to update the state given the input elements.
@@ -63,7 +68,8 @@ fun fold(f : (t, state) -> state, initState : state, lst : list<t, n>) : state =
     an accumulator argument through the computation.
 
     Type Signature:
-    | ((t, state) -> state, state, list<t, n>) -> state
+    
+        | ((t, state) -> state, state, list<t, n>) -> state
 
     Parameters:
         f : (t,state) -> state - The function to update the state given the
@@ -87,6 +93,26 @@ fun foldBack(f : (t, state) -> state, initState : state, lst : list<t, n>) : sta
         s
     }
 
+/*
+    Function: reduce
+
+    Applies a function f to each element of the list in order, threading an
+    accumulator argument through the computation. The initial accumulator is the
+    first element of the list.
+
+    Type Signature:
+    
+        | ((t, t) -> t, list<t, n>) -> t
+
+    Parameters:
+        f : (t, t) -> t - The function to update the accumulator, given an element
+                            from the list as the first parameter, and the accumulator
+                            as the second parameter.
+        lst : list<t, n> - The list to reduce over.
+    
+    Returns:
+        The final accumulated value.
+*/
 fun reduce(f : (t, t) -> t, lst : list<t, n>) : t = {
     let mut s = lst.data[0u32]
     for i in 1u32 .. lst.length {
@@ -95,6 +121,28 @@ fun reduce(f : (t, t) -> t, lst : list<t, n>) : t = {
     s
 }
 
+/*
+    Function: tryReduce
+
+    Applies a function f to each element of the list in order, threading an
+    accumulator argument through the computation. The initial accumulator is the
+    first element of the list if the length is greater than zero. If the list
+    has length 0, nothing() is returned.
+
+    Type Signature:
+    
+        | ((t, t) -> t, list<t, n>) -> maybe<t>
+
+    Parameters:
+        f : (t, t) -> t - The function to update the accumulator, given an element
+                            from the list as the first parameter, and the accumulator
+                            as the second parameter.
+        lst : list<t, n> - The list to reduce over.
+    
+    Returns:
+        The final accumulated value if the length was greater than 0, and nothing()
+        otherwise.
+*/
 fun tryReduce(f : (t, t) -> t, lst : list<t, n>) : maybe<t> = {
     if lst.length == 0 {
         nothing()
@@ -103,6 +151,26 @@ fun tryReduce(f : (t, t) -> t, lst : list<t, n>) : maybe<t> = {
     }
 }
 
+/*
+    Function: reduceBack
+
+    Applies a function f to each element of the list in reverse order, threading an
+    accumulator argument through the computation. The initial accumulator is the
+    last element of the list.
+
+    Type Signature:
+    
+        | ((t, t) -> t, list<t, n>) -> t
+
+    Parameters:
+        f : (t, t) -> t - The function to update the accumulator, given an element
+                            from the list as the first parameter, and the accumulator
+                            as the second parameter.
+        lst : list<t, n> - The list to reduce over.
+    
+    Returns:
+        The final accumulated value.
+*/
 fun reduceBack(f : (t, t) -> t, lst : list<t, n>) : t = {
     let mut s = lst.data[lst.length - 1]
     let mut i : uint32 = lst.length - 1
@@ -113,6 +181,28 @@ fun reduceBack(f : (t, t) -> t, lst : list<t, n>) : t = {
     s
 }
 
+/*
+    Function: tryReduceBack
+
+    Applies a function f to each element of the list in reverse order, threading an
+    accumulator argument through the computation. The initial accumulator is the
+    last element of the list if the length is greater than zero. If the list
+    has length 0, nothing() is returned.
+
+    Type Signature:
+    
+        | ((t, t) -> t, list<t, n>) -> maybe<t>
+
+    Parameters:
+        f : (t, t) -> t - The function to update the accumulator, given an element
+                            from the list as the first parameter, and the accumulator
+                            as the second parameter.
+        lst : list<t, n> - The list to reduce over.
+    
+    Returns:
+        The final accumulated value if the length was greater than 0, and nothing()
+        otherwise.
+*/
 fun tryReduceBack(f : (t, t) -> t, lst : list<t, n>) : maybe<t> = {
     if lst.length == 0 {
         nothing()
@@ -127,7 +217,8 @@ fun tryReduceBack(f : (t, t) -> t, lst : list<t, n>) : maybe<t> = {
     Concatenates two lists.
 
     Type Signature:
-    | ∀t, aCap:int, bCap:int, retCap:int . (list<t, aCap>, list<t, bCap>) -> list<t, retCap>
+    
+        | (list<t, aCap>, list<t, bCap>) -> list<t, retCap>
 
     Parameters:
         lstA : list<t, aCap> - The first list.
@@ -156,7 +247,8 @@ fun concat(lstA : list<t, aCap>, lstB : list<t, bCap>) : list<t, retCap> = {
     Concatenates two lists, always allocating enough space in the return list to hold the items.
 
     Type Signature:
-    | ∀t, aCap:int, bCap:int . (list<t, aCap>, list<t, bCap>) -> list<t, aCap + bCap>
+    
+        | (list<t, aCap>, list<t, bCap>) -> list<t, aCap + bCap>
 
     Parameters:
         lstA : list<t, aCap> - The first list.
@@ -174,7 +266,8 @@ fun concatSafe(lstA : list<t, aCap>, lstB : list<t, bCap>) : list<t, aCap + bCap
     Returns the nth element of the given list
 
     Type Signature:
-    | (u, list<t, n>) -> t where u : int
+    
+        | (u, list<t, n>) -> t where u : int
 
     Parameters:
         i : u - The index of the element to be retrieved
@@ -192,7 +285,8 @@ fun get(i : u, lst : list<t, n>) : t where u : int =
     Returns the nth element of the given list, or nothing if the index is out of bounds
 
     Type Signature:
-    | (uint32, list<t, n>) -> maybe<t>
+    
+        | (uint32, list<t, n>) -> maybe<t>
 
     Parameters:
         i : uint32 - The index of the element to be retrieved
@@ -213,7 +307,8 @@ fun tryGet(i : u, lst : list<t, n>) : maybe<t> where u : int =
     Flattens a list of lists into a single list.
 
     Type Signature:
-    | (list<list<t, m>, n>) -> list<t, retCap>
+    
+        | (list<list<t, m>, n>) -> list<t, retCap>
 
     Parameters:
         listOfLists : list<list<t, m>, n> - The list of lists
@@ -239,7 +334,8 @@ fun flatten(listOfLists : list<list<t, m>, n>) : list<t, retCap> = {
     Flattens a list of lists into a single list.
 
     Type Signature:
-    | (list<list<t, m>, n>) -> list<t, m*n>
+    
+        | (list<list<t, m>, n>) -> list<t, m*n>
 
     Parameters:
         listOfLists : list<list<t, m>, n> - The list of lists
@@ -260,7 +356,8 @@ fun flattenSafe(listOfLists : list<list<t, m>, n>) : list<t, m*n> =
     capacity m by using a type constraint at the call site.
 
     Type Signature:
-    | (list<t, n>) -> list<t, m>
+    
+        | (list<t, n>) -> list<t, m>
 
     Parameters:
         lst : list<t, n> - The list to resize
@@ -283,7 +380,8 @@ fun resize(lst : list<t, n>) : list<t, m> = {
     otherwise false.
 
     Type Signature:
-    | ((t) -> bool, list<t, n>) -> bool
+    
+        | ((t) -> bool, list<t, n>) -> bool
 
     Parameters:
         pred : (t) -> bool - The predicate which must be satisfied
@@ -310,7 +408,8 @@ fun all(pred : (t) -> bool, lst : list<t, n>) : bool = {
     lst, otherwise false.
 
     Type Signature:
-    | ((t) -> bool, list<t, n>) -> bool
+    
+        | ((t) -> bool, list<t, n>) -> bool
 
     Parameters:
         pred : (t) -> bool - The predicate which must be satisfied
@@ -337,7 +436,8 @@ fun any(pred : (t) -> bool, lst : list<t, n>) : bool = {
     If the element will not fit in the list, nothing is inserted.
 
     Type Signature:
-    | (t, inout list<t, n>) -> list<t, n>
+    
+        | (t, inout list<t, n>) -> list<t, n>
 
     Parameters:
         elem : t - The element to add to the end of the list
@@ -359,7 +459,8 @@ fun append(elem : t, inout lst : list<t, n>) : unit =
     If the element will not fit in the list, nothing is inserted.
 
     Type Signature:
-    | (t, list<t, n>) -> list<t, n>
+    
+        | (t, list<t, n>) -> list<t, n>
 
     Parameters:
         elem : t - The element to add to the end of the list
@@ -382,7 +483,8 @@ fun appendPure(elem : t, mut lst : list<t, n>) : list<t, n> = {
     Returns a copy of the given list with the element appended to the end.
 
     Type Signature:
-    | (t, list<t, n>) -> list<t, n + 1>
+    
+        | (t, list<t, n>) -> list<t, n + 1>
 
     Parameters:
         elem : t - The element to add to the end of the list
@@ -405,7 +507,8 @@ fun appendSafe(elem : t, lst : list<t, n>) : list<t, n + 1> = {
     last element is pushed off (removed) from the back of the list.
 
     Type Signature:
-    | (t, inout list<t, n>) -> unit
+    
+        | (t, inout list<t, n>) -> unit
 
     Parameters:
         elem : t - The element to add to the front of the list
@@ -439,7 +542,8 @@ fun prepend(elem : t, inout lst : list<t, n>) : unit = {
     from the back of the list.
 
     Type Signature:
-    | (t, list<t, n>) -> list<t, n>
+    
+        | (t, list<t, n>) -> list<t, n>
 
     Parameters:
         elem : t - The element to add to the front of the list
@@ -475,7 +579,8 @@ fun prependPure(elem : t, lst : list<t, n>) : list<t, n> = {
     If the index is out of bounds the list remains unchanged.
 
     Type Signature:
-    | (uint32, t, inout list<t, n>) -> unit
+    
+        | (uint32, t, inout list<t, n>) -> unit
 
     Parameters:
         index : uint32 - The index to set
@@ -497,7 +602,8 @@ fun set(index : uint32, elem : t, inout lst : list<t, n>) : unit =
     is the given element. If the index is out of bounds the list remains unchanged.
 
     Type Signature:
-    | (uint32, t, list<t, n>) -> list<t, n>
+    
+        | (uint32, t, list<t, n>) -> list<t, n>
 
     Parameters:
         index : uint32 - The index to set
@@ -520,7 +626,8 @@ fun setPure(index : uint32, elem : t, mut lst : list<t, n>) : list<t, n> = {
     Initializes a new list of a given length using the given element.
 
     Type Signature:
-    | (uint32, t) -> list<t, n>
+    
+        | (uint32, t) -> list<t, n>
 
     Parameters:
         numOfElements : uint32 - The length of the new list
@@ -540,20 +647,21 @@ fun replicate(numOfElements : uint32, elem : t) : list<t, n> = {
 /*
     Function: remove
 
-    Returns a copy of lst where the first element equal to elem is
+    Mutates the input list where the first element equal to elem is
     deleted, if there is such an element.
 
     Type Signature:
-    | (t, list<t, n>) -> list<t, n>
+    
+        | (t, list<t, n>) -> unit
 
     Parameters:
         elem : t - The element to remove from the list
-        lst : t - The list
-
+        lst : t - The list to mutate
+    
     Returns:
-        A copy of lst with elem removed.
+        unit
 */
-fun remove(elem : t, mut lst : list<t, n>) : list<t, n> = {
+fun remove(elem : t, inout lst : list<t, n>) : unit = {
     let mut index : uint32 = 0u32
     let mut found = false
     for i : uint32 in 0u32 .. lst.length {
@@ -568,19 +676,61 @@ fun remove(elem : t, mut lst : list<t, n>) : list<t, n> = {
         for i : uint32 in index .. lst.length {
             lst.data[i] = lst.data[i + 1]
         }
-        var dummy : t
-        lst.data[lst.length] = dummy
+        clear(inout lst.data[lst.length])
     }
+}
+
+/*
+    Function: removePure
+
+    Returns a copy of lst where the first element equal to elem is
+    deleted, if there is such an element.
+
+    Type Signature:
+    
+        | (t, list<t, n>) -> list<t, n>
+
+    Parameters:
+        elem : t - The element to remove from the list
+        lst : t - The list
+
+    Returns:
+        A copy of lst with elem removed.
+*/
+fun removePure(elem : t, mut lst : list<t, n>) : list<t, n> = {
+    remove(elem, inout lst)
     lst
 }
 
 /*
     Function: pop
 
-    Drops the last element of a List. If the list has size 0, the list remains unchanged
+    Mutates and drops the last element of a List. If the list has size 0, the list remains unchanged
 
     Type Signature:
-    | (list<t, n>) -> list<t, n>
+    
+        | (inout list<t, n>) -> unit
+
+    Parameters:
+        lst : list<t, n> - The list
+
+    Returns:
+        unit
+*/
+fun pop(inout lst : list<t, n>) : unit =
+    if lst.length > 0u32 {
+        lst.length -= 1
+        clear(inout lst.data[lst.length])
+    }
+
+/*
+    Function: popPure
+
+    Drops the last element of a List in a copy. If the list has size 0, the list remains unchanged
+
+    Type Signature:
+    
+        | (list<t, n>) -> list<t, n>
 
     Parameters:
         lst : list<t, n> - The list
@@ -588,15 +738,8 @@ fun remove(elem : t, mut lst : list<t, n>) : list<t, n> = {
     Returns:
         The list with the last element dropped
 */
-fun pop(mut lst : list<t, n>) : list<t, n> = {
-    if lst.length > 0u32 {
-        // If t is a reference, we want to make sure that this reference is actually
-        // dropped, possibly allowing memory to be freed. This is accomplished by creating
-        // an uninitialized dummy variable and using it to overwrite the last element.
-        var dummy : t
-        lst.length -= 1
-        lst.data[lst.length] = dummy
-    }
+fun popPure(mut lst : list<t, n>) : list<t, n> = {
+    pop(inout lst)
     lst
 }
 
@@ -608,7 +751,8 @@ fun pop(mut lst : list<t, n>) : list<t, n> = {
     elements in the list.
 
     Type Signature:
-    | ((t) -> unit, list<t, n>) -> unit
+    
+        | ((t) -> unit, list<t, n>) -> unit
 
     Parameters:
         f : (t) -> unit - The function to call
@@ -628,7 +772,8 @@ fun iter(f : (t) -> unit, lst : list<t, n>) : unit =
     Returns the last element of the lst.
 
     Type Signature:
-    | (list<t, n>) -> maybe<t>
+    
+        | (list<t, n>) -> t
 
     Parameters:
         lst : list<t, n> - The list
@@ -640,12 +785,13 @@ fun last(lst : list<t, n>) : t =
     lst.data[lst.length - 1]
 
 /*
-    Function: lastSafe
+    Function: tryLast
 
     Returns the last element of the lst.
 
     Type Signature:
-    | (list<t, n>) -> maybe<t>
+    
+        | (list<t, n>) -> maybe<t>
 
     Parameters:
         lst : list<t, n> - The list
@@ -653,7 +799,7 @@ fun last(lst : list<t, n>) : t =
     Returns:
         The last element of the list if the length is greater than 0, or nothing otherwise.
 */
-fun lastSafe(lst : list<t, n>) : maybe<t> =
+fun tryLast(lst : list<t, n>) : maybe<t> =
     if lst.length == 0 {
         nothing()
     } else {
@@ -661,12 +807,13 @@ fun lastSafe(lst : list<t, n>) : maybe<t> =
     }
 
 /*
-    Function: max_
+    Function: tryMax
 
     Returns the maximum element of the lst. If the list is empty, nothing() is returned.
 
     Type Signature:
-    | (list<t, n>) -> maybe<t> where t : num
+    
+        | (list<t, n>) -> maybe<t> where t : num
 
     Parameters:
         lst : list<t, n> - The list
@@ -674,7 +821,7 @@ fun lastSafe(lst : list<t, n>) : maybe<t> =
     Returns:
         The maximum element of the list
 */
-fun max_(lst : list<t, n>) : maybe<t> where t : num =
+fun tryMax(lst : list<t, n>) : maybe<t> where t : num =
     if lst.length == 0u32 || n == 0i32 {
         nothing()
     } else {
@@ -689,12 +836,13 @@ fun max_(lst : list<t, n>) : maybe<t> where t : num =
 
 
 /*
-    Function: min_
+    Function: tryMin
 
     Returns the minimum element of the lst. If the list is empty, nothing() is returned.
 
     Type Signature:
-    | (list<t, n>) -> maybe<t> where t : num
+    
+        | (list<t, n>) -> maybe<t> where t : num
 
     Parameters:
         lst : list<t, n> - The list
@@ -702,7 +850,7 @@ fun max_(lst : list<t, n>) : maybe<t> where t : num =
     Returns:
         The minimum element of the list
 */
-fun min_(lst : list<t, n>) : maybe<t> =
+fun tryMin(lst : list<t, n>) : maybe<t> =
     if lst.length == 0u32 || n == 0i32 {
         nothing()
     } else {
@@ -722,7 +870,8 @@ fun min_(lst : list<t, n>) : maybe<t> =
     Returns true if elem is a member of lst, otherwise false.
 
     Type Signature:
-    | (t, list<t, n>) -> bool
+    
+        | (t, list<t, n>) -> bool
 
     Parameters:
         elem : t - The element to match
@@ -750,7 +899,8 @@ fun member(elem : t, lst : list<t, n>) : bool = {
     of equal length, the elements from the longer list are dropped.
 
     Type Signature:
-    | (list<a, n>, list<b, n>) -> list<(a,b), n>
+    
+        | (list<a, n>, list<b, n>) -> list<(a,b), n>
 
     Parameters:
         lstA : list<a, n> - The first list to zip
@@ -779,7 +929,8 @@ fun zip(lstA : list<a, n>, lstB : list<b, n>) : list<(a,b), n> = {
     element of each tuple.
 
     Type Signature:
-    | (list<(a*b), n>) -> (list<a, n>*list<b, n>)
+    
+        | (list<(a*b), n>) -> (list<a, n>*list<b, n>)
 
     Parameters:
         lst : list<(a*b), n> - The list to unzip
@@ -810,7 +961,8 @@ fun unzip(lst : list<(a,b), n>) : (list<a, n>, list<b, n>) = {
     Computes the sum of a list of numbers
 
     Type Signature:
-    | (list<a, n>) -> a where a : num
+    
+        | (list<a, n>) -> a where a : num
 
     Parameters:
         lst : list<a, n> - The list to sum
@@ -827,7 +979,8 @@ fun sum(lst : list<a, n>) : a where a : num =
     Computes the average (mean) of a list of numbers
 
     Type Signature:
-    | (list<a, n>) -> a where a : num
+    
+        | (list<a, n>) -> a where a : num
 
     Parameters:
         lst : list<a, n> - The list to average
@@ -838,49 +991,86 @@ fun sum(lst : list<a, n>) : a where a : num =
 fun average(lst : list<a, n>) : a where a : num =
     sum(lst) / cast(lst.length)
 
-#
-template<typename t, typename clos, typename keyT, int n>
-uint32_t partition(list<t, n>& lst, juniper::function<clos, keyT(t)> keyF, uint32_t lo, uint32_t hi) {
-    keyT pivot = keyF(lst.data[hi]);
-    
-    uint32_t i = lo;
+fun iLeftChild(i : uint32) = 2 * i + 1
+fun iRightChild(i : uint32) = 2 * i + 2
+fun iParent(i: uint32) = (i - 1) / 2 
 
-    for (uint32_t j = lo; j < (hi - 1); j++) {
-        if (keyF(lst.data[j]) <= pivot) {
-            t tmp = lst.data[i];
-            lst.data[i] = lst.data[j];
-            lst.data[j] = tmp;
-            i++;
+fun siftDown(inout lst : list<t, n>, key : (t) -> m, mut root, end) where m : num = {
+    let mut done = false
+    while iLeftChild(root) < end && !done {
+        let mut child = iLeftChild(root)
+        if child+1 < end && key(lst.data[child]) < key(lst.data[child + 1]) {
+            child += 1
+        }
+        if key(lst.data[root]) < key(lst.data[child]) {
+            let tmp = lst.data[root]
+            lst.data[root] = lst.data[child]
+            lst.data[child] = tmp
+            root = child
+            ()
+        } else {
+            done = true
+            ()
         }
     }
-
-    i++;
-
-    t tmp = lst.data[i];
-    lst.data[i] = lst.data[hi];
-    lst.data[hi] = tmp;
-
-    return i;
 }
 
-template <typename t, typename clos, typename keyT, int n>
-void quicksort(list<t, n>& lst, juniper::function<clos, keyT(t)> keyF, uint32_t lo, uint32_t hi) {
-    if (lo >= hi || lo < 0) {
-        return;
+fun heapify(inout lst : list<t, n>, key) = {
+    let mut start = iParent(lst.length + 1)
+    while start > 0u32 {
+        start -= 1
+        siftDown(inout lst, key, start, lst.length)
     }
-
-    uint32_t p = partition<t, clos, keyT, n>(lst, keyF, lo, hi);
-
-    quicksort(lst, lo, p-1);
-    quicksort(lst, p+1, hi);
 }
-#
 
-fun sort(lst : list<t, n>, key : (clos)(t) -> m) : list<t, n> where m : num = {
-    let mut lstCopy = lst
-    let len = lst.length
-    #
-    quicksort<t, clos, m, n>(lstCopy, key, 0, len - 1);
-    #
-    lstCopy
+/*
+    Function: sort
+
+    Sorts a list in place using the heapsort algorithm. The heapsort algorithm was chosen
+    since it uses no recursion, making it nice for embedded systems, and it still runs
+    in O(n log n) time.
+
+    Type Signature:
+    
+        | (inout list<t, n>, (t) -> m) -> unit where m : num
+
+    Parameters:
+        lst : inout list<t, n> - The list to sort in place.
+        key : (t) -> m - The key function to use for sorting. Elements will be ordered according to what is returned by the key function.
+    
+    Returns:
+        unit
+*/
+fun sort(inout lst : list<t, n>, key : (t) -> m) : unit where m : num = {
+    heapify(inout lst, key)
+    let mut end = lst.length
+    while end > 1u32 {
+        end -= 1
+        let tmp = lst.data[0u32]
+        lst.data[0u32] = lst.data[end]
+        lst.data[end] = tmp
+        siftDown(inout lst, key, 0, end)
+    }
 }
+
+/*
+    Function: sorted
+
+    Creates a new list that is sorted using the heapsort algorithm.
+
+    Type Signature:
+    
+        | (list<t, n>, (t) -> m) -> list<t, n> where m : num
+
+    Parameters:
+        lst : list<t, n> - The list to sort.
+        key : (t) -> m - The key function to use for sorting. Elements will be ordered according to what is returned by the key function.
+    
+    Returns:
+        The sorted list.
+*/
+fun sorted(mut lst : list<t, n>, key : (t) -> m) : list<t, n> where m : num = {
+    sort(inout lst, key)
+    lst
+}
+

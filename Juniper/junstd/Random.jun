@@ -11,7 +11,8 @@ include("<Arduino.h>")
     The random_ function generates pseudo-random numbers.
 
     Type Signature:
-    | (int32, int32) -> int32
+    
+        | (int32, int32) -> int32
 
     Parameters:
         low : int32 - Lower bound of the random value, inclusive
@@ -36,7 +37,8 @@ fun random_(low : int32, high : int32) : int32 = {
     value returned by anaRead on an unconnected pin.
 
     Type Signature:
-    | (uint32) -> unit
+    
+        | (uint32) -> unit
 
     Parameters:
         n : uint32 - The seed value for the random number generator
@@ -53,7 +55,8 @@ fun seed(n : uint32) : unit = #randomSeed(n);#
     probable to be selected.
 
     Type Signature:
-    | (list<t, n>) -> t
+    
+        | (list<t, n>) -> t
 
     Parameters:
         lst : list<t;n> - The list to randomly select from
@@ -67,13 +70,14 @@ fun choice(lst : list<t, n>) : t = {
 }
 
 /*
-    Function: choiceSafe
+    Function: tryChoice
 
     Randomly chooses an element from a list, where every element is equally 
     probable to be selected. nothing() is returned if the list has zero elements
 
     Type Signature:
-    | (list<t, n>) -> maybe<t>
+    
+        | (list<t, n>) -> maybe<t>
 
     Parameters:
         lst : list<t, n> - The list to randomly select from
@@ -81,7 +85,7 @@ fun choice(lst : list<t, n>) : t = {
     Returns:
         A random element from the list
 */
-fun choiceSafe(lst : list<t, n>) : maybe<t> = {
+fun tryChoice(lst : list<t, n>) : maybe<t> = {
     if lst.length == 0 {
         nothing()
     } else {

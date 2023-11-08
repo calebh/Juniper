@@ -9,8 +9,9 @@ module Signal
 
     Applies a function f to the given input signal
 
-    Type signature:
-    | ((a) -> b, sig<a>) -> sig<b>
+    Type Signature:
+    
+        | ((a) -> b, sig<a>) -> sig<b>
 
     Parameters:
         f : (a) -> b - The mapping function
@@ -31,8 +32,9 @@ fun map(f : (a) -> b, s : sig<a>) : sig<b> =
     Applies the function on the given signal for the purpose of performing
     side effects.
 
-    Type signature:
-    | ((a) -> unit, sig<a>) -> unit
+    Type Signature:
+    
+        | ((a) -> unit, sig<a>) -> unit
 
     Parameters:
         f : (a) -> unit - The function to call
@@ -55,8 +57,9 @@ fun sink(f : (a) -> unit, s : sig<a>) : unit =
     the function returns false, the signal is unfiltered and the output signal
     will be the same as the input signal.
 
-    Type signature:
-    | ((a') -> bool, sig<a>) -> sig<a>
+    Type Signature:
+    
+        | ((a') -> bool, sig<a>) -> sig<a>
 
     Parameters:
         f : (a) -> bool - The predicate function
@@ -83,8 +86,9 @@ fun filter(f : (a) -> bool, s : sig<a>) : sig<a> =
     Merges streams of the same type together. If sigA has a value, then
     sigA is returned. Otherwise sigB is returned.
 
-    Type signature:
-    | merge<a>(sig<a>, sig<a>) -> sig<a>
+    Type Signature:
+    
+        | merge<a>(sig<a>, sig<a>) -> sig<a>
 
     Parameters:
         sigA : sig<a> - The first signal to merge
@@ -106,8 +110,9 @@ fun merge(sigA : sig<a>, sigB : sig<a>) : sig<a> =
     is the value held by the return signal. If none of the given signals
     holds a value, then the return stream will hold nothing.
 
-    Type signature:
-    | (list<sig<a>, n>) -> sig<a>
+    Type Signature:
+    
+        | (list<sig<a>, n>) -> sig<a>
 
     Parameters:
         sigs : list<sig<a>, n> - A list of signals to merge together.
@@ -138,8 +143,9 @@ fun mergeMany(sigs : list<sig<a>, n>) : sig<a> = {
     signal. If neither sigA or sigB holds a value, then the output signal
     also holds no value.
 
-    Type signature:
-    | (sig<a>, sig<b>) -> sig<either<a,b>>
+    Type Signature:
+    
+        | (sig<a>, sig<b>) -> sig<either<a,b>>
 
     Parameters:
         sigA : sig<a> - The first signal to join
@@ -165,8 +171,9 @@ fun join(sigA : sig<a>, sigB : sig<b>) : sig<either<a,b>> =
     then the output signal holds unit. Otherwise the output signal holds
     nothing.
 
-    Type signature:
-    | (sig<a>) -> sig<unit>
+    Type Signature:
+    
+        | (sig<a>) -> sig<unit>
 
     Parameters:
         s : sig<a> - The signal to convert to a unit signal
@@ -183,14 +190,15 @@ fun toUnit(s : sig<a>) : sig<unit> =
     Creates a past dependent signal. If the incoming signal contains a
     value, f will be called on the value and the previous state and the
     return value from this function determines the new state. The state
-    is held in a reference. foldP stands for fold over the past.
+    is held in the inout parameter. foldP stands for fold over the past.
 
-    Type signature:
-    | ((a, state) -> state, state ref, sig<a>) -> sig<state>
+    Type Signature:
+    
+        | ((a, state) -> state, inout state, sig<a>) -> sig<state>
 
     Parameters:
         f : (a, state) -> state - The folding function
-        state0 : state ref - A reference to the mutable state
+        state0 : inout state - An inout to the mutable state
         incoming : sig<a> - The signal of incoming values
 
     Returns:
@@ -213,31 +221,36 @@ fun foldP(f : (a, state) -> state, inout state0 : state, incoming : sig<a>) : si
 
     Drop values that have been repeated on the given signal.
 
-    Type signature:
-    | (sig<a>, maybe<a> ref) -> sig<a>
+    Type Signature:
+    
+        | (inout maybe<a>, sig<a>) -> sig<a>
 
     Parameters:
-        maybePrevValue : maybe<a> ref - A reference holding the previous value
+        maybePrevValue : inout maybe<a> - A variable holding the previous value
             or nothing if there hasnt been a previous value yet
         incoming : sig<a> - The incoming signal
 
     Returns:
         A filtered signal where two values in a row will not be repeated.
 */
-fun dropRepeats(maybePrevValue : maybe<a> ref, incoming : sig<a>) : sig<a> =
-    filter(
-        (value : a) : bool => {
-            let filtered =
-                match *maybePrevValue {
-                    nothing() => false
-                    just(prevValue) => value == prevValue
+fun dropRepeats(inout maybePrevValue : maybe<a>, incoming : sig<a>) : sig<a> =
+    match incoming {
+        signal(just(value)) => {
+            let ret =
+                match maybePrevValue {
+                    nothing() =>
+                        incoming
+                    just(prevValue) =>
+                        if value == prevValue
+                            signal(nothing())
+                        else
+                            incoming
                 }
-            if (!filtered) {
-                *maybePrevValue = just(value)
-            }
-            filtered
-        },
-        incoming)
+            maybePrevValue = just(value)
+            ret
+        }
+        _ => incoming
+    }
 
 /*
     Function: latch
@@ -246,10 +259,11 @@ fun dropRepeats(maybePrevValue : maybe<a> ref, incoming : sig<a>) : sig<a> =
     is updated if it receives a value on the incoming signal.
 
     Type Signature:
-    | (sig<a>, a ref) -> sig<a>
+    
+        | (inout a, sig<a>) -> sig<a>
 
     Parameters:
-        prevValue : a ref - Holds the previous values that the latch received
+        prevValue : inout a - Holds the previous values that the latch received
         incoming : sig<a> - The incoming latch update signal
 
     Returns:
@@ -274,29 +288,30 @@ fun latch(inout prevValue : a, incoming : sig<a>) : sig<a> =
     signals, then the output signal holds no value.
 
     Type Signature:
-    | ((a, b) -> c, sig<a>, sig<b>, (a, b) ref) -> sig<c>
+    
+        | ((a, b) -> c, inout (a, b), sig<a>, sig<b>) -> sig<c>
 
     Parameters:
         f : (a, b) -> c - The mapping function
-        state : (a, b) ref - Holds the last values received from the signals.
+        state : inout (a, b) - Holds the last values received from the signals.
         incomingA : sig<a> - The first signal
         incomingB : sig<b> - The second signal
     
     Returns:
         The mapped signal
 */
-fun map2(f : (a, b) -> c, state : (a, b) ref, incomingA : sig<a>, incomingB : sig<b>) : sig<c> = {
+fun map2(f : (a, b) -> c, inout state : (a, b), incomingA : sig<a>, incomingB : sig<b>) : sig<c> = {
     let valA =
         match incomingA {
             signal(just(val1 : a)) => val1
-            _ => fst(*state)
+            _ => fst(state)
         }
     let valB =
         match incomingB {
             signal(just(val2 : b)) => val2
-            _ => snd(*state)
+            _ => snd(state)
         }
-    *state = (valA, valB)
+    state = (valA, valB)
     match (incomingA, incomingB) {
         (signal(nothing()), signal(nothing())) => signal(nothing())
         _ => signal(just(f(valA, valB)))
@@ -309,10 +324,11 @@ fun map2(f : (a, b) -> c, state : (a, b) ref, incomingA : sig<a>, incomingB : si
     Records values in a list as they come in through the incoming signal.
 
     Type Signature:
-    | (sig<a>, list<a, n> ref) -> sig<list<a, n>>
+    
+        | (inout list<a, n>, sig<a>) -> sig<list<a, n>>
 
     Parameters:
-        pastValues : list<a, n> ref - Previous values recorded from the signal
+        pastValues : inout list<a, n> - Previous values recorded from the signal
         incoming : sig<a> - Incoming values to record
 
     Returns:
@@ -327,7 +343,8 @@ fun record(inout pastValues : list<a, n>, incoming : sig<a>) : sig<list<a, n>> =
     Gives a signal holding a specific value.
 
     Type Signature:
-    | (a) -> sig<a>
+    
+        | (a) -> sig<a>
 
     Parameters:
         val : a - The value that will be held within the signal
@@ -349,7 +366,8 @@ fun constant(val : a) : sig<a> =
     for many applications.
 
     Type Signature:
-    | (sig<a>) -> sig<maybe<a>>
+    
+        | (sig<a>) -> sig<maybe<a>>
 
     Parameters:
         sigA : sig<a> - The signal on which the meta analysis will be performed
@@ -370,7 +388,8 @@ fun meta(sigA : sig<a>) : sig<maybe<a>> = {
     holds just a value, then the output signal will hold that value.
 
     Type Signature:
-    | (sig<maybe<a>>) -> sig<a>
+    
+        | (sig<maybe<a>>) -> sig<a>
 
     Parameters:
         sigA : sig<maybe<a>> - The signal to "make concrete"
@@ -396,18 +415,19 @@ fun unmeta(sigA : sig<maybe<a>>) : sig<a> =
     signal holds no value.
 
     Type Signature:
-    | (sig<a>, sig<b>, (a, b) ref) -> sig<(a, b)>
+    
+        | (inout (a, b), sig<a>, sig<b>) -> sig<(a, b)>
 
     Parameters:
-        state : (a, b) ref - The state holding the past values of the signals
+        state : inout (a, b) - The state holding the past values of the signals
         sigA : sig<a> - The first signal to zip
         sigB : sig<b> - The second signal to zip
 
     Returns:
         A zipped signal.
 */
-fun zip(state : (a, b) ref, sigA : sig<a>, sigB : sig<b>) : sig<(a, b)> =
-    map2((valA : a, valB : b) => (valA, valB), state, sigA, sigB)
+fun zip(inout state : (a, b), sigA : sig<a>, sigB : sig<b>) : sig<(a, b)> =
+    map2((valA : a, valB : b) => (valA, valB), inout state, sigA, sigB)
 
 /*
     Function: unzip
@@ -416,7 +436,8 @@ fun zip(state : (a, b) ref, sigA : sig<a>, sigB : sig<b>) : sig<(a, b)> =
     into two signals.
 
     Type Signature:
-    | (sig<(a, b))>) -> (sig<a>, sig<b>)
+    
+        | (sig<(a, b))>) -> (sig<a>, sig<b>)
 
     Parameters:
         incoming : sig<a> - The signal to unzip
@@ -439,12 +460,13 @@ fun unzip(incoming : sig<(a, b)>) : (sig<a>, sig<b>) =
     incoming signal, then no value is outputted on the return signal.
 
     Type Signature:
-    | (a, a, a ref, sig<b>) -> sig<a>
+    
+        | (a, a, inout a, sig<b>) -> sig<a>
 
     Parameters:
         val1 : a - The first value to toggle between
         val2 : a - The second value to toggle between
-        state : a ref - Holds the previous value outputted on the return signal
+        state : inout a - Holds the previous value outputted on the return signal
         incoming : sig<b> - The signal which will trigger a toggle
 
     Returns:

@@ -10,7 +10,8 @@ module CharList
     Converts characters in a character list from lower case to upper case
 
     Type Signature:
-    | (list<uint8, n>) -> list<uint8, n>
+    
+        | (list<uint8, n>) -> list<uint8, n>
 
     Parameters:
         str : list<uint8; n> - The string to convert to upper case
@@ -32,7 +33,8 @@ fun toUpper(str) =
     Converts characters in a character list from upper case to lower case
 
     Type Signature:
-    | (list<uint8, n>) -> list<uint8, n>
+    
+        | (list<uint8, n>) -> list<uint8, n>
 
     Parameters:
         str : list<uint8; n> - The string to convert to lower case
@@ -56,7 +58,8 @@ fun toLower(str) =
     at most length n.
 
     Type Signature:
-    | (int32) -> charlist<n>
+    
+        | (int32) -> charlist<n>
 
     Parameters:
         m : int32 - The number to convert
@@ -80,7 +83,8 @@ fun i32ToCharList(m : int32) : charlist<n> = {
     (takes into account the null byte at the end of the character list)
 
     Type Signature:
-    | (list<uint8, n>) -> uint32
+    
+        | (list<uint8, n>) -> uint32
 
     Parameters:
         s : list<uint8, n> - The character list to find the length of
@@ -98,7 +102,8 @@ fun length(s : list<uint8, n>) : uint32 =
     due to the null bytes at the end of character lists.
 
     Type Signature:
-    | (charlist<aCap>, charlist<bCap>) -> charlist<retCap>
+    
+        | (charlist<aCap>, charlist<bCap>) -> charlist<retCap>
 
     Parameters:
         sA : charlist<aCap> - The first character list.
@@ -131,7 +136,8 @@ fun concat(sA : charlist<aCap>, sB : charlist<bCap>) : charlist<retCap> = {
     by the input capacities, less type annotations than normal concat are necessary.
 
     Type Signature:
-    | (charlist<aCap>, charlist<bCap>) -> charlist<aCap+bCap>
+    
+        | (charlist<aCap>, charlist<bCap>) -> charlist<aCap+bCap>
 
     Parameters:
         sA : charlist<aCap> - The first character list.

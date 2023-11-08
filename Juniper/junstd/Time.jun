@@ -10,7 +10,8 @@ module Time
     parameter.
 
     Type Signature:
-    | (uint32) -> unit
+    
+        | (uint32) -> unit
 
     Parameters:
         time : uint32 - The amount of time to sleep
@@ -25,7 +26,8 @@ fun wait(time : uint32) : unit =
     began running. Useful as a time stamp.
 
     Type Signature:
-    | () -> uint32
+    
+        | () -> uint32
 
     Returns:
         The time elapsed
@@ -49,18 +51,14 @@ fun now() : uint32 = {
 alias timerState = { lastPulse : uint32 }
 
 /*
-    Function: state
+    Variable: state
 
-    Creates a new <timerState>
+    Useful for creating an initial timerState where lastPulse is 0
 
-    Type Signature:
-    | () -> timerState ref
-
-    Returns:
-        A <timerState> with lastPulse set to 0
+    Type:
+    | timerState
 */
-fun state() : timerState ref =
-    ref { lastPulse := 0 }
+let state : timerState = { lastPulse := 0 }
 
 /*
     Function: every
@@ -69,17 +67,18 @@ fun state() : timerState ref =
     of the given interval.
 
     Type Signature:
-    | (uint32, timerState ref) -> sig<uint32>
+    
+        | (uint32, inout timerState) -> sig<uint32>
 
     Parameters:
         interval : uint32 - The interval between values firing
-        state : timerState ref - Holds the last time that the signal fired
+        state : inout timerState - Holds the last time that the signal fired
 
     Returns:
         A signal of timestamps which carries a value every interval
         milliseconds.
 */
-fun every(interval : uint32, state : timerState ref) : sig<uint32> = {
+fun every(interval : uint32, inout state : timerState) : sig<uint32> = {
     let t = now()
     let lastWindow =
         if (interval == 0) {
@@ -87,10 +86,10 @@ fun every(interval : uint32, state : timerState ref) : sig<uint32> = {
         } else {
             (t / interval) * interval
         }
-    if ((state->lastPulse : uint32) >= lastWindow) {
+    if (state.lastPulse >= lastWindow) {
         signal(nothing())
     } else {
-        state->lastPulse = t
+        state.lastPulse = t
         signal(just(t))
     }
 }

@@ -6,20 +6,20 @@ open(Prelude, Io, Time)
 let boardLedA : uint16 = 13
 let boardLedB : uint16 = 9
 
-let timerStateA = Time:state()
-let timerStateB = Time:state()
+let mut timerStateA = Time:state
+let mut timerStateB = Time:state
 
-let ledStateA = ref low()
-let ledStateB = ref low()
+let mut ledStateA = low()
+let mut ledStateB = low()
 
-fun blink(interval, pin, timerState, ledState) =
-    Time:every(interval, timerState) |>
-    Signal:toggle(low(), high(), ledState) |>
+fun blink(interval, pin, inout timerState, inout ledState) =
+    Time:every(interval, inout timerState) |>
+    Signal:toggle(low(), high(), inout ledState) |>
     Io:digOut(pin)
 
 fun loop() = {
-    blink(1000, boardLedA, timerStateA, ledStateA)
-    blink(700, boardLedB, timerStateB, ledStateB)
+    blink(1000, boardLedA, inout timerStateA, inout ledStateA)
+    blink(700, boardLedB, inout timerStateB, inout ledStateB)
 }
 
 fun setup() = {

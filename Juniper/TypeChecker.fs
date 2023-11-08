@@ -525,7 +525,15 @@ let typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             match interfaceConstraints with
             | [] -> ()
             | _ -> raise <| SemanticError ((errStr [posi] "Interface constraints are not supported for lambdas").Force())
-            let gamma' = gamma |> Map.map (fun varName (_, scheme) -> (false, scheme)) // Mark all variables as non-mutable within the lambda
+            // Mark all local variables as non-mutable within the lambda
+            let gamma' =
+                gamma |>
+                Map.map
+                    (fun varName (isMut, scheme) ->
+                        if Map.containsKey varName localVars then
+                            (false, scheme)
+                        else
+                            (isMut, scheme))
             let (gamma1Lst, c1s, localVars1, arguments') =
                 arguments |>
                 List.map

@@ -64,7 +64,8 @@ fun radToDeg(radians : double) : double =
     Takes the inverse cosine of the given number
 
     Type Signature:
-    | (double) -> double
+    
+        | (double) -> double
 
     Parameters:
         x : double - The value to take the acos of
@@ -84,7 +85,8 @@ fun acos_(x : double) : double = {
     Takes the inverse sine of the given number
 
     Type Signature:
-    | (double) -> double
+    
+        | (double) -> double
 
     Parameters:
         x : double - The value to take the asin of
@@ -104,7 +106,8 @@ fun asin_(x : double) : double = {
     Takes the inverse tangent of the given number
 
     Type Signature:
-    | (double) -> double
+    
+        | (double) -> double
 
     Parameters:
         x : double - The value to take the atan of
@@ -125,7 +128,8 @@ fun atan_(x : double) : double = {
     to determine the correct quadrant.
 
     Type Signature:
-    | (double, double) -> double
+    
+        | (double, double) -> double
 
     Parameters:
         y : double - The y component
@@ -146,7 +150,8 @@ fun atan2_(y: double, x : double) : double = {
     Returns the cosine of the given value.
 
     Type Signature:
-    | (double) -> double
+    
+        | (double) -> double
 
     Parameters:
         x : double - The value to take the cosine of in radians.
@@ -166,7 +171,8 @@ fun cos_(x : double) : double = {
     Returns the hyperbolic cosine of the given value.
 
     Type Signature:
-    | (double) -> double
+    
+        | (double) -> double
 
     Parameters:
         x : double - The value to take the cosh of
@@ -186,7 +192,8 @@ fun cosh_(x : double) : double = {
     Returns the sine of the given value.
 
     Type Signature:
-    | (double) -> double
+    
+        | (double) -> double
 
     Parameters:
         x : double - The value to take the sine of in radians
@@ -206,7 +213,8 @@ fun sin_(x : double) : double = {
     Returns the hyperbolic sine of the given value.
 
     Type Signature:
-    | (double) -> double
+    
+        | (double) -> double
 
     Parameters:
         x : double - The value to take the sinh of
@@ -226,7 +234,8 @@ fun sinh_(x : double) : double = {
     Returns the tangent of the given value.
 
     Type Signature:
-    | (double) -> double
+    
+        | (double) -> double
 
     Parameters:
         x : double - The value to take the tan of in radians
@@ -243,7 +252,8 @@ fun tan_(x : double) : double =
     Returns the hyperbolic tangent of the given value.
 
     Type Signature:
-    | (double) -> double
+    
+        | (double) -> double
 
     Parameters:
         x : double - The value to take the tanh of
@@ -263,7 +273,8 @@ fun tanh_(x : double) : double = {
     Returns the value of e raised to the xth power.
 
     Type Signature:
-    | (double) -> double
+    
+        | (double) -> double
 
     Parameters:
         x : double - The power to raise e to
@@ -284,7 +295,8 @@ fun exp_(x : double) : double = {
     x = mantissa * 2 ^ exponent.
 
     Type Signature:
-    | (double) -> (double, int32)
+    
+        | (double) -> (double, int32)
 
     Parameters:
         x : double - The number
@@ -307,7 +319,8 @@ fun frexp_(x : double) : (double, int32) = {
     Returns x multiplied by 2 raised to the power of exponent.
 
     Type Signature:
-    | (double, int16) -> double
+    
+        | (double, int16) -> double
 
     Parameters:
         x : double - The number to be multiplied by
@@ -328,7 +341,8 @@ fun ldexp_(x : double, exponent : int16) : double = {
     The natural (base e) logarithm function.
 
     Type Signature:
-    | (double) -> double
+    
+        | (double) -> double
 
     Parameters:
         x : double - The value to take the logarithm of
@@ -348,7 +362,8 @@ fun log_(x : double) : double = {
     The base 10 logarithm function.
 
     Type Signature:
-    | (double) -> double
+    
+        | (double) -> double
 
     Parameters:
         x : double - The value to take the logarithm of
@@ -369,7 +384,8 @@ fun log10_(x : double) : double = {
     the integer component of the given number.
 
     Type Signature:
-    | (double) -> (double, double)
+    
+        | (double) -> (double, double)
 
     Parameters:
         x : double - The number
@@ -390,7 +406,8 @@ fun modf_(x : double) : (double, double) = {
     Returns x raised to the y power.
 
     Type Signature:
-    | (double, double) -> double
+    
+        | (double, double) -> double
 
     Parameters:
         x : double - The base
@@ -400,7 +417,7 @@ fun modf_(x : double) : (double, double) = {
         x raised to the y power
 */
 fun pow_(x : double, y : double) : double = {
-    let mut ret : double = 0.0
+    var ret
     #ret = pow(x, y);#
     ret
 }
@@ -411,13 +428,14 @@ fun pow_(x : double, y : double) : double = {
     Returns the square root of x.
 
     Type Signature:
-    | (double) -> double
+    
+        | (double) -> double
 
     Returns:
         The square root of x
 */
 fun sqrt_(x : double) : double = {
-    let mut ret : double = 0.0
+    var ret
     #ret = sqrt(x);#
     ret
 }
@@ -428,7 +446,8 @@ fun sqrt_(x : double) : double = {
     Returns the smallest integer value greater than or equal to x.
 
     Type Signature:
-    | (double) -> double
+    
+        | (double) -> double
 
     Parameters:
         x : double - the number to take the ceiling of
@@ -437,7 +456,7 @@ fun sqrt_(x : double) : double = {
         The ceiling of x
 */
 fun ceil_(x : double) : double = {
-    let mut ret : double = 0.0
+    var ret
     #ret = ceil(x);#
     ret
 }
@@ -445,10 +464,11 @@ fun ceil_(x : double) : double = {
 /*
     Function: fabs_
 
-    The absolute value function.
+    The absolute value function, using the C fabs function.
 
     Type Signature:
-    | (double) -> double
+    
+        | (double) -> double
 
     Parameters:
         x : double - The number to take the absolute value of
@@ -457,9 +477,30 @@ fun ceil_(x : double) : double = {
         The absoulute value of x
 */
 fun fabs_(x : double) : double = {
-    let mut ret : double = 0.0
+    var ret
     #ret = fabs(x);#
     ret
+}
+
+/*
+    Function: abs_
+
+    Type Signature:
+    
+        | (t) -> t where t : num
+
+    Parameters:
+        x : t - The number to take the absolute value of
+    
+    Returns:
+        The absolute value of x
+*/
+fun abs_(x : t) : t where t : num = {
+    if x < (0 : t) {
+        -x
+    } else {
+        x
+    }
 }
 
 /*
@@ -468,7 +509,8 @@ fun fabs_(x : double) : double = {
     Returns the largest integer value less than or equal to x.
 
     Type Signature:
-    | (double) -> double
+    
+        | (double) -> double
 
     Parameters:
         x : double - The number to take the floor of
@@ -477,7 +519,7 @@ fun fabs_(x : double) : double = {
         The floor of x
 */
 fun floor_(x : double) : double = {
-    let mut ret : double = 0.0
+    var ret
     #ret = floor(x);#
     ret
 }
@@ -488,7 +530,8 @@ fun floor_(x : double) : double = {
     Returns the remainder of x divided by y.
 
     Type Signature:
-    | (double, double) -> double
+    
+        | (double, double) -> double
 
     Parameters:
         x : double - The dividend
@@ -509,7 +552,8 @@ fun fmod_(x : double, y : double) : double = {
     Rounds to the nearest integer value.
 
     Type Signature:
-    | (double) -> double
+    
+        | (double) -> double
 
     Parameters:
         x : double - The number to round
@@ -526,7 +570,8 @@ fun round_(x : double) : double =
     Returns the smaller of the two numbers.
 
     Type Signature:
-    | (a, a) -> a where a : num
+    
+        | (a, a) -> a where a : num
 
     Parameters:
         x : a - The first number
@@ -548,7 +593,8 @@ fun min_(x : a, y : a) : a where a : num =
     Returns the larger of the two numbers.
 
     Type Signature:
-    | (a, a) -> a where a : num
+    
+        | (a, a) -> a where a : num
 
     Parameters:
         x : a - The first number
@@ -570,19 +616,20 @@ fun max_(x : a, y : a) : a where a : num =
     Linearly maps a value x from range [a1,a2] to [b1,b2]
 
     Type Signature:
-    | (double, double, double, double, double) -> double
+    
+        | (t, t, t, t, t) -> t where t : real
 
     Parameters:
-        x : double - The value in range [a1,a2]
-        a1 : double - The lower value of the range containing x
-        a2 : double - The higher value of the range containing x
-        b1 : double - The lower value of the target range
-        b2 : double - The higher value of the target range
+        x : t - The value in range [a1,a2]
+        a1 : t - The lower value of the range containing x
+        a2 : t - The higher value of the range containing x
+        b1 : t - The lower value of the target range
+        b2 : t - The higher value of the target range
 
     Returns:
         x mapped from range [a1,a2] to [b1,b2]
 */
-fun mapRange(x : double, a1 : double, a2 : double, b1 : double, b2 : double) : double =
+fun mapRange(x : t, a1 : t, a2 : t, b1 : t, b2 : t) : t where t : real =
     b1 + (((x - a1) * (b2 - b1)) / (a2 - a1))
 
 /*
@@ -591,7 +638,8 @@ fun mapRange(x : double, a1 : double, a2 : double, b1 : double, b2 : double) : d
     Clamps a numerical value to fall in the interval [min,max]
 
     Type Signature:
-    | (a, a, a) -> a where a : num
+    
+        | (a, a, a) -> a where a : num
 
     Parameters:
         x : a - The value to clamp
@@ -617,7 +665,8 @@ fun clamp(x : a, min : a, max : a) : a where a : num =
     Returns the sign of the given numerial value.
 
     Type Signature:
-    | (a) -> int8 where a : num
+    
+        | (a) -> int8 where a : num
 
     Parameters:
         n : a - The number to find the sign of

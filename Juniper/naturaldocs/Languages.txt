@@ -1,4 +1,4 @@
-﻿Format: 2.1.1
+﻿Format: 2.3
 
 # This is the Natural Docs languages file for this project.  If you change
 # anything here, it will apply to THIS PROJECT ONLY.  You can edit the version
@@ -17,6 +17,7 @@
 
 # Languages
 # ------------------------------------------------------------------------
+# The syntax reference is after the definitions.
 
 Language: Juniper
 
@@ -25,7 +26,7 @@ Language: Juniper
    Simple Identifier: Juniper
 
    Line Comment: //
-   Block Comment: (* *)
+   Block Comment: /* */
 
 
 # These settings define the languages Natural Docs knows how to parse.  You
@@ -64,8 +65,8 @@ Language: Juniper
 #
 # Aliases: [alias] [alias] ...
 # [Add/Replace] Aliases: [alias] [alias] ...
-#    Defines alternate names for the language that can be used to start a code
-#    block.
+#    Defines alternative names for the language that can be used to start a
+#    code block.
 #
 #
 # Properties for Basic Language Support Only

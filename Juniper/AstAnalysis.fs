@@ -303,8 +303,6 @@ let decRefs (valueDecs : Set<T.ModQualifierRec>) (menv : Map<string, T.ModQualif
                 Set.singleton modqual
             else
                 Set.empty
-        | Ast.Smartpointer ((_, rawptr), (_, destructor)) ->
-            Set.union (d' rawptr) (d' destructor)
         | Ast.SizeofExp _ ->
             Set.empty
         | Ast.QuitExp _ ->
@@ -445,8 +443,6 @@ let rec findFreeVars (theta : Constraint.ThetaT) (kappa : Constraint.KappaT) (e 
             append2 ([ffv on; pats; exprs] |> List.unzip)
         | T.DoWhileLoopExp {condition=condition; body=body} ->
             append2 ([ffv condition; ffv body] |> List.unzip)
-        | T.Smartpointer (rawPtr, destructor) ->
-            append2 ([ffv rawPtr; ffv destructor] |> List.unzip)
         | (T.FalseExp | T.FloatExp _ | T.InlineCode _ | T.IntExp _ |
             T.InternalDeclareVar _ | T.ModQualifierExp _ |
             T.TrueExp | T.UnitExp | T.VarExp _ | T.DoubleExp _ |
@@ -608,7 +604,7 @@ let rec returnExprs ((_, _, expr) as inExpr : T.TyAdorn<T.Expr>) : List<T.TyAdor
         T.Int16Exp _ | T.Int32Exp _ | T.Int64Exp _ | T.Int8Exp _ | T.IntExp _ | T.InternalDeclareVar _ |
         T.InternalUsing _ | T.InternalUsingCap _ | T.LambdaExp _ | T.LetExp _ | T.ModQualifierExp _ |
         T.NullExp _ | T.QuitExp _ | T.RecordAccessExp _ | T.RecordExp _ | T.RefExp _ | T.RefRecordAccessExp _ |
-        T.SizeofExp _ | T.Smartpointer _ | T.StringExp _ | T.TemplateApplyExp _ | T.TrueExp | T.TupleExp _ |
+        T.SizeofExp _ | T.StringExp _ | T.TemplateApplyExp _ | T.TrueExp | T.TupleExp _ |
         T.UInt16Exp _ | T.UInt32Exp _ | T.UInt64Exp _ | T.UInt8Exp _ | T.UnaryOpExp _ | T.UnitExp _ |
         T.VarExp _ | T.WhileLoopExp _) ->
         [inExpr]

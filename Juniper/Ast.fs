@@ -96,9 +96,9 @@ and BaseTypes = TyUint8
               | TyDouble
               | TyBool
               | TyUnit
-              | TyPointer
+              | TyRCPtr
               | TyString
-              | TyRawPointer
+              | TyPtr
 and TyExpr = BaseTy of PosAdorn<BaseTypes>
            | ModuleQualifierTy of ModQualifierRec
            | NameTy of PosAdorn<string>
@@ -213,7 +213,6 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | TupleExp of PosAdorn<Expr> list
           | QuitExp of PosAdorn<TyExpr> option
           | TypeConstraint of TypeConstraintRec
-          | Smartpointer of PosAdorn<Expr> * PosAdorn<Expr>
           | NullExp of PosAdorn<unit>
           | SizeofExp of PosAdorn<TyExpr>
 and BinaryOps = Add | Subtract | Multiply | Divide | Modulo | BitwiseOr | BitwiseAnd | BitwiseXor

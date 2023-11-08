@@ -289,9 +289,9 @@ do
             | "unit" -> BaseTy (p, TyUnit)
             | "float" -> BaseTy (p, TyFloat)
             | "double" -> BaseTy (p, TyDouble)
-            | "rcptr" -> BaseTy (p, TyPointer)
+            | "rcptr" -> BaseTy (p, TyRCPtr)
             | "string" -> BaseTy (p, TyString)
-            | "ptr" -> BaseTy (p, TyRawPointer)
+            | "ptr" -> BaseTy (p, TyPtr)
             | _ -> NameTy (p, n))
     let underscore = skipChar '_' |> pos |>> UnderscoreTy
     let mQual = moduleQualifier |>> ModuleQualifierTy
@@ -585,13 +585,12 @@ do
     let varReference = attempt id |> pos |>> VarExp
     let inlineCpp' = inlineCpp |>> InlineCode
     let tuple = betweenChar '(' (separatedList1 exprws ',') ')' |>> TupleExp
-    let smartpointer = (skipString "smartpointer" >>. ws >>. fatalizeAnyError ((skipChar '(' >>. exprws .>> ws .>> skipChar ',' .>> ws) .>>. (exprws .>> ws .>> skipChar ')'))) |>> Smartpointer
     let nullexp = (skipString "null" |> pos |>> NullExp)
     let sizeofexp = (attempt ((skipString "sizeof") >>. ws)) >>? fatalizeAnyError (betweenChar '(' tyExpr ')') |>> SizeofExp 
     let e = choice ([ptrue; pfalse;
                     pParensEq; pParensNeq; pParensGeq; pParensGt; pParensLeq; pParensLt; pParensNot; pParensAnd; pParensOr; pParensAdd; pParensSub; pParensMul; pParensDiv;
                     nullexp; charlist; str;
-                    attempt pfloating; pint; smartpointer; sizeofexp;
+                    attempt pfloating; pint; sizeofexp;
                     fn; punit; attempt parens; quit; attempt tuple; attempt recordExpr1; recordExprMany; seq;
                     attempt modQual; forInLoop; forLoop; doWhileLoop; whileLoop;
                     pLet; pVar; pIf; match_;

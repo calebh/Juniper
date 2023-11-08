@@ -142,10 +142,10 @@ let convertType menv denv (dtenv : Map<T.ModQualifierRec, T.DeclarationTy>) (tyV
                                 | Ast.TyBool -> T.TyBool
                                 | Ast.TyDouble -> T.TyDouble
                                 | Ast.TyFloat -> T.TyFloat
-                                | Ast.TyPointer -> T.TyPointer
+                                | Ast.TyRCPtr -> T.TyRCPtr
                                 | Ast.TyUnit -> T.TyUnit
                                 | Ast.TyString -> T.TyString
-                                | Ast.TyRawPointer -> T.TyRawPointer)
+                                | Ast.TyPtr -> T.TyPtr)
         | Ast.FunTy {closure=closure; args=args; returnType=returnType} ->
             let closure' = ct closure
             let returnType' = ct returnType

@@ -145,6 +145,31 @@ fun extractptr(p : rcptr) : ptr = {
 }
 
 /*
+    Function: makerc
+
+    Creates a reference counting cell to attach to a pointer. When the
+    reference count reaches 0, the finalizer will be called with the
+    underlying ptr as a parameter. The finalizer must have an empty
+    closure.
+
+    Type Signature:
+
+        | (ptr, (||)(ptr) -> unit) -> rcptr
+    
+    Parameters:
+        p : The pointer that will be garbage collected once the counter reaches 0.
+        finalizer : (||)(ptr) -> unit the destructor that will be called once there
+    
+    Returns:
+        A new reference counted pointer.
+*/
+fun makerc(p : ptr, finalizer : (||)(ptr) -> unit) : rcptr = {
+    var ret
+    #ret = juniper::make_smartpointer(p, finalizer);#
+    ret
+}
+
+/*
     Function: compose
 
     Composes two functions together.

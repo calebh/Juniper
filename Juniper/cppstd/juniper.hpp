@@ -19,6 +19,10 @@ namespace juniper
 
         wrapped_ptr(contained init_data)
             : ref_count(1), data(init_data) {}
+
+        void destroy() {
+            data.destroy();
+        }
     };
 
     template <typename contained>
@@ -37,6 +41,7 @@ namespace juniper
                 content->ref_count--;
 
                 if (content->ref_count <= 0) {
+                    content->destroy();
                     delete content;
                     content = nullptr;
                 }
@@ -209,17 +214,17 @@ namespace juniper
         rawpointer_container(void* initData, function<void, unit(void*)> callback)
             : data(initData), destructorCallback(callback) {}
 
-        ~rawpointer_container() {
+        void destroy() {
             destructorCallback(data);
         }
 
         void *get() { return data; }
     };
 
-    using smartpointer = shared_ptr<rawpointer_container>;
+    using rcptr = shared_ptr<rawpointer_container>;
 
-    smartpointer make_smartpointer(void *initData, function<void, unit(void*)> callback) {
-        return smartpointer(rawpointer_container(initData, callback));
+    rcptr make_smartpointer(void *initData, function<void, unit(void*)> callback) {
+        return rcptr(rawpointer_container(initData, callback));
     }
 
     template<typename T>

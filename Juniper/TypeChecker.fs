@@ -674,15 +674,6 @@ let typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let (expr', c') = ty expr
             let tau = T.ConApp (T.RefTy, [Choice1Of2 (T.getType expr')])
             adorn posE tau (T.RefExp expr') c'
-        | Ast.Smartpointer (ptr, destructor) ->
-            let (ptr', c1) = ty ptr
-            let (destructor', c2) = ty destructor
-            let closureTy = ClosureTy Map.empty
-            let destructorTy = T.ConApp (T.FunTy, [Choice1Of2 closureTy; Choice1Of2 T.unittype; Choice1Of2 T.rawpointertype])
-            let c3 = T.getType ptr' =~= (T.rawpointertype, errStr [A.getPos ptr] "First argument to smartpointer keyword must be of type rawpointer")
-            let c4 = T.getType destructor' =~= (destructorTy, errStr [A.getPos destructor] "Second argument to smartpointer keyword must be a destructor of type (||)(rawpointer) -> unit")
-            let c' = c1 &&& c2 &&& c3 &&& c4
-            adorn posE (T.TyPointer |> T.BaseTy |> T.TyCon) (T.Smartpointer (ptr', destructor')) c'
         | Ast.SequenceExp (poss, exps) ->
             let ((pose, _) as exp)::rest = exps
             let (exp', c1) = ty exp

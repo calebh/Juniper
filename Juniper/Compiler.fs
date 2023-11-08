@@ -230,9 +230,9 @@ and compileType theta kappa (ty : TyExpr) : StringTree =
             | TyBool -> output "bool"
             | TyUnit -> output "juniper::unit"
             | TyDouble -> output "double"
-            | TyPointer -> output "juniper::smartpointer"
+            | TyRCPtr -> output "juniper::rcptr"
             | TyString -> output "const char *"
-            | TyRawPointer -> output "void *"
+            | TyPtr -> output "void *"
         | ModuleQualifierTy {module_ = module_; name=name} ->
             output module_ .+.
             output "::" .+.
@@ -371,8 +371,6 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : S
         output (sprintf "((const PROGMEM char *)(\"%s\"))" str)
     | QuitExp ty ->
         getQuitExpr ty |> compile topLevel
-    | Smartpointer (ptr, destructor) ->
-        output "juniper::make_smartpointer(" .+. compile topLevel ptr .+. output ", " .+. compile topLevel destructor .+. output ")"
     // Convert inline C++ code from Juniper directly to C++
     | InlineCode code ->
         output ("((" + capture + "() -> ") .+. compileType (TyCon <| (BaseTy TyUnit)) .+. output " {" .+. newline() .+. indentId() .+.

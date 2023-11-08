@@ -81,9 +81,9 @@ and BaseTypes = TyUint8
               | TyDouble
               | TyBool
               | TyUnit
-              | TyPointer
+              | TyRCPtr
               | TyString
-              | TyRawPointer
+              | TyPtr
 and TyCons = BaseTy of BaseTypes
            | ModuleQualifierTy of ModQualifierRec
            | ArrayTy
@@ -209,7 +209,6 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | RefExp of TyAdorn<Expr>
           | TupleExp of TyAdorn<Expr> list
           | QuitExp of TyExpr
-          | Smartpointer of TyAdorn<Expr> * TyAdorn<Expr>
           | NullExp
           | FunctionWrapperEmptyClosure of TyAdorn<Expr>
           | SizeofExp of TyExpr
@@ -274,9 +273,9 @@ let rec typeConString con appliedTo =
         | TyUnit -> "unit"
         | TyFloat -> "float"
         | TyDouble -> "double"
-        | TyPointer -> "pointer"
+        | TyRCPtr -> "pointer"
         | TyString -> "string"
-        | TyRawPointer -> "rawpointer"
+        | TyPtr -> "rawpointer"
     | ArrayTy ->
         match appliedTo with
         | [Choice1Of2 arrTy; Choice2Of2 size] ->
@@ -386,9 +385,9 @@ let int64type = baseTy TyInt64
 let uint64type = baseTy TyUint64
 let floattype = baseTy TyFloat
 let doubletype = baseTy TyDouble
-let pointertype = baseTy TyPointer
+let pointertype = baseTy TyRCPtr
 let stringtype = baseTy TyString
-let rawpointertype = baseTy TyRawPointer
+let rawpointertype = baseTy TyPtr
 
 let emptytemplate = [] : Template
 
@@ -620,10 +619,6 @@ and preorderMapFold (exprMapper: Map<string, TyExpr> -> 'accum -> TyAdorn<Expr> 
                     (seqElem', (gamma'', accum''')))
                 (gamma, accum')
         (wrapLike expr' (SequenceExp seqExprs'), accum'''')
-    | Smartpointer (ptr, destructor) ->
-        let (ptr', accum'') = preorderMapFold' accum' ptr
-        let (destructor', accum''') = preorderMapFold' accum'' destructor
-        (wrapLike expr' (Smartpointer (ptr', destructor')), accum''')
     | TemplateApplyExp _ ->
         (expr', accum')
     | TrueExp ->

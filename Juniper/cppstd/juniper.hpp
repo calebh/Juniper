@@ -12,12 +12,12 @@ void* operator new(size_t size, void* ptr)
 
 namespace juniper
 {
-    template<typename contained>
-    struct wrapped_ptr {
+    template<typename A>
+    struct counted_cell {
         int ref_count;
-        contained data;
+        A data;
 
-        wrapped_ptr(contained init_data)
+        counted_cell(A init_data)
             : ref_count(1), data(init_data) {}
 
         void destroy() {
@@ -25,10 +25,10 @@ namespace juniper
         }
     };
 
-    template <typename contained>
+    template <template <typename> class T, typename contained>
     class shared_ptr {
     private:
-        wrapped_ptr<contained> *content;
+        counted_cell<T<contained>>* content;
 
         void inc_ref() {
             if (content != nullptr) {
@@ -54,8 +54,8 @@ namespace juniper
         {
         }
 
-        shared_ptr(contained init_data)
-            : content(new wrapped_ptr<contained>(init_data))
+        shared_ptr(T<contained> init_data)
+            : content(new counted_cell<T<contained>>(init_data))
         {
         }
 
@@ -81,15 +81,16 @@ namespace juniper
 
         contained* get() {
             if (content != nullptr) {
-                return &(content->data);
-            } else {
+                return content->data.get();
+            }
+            else {
                 return nullptr;
             }
         }
 
         const contained* get() const {
             if (content != nullptr) {
-                return &(content->data);
+                return content->data.get();
             } else {
                 return nullptr;
             }
@@ -134,7 +135,7 @@ namespace juniper
             return content != rhs.content;
         }
     };
-    
+
     template <typename ClosureType, typename Result, typename ...Args>
     class function;
 
@@ -205,26 +206,49 @@ namespace juniper
         }
     };
 
-    class rawpointer_container {
+    // A basic container that doesn't do anything special to destroy
+    // the contained data when the reference count drops to 0. This
+    // is used for ref types.
+    template <typename contained>
+    class basic_container {
     private:
-        void* data;
-        function<void, unit(void*)> destructorCallback;
+        contained data;
 
     public:
-        rawpointer_container(void* initData, function<void, unit(void*)> callback)
-            : data(initData), destructorCallback(callback) {}
+        basic_container(contained initData)
+            : data(initData) {}
 
-        void destroy() {
-            destructorCallback(data);
-        }
+        void destroy() {}
 
-        void *get() { return data; }
+        contained *get() { return &data;  }
     };
 
-    using rcptr = shared_ptr<rawpointer_container>;
+    // A container that calls a finalizer once the reference count
+    // drops to 0. This is used for rcptr types.
+    template <typename contained>
+    class finalized_container {
+    private:
+        contained data;
+        function<void, unit(void*)> finalizer;
 
-    rcptr make_smartpointer(void *initData, function<void, unit(void*)> callback) {
-        return rcptr(rawpointer_container(initData, callback));
+    public:
+        finalized_container(void* initData, function<void, unit(contained)> initFinalizer)
+            : data(initData), finalizer(initFinalizer) {}
+
+        void destroy() {
+            finalizer(data);
+        }
+
+        contained *get() { return &data; }
+    };
+
+    template <typename contained>
+    using refcell = shared_ptr<basic_container, contained>;
+
+    using rcptr = shared_ptr<finalized_container, void*>;
+
+    rcptr make_rcptr(void* initData, function<void, unit(void*)> finalizer) {
+        return rcptr(finalized_container<void *>(initData, finalizer));
     }
 
     template<typename T>
@@ -269,7 +293,8 @@ namespace juniper
         {
             if (n == id) {
                 reinterpret_cast<F*>(data)->~F();
-            } else {
+            }
+            else {
                 variant_helper_rec<n + 1, Ts...>::destroy(id, data);
             }
         }
@@ -279,7 +304,8 @@ namespace juniper
             if (n == id) {
                 // This static_cast and use of remove_reference is equivalent to the use of std::move
                 new (to) F(static_cast<typename remove_reference<F>::type&&>(*reinterpret_cast<F*>(from)));
-            } else {
+            }
+            else {
                 variant_helper_rec<n + 1, Ts...>::move(id, from, to);
             }
         }
@@ -288,7 +314,8 @@ namespace juniper
         {
             if (n == id) {
                 new (to) F(*reinterpret_cast<const F*>(from));
-            } else {
+            }
+            else {
                 variant_helper_rec<n + 1, Ts...>::copy(id, from, to);
             }
         }
@@ -297,7 +324,8 @@ namespace juniper
         {
             if (n == id) {
                 return (*reinterpret_cast<F*>(lhs)) == (*reinterpret_cast<F*>(rhs));
-            } else {
+            }
+            else {
                 return variant_helper_rec<n + 1, Ts...>::equal(id, lhs, rhs);
             }
         }
@@ -391,7 +419,7 @@ namespace juniper
             variant_helper_static<alternative<i>>::copy(&value, &ret.data);
             return ret;
         }
-        
+
         template<unsigned char i>
         static variant create(alternative<i>&& value) {
             variant ret(i);
@@ -452,7 +480,8 @@ namespace juniper
         {
             if (variant_id == i) {
                 return *reinterpret_cast<alternative<i>*>(&data);
-            } else {
+            }
+            else {
                 return quit<alternative<i>&>();
             }
         }
@@ -464,7 +493,8 @@ namespace juniper
         bool operator==(variant& rhs) {
             if (variant_id == rhs.variant_id) {
                 return helper_t::equal(variant_id, &data, &rhs.data);
-            } else {
+            }
+            else {
                 return false;
             }
         }
@@ -472,7 +502,8 @@ namespace juniper
         bool operator==(variant&& rhs) {
             if (variant_id == rhs.variant_id) {
                 return helper_t::equal(variant_id, &data, &rhs.data);
-            } else {
+            }
+            else {
                 return false;
             }
         }
@@ -493,11 +524,11 @@ namespace juniper
 
         tuple2(a initE1, b initE2) : e1(initE1), e2(initE2) {}
 
-        bool operator==(tuple2<a,b> rhs) {
+        bool operator==(tuple2<a, b> rhs) {
             return e1 == rhs.e1 && e2 == rhs.e2;
         }
 
-        bool operator!=(tuple2<a,b> rhs) {
+        bool operator!=(tuple2<a, b> rhs) {
             return !(rhs == *this);
         }
     };
@@ -510,11 +541,11 @@ namespace juniper
 
         tuple3(a initE1, b initE2, c initE3) : e1(initE1), e2(initE2), e3(initE3) {}
 
-        bool operator==(tuple3<a,b,c> rhs) {
+        bool operator==(tuple3<a, b, c> rhs) {
             return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3;
         }
 
-        bool operator!=(tuple3<a,b,c> rhs) {
+        bool operator!=(tuple3<a, b, c> rhs) {
             return !(rhs == *this);
         }
     };
@@ -528,11 +559,11 @@ namespace juniper
 
         tuple4(a initE1, b initE2, c initE3, d initE4) : e1(initE1), e2(initE2), e3(initE3), e4(initE4) {}
 
-        bool operator==(tuple4<a,b,c,d> rhs) {
+        bool operator==(tuple4<a, b, c, d> rhs) {
             return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4;
         }
 
-        bool operator!=(tuple4<a,b,c,d> rhs) {
+        bool operator!=(tuple4<a, b, c, d> rhs) {
             return !(rhs == *this);
         }
     };
@@ -547,11 +578,11 @@ namespace juniper
 
         tuple5(a initE1, b initE2, c initE3, d initE4, e initE5) : e1(initE1), e2(initE2), e3(initE3), e4(initE4), e5(initE5) {}
 
-        bool operator==(tuple5<a,b,c,d,e> rhs) {
+        bool operator==(tuple5<a, b, c, d, e> rhs) {
             return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4 && e5 == rhs.e5;
         }
 
-        bool operator!=(tuple5<a,b,c,d,e> rhs) {
+        bool operator!=(tuple5<a, b, c, d, e> rhs) {
             return !(rhs == *this);
         }
     };
@@ -567,11 +598,11 @@ namespace juniper
 
         tuple6(a initE1, b initE2, c initE3, d initE4, e initE5, f initE6) : e1(initE1), e2(initE2), e3(initE3), e4(initE4), e5(initE5), e6(initE6) {}
 
-        bool operator==(tuple6<a,b,c,d,e,f> rhs) {
+        bool operator==(tuple6<a, b, c, d, e, f> rhs) {
             return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4 && e5 == rhs.e5 && e6 == rhs.e6;
         }
 
-        bool operator!=(tuple6<a,b,c,d,e,f> rhs) {
+        bool operator!=(tuple6<a, b, c, d, e, f> rhs) {
             return !(rhs == *this);
         }
     };
@@ -588,11 +619,11 @@ namespace juniper
 
         tuple7(a initE1, b initE2, c initE3, d initE4, e initE5, f initE6, g initE7) : e1(initE1), e2(initE2), e3(initE3), e4(initE4), e5(initE5), e6(initE6), e7(initE7) {}
 
-        bool operator==(tuple7<a,b,c,d,e,f,g> rhs) {
+        bool operator==(tuple7<a, b, c, d, e, f, g> rhs) {
             return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4 && e5 == rhs.e5 && e6 == rhs.e6 && e7 == rhs.e7;
         }
 
-        bool operator!=(tuple7<a,b,c,d,e,f,g> rhs) {
+        bool operator!=(tuple7<a, b, c, d, e, f, g> rhs) {
             return !(rhs == *this);
         }
     };
@@ -610,11 +641,11 @@ namespace juniper
 
         tuple8(a initE1, b initE2, c initE3, d initE4, e initE5, f initE6, g initE7, h initE8) : e1(initE1), e2(initE2), e3(initE3), e4(initE4), e5(initE5), e6(initE6), e7(initE7), e8(initE8) {}
 
-        bool operator==(tuple8<a,b,c,d,e,f,g,h> rhs) {
+        bool operator==(tuple8<a, b, c, d, e, f, g, h> rhs) {
             return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4 && e5 == rhs.e5 && e6 == rhs.e6 && e7 == rhs.e7 && e8 == rhs.e8;
         }
 
-        bool operator!=(tuple8<a,b,c,d,e,f,g,h> rhs) {
+        bool operator!=(tuple8<a, b, c, d, e, f, g, h> rhs) {
             return !(rhs == *this);
         }
     };
@@ -633,11 +664,11 @@ namespace juniper
 
         tuple9(a initE1, b initE2, c initE3, d initE4, e initE5, f initE6, g initE7, h initE8, i initE9) : e1(initE1), e2(initE2), e3(initE3), e4(initE4), e5(initE5), e6(initE6), e7(initE7), e8(initE8), e9(initE9) {}
 
-        bool operator==(tuple9<a,b,c,d,e,f,g,h,i> rhs) {
+        bool operator==(tuple9<a, b, c, d, e, f, g, h, i> rhs) {
             return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4 && e5 == rhs.e5 && e6 == rhs.e6 && e7 == rhs.e7 && e8 == rhs.e8 && e9 == rhs.e9;
         }
 
-        bool operator!=(tuple9<a,b,c,d,e,f,g,h,i> rhs) {
+        bool operator!=(tuple9<a, b, c, d, e, f, g, h, i> rhs) {
             return !(rhs == *this);
         }
     };
@@ -657,11 +688,11 @@ namespace juniper
 
         tuple10(a initE1, b initE2, c initE3, d initE4, e initE5, f initE6, g initE7, h initE8, i initE9, j initE10) : e1(initE1), e2(initE2), e3(initE3), e4(initE4), e5(initE5), e6(initE6), e7(initE7), e8(initE8), e9(initE9), e10(initE10) {}
 
-        bool operator==(tuple10<a,b,c,d,e,f,g,h,i,j> rhs) {
+        bool operator==(tuple10<a, b, c, d, e, f, g, h, i, j> rhs) {
             return e1 == rhs.e1 && e2 == rhs.e2 && e3 == rhs.e3 && e4 == rhs.e4 && e5 == rhs.e5 && e6 == rhs.e6 && e7 == rhs.e7 && e8 == rhs.e8 && e9 == rhs.e9 && e10 == rhs.e10;
         }
 
-        bool operator!=(tuple10<a,b,c,d,e,f,g,h,i,j> rhs) {
+        bool operator!=(tuple10<a, b, c, d, e, f, g, h, i, j> rhs) {
             return !(rhs == *this);
         }
     };

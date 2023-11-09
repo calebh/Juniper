@@ -240,7 +240,7 @@ and compileType theta kappa (ty : TyExpr) : StringTree =
         | ArrayTy ->
             output "juniper::array"
         | RefTy ->
-            output "juniper::shared_ptr"
+            output "juniper::refcell"
         | (FunTy | TupleTy | InOutTy) ->
             failwith "Unable to convert type constructor to string. Are the arguments to the type constructor missing?"
     | RecordTy (packed, fields) ->
@@ -666,7 +666,7 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : S
         output ">" .+. output "{" .+. (exps |> List.map (compile topLevel) |> concatManySep ", ") .+. output "}" .+. output ")"
     | RefExp exp ->
         let (_, typ, _) = exp
-        output "(juniper::shared_ptr<" .+. compileType typ .+. output ">(" .+.
+        output "(juniper::refcell<" .+. compileType typ .+. output ">(" .+.
         compile topLevel exp .+. output "))"
     | DoWhileLoopExp {condition=condition; body=body} ->
         output ("((" + capture + "() -> ") .+.

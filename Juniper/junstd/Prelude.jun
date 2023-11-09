@@ -140,7 +140,7 @@ alias dict<key, value, n : int> = maybe<(key, value, uint32)>[n]
 */
 fun extractptr(p : rcptr) : ptr = {
     var ret
-    #ret = p.get();#
+    #ret = *p.get();#
     ret
 }
 
@@ -165,7 +165,7 @@ fun extractptr(p : rcptr) : ptr = {
 */
 fun makerc(p : ptr, finalizer : (||)(ptr) -> unit) : rcptr = {
     var ret
-    #ret = juniper::make_smartpointer(p, finalizer);#
+    #ret = juniper::make_rcptr(p, finalizer);#
     ret
 }
 

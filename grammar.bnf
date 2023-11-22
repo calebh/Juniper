@@ -14,8 +14,8 @@
 <algebraic-type>    ::= "type" <id> [<template-dec>] "=" <value-constructor> {"|" <value-constructor>};
 <alias>             ::= "alias" <id> [<template-dec>] "=" <ty-expr>;
 <value-constructor> ::= <id> "(" [<ty-expr> {"," <ty-expr>}] ")";
-<let>               ::= "let" <id> [":" <ty-expr>] "=" <expr>;
-<function>          ::= "fun" <id> "(" [<id> [":" <ty-expr>] {"," <id> [":" <ty-expr>]}] ")" [":" <ty-expr>] ["where" <ty-expr> ":" <constraint> {"," <ty-expr> ":" <constraint>}] "=" <expr>;
+<let>               ::= "let" ["mut"] <id> [":" <ty-expr>] "=" <expr>;
+<function>          ::= "fun" <id> "(" [["inout"] <id> [":" <ty-expr>] {"," ["inout"] <id> [":" <ty-expr>]}] ")" [":" <ty-expr>] ["where" <ty-expr> ":" <constraint> {"," <ty-expr> ":" <constraint>}] "=" <expr>;
 <constraint>        ::= "num"
                      |  "int"
                      |  "real"
@@ -30,16 +30,20 @@
                      |  ["(" <ty-expr> ")"] "(" [<ty-expr> {"," <ty-expr>}] ")" "->" <ty-expr>
                      |  <ty-expr> "[" <capacity-expr> "]"
                      |  <ty-expr> "ref"
+                     |  "inout" <ty-expr>
                      |  "(" <ty-expr> "," <ty-expr> [{"," <ty-expr>}] ")"
                      |  "(" <ty-expr> ")"
                      |  "|" [<id> ":" <ty-expr> {"," <id> ":" <ty-expr>}] "|"
                      |  ["packed"] "{" [<id> ":" <ty-expr> {"," <id> ":" <ty-expr>}] "}"
                      |  "uint8" | "uint16" | "uint32" | "uint64" | "int8" | "int16"
                      |  "int32" | "int64" | "bool" | "unit" | "float" | "double"
-                     |  "pointer" | "string" | "rawpointer" | "_";
+                     |  "ptr" | "string" | "rcptr" | "_";
 <module-qualifier>  ::= <id> ":" <id>;
 <expr-list>         ::= <expr> {"," <expr>};
-<field-assign-list> ::= <id> ":=" <expr> {"," <id> "=" <expr>};
+<callarg>           ::= "inout" <left-assign>
+                     |  <expr>;
+<callarg-list>     ::= <callarg> {"," <callarg>};
+<field-assign-list> ::= <id> ":=" <expr> {"," <id> ":=" <expr>};
 <assign-op>         ::= "=" | "+=" | "-=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>=";
 <expr>              ::= "()" | "true" | "false" | "null" | <integer> | <float>"f" | <double>
                      | <integer>"i8" | <unsigned-integer>"u8" | <integer>"i16"
@@ -47,13 +51,13 @@
                      | <integer>"i64" | <unsigned-integer>"u64"
                      |  "{" <expr> {<expr>} "}"
                      |  "(" <expr> "," <expr> [{"," <expr>}] ")"
-                     |  <expr> "(" [<expr-list>] ")"
+                     |  <expr> "(" [<callarg-list>] ")"
                      |  <declaration-ref>
                      |  <expr> "[" <expr> "]"
                      |  <expr> <binary-op> <expr>
                      |  "if" <expr> <expr> ["else" <expr>]
                      |  "let" <pattern> "=" <expr>
-                     |  "var" <id> ":" <ty-expr>
+                     |  "var" <id> [":" <ty-expr>]
                      |  <left-assign> <assign-op> <expr>
                      |  "for" <id> [":" <ty-expr>] "in" <expr> ".." <expr> <expr>
                      |  "for" <expr> ";" <expr> ";" <expr> <expr>
@@ -68,15 +72,12 @@
                      |  ["packed"] "{" [<field-assign-list>] "}"
                      |  "[" <expr-list> "]"
                      |  "ref" <expr>
-                     |  "array" <ty-expr> "of" <expr>
-                     |  "array" <ty-expr>
                      |  "#" <inline-cpp> "#"
                      |  <expr> ":" <ty-expr>
                      |  "sizeof" "(" <ty-expr> ")"
                      |  "quit" ["<" <ty-expr> ">"] "(" ")"
                      |  "'" <extended-ascii-string> "'"
                      |  "\"" <extended-ascii-string> "\""
-                     |  "smartpointer(" <expr> "," <expr> ")";
 <binary-op>         ::= "+" | "-" | "*" | "/" | "%" | "&&" | "||" | "&"
                      |  "|" | ">=" | "<=" | ">" | "<" | "==" | "!=" | "<<"
                      |  ">>" | "|>";

@@ -701,17 +701,62 @@ fun until(p : (a) -> bool, f : (a) -> a, a0 : a) : a = {
 */
 fun ignore(val : a) = ()
 
-fun clear(inout val : a) : unit =
-    #memset(&val, 0, sizeof(val));#
+/*
+    Function: clear
 
-fun array(val : a) : a[n] = {
+    Clears a variable by calling that type's C++ destructor and setting the memory to zero. This function is designed to be compatible with clearing ref cells or data structures containg ref cells. This function is useful for clearing portions of data structures that hold data that should be thrown away.
+
+    Type Signature:
+
+        | (inout a) -> unit
+    
+    Parameters:
+        val : inout a - The memory to clear.
+    
+    Returns:
+        unit
+*/
+fun clear(inout val : a) : unit =
+    #
+    val.~a();
+    memset(&val, 0, sizeof(val));
+    #
+
+/*
+    Function: array
+
+    Creates an array containing the given element, with the size of the array being determined by the capacity constraint on the return type.
+
+    Type Signature:
+    
+        | (a) -> a[n]
+    
+    Parameters:
+        elem : a - The element to fill the initial array slots with.
+    
+    Returns:
+        A newly populated array.
+*/
+fun array(elem : a) : a[n] = {
     var ret
     for i in 0 .. n {
-        ret[i] = val
+        ret[i] = elem
     }
     ret
 }
 
+/*
+    Function: zeros
+
+    Creates an array filled with zeros. This function is designed to work with ref types. The type and capacity of the return array is determined by constraining the return type.
+
+    Type Signature:
+
+        | () -> a[n]
+    
+    Returns:
+        A new array populated with zero initialized elements.
+*/
 fun zeros() : a[n] = {
     var ret
     clear(inout ret)

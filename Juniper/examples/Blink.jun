@@ -1,21 +1,20 @@
 module Blink
-open(Prelude, Io, Time)
 
 /* In this "Hello World" example, we toggle an LED on and
    off every second. */
 
 let boardLed : uint16 = 13
 
-let tState = Time:state()
-let ledState = ref low()
+let mut tState = Time:state
+let mut ledState = Io:low()
 
 fun loop() = {
-    let timerSig = Time:every(1000, tState)
+    let timerSig = Time:every(1000, inout tState)
     let ledSig =
         Signal:foldP(
             (currentTime, lastState) =>
                 Io:toggle(lastState),
-            ledState, timerSig)
+            inout ledState, timerSig)
     Io:digOut(boardLed, ledSig)
 }
 

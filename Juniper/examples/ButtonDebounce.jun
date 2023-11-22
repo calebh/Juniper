@@ -4,23 +4,23 @@ open(Prelude, Button, Io)
 let buttonPin : uint16 = 2
 let ledPin : uint16 = 13
 
-let bState = Button:state()
-let edgeState = ref Io:low()
-let ledState = ref Io:high()
+let mut bState = Button:state
+let mut edgeState = Io:low()
+let mut ledState = Io:high()
 
 fun loop() = {
     let buttonSig = Io:digIn(buttonPin)
-    let debouncedSig = Io:fallingEdge(Button:debounce(buttonSig, bState), edgeState)
+    let debouncedSig = Io:fallingEdge(Button:debounce(buttonSig, inout bState), inout edgeState)
     let ledSig =
         Signal:foldP(
             (event, currentLedState) =>
                 Io:toggle(currentLedState),
-            ledState, debouncedSig)
+            inout ledState, debouncedSig)
     Io:digOut(ledPin, ledSig)
 }
 
 fun setup() = {
     Io:setPinMode(ledPin, Io:output())
     Io:setPinMode(buttonPin, Io:input())
-    Io:digWrite(ledPin, !ledState)
+    Io:digWrite(ledPin, ledState)
 }

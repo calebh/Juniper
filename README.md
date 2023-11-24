@@ -1,6 +1,6 @@
 # Juniper
 
-Juniper is a functional reactive programming language currently being developed by Caleb Helbling (currently at Purdue University). Louis Ades was a former developer at Tufts University.
+Juniper is a functional reactive programming language currently being developed by Caleb Helbling (currently at Draper Laboratory). Louis Ades was a former developer at Tufts University.
 
 The grammar in EBNF (extended Backus-Naur Form) is available in grammer.bnf
 
@@ -43,16 +43,16 @@ To get started using Juniper, you'll first need to build the compiler using the 
 1. If you do not have it already, download and install Microsoft Visual Studio 2022.
 2. Clone this repository to your local machine.
 3. Open /Juniper.sln in Visual Studio.
-4. When the solution opens, go to the Solution Explorer and find the "References" tab underneath the "Juniper" project. Right click on "References", and select "Manage NuGet Packages." Verify that FParsec and QuikGraph are installed as part of your solution.
+4. When the solution opens, go to the Solution Explorer and find the "References" tab underneath the "Juniper" project. Right click on "References", and select "Manage NuGet Packages." Verify that FParsec, Symbolism and QuikGraph are installed as part of your solution.
 5. Build the Juniper project (either in Debug mode or Build mode).
 6. The result should be a built .exe file called "Juniper.exe".
 7. (Optional) Add Juniper.exe to PATH variables so that it can be run from any directory.
 
 ### For Linux machines:
 
-Juniper is now on .NET 6! Juniper has been tested to work with Visual Studio Code, and probably works with Jetbrains Rider as well.
+Juniper is now on .NET 8! Juniper has been tested to work with Visual Studio Code, and probably works with Jetbrains Rider as well.
 
-1. Install .NET 6 and Visual Studio Code on your Linux system
+1. Install .NET 8 and Visual Studio Code on your Linux system
 2. Install the Ionide extension for Visual Studio Code
 3. Build using Ionide
 4. Ensure that the `junstd/`, `cppstd/`, `examples/`, `wrappers/` and the `juniper` Linux run script are copied to the directory containing the build.

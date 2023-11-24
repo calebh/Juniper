@@ -201,6 +201,7 @@ and Expr = SequenceExp of PosAdorn<PosAdorn<Expr> list>
           | UInt32Exp of PosAdorn<int64>
           | Int64Exp of PosAdorn<int64>
           | UInt64Exp of PosAdorn<int64>
+          | RealExp of PosAdorn<string>
           | FloatExp of PosAdorn<string>
           | DoubleExp of PosAdorn<string>
           | CharListLiteral of PosAdorn<string>

@@ -75,7 +75,7 @@ let typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             | Ast.MatchTrue _ ->
                 ((posp, tau, T.MatchTrue), T.booltype =~= (tau, errStr [posp] "True pattern does not match the type of the expression."))
             | Ast.MatchFloatVal (_, value) ->
-                ((posp, tau, T.MatchFloatVal value), InterfaceConstraint (tau, IsReal, errStr [posp] "Float pattern must satisfy the interface real constraint. Are you sure that you're matching on a real number (float or double)?"))
+                ((posp, tau, T.MatchRealVal value), InterfaceConstraint (tau, IsReal, errStr [posp] "Float pattern must satisfy the interface real constraint. Are you sure that you're matching on a real number (float or double)?"))
             | Ast.MatchIntVal (_, value) ->
                 ((posp, tau, T.MatchIntVal value), InterfaceConstraint (tau, IsNum, errStr [posp] "Integer pattern must satisfy the interface num constraint. Are you sure that you're matching on a number?"))
             | Ast.MatchUnderscore _ ->
@@ -261,6 +261,9 @@ let typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             adorn posE T.uint64type (T.UInt64Exp num) Trivial
         | Ast.FloatExp (pos, num) ->
             adorn posE T.floattype (T.FloatExp num) Trivial
+        | Ast.RealExp (pos, num) ->
+            let tyVar = freshtyvarExpr ()
+            adorn posE tyVar (T.RealExp num) (InterfaceConstraint (tyVar, IsReal, errStr [pos] "Polymorphic floating point literal must be constrained to a real type (float or double)"))
         | Ast.DoubleExp (pos, num) ->
             adorn posE T.doubletype (T.DoubleExp num) Trivial
         | Ast.SizeofExp tyExpr ->

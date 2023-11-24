@@ -484,7 +484,9 @@ do
     let pParensMul = genParensOp "*" "mul"
     let pParensDiv = genParensOp "/" "div"
     
-    let pfloating = (floatParser .>>. choice [skipChar 'f' >>. preturn FloatExp; preturn DoubleExp]) |>
+    let pfloating = (floatParser .>>. choice [skipChar 'f' >>. preturn FloatExp;
+                                              skipChar 'd' >>. preturn DoubleExp;
+                                              preturn RealExp]) |>
                     pos |>>
                     (fun (posN, (num, constructor)) -> constructor (posN, num))
     let parseInt s t = skipString s >>. preturn t

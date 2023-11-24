@@ -118,7 +118,7 @@ and MatchValConRec = { modQualifier : ModQualifierRec; innerPattern : TyAdorn<Pa
 
 and Pattern = MatchVar of VarRec
             | MatchIntVal of int64
-            | MatchFloatVal of string
+            | MatchRealVal of string
             | MatchValCon of MatchValConRec
             | MatchRecCon of (string * TyAdorn<Pattern>) list
             | MatchUnderscore
@@ -200,6 +200,7 @@ and Expr = SequenceExp of TyAdorn<Expr> list
           | UInt64Exp of int64
           | FloatExp of string
           | DoubleExp of string
+          | RealExp of string
           | StringExp of string
           | CallExp of CallRec
           | TemplateApplyExp of TemplateApplyExpRec
@@ -424,7 +425,7 @@ let rec patternToGamma (pat : TyAdorn<Pattern>) : Map<string, TyExpr> =
         fields |> List.map (snd >> patternToGamma) |> Map.mergeMany
     | MatchTuple inner ->
         inner |> List.map patternToGamma |> Map.mergeMany
-    | (MatchFalse | MatchFloatVal _ | MatchIntVal _ | MatchTrue | MatchUnderscore | MatchUnit) ->
+    | (MatchFalse | MatchRealVal _ | MatchIntVal _ | MatchTrue | MatchUnderscore | MatchUnit) ->
         Map.empty
     | MatchVar { varName=varName; typ=typ } ->
         Map.singleton varName typ
@@ -469,7 +470,7 @@ and preorderMapFoldPattern (patternMapper : Map<string, TyExpr> -> 'accum -> TyA
     | MatchTuple inner ->
         let (inner', accum'') = inner |> List.mapFold preorderMapFoldPattern' accum'
         (wrapLike pat' (MatchTuple inner'), accum'')
-    | (MatchFalse | MatchFloatVal _ | MatchIntVal _ | MatchTrue | MatchUnderscore | MatchUnit | MatchVar _) ->
+    | (MatchFalse | MatchRealVal _ | MatchIntVal _ | MatchTrue | MatchUnderscore | MatchUnit | MatchVar _) ->
         (pat', accum')
 
 and preorderMapFold (exprMapper: Map<string, TyExpr> -> 'accum -> TyAdorn<Expr> -> (TyAdorn<Expr> * 'accum))
@@ -560,7 +561,7 @@ and preorderMapFold (exprMapper: Map<string, TyExpr> -> 'accum -> TyAdorn<Expr> 
         (wrapLike expr' (IfElseExp {condition=condition'; trueBranch=trueBranch'; falseBranch=falseBranch'}), accum'''')
     | InlineCode _ ->
         (expr', accum')
-    | (IntExp _ | Int8Exp _ | UInt8Exp _ | Int16Exp _ | UInt16Exp _ | Int32Exp _ | UInt32Exp _ | Int64Exp _ | UInt64Exp _ | StringExp _) ->
+    | (IntExp _ | Int8Exp _ | UInt8Exp _ | Int16Exp _ | UInt16Exp _ | Int32Exp _ | UInt32Exp _ | Int64Exp _ | UInt64Exp _ | StringExp _ | RealExp _) ->
         (expr', accum')
     | InternalDeclareVar {varName=varName; typ=typ; right=right} ->
         let (right', accum'') = preorderMapFold' accum' right

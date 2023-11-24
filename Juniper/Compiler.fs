@@ -296,11 +296,11 @@ and compilePattern (pattern : TyAdorn<Pattern>) (path : TyAdorn<Expr>) =
         | (_, typ, MatchVar {varName=varName}) ->
             let varDec = InternalDeclareVar {varName=varName; typ=typ; right=path}
             assignments <- varDec::assignments
-        | (pos, _, MatchIntVal intLit) ->
-            let check = BinaryOpExp {op=Equal; left=path; right=(pos, TyCon <| BaseTy TyInt32, IntExp intLit)}
+        | (pos, typ, MatchIntVal intLit) ->
+            let check = BinaryOpExp {op=Equal; left=path; right=(pos, typ, IntExp intLit)}
             conditions <- check::conditions
-        | (pos, _, MatchFloatVal floatLit) ->
-            let check = BinaryOpExp {op=Equal; left=path; right=(pos, TyCon <| BaseTy TyFloat, FloatExp floatLit)}
+        | (pos, typ, MatchRealVal realLit) ->
+            let check = BinaryOpExp {op=Equal; left=path; right=(pos, typ, RealExp realLit)}
             conditions <- check::conditions
         | (pos, _, MatchFalse) ->
             let check = BinaryOpExp {op=Equal; left=path; right=(pos, TyCon <| BaseTy TyBool, FalseExp)}
@@ -386,6 +386,8 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : S
         output (sprintf "%sf" num)
     | DoubleExp num ->
         output num
+    | RealExp num ->
+        output "((" .+. (compileType ty) .+. output ") " .+. output (sprintf "%s" num) .+. output ")"
     | Int8Exp num ->
         output (sprintf "((int8_t) %i)" num)
     | UInt8Exp num ->

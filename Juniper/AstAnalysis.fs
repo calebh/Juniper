@@ -260,6 +260,8 @@ let decRefs (valueDecs : Set<T.ModQualifierRec>) (menv : Map<string, T.ModQualif
             Set.empty
         | Ast.DoubleExp _ ->
             Set.empty
+        | Ast.RealExp _ ->
+            Set.empty
         | Ast.ForInLoopExp {varName=(_, varName); start=(_, start); end_=(_, end_); body=(_, body)} ->
             let s1 = d' start
             let s2 = d' end_
@@ -407,7 +409,7 @@ let rec findFreeVars (theta : Constraint.ThetaT) (kappa : Constraint.KappaT) (e 
         match pat with
         | T.MatchVar {typ=typ} ->
             freeVarsTyp pos typ
-        | (T.MatchIntVal _ | T.MatchFloatVal _ | T.MatchUnit | T.MatchTrue | T.MatchFalse | T.MatchUnderscore) ->
+        | (T.MatchIntVal _ | T.MatchRealVal _ | T.MatchUnit | T.MatchTrue | T.MatchFalse | T.MatchUnderscore) ->
             ([], [])
         | T.MatchValCon {innerPattern=innerPattern} ->
             append2 (List.map freeVarsPattern innerPattern |> List.unzip)
@@ -443,7 +445,7 @@ let rec findFreeVars (theta : Constraint.ThetaT) (kappa : Constraint.KappaT) (e 
             append2 ([ffv on; pats; exprs] |> List.unzip)
         | T.DoWhileLoopExp {condition=condition; body=body} ->
             append2 ([ffv condition; ffv body] |> List.unzip)
-        | (T.FalseExp | T.FloatExp _ | T.InlineCode _ | T.IntExp _ |
+        | (T.FalseExp | T.FloatExp _ | T.RealExp _ | T.InlineCode _ | T.IntExp _ |
             T.InternalDeclareVar _ | T.ModQualifierExp _ |
             T.TrueExp | T.UnitExp | T.VarExp _ | T.DoubleExp _ |
             T.Int16Exp _  | T.UInt16Exp _ | T.Int32Exp _ | T.UInt32Exp _ |
@@ -603,10 +605,10 @@ let rec returnExprs ((_, _, expr) as inExpr : T.TyAdorn<T.Expr>) : List<T.TyAdor
         T.ForInLoopExp _ | T.ForLoopExp _ | T.FunctionWrapperEmptyClosure _ | T.IfExp _ | T.InlineCode _ |
         T.Int16Exp _ | T.Int32Exp _ | T.Int64Exp _ | T.Int8Exp _ | T.IntExp _ | T.InternalDeclareVar _ |
         T.InternalUsing _ | T.InternalUsingCap _ | T.LambdaExp _ | T.LetExp _ | T.ModQualifierExp _ |
-        T.NullExp _ | T.QuitExp _ | T.RecordAccessExp _ | T.RecordExp _ | T.RefExp _ | T.RefRecordAccessExp _ |
+        T.NullExp | T.QuitExp _ | T.RecordAccessExp _ | T.RecordExp _ | T.RefExp _ | T.RefRecordAccessExp _ |
         T.SizeofExp _ | T.StringExp _ | T.TemplateApplyExp _ | T.TrueExp | T.TupleExp _ |
         T.UInt16Exp _ | T.UInt32Exp _ | T.UInt64Exp _ | T.UInt8Exp _ | T.UnaryOpExp _ | T.UnitExp _ |
-        T.VarExp _ | T.WhileLoopExp _) ->
+        T.VarExp _ | T.WhileLoopExp _ | T.RealExp _) ->
         [inExpr]
 
 

@@ -45,7 +45,7 @@
 <callarg-list>     ::= <callarg> {"," <callarg>};
 <field-assign-list> ::= <id> ":=" <expr> {"," <id> ":=" <expr>};
 <assign-op>         ::= "=" | "+=" | "-=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>=";
-<expr>              ::= "()" | "true" | "false" | "null" | <integer> | <float>"f" | <double>
+<expr>              ::= "()" | "true" | "false" | "null" | <integer> | <real> | <float>"f"  | <double>"d"
                      | <integer>"i8" | <unsigned-integer>"u8" | <integer>"i16"
                      | <unsigned-integer>"u16" | <integer>"i32" | <unsigned-integer>"u32"
                      | <integer>"i64" | <unsigned-integer>"u64"
@@ -92,10 +92,12 @@
 <case-clause>       ::= <pattern> "=>" <expr>;
 <pattern>           ::= ["mut"] <id> [":" <ty-expr>]
                      |  <integer>
-                     |  <float>
+                     |  <real>
                      |  "true"
                      |  "false"
                      |  "_"
+                     |  "()"
+                     |  "(" <pattern> ")"
                      |  <declaration-ref> "(" [<pattern> {"," <pattern>}] ")"
                      |  "{" [<id> ":=" <pattern> {"," <id> ":=" <pattern>}] "}"
                      |  "(" <pattern> "," <pattern> {"," <pattern>} ")";

@@ -25,7 +25,7 @@
 
   <ItemGroup>
     <PackageReference Include="FParsec" Version="1.1.1" />
-    <PackageReference Include="QuikGraph" Version="2.3.0" />
+    <PackageReference Include="QuikGraph" Version="2.5.0" />
     <PackageReference Include="Symbolism" Version="1.0.4" />
   </ItemGroup>
 

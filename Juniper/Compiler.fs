@@ -376,9 +376,9 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : S
         output ("((" + capture + "() -> ") .+. compileType (TyCon <| (BaseTy TyUnit)) .+. output " {" .+. newline() .+. indentId() .+.
         output code .+. newline() .+. output "return {};" .+. newline() .+. unindentId() .+.
         output "})())"
-    | TrueExp _ ->
+    | TrueExp ->
         output "true"
-    | FalseExp _ ->
+    | FalseExp ->
         output "false"
     | IntExp num ->
         output "((" .+. (compileType ty) .+. output ") " .+. output (sprintf "%i" num) .+. output ")"
@@ -533,7 +533,7 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : S
     | FunctionWrapperEmptyClosure func ->
         // Compile to juniper::function<void, RetTy(Arg0, ... ArgN)>(func)
         compileType ty .+. output "(" .+. compile topLevel func .+. output ")"
-    | UnitExp _ ->
+    | UnitExp ->
         output "juniper::unit()"
     | VarExp name ->
         output name
@@ -709,16 +709,16 @@ and compileCap kappa (cap : CapacityExpr) : StringTree =
         | CapacityOp { left=left; op=op; right=right } ->
             SingletonString "(" .+. compileCap' left .+. SingletonString ")" .+.
             ((match op with
-            | CapAdd -> "+"
-            | CapSubtract -> "-"
-            | CapMultiply -> "*"
-            | CapDivide -> "/") |> SingletonString) .+.
+              | CapAdd -> "+"
+              | CapSubtract -> "-"
+              | CapMultiply -> "*"
+              | CapDivide -> "/") |> SingletonString) .+.
             SingletonString "(" .+. compileCap' right .+. SingletonString ")"
         | CapacityConst constant ->
             sprintf "%i" constant |> SingletonString
         | CapacityUnaryOp {op=op; term=term} ->
             ((match op with
-            | CapNegate -> "-") |> SingletonString) .+.
+              | CapNegate -> "-") |> SingletonString) .+.
             SingletonString "(" .+. compileCap' term .+. SingletonString ")"
     compileCap' (Constraint.simplifyCap (Constraint.capsubst kappa cap))
 
@@ -934,7 +934,9 @@ and compileProgram {moduleNames=moduleNames; opens=opens; includes=includes; typ
                 output "}" .+. newline() .+.
                 output "#endif" .+. newline() .+. newline()
             else
-                output "") .+.
+                output "")
+
+    .+.
 
     (*
         void loop() {

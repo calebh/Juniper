@@ -531,7 +531,7 @@ and preorderMapFold (exprMapper: Map<string, TyExpr> -> 'accum -> TyAdorn<Expr> 
         (wrapLike expr' (DoWhileLoopExp {condition=condition'; body=body'}), accum''')
     | DoubleExp _ ->
         (expr', accum')
-    | FalseExp _ ->
+    | FalseExp ->
         (expr', accum')
     | FloatExp _ ->
         (expr', accum')

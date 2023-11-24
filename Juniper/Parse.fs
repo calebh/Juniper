@@ -231,8 +231,8 @@ let id : Parser<string, unit> =
         )
     identifier opts
 
-let separatedList p c = sepBy p (ws >>. skipChar c >>. ws)
-let separatedList1 p c = sepBy1 p (ws >>. skipChar c >>. ws)
+let separatedList p c = sepBy p (attempt (ws >>. skipChar c >>. ws))
+let separatedList1 p c = sepBy1 p (attempt (ws >>. skipChar c >>. ws))
 
 let moduleQualifier =
     pipe2
@@ -259,7 +259,7 @@ let templateDec =
 let record =
     pipe2
         ((skipString "packed" |> pos |> opt) .>> ws .>> skipChar '{' .>> ws)
-        (separatedList ((pos id .>> ws .>> skipChar ':' .>> ws) .>>. tyExpr) ',' |> pos .>> ws .>> skipChar '}' .>> ws)
+        (((separatedList ((pos id .>> ws .>> skipChar ':' .>> ws) .>>. tyExpr) ',') |> pos) .>> ws .>> skipChar '}' .>> ws)
         (fun packed fields -> { packed=packed; fields=fields })
 
 // leftRecursiveTyp

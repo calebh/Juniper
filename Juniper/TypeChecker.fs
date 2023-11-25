@@ -15,6 +15,7 @@ let typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
            (denv : Map<ModQualifierRec, A.PosAdorn<A.Declaration>>)
            (dtenv : Map<ModQualifierRec, T.DeclarationTy>)
            (menv : Map<string, ModQualifierRec>)
+           (moduleNames : Set<string>)
            (localVars : Map<string, Vid>)
            // ienv maps value constructors to the order they are declared in the algebraic datatype
            (ienv : Map<ModQualifierRec, int>)
@@ -25,7 +26,7 @@ let typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                : TyAdorn<T.Expr> * Constraint * Map<TyVar, TyVar> * Map<CapVar, CapVar> * (CrossRefInfo list) =
     let getTypes = List.map T.getType
 
-    let convertType' = convertType menv denv dtenv tyVarMapping capVarMapping
+    let convertType' = convertType menv moduleNames denv dtenv tyVarMapping capVarMapping
     let convertCapacity' = convertCapacity capVarMapping
 
     // freshTVarMap and freshCVarMap map compiler generated type and capacity variables back to what
@@ -159,7 +160,10 @@ let typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                     | _ ->
                         raise <| TypeError ((errStr [posn] (sprintf "Found declaration named %s, but it wasn't a value constructor." name)).Force())
                 | _ ->
-                    raise <| TypeError ((errStr [posn] (sprintf "Unable to find value constructor named %s" name)).Force())
+                    if Set.contains module_ moduleNames then
+                        raise <| SemanticError ((errStr [posn] (sprintf "Unable to find value constructor named %s in module %s" name module_)).Force())
+                    else
+                        raise <| SemanticError ((errStr [posn] (sprintf "Unable to find module named %s." module_)).Force())
         let (pattern', c) = checkPattern' (posp, p) tau
         (pattern', c, localVars, gamma')
     and checkLeft (posl, left) localVars gamma =
@@ -622,7 +626,11 @@ let typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
                 | Some (T.ADTDecTy _) ->
                     raise <| TypeError ((errStr [posmq] (sprintf "Found declaration named %s in module %s, but it was an algebraic datatype declaration and not a value declaration." name module_)).Force())
                 | None ->
-                    raise <| TypeError ((errStr [posmq] (sprintf "Unable to find declaration named %s in module %s." name module_)).Force())
+                    // Check to see if the module even exists
+                    if Set.contains module_ moduleNames then
+                        raise <| SemanticError ((errStr [posn] (sprintf "Unable to find declaration named %s in module %s." name module_)).Force())
+                    else
+                        raise <| SemanticError ((errStr [pos] (sprintf "Unable to find module named %s." module_)).Force())
             let expr' =
                 match templateArgs with
                 | [] -> T.ModQualifierExp {module_=module_; name=name}
@@ -911,6 +919,9 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
         List.concat |>
         Set.ofList
 
+    let moduleNames = program |> List.map (fun decs -> nameInModule decs |> Option.get |> Ast.unwrap)
+    let moduleNamesSet = Set.ofList moduleNames
+
     // A menv maps names in a module to their full module qualifier
     // modNamesToMenvs stores these maps for every module
     let modNamesToMenvs : Map<string, Map<string, T.ModQualifierRec>> =
@@ -1005,7 +1016,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                         templateVars
                 | None ->
                     ([], (Map.empty, Map.empty))
-            let typ' = convertType menv denv Map.empty tyVarMapping capVarMapping typ
+            let typ' = convertType menv moduleNamesSet denv Map.empty tyVarMapping capVarMapping typ
             let aliasDecTy = T.AliasDecTy (templateVars', typ')
             Map.add modQual aliasDecTy accumDtenv0
         | Ast.AlgDataTypeDec {valCons=(_, valCons); template=maybeTemplate} ->
@@ -1041,7 +1052,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                 innerTys |> List.iter (checkUnknownVars menv denv maybeTemplate T.StarKind)
                 innerTys |> List.iter (checkUnknownVars menv denv maybeTemplate T.IntKind)
                 // Convert the types given in each value constructor to a T.TyExpr
-                let paramTy = List.map (convertType menv denv Map.empty Map.empty Map.empty) innerTys
+                let paramTy = List.map (convertType menv moduleNamesSet denv Map.empty Map.empty Map.empty) innerTys
                 // Create the FunDecTy for this specific value constructor
                 let ts = T.FunDecTy <| T.Forall (template', [], funty closureTy retTy paramTy)
                 Map.add {module_=module_; name=valConName} ts accumDtenv1
@@ -1092,7 +1103,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                     // Get the function's argument names
                     let a1 = arguments |> List.map (fun (_, (_, (_, name), _)) -> name) |> Set.ofList
                     // Capacities are local variables as well!
-                    let convertType' = convertType menv denv dtenv0 Map.empty Map.empty
+                    let convertType' = convertType menv moduleNamesSet denv dtenv0 Map.empty Map.empty
                     let argumentsTypes = arguments |> List.map (fun (_, (_, _, typ)) -> typ) |> List.filter Option.isSome |> List.map (Option.get >> convertType')
                     let a2 = argumentsTypes |> List.map (Constraint.freeVars >> snd) |> Set.unionMany |> Set.map (fun (T.CapVar capName) -> capName)
                     // Union on the named capacity types into localVars
@@ -1192,8 +1203,6 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
         List.concat |>
         List.map (fun (module_, (_, Ast.OpenDec (_, openModules))) ->
             (module_, T.OpenDec (List.map Ast.unwrap openModules)))
-    
-    let moduleNames = program |> List.map (fun decs -> nameInModule decs |> Option.get |> Ast.unwrap)
 
     let typeDecs =
         let unorderedDecs : Map<ModQualifierRec, _> =
@@ -1209,12 +1218,12 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                 | Ast.AlgDataTypeDec {name=(_, name); valCons=(_, valCons); template=template} ->
                     let valCons' =
                         valCons |> List.map (fun ((_, valConName), argTypes) ->
-                            let argTypes' = List.map (convertType menv denv dtenv0 Map.empty Map.empty) argTypes
+                            let argTypes' = List.map (convertType menv moduleNamesSet denv dtenv0 Map.empty Map.empty) argTypes
                             (valConName, argTypes'))
                     let ret = (module_, T.AlgDataTypeDec {name=name; template=Option.map convertTemplate template; valCons=valCons'})
                     ({module_=module_; name=name}, ret)
                 | Ast.AliasDec {name=(_, name); template=template; typ=typ} ->
-                    let typ' = convertType menv denv dtenv0 Map.empty Map.empty typ
+                    let typ' = convertType menv moduleNamesSet denv dtenv0 Map.empty Map.empty typ
                     let ret = (module_, T.AliasDec {name=name; template=Option.map convertTemplate template; typ=typ'})
                     ({module_=module_; name=name}, ret))|>
             Map.ofList
@@ -1300,7 +1309,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                     let localVars = Map.empty
                     let gamma = localGamma globalGamma module_
                     // Generate the constraints for the right hand side of the let statement
-                    let (right', c1, freshTVarMap, freshCVarMap, crossRefInfo) = typeof right denv dtenv menv localVars ienv Map.empty Map.empty gamma
+                    let (right', c1, freshTVarMap, freshCVarMap, crossRefInfo) = typeof right denv dtenv menv moduleNamesSet localVars ienv Map.empty Map.empty gamma
                     let freshTVarMap' = Map.merge freshTVarMap accFreshTVarMap
                     let freshCVarMap' = Map.merge freshCVarMap accFreshCVarMap
                     // If the let statement has a type constraint in its definition, we need to ensure
@@ -1310,7 +1319,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                         | Some ((post, _) as ty) ->
                             // There was a type constraint given by the user on the let statement
                             // Generate a fresh constraint for this restriction
-                            T.getType right' =~= (convertType menv denv dtenv Map.empty Map.empty ty, errStr [post; Ast.getPos right] "The type of the right hand side of the let expression violates the given type constraint.")
+                            T.getType right' =~= (convertType menv moduleNamesSet denv dtenv Map.empty Map.empty ty, errStr [post; Ast.getPos right] "The type of the right hand side of the let expression violates the given type constraint.")
                         | None ->
                             // No constraint was given by the user
                             Trivial
@@ -1372,7 +1381,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 let menv = Map.find module_ modNamesToMenvs
 
                                 // Determine what the user defined free type variables and free capacities are
-                                let convertType' = convertType menv denv tempdtenv Map.empty Map.empty
+                                let convertType' = convertType menv moduleNamesSet denv tempdtenv Map.empty Map.empty
 
                                 // Extract the function parameter names and save it in a set
                                 let (localArguments, crossRefInfoArgs, argTys) =
@@ -1511,7 +1520,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                             Map.add capVarName (false, T.Forall (emptytemplate, [], T.int32type)) accum)
                                         tempGamma'
                                 // Finally typecheck the body
-                                let (body', c1, freshTVarMap, freshCVarMap, crossRefInfo') = typeof body denv tempdtenv menv localVars ienv tyVarMapping capVarMapping tempGamma''
+                                let (body', c1, freshTVarMap, freshCVarMap, crossRefInfo') = typeof body denv tempdtenv menv moduleNamesSet localVars ienv tyVarMapping capVarMapping tempGamma''
 
                                 let freshTyVarNames = freshTyVars |> List.map (fun (TyVarExpr name) -> name)
                                 let freshCapVarNames = freshCapVars |> List.map (fun (CapacityVarExpr name) -> name)
@@ -1550,8 +1559,8 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 let c4s =
                                     interfaceConstraints |>
                                     List.map (fun (posCon, (tau, (_, con))) ->
-                                        let tau' = convertType menv denv tempdtenv tyVarMapping capVarMapping tau
-                                        convertInterfaceConstraint menv denv tempdtenv con |>
+                                        let tau' = convertType menv moduleNamesSet denv tempdtenv tyVarMapping capVarMapping tau
+                                        convertInterfaceConstraint menv moduleNamesSet denv tempdtenv con |>
                                         List.map (fun con' -> InterfaceConstraint (tau', con', errStr [posCon] "The specified type did not meet the interface constraint")) |>
                                         conjoinConstraints)
                                 let c4 = conjoinConstraints c4s

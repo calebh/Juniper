@@ -103,7 +103,7 @@ let rec removeAliases (dtenv : Map<T.ModQualifierRec, T.DeclarationTy>) (pos : F
 
 // The mapping parameter is used to convert explicitly given type variable parameter
 // into a non-conflicting form
-let convertType menv denv (dtenv : Map<T.ModQualifierRec, T.DeclarationTy>) (tyVarMapping : Map<T.TyVar, T.TyExpr>) (capVarMapping : Map<T.CapVar, T.CapacityExpr>) (tau : Ast.PosAdorn<Ast.TyExpr>) : T.TyExpr =
+let convertType (menv : Map<string, T.ModQualifierRec>) (moduleNames : Set<string>) denv (dtenv : Map<T.ModQualifierRec, T.DeclarationTy>) (tyVarMapping : Map<T.TyVar, T.TyExpr>) (capVarMapping : Map<T.CapVar, T.CapacityExpr>) (tau : Ast.PosAdorn<Ast.TyExpr>) : T.TyExpr =
     let rec convertType' (tau : Ast.PosAdorn<Ast.TyExpr>) : T.TyExpr =
         let ct = convertType'
         let convertCapacity = convertCapacity capVarMapping
@@ -151,8 +151,15 @@ let convertType menv denv (dtenv : Map<T.ModQualifierRec, T.DeclarationTy>) (tyV
             let returnType' = ct returnType
             let args' = List.map ct args
             T.funty closure' returnType' args'
-        | Ast.ModuleQualifierTy {module_=(_, module_); name=(_, name)} ->
-            T.TyCon <| T.ModuleQualifierTy {module_=module_; name=name}
+        | Ast.ModuleQualifierTy {module_=(posm, module_); name=(posn, name)} ->
+            let modQual = {module_=module_; name=name} : T.ModQualifierRec
+            if Set.contains module_ moduleNames then
+                if Map.containsKey modQual dtenv then
+                    T.TyCon <| T.ModuleQualifierTy modQual
+                else
+                    raise <| SemanticError ((errStr [posn] (sprintf "Unable to find type named %s in module %s" name module_)).Force())
+            else
+                raise <| SemanticError ((errStr [posm] (sprintf "Unable to find module named %s." module_)).Force())
         | Ast.NameTy (pos, name) ->
             match AstAnalysis.resolveUserTyName menv denv name with
             | Some {module_=module_; name=name} -> T.TyCon <| T.ModuleQualifierTy {module_=module_; name=name}
@@ -187,7 +194,7 @@ let convertType menv denv (dtenv : Map<T.ModQualifierRec, T.DeclarationTy>) (tyV
     let (pos, _) = tau
     removeAliases dtenv pos tau'
 
-let convertInterfaceConstraint menv denv dtenv interfaceConstraint =
+let convertInterfaceConstraint menv moduleNames denv dtenv interfaceConstraint =
     match interfaceConstraint with
     | A.IsNum _ -> [T.IsNum]
     | A.IsInt _ -> [T.IsInt]
@@ -201,7 +208,7 @@ let convertInterfaceConstraint menv denv dtenv interfaceConstraint =
             fields |>
             List.map
                 (fun ((_, name), tau) ->
-                    T.HasField (name, convertType menv denv dtenv Map.empty Map.empty tau))
+                    T.HasField (name, convertType menv moduleNames denv dtenv Map.empty Map.empty tau))
         T.IsRecord::(cs1 @ cs2)
     | A.IsPacked _ -> [T.IsPacked]
 

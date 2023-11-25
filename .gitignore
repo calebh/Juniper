@@ -35,3 +35,7 @@ msbuild.wrn
 
 # Visual Studio 2015
 .vs/
+
+Juniper/docs
+Juniper/naturaldocs/Working\ Data
+Juniper/Properties

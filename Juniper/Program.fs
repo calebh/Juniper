@@ -1,9 +1,6 @@
 ﻿module Program
 module E = Error
 open FParsec
-open TypedAst
-open Parse
-open Constraint
 
 exception SyntaxError of string
 
@@ -34,7 +31,7 @@ let isWindows = System.Environment.OSVersion.Platform = System.PlatformID.Win32N
 
 let helpText =
     let runTimeName = if isWindows then "Juniper.exe" else "juniper"
-    ["Juniper 4.0";
+    ["Juniper 4.0.0";
      "usage: " + runTimeName + " -s s1.jun s2.jun ... sn.jun -o main.cpp";
      "  options:";
      "    -s, --source: The .jun Juniper source files to compile";
@@ -65,46 +62,45 @@ let main argv =
     let maybeCLinkage = getArg ["--c-linkage"] argMap
     let maybePruneUnreachable = getArg ["--prune-unreachable"] argMap
     match (maybeSourceFiles, maybeOutputFile, maybeHelp) with
-        | ((_, _, Some _) | (None, _, _) | (_, None, _)) | (_, Some [], _) ->
-            printfn "%s" helpText
-            0
-        | (Some sourceFiles, Some (outputFile::_), _) ->
-            // List of includes of custom Juniper std library modules
-            let stdLibrary = ["Prelude"; "List"; "Signal"; "Io"; "Maybe"; "Time"; "Math"; "Button"; "Vector"; "CharList"; "StringM"; "Random"; "Color"]
-            let executingDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
-            // Make the include modules names by prepending the executing directory and /junstd/, and appending the .jun file extension
-            let stdFiles = stdLibrary |> List.map (fun name -> "junstd/" + name + ".jun")
-            // Lexer and parser operations on the file
-            let parseFromFile (fileName:string) =
-                let fileName' = (if System.IO.File.Exists(fileName) then
-                                    fileName
-                                 else
-                                    executingDir + "/" + fileName) |> System.IO.Path.GetFullPath
-                match runParserOnStream Parse.program () fileName' (new System.IO.FileStream(fileName', System.IO.FileMode.Open, System.IO.FileAccess.Read)) (new System.Text.UTF8Encoding()) with
-                //match runParserOnFile Parse2.program () fileName' (new System.Text.UTF8Encoding()) with
-                | Success(result, _, _) ->
-                    Ast.Module result
-                | Failure(errorMsg, _, _) ->
-                    raise <| SyntaxError errorMsg
+    | ((_, _, Some _) | (None, _, _) | (_, None, _)) | (_, Some [], _) ->
+        printfn "%s" helpText
+        0
+    | (Some sourceFiles, Some (outputFile::_), _) ->
+        // List of includes of custom Juniper std library modules
+        let stdLibrary = ["Prelude"; "List"; "Signal"; "Io"; "Maybe"; "Time"; "Math"; "Button"; "Vector"; "CharList"; "StringM"; "Random"; "Color"]
+        let executingDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+        // Make the include modules names by prepending the executing directory and /junstd/, and appending the .jun file extension
+        let stdFiles = stdLibrary |> List.map (fun name -> "junstd/" + name + ".jun")
+        // Lexer and parser operations on the file
+        let parseFromFile (fileName:string) =
+            let fileName' = (if System.IO.File.Exists(fileName) then
+                                fileName
+                                else
+                                executingDir + "/" + fileName) |> System.IO.Path.GetFullPath
+            match runParserOnStream Parse.program () fileName' (new System.IO.FileStream(fileName', System.IO.FileMode.Open, System.IO.FileAccess.Read)) (new System.Text.UTF8Encoding()) with
+            | Success(result, _, _) ->
+                Ast.Module result
+            | Failure(errorMsg, _, _) ->
+                raise <| SyntaxError errorMsg
 
-            // All of the file names includes all the specified ones, plus the std Juniper library
-            let fnames = List.append stdFiles sourceFiles
-            try
-                // Run parseFromFile (the parser combinators)
-                let asts = List.map parseFromFile fnames
-                // Typecheck the ASTs
-                let typeCheckedOutput = TypeChecker.typecheckProgram asts fnames (Option.isSome maybePruneUnreachable)
-                // Compile to C++ the typechecked (and typed) ASTs
-                let compiledProgram = Compiler.compileProgram typeCheckedOutput {customPlacementNew=Option.isSome maybeCustomPlacementNew; cLinkage=Option.isSome maybeCLinkage}
-                System.IO.File.WriteAllText (outputFile, compiledProgram)
-                0
-            with
-                | SyntaxError err ->
-                    printErr [E.ErrMsg err]
-                    1
-                | (Error.SemanticError err | Constraint.TypeError err) ->
-                    printErr err
-                    1
-                | :? System.IO.FileNotFoundException as ex ->
-                    printf "%s" ex.Message
-                    1
+        // All of the file names includes all the specified ones, plus the std Juniper library
+        let fnames = List.append stdFiles sourceFiles
+        try
+            // Run parseFromFile (the parser combinators)
+            let asts = List.map parseFromFile fnames
+            // Typecheck the ASTs
+            let typeCheckedOutput = TypeChecker.typecheckProgram asts fnames (Option.isSome maybePruneUnreachable)
+            // Compile to C++ the typechecked (and typed) ASTs
+            let compiledProgram = Compiler.compileProgram typeCheckedOutput {customPlacementNew=Option.isSome maybeCustomPlacementNew; cLinkage=Option.isSome maybeCLinkage}
+            System.IO.File.WriteAllText (outputFile, compiledProgram)
+            0
+        with
+            | SyntaxError err ->
+                printErr [E.ErrMsg err]
+                1
+            | (Error.SemanticError err | Constraint.TypeError err) ->
+                printErr err
+                1
+            | :? System.IO.FileNotFoundException as ex ->
+                printf "%s" ex.Message
+                1

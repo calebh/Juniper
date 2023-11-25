@@ -1,20 +1,25 @@
 module NeopixelRing
-open(Prelude)
 
 /* In this example we have a neopixel ring that changes
    colors every time the user presses a button */
 
-let ringPin : uint16 = 9
-let ringSize : uint16 = 16
-let ringType = Neopixel:GRB + Neopixel:KHZ800
-let ringStrip = Neopixel:make(ringSize, ringPin, ringType)
+#
+Adafruit_NeoPixel ring(16, 9, NEO_GRB + NEO_KHZ800);
+#
 
+let ringStrip = {
+    var p
+    #p = (void *) &ring;#
+    Neopixel:neoStrip(p)
+}
+
+let ringSize : uint16 = 16
 let buttonPin : uint16 = 10
-let buttonState = Button:state()
-let edgeState = ref Io:low()
+let mut buttonState = Button:state
+let mut edgeState = Io:low()
 
 type ringMode = red() | green() | blue()
-let mode = ref red()
+let mut mode = red()
 
 fun transitionMode(m) =
     match m {
@@ -33,14 +38,14 @@ fun modeToColor(m) =
 fun loop() = {
     let buttonSig = Io:digIn(buttonPin)
     let debouncedSig = Io:risingEdge(
-        Button:debounce(buttonSig, buttonState),
-        edgeState)
+        Button:debounce(buttonSig, inout buttonState),
+        inout edgeState)
     let changeModeSig =
         Signal:foldP(
             (u, currMode) =>
-                transitionMode(currMode)
-            end,
-            mode, debouncedSig)
+                transitionMode(currMode),
+            inout mode,
+            debouncedSig)
     Signal:sink(
         (mode) => {
             let color = modeToColor(mode)
@@ -52,8 +57,8 @@ fun loop() = {
         changeModeSig)
 }
 
-fun setup() = (
+fun setup() = {
     Neopixel:begin(ringStrip)
     Io:setPinMode(buttonPin, Io:input())
     Io:setPinMode(buttonPin, Io:inputPullup())
-)
+}

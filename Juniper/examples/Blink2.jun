@@ -1,5 +1,5 @@
-module BlinkSimple
-open(Prelude, Io, Time)
+module Blink2
+open(Io, Time)
 
 /* In this example we have two LEDs blinking at different rates */
 

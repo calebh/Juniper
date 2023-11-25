@@ -1,48 +1,44 @@
 module AdafruitLSM303Magnetometer
-open(Prelude, Vector, Time)
+open(Vector, Time)
 
-alias magnetometer = { ptr : pointer, offset : vector<float, 3>, scale : vector<float, 3> }
-alias magnetometerState = { timeState : timerState ref,
-                            latchState : vector<float, 3> ref }
+// The p : ptr should be a Adafruit_LSM303_Mag_Unified C++ object
+alias magnetometer = { p : ptr, offset : vector<float, 3>, scale : vector<float, 3> }
+alias magnetometerState = { timeState : timerState,
+                            latchState : vector<float, 3> }
 
-fun state() : magnetometerState ref =
-    ref { timeState := Time:state(),
-          latchState := ref Vector:zero() }
+let state : magnetometerState = {
+    timeState := Time:state,
+    latchState := Vector:zero()
+}
 
-fun make(minVals : vector<float, 3>, maxVals : vector<float, 3>) : magnetometer = {
-    let minX = Vector:get(Vector:x, minVals)
-    let minY = Vector:get(Vector:y, minVals)
-    let minZ = Vector:get(Vector:z, minVals)
-    let maxX = Vector:get(Vector:x, maxVals)
-    let maxY = Vector:get(Vector:y, maxVals)
-    let maxZ = Vector:get(Vector:z, maxVals)
-    let offset = Vector:make([(minX + maxX)/-2.0, (minY + maxY)/-2.0, (minZ + maxZ)/-2.0])
-    let scale = Vector:make([2.0/(maxX - minX), 2.0/(maxY - minY), 2.0/(maxZ - minZ)])
-    let mut p = null
-    #p = (void*) new Adafruit_LSM303_Mag_Unified(12345);#
-    { ptr := smartpointer(p, (magToDelete) => #delete ((Adafruit_LSM303_Mag_Unified *) magToDelete);#),
+fun make(p : ptr, minVals : vector<float, 3>, maxVals : vector<float, 3>) : magnetometer = {
+    let minX = minVals[Vector:x]
+    let minY = minVals[Vector:y]
+    let minZ = minVals[Vector:z]
+    let maxX = maxVals[Vector:x]
+    let maxY = maxVals[Vector:y]
+    let maxZ = maxVals[Vector:z]
+    let offset = [(minX + maxX)/-2.0, (minY + maxY)/-2.0, (minZ + maxZ)/-2.0]
+    let scale = [2.0/(maxX - minX), 2.0/(maxY - minY), 2.0/(maxZ - minZ)]
+    { p := p, offset := offset, scale := scale }
+}
+
+fun makeCustomTransform(p : ptr, offset : vector<float, 3>, scale : vector<float, 3>) : magnetometer = {
+    { p := p,
       offset := offset,
       scale := scale }
 }
 
-fun makeCustomTransform(offset : vector<float, 3>, scale : vector<float, 3>) : magnetometer = {
-    let mut p = null
-    #p = (void*) new Adafruit_LSM303_Mag_Unified(12345);#
-    { ptr = smartpointer(p, (magToDelete) => #delete ((Adafruit_LSM303_Mag_Unified *) magToDelete);#),
-      offset = offset,
-      scale = scale }
-}
-
 fun begin(mag : magnetometer) : unit = {
-    let p = extractptr(mag.ptr)
+    let p = mag.p
     #((Adafruit_LSM303_Mag_Unified*) p)->begin();#
 }
 
 fun read(mag : magnetometer) : vector<float, 3> = {
-    let p = extractptr(mag.ptr)
-    let mut x : float = 0.0f
-    let mut y : float = 0.0f
-    let mut z : float = 0.0f
+    let p = mag.p
+    let mut x = 0
+    let mut y = 0
+    let mut z = 0
     #
     sensors_event_t event;
     ((Adafruit_LSM303_Mag_Unified*) p)->getEvent(&event);
@@ -50,13 +46,12 @@ fun read(mag : magnetometer) : vector<float, 3> = {
     y = event.magnetic.y;
     z = event.magnetic.z;
     #
-    Vector:multiply(mag.scale, Vector:add(Vector:make([x, y, z]), mag.offset))
+    Vector:multiply(mag.scale, Vector:add([x, y, z], mag.offset))
 }
 
 fun getSignal(updateInterval : uint32,
               mag            : magnetometer,
-              state          : magnetometerState ref) : sig<vector<float, 3>> = {
-    let tickSig = Time:every(updateInterval, state->timeState)
-    let accelComUpdateSig = Signal:map((t) => read(mag), tickSig)
-    Signal:latch(accelComUpdateSig, state->latchState)
-}
+              inout state    : magnetometerState) : sig<vector<float, 3>> =
+    Time:every(updateInterval, inout state.timeState) |>
+    Signal:map((t) => read(mag)) |>
+    Signal:latch(inout state.latchState)

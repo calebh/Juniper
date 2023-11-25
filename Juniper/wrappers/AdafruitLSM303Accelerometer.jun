@@ -1,46 +1,39 @@
 module AdafruitLSM303Accelerometer
-open(Prelude, Vector, Time)
+open(Vector, Time)
 
-type accelerometert = accelerometer(pointer)
-alias accelerometerState = { timeState : timerState ref,
-                             latchState : vector<float, 3> ref }
+// The ptr here should be a Adafruit_LSM303_Accel_Unified C++ object
+type accelerometert = accelerometer(ptr)
+alias accelerometerState = { timeState : timerState,
+                             latchState : vector<float, 3> }
 
-fun state() : accelerometerState ref =
-    ref { timeState := Time:state(),
-          latchState := ref Vector:zero() }
-
-fun make() : accelerometert = {
-    let mut p = null
-    #p = (void*) new Adafruit_LSM303_Accel_Unified(54321);#
-    accelerometer(smartpointer(p, (accelerometerToDelete) => #delete ((Adafruit_LSM303_Accel_Unified *) accelerometerToDelete);#))
+let state : accelerometerState = {
+    timeState := Time:state,
+    latchState := Vector:zero()
 }
 
 fun begin(accel : accelerometert) : unit = {
     let accelerometer(p) = accel
-    let rawP = extractptr(p)
-    #((Adafruit_LSM303_Accel_Unified*) rawP)->begin();#
+    #((Adafruit_LSM303_Accel_Unified*) p)->begin();#
 }
 
-fun read(accel : accelerometer) : vector<float, 3> = {
+fun read(accel : accelerometert) : vector<float, 3> = {
     let accelerometer(p) = accel
-    let rawP = extractptr(p)
-    let x : float = 0.0
-    let y : float = 0.0
-    let z : float = 0.0
+    let mut x = 0.0
+    let mut y = 0.0
+    let mut z = 0.0
     #
     sensors_event_t event;
-    ((Adafruit_LSM303_Accel_Unified*) rawP)->getEvent(&event);
+    ((Adafruit_LSM303_Accel_Unified*) p)->getEvent(&event);
     x = event.acceleration.x;
     y = event.acceleration.y;
     z = event.acceleration.z;
     #
-    Vector:make([x, y, z])
+    [x, y, z]
 }
 
 fun getSignal(updateInterval : uint32,
-              acc            : accelerometer,
-              state          : accelerometerState ref) : sig<vector<float, 3>> = {
-    let tickSig = Time:every(updateInterval, state->timeState)
-    let accelComUpdateSig = Signal:map((t) => read(acc), tickSig)
-    Signal:latch(accelComUpdateSig, state->latchState)
-}
+              acc            : accelerometert,
+              inout state    : accelerometerState) : sig<vector<float, 3>> =
+    Time:every(updateInterval, inout state.timeState) |>
+    Signal:map((t) => read(acc)) |>
+    Signal:latch(inout state.latchState)

@@ -1,12 +1,10 @@
 module Blink
-
-/* In this "Hello World" example, we toggle an LED on and
-   off every second. */
+open(Io)
 
 let boardLed : uint16 = 13
 
 let mut tState = Time:state
-let mut ledState = Io:low()
+let mut ledState = low()
 
 fun loop() = {
     let timerSig = Time:every(1000, inout tState)

@@ -1,5 +1,5 @@
 module ButtonDebounce
-open(Prelude, Button, Io)
+open(Button, Io)
 
 let buttonPin : uint16 = 2
 let ledPin : uint16 = 13

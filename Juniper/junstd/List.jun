@@ -36,7 +36,7 @@ fun map(f : (a) -> b, lst : list<a, n>) : list<b, n> = {
 }
 
 /*
-    Function: foldl
+    Function: fold
 
     Applies a function f to each element of the list, threading an accumulator
     argument through the computation.
@@ -62,7 +62,7 @@ fun fold(f : (t, state) -> state, initState : state, lst : list<t, n>) : state =
 }
 
 /*
-    Function: foldr
+    Function: foldBack
 
     Applies a function f to each element of the list in reverse order, threading
     an accumulator argument through the computation.
@@ -526,7 +526,8 @@ fun prepend(elem : t, inout lst : list<t, n>) : unit = {
             if i < n {
                 lst.data[i] = lst.data[i - 1]
             }
-        } while lst.length > 0u32
+            i -= 1
+        } while i > 0u32
         lst.data[0u32] = elem
         if lst.length < n {
             lst.length += 1
@@ -1032,16 +1033,16 @@ fun heapify(inout lst : list<t, n>, key) = {
 
     Type Signature:
     
-        | (inout list<t, n>, (t) -> m) -> unit where m : num
+        | ((t) -> m, inout list<t, n>) -> unit where m : num
 
     Parameters:
-        lst : inout list<t, n> - The list to sort in place.
         key : (t) -> m - The key function to use for sorting. Elements will be ordered according to what is returned by the key function.
-    
+        lst : inout list<t, n> - The list to sort in place.
+
     Returns:
         unit
 */
-fun sort(inout lst : list<t, n>, key : (t) -> m) : unit where m : num = {
+fun sort(key : (t) -> m, inout lst : list<t, n>) : unit where m : num = {
     heapify(inout lst, key)
     let mut end = lst.length
     while end > 1u32 {
@@ -1060,17 +1061,17 @@ fun sort(inout lst : list<t, n>, key : (t) -> m) : unit where m : num = {
 
     Type Signature:
     
-        | (list<t, n>, (t) -> m) -> list<t, n> where m : num
+        | ((t) -> m, list<t, n>) -> list<t, n> where m : num
 
     Parameters:
-        lst : list<t, n> - The list to sort.
         key : (t) -> m - The key function to use for sorting. Elements will be ordered according to what is returned by the key function.
-    
+        lst : list<t, n> - The list to sort.
+
     Returns:
         The sorted list.
 */
-fun sorted(mut lst : list<t, n>, key : (t) -> m) : list<t, n> where m : num = {
-    sort(inout lst, key)
+fun sorted(key : (t) -> m, mut lst : list<t, n>) : list<t, n> where m : num = {
+    sort(key, inout lst)
     lst
 }
 

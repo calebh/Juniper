@@ -114,16 +114,6 @@ alias charlist<n : int> = list<uint8, n + 1>
 type sig<a> = signal(maybe<a>)
 
 /*
-    Type: alias dict
-
-    The dict alias is used for associative maps, storing a maximum of n
-    key/value pairs. Linear probing is used to store the data.
-
-    | alias dict<key, value, n : int> = maybe<(key, value, uint32)>[n]
-*/
-alias dict<key, value, n : int> = maybe<(key, value, uint32)>[n]
-
-/*
     Function: extractptr
 
     Extracts the contained ptr from a rcptr (reference counted pointer).

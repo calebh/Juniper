@@ -988,10 +988,52 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
             Map.empty
             denv
 
+    // Also build a dependency graph for the types
+    let typeGraph = new QuikGraph.AdjacencyGraph<T.ModQualifierRec, QuikGraph.Edge<T.ModQualifierRec>>()
+
+    program |> List.iter (fun moduledef ->
+        let (Ast.Module decs) = moduledef
+        let module_ = nameInModule moduledef |> Option.get |> Ast.unwrap
+        // List of all algebraic and alias datatypes in
+        // the module currently being considered
+        let typeDecs = typesInModule moduledef
+        let menv = Map.find module_ modNamesToMenvs
+        // Add all the declarations as vertices to the graph
+        typeDecs |> List.iter (fun name ->
+            let modQual = {module_=module_; name=name}
+            typeGraph.AddVertex(modQual) |> ignore
+            let (pos, dec) = Map.find {module_=module_; name=name} denv
+            let references = tyRefs menv dec
+            references |> Set.iter (fun reference ->
+                match Map.tryFind reference denv with
+                | Some (_, A.AlgDataTypeDec _) | (Some (_, A.AliasDec _)) ->
+                    typeGraph.AddEdge(new QuikGraph.Edge<T.ModQualifierRec>(modQual, reference)) |> ignore
+                | _ ->
+                    let {module_=moduleReferenced; name=nameReferenced} = reference
+                    raise <| TypeError ((errStr [pos] (sprintf "Reference made to %s:%s which could not be found" moduleReferenced nameReferenced)).Force()))))                    
+    
+    // Determine what order the types should appear in (reverse topological order)
+    let typeDependencyOrder =
+        // Ensure that there are no circular type dependencies
+        // The type graph should be a DAG
+        let typeCondensation = typeGraph.CondensateStronglyConnected<_, _, QuikGraph.AdjacencyGraph<_, _>>()
+        typeCondensation.Vertices |>
+        Seq.iter
+            (fun scc ->
+                let sccStr = lazy (scc.Vertices |> Seq.map (fun {module_=m; name=n} -> sprintf "%s:%s" m n) |> String.concat ", ")
+                // Check for mutually recursive types
+                if Seq.length scc.Vertices > 1 then
+                    raise <| TypeError [Error.ErrMsg (sprintf "Semantic error: The following type declarations form an unresolvable dependency cycle: %s" (sccStr.Force()))]
+                // Check for self-referential types
+                elif Seq.length scc.Edges > 0 then
+                    raise <| TypeError [Error.ErrMsg (sprintf "Semantic error: The following type refers to itself: %s" (sccStr.Force()))])
+        typeGraph.TopologicalSort() |> Seq.rev |> List.ofSeq
+
     // Populate the declaration type environment with all aliases, value constructors
     // and type declarations
-    let dtenv0 = (Map.fold (fun (accumDtenv0 : Map<T.ModQualifierRec, _>) ({module_=module_; name=name} as modQual) d ->
+    let dtenv0 = (List.fold (fun (accumDtenv0 : Map<T.ModQualifierRec, _>) ({module_=module_; name=name} as modQual) ->
         let menv = Map.find module_ modNamesToMenvs
+        let d = Map.find modQual denv
 
         match Ast.unwrap d with
         | Ast.AliasDec {template=maybeTemplate; typ=typ} ->
@@ -1016,7 +1058,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                         templateVars
                 | None ->
                     ([], (Map.empty, Map.empty))
-            let typ' = convertType menv moduleNamesSet denv Map.empty tyVarMapping capVarMapping typ
+            let typ' = convertType menv moduleNamesSet denv accumDtenv0 tyVarMapping capVarMapping typ
             let aliasDecTy = T.AliasDecTy (templateVars', typ')
             Map.add modQual aliasDecTy accumDtenv0
         | Ast.AlgDataTypeDec {valCons=(_, valCons); template=maybeTemplate} ->
@@ -1052,7 +1094,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                 innerTys |> List.iter (checkUnknownVars menv denv maybeTemplate T.StarKind)
                 innerTys |> List.iter (checkUnknownVars menv denv maybeTemplate T.IntKind)
                 // Convert the types given in each value constructor to a T.TyExpr
-                let paramTy = List.map (convertType menv moduleNamesSet denv Map.empty Map.empty Map.empty) innerTys
+                let paramTy = List.map (convertType menv moduleNamesSet denv accumDtenv0 Map.empty Map.empty) innerTys
                 // Create the FunDecTy for this specific value constructor
                 let ts = T.FunDecTy <| T.Forall (template', [], funty closureTy retTy paramTy)
                 Map.add {module_=module_; name=valConName} ts accumDtenv1
@@ -1060,7 +1102,7 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
             Map.add modQual udecty accumDtenv2
         | _ ->
             accumDtenv0
-    ) Map.empty denv)
+    ) Map.empty typeDependencyOrder)
 
     // Check the dependency graph first to determine what order we need to typecheck in (topological sort)
     let valueGraph = new QuikGraph.AdjacencyGraph<T.ModQualifierRec, QuikGraph.Edge<T.ModQualifierRec>>()
@@ -1144,47 +1186,6 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
             raise <| SemanticError [Error.ErrMsg "Unable to find program entry point. Please create a function called setup.\n fun setup() = ()"]
         | (_, None) ->
             raise <| SemanticError [Error.ErrMsg "Unable to find program entry point. Please create a function called loop.\n fun loop() = ()."]
-
-    // Also build a dependency graph for the types
-    let typeGraph = new QuikGraph.AdjacencyGraph<T.ModQualifierRec, QuikGraph.Edge<T.ModQualifierRec>>()
-
-    program |> List.iter (fun moduledef ->
-        let (Ast.Module decs) = moduledef
-        let module_ = nameInModule moduledef |> Option.get |> Ast.unwrap
-        // List of all algebraic and alias datatypes in
-        // the module currently being considered
-        let typeDecs = typesInModule moduledef
-        let menv = Map.find module_ modNamesToMenvs
-        // Add all the declarations as vertices to the graph
-        typeDecs |> List.iter (fun name ->
-            let modQual = {module_=module_; name=name}
-            typeGraph.AddVertex(modQual) |> ignore
-            let (pos, dec) = Map.find {module_=module_; name=name} denv
-            let references = tyRefs menv dec
-            references |> Set.iter (fun reference ->
-                match Map.tryFind reference dtenv0 with
-                | (Some (T.ADTDecTy _) | Some (T.AliasDecTy _)) ->
-                    typeGraph.AddEdge(new QuikGraph.Edge<T.ModQualifierRec>(modQual, reference)) |> ignore
-                | _ ->
-                    let {module_=moduleReferenced; name=nameReferenced} = reference
-                    raise <| TypeError ((errStr [pos] (sprintf "Reference made to %s:%s which could not be found" moduleReferenced nameReferenced)).Force()))))                    
-    
-    // Determine what order the types should appear in (reverse topological order)
-    let typeDependencyOrder =
-        // Ensure that there are no circular type dependencies
-        // The type graph should be a DAG
-        let typeCondensation = typeGraph.CondensateStronglyConnected<_, _, QuikGraph.AdjacencyGraph<_, _>>()
-        typeCondensation.Vertices |>
-        Seq.iter
-            (fun scc ->
-                let sccStr = lazy (scc.Vertices |> Seq.map (fun {module_=m; name=n} -> sprintf "%s:%s" m n) |> String.concat ", ")
-                // Check for mutually recursive types
-                if Seq.length scc.Vertices > 1 then
-                    raise <| TypeError [Error.ErrMsg (sprintf "Semantic error: The following type declarations form an unresolvable dependency cycle: %s" (sccStr.Force()))]
-                // Check for self-referential types
-                elif Seq.length scc.Edges > 0 then
-                    raise <| TypeError [Error.ErrMsg (sprintf "Semantic error: The following type refers to itself: %s" (sccStr.Force()))])
-        typeGraph.TopologicalSort() |> Seq.rev |> List.ofSeq
 
     let includeDecs = 
         program |>

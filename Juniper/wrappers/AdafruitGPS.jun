@@ -102,6 +102,3 @@ fun read(g : gpst) : gpsData = {
 
 fun getSignal(g : gpst) : sig<gpsData> =
     signal(just(read(g)))
-
-fun setup() = ()
-fun loop() = ()

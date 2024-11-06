@@ -2,9 +2,15 @@
 
 Juniper is a functional reactive programming language currently being developed by Caleb Helbling (currently at Draper Laboratory). Louis Ades was a former developer at Tufts University.
 
-The grammar in EBNF (extended Backus-Naur Form) is available in grammer.bnf
+The grammar in EBNF (extended Backus-Naur Form) is available in grammer.bnf. The [BNF & EBNF Highlighting](https://marketplace.visualstudio.com/items?itemName=Vallentin.vscode-bnf) extension in VS Code is useful for viewing this file.
 
 The purpose of Juniper is to provide a functional reactive programming platform for designing Arduino projects. FRP's high-level approach to timing-based events fits naturally with Arduino, with which programming almost entirely revolves around reacting to realtime events. Juniper transpiles to Arduino C++, which is then compiled to an Arduino executable.
+
+# Examples
+
+See the examples folder located here: https://github.com/calebh/Juniper/tree/master/Juniper/examples
+
+To see examples of pre-written C++ wrapper libraries, go to https://github.com/calebh/Juniper/tree/master/Juniper/wrappers
 
 ### Language Features
 
@@ -76,6 +82,6 @@ You can write Juniper files in any text editor, but the Visual Studio Code text 
 ### For running the compiler:
 
 1. From the command line, run "Juniper.exe -s [.jun modules as arguments] -o [output file]"
-2. This should build your .cpp file. Compile and upload to your Arduino (with your preferred method, such as PlatformIO).
+2. This should build your .cpp file. Compile and upload to your Arduino (with your preferred method, such as the Arduino IDE or PlatformIO).
 
 

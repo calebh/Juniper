@@ -571,17 +571,17 @@ fun setPinMode(pin : uint16, m : mode) : unit = {
 
     Type Signature:
     
-        | (sig<pinState>, inout pinState) -> sig<unit>
+        | (inout pinState, sig<pinState>) -> sig<unit>
 
     Parameters:
-        sig : sig<pinState> - The digital input signal
         prevState : inout pinState - Holds the previous state of the signal
+        sig : sig<pinState> - The digital input signal
 
     Returns:
         A signal of type unit. The signal fires unit on a rising edge, otherwise
         it does not fire.
 */
-fun risingEdge(sig : sig<pinState>, inout prevState : pinState) : sig<unit> =
+fun risingEdge(inout prevState : pinState, sig : sig<pinState>) : sig<unit> =
     match sig {
         signal(just(currState)) => {
             let ret =
@@ -606,17 +606,17 @@ fun risingEdge(sig : sig<pinState>, inout prevState : pinState) : sig<unit> =
 
     Type Signature:
     
-        | (sig<pinState>, inout pinState) -> sig<unit>
+        | (inout pinState, sig<pinState>) -> sig<unit>
 
     Parameters:
-        sig : sig<pinState> - The digital input signal
         prevState : inout pinState - Holds the previous state of the signal
+        sig : sig<pinState> - The digital input signal
 
     Returns:
         A signal of type unit. The signal fires unit on a falling edge,
         otherwise it does not fire.
 */
-fun fallingEdge(sig : sig<pinState>, inout prevState : pinState) : sig<unit> =
+fun fallingEdge(inout prevState : pinState, sig : sig<pinState>) : sig<unit> =
     match sig {
         signal(just(currState)) => {
             let ret =
@@ -641,17 +641,17 @@ fun fallingEdge(sig : sig<pinState>, inout prevState : pinState) : sig<unit> =
 
     Type Signature:
     
-        | (sig<pinState>, inout pinState) -> sig<pinState>
+        | (inout pinState, sig<pinState>) -> sig<pinState>
 
     Parameters:
-        sig : sig<pinState> - The digital input signal
         prevState : inout pinState - Holds the previous state of the signal
+        sig : sig<pinState> - The digital input signal
 
     Returns:
         A signal that outputs <high> on a rising edge and <low> on a falling
         edge.
 */
-fun edge(sig : sig<pinState>, inout prevState : pinState) : sig<unit> =
+fun edge(inout prevState : pinState, sig : sig<pinState>) : sig<unit> =
     match sig {
         signal(just(currState)) => {
             let ret =

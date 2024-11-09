@@ -571,7 +571,8 @@ let typeof ((posE, e) : Ast.PosAdorn<Ast.Expr>)
             let c1 = c1s |> conjoinConstraints            
             let localVars' = Map.merge localVars (Map.ofList localVars1)
             let (body', c2) = typeof' body localVars' gamma''
-            let closureVariables = Set.intersect (Map.keys localVars) (AstAnalysis.closure body')
+            let argumentNames = arguments |> List.map (fun (_, (_, name, _)) -> Ast.unwrap name)
+            let closureVariables = Set.difference (Set.intersect (Map.keys localVars) (AstAnalysis.closure body')) (Set.ofList argumentNames)
             let (closureList, interfaceConstraints) =
                 closureVariables |>
                 List.ofSeq |>

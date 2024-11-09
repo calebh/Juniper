@@ -1693,6 +1693,16 @@ let typecheckProgram (programIn : Ast.Module list) (fnames : string list) (prune
                                 
                                 let (Forall (template, _, _)) as funScheme = generalize interfaceConstraints funTy
 
+                                // Ensure that there are no type variables and capacity variables with the same name
+                                Map.iter
+                                    (fun (CapVar capVarName) (capPos, _) ->
+                                        match Map.tryFind (TyVar capVarName) userTyVarMapping with
+                                        | Some (tyPos, _) ->
+                                            raise <| TypeError ((errStr [tyPos; capPos] (sprintf "There is a name collision between a type variable and a capacity variable named \"%s\". Perhaps you are trying to use \"%s\" as both a type and capacity variable?" capVarName capVarName)).Force())
+                                        | None ->
+                                            ())
+                                    userCapVarMapping
+
                                 // The transformed body does not have user defined type variables anymore since
                                 // everything was done with respect to fresh variables. Add these references back
                                 // via a using statement

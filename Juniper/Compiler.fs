@@ -368,7 +368,11 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : S
     let capture = if topLevel then "[]" else "[&]"
     match expr with
     | StringExp str ->
-        output (sprintf "((const PROGMEM char *)(\"%s\"))" str)
+        // When we parsed the string, we converted escaped characters into their character literals.
+        // Now that we're ready to output C++, we need to re-escape those characters. Start by re-escaping
+        // any backslashes, then quotes, then \n, \r, \t
+        let escapedStr = str.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t")
+        output (sprintf "((const PROGMEM char *)(\"%s\"))" escapedStr)
     | QuitExp ty ->
         getQuitExpr ty |> compile topLevel
     // Convert inline C++ code from Juniper directly to C++

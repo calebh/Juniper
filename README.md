@@ -42,6 +42,16 @@ To see examples of pre-written C++ wrapper libraries, go to https://github.com/c
 
 To get started using Juniper, you'll first need to build the compiler using the source in this repository.
 
+### Using dotnet CLI
+
+It is now quite easy to build Juniper from the terminal on any platform! Here we use the `dotnet` command included with .NET.
+
+1. Install .NET 8 from Microsoft here: https://dotnet.microsoft.com/en-us/download
+2. Open a terminal and navigate to the directory containing the Juniper.sln file.
+3. Run `dotnet publish` to make a build for the platform you are currently on.
+4. If you want to build a version to distribute to people without .NET installed, build a self contained version using `dotnet publish --self-contained true`
+5. You can use the `-r` option to build for a different platform (essentially cross compiling). For instance to build for `osx-arm64`, you could run `dotnet publish -r osx-arm64 --self-contained true`
+
 ### For Windows machines:
 
 #### For building:

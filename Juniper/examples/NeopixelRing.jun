@@ -35,17 +35,11 @@ fun modeToColor(m) =
         blue() => Neopixel:makeColor(0, 0, 255)
     }
 
-fun loop() = {
-    let buttonSig = Io:digIn(buttonPin)
-    let debouncedSig = Io:risingEdge(
-        Button:debounce(buttonSig, inout buttonState),
-        inout edgeState)
-    let changeModeSig =
-        Signal:foldP(
-            (u, currMode) =>
-                transitionMode(currMode),
-            inout mode,
-            debouncedSig)
+fun loop() =
+    Io:digIn(buttonPin) |> 
+    Button:debounce(inout buttonState) |>
+    Io:risingEdge(inout edgeState) |>
+    Signal:foldP((u, currMode) => transitionMode(currMode), inout mode) |>
     Signal:sink(
         (mode) => {
             let color = modeToColor(mode)
@@ -53,9 +47,8 @@ fun loop() = {
                 Neopixel:setPixelColor(i, color, ringStrip)
             }
             Neopixel:show(ringStrip)
-        },
-        changeModeSig)
-}
+        }
+    )
 
 fun setup() = {
     Neopixel:begin(ringStrip)

@@ -8,16 +8,12 @@ let mut bState = Button:state
 let mut edgeState = Io:low()
 let mut ledState = Io:high()
 
-fun loop() = {
-    let buttonSig = Io:digIn(buttonPin)
-    let debouncedSig = Io:fallingEdge(Button:debounce(buttonSig, inout bState), inout edgeState)
-    let ledSig =
-        Signal:foldP(
-            (event, currentLedState) =>
-                Io:toggle(currentLedState),
-            inout ledState, debouncedSig)
-    Io:digOut(ledPin, ledSig)
-}
+fun loop() =
+    Io:digIn(buttonPin) |>
+    Button:debounce(inout bState) |>
+    Io:fallingEdge(inout edgeState) |>
+    Signal:foldP((event, currentLedState) => Io:toggle(currentLedState), inout ledState) |>
+    Io:digOut(ledPin)
 
 fun setup() = {
     Io:setPinMode(ledPin, Io:output())

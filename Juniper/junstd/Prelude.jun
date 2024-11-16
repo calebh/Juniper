@@ -694,7 +694,7 @@ fun ignore(val : a) = ()
 /*
     Function: clear
 
-    Clears a variable by calling that type's C++ destructor and setting the memory to zero. This function is designed to be compatible with clearing ref cells or data structures containg ref cells. This function is useful for clearing portions of data structures that hold data that should be thrown away.
+    Clears a variable by calling that type's C++ destructor and setting the memory to zero. This function is designed to be compatible with clearing ref cells or data structures containg ref cells. This function is useful for clearing portions of data structures that hold data that should be thrown away. Note that due to the destructor call, clear should only be used on elements that have already been initialized.
 
     Type Signature:
 
@@ -749,7 +749,10 @@ fun array(elem : a) : a[n] = {
 */
 fun zeros() : a[n] = {
     var ret
-    clear(inout ret)
+    // Do not use clear(inout ret) here. ret is not initialized yet, so we cannot clear it
+    // This works with ref types due to the fact that the internal pointer will be set to nullptr,
+    // which is recognized by the smart pointer implementation
+    #memset(&ret, 0, sizeof(ret));#
     ret
 }
 

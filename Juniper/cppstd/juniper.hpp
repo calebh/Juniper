@@ -522,6 +522,8 @@ namespace juniper
         a e1;
         b e2;
 
+        tuple2() {}
+
         tuple2(a initE1, b initE2) : e1(initE1), e2(initE2) {}
 
         bool operator==(tuple2<a, b> rhs) {
@@ -538,6 +540,8 @@ namespace juniper
         a e1;
         b e2;
         c e3;
+
+        tuple3() {}
 
         tuple3(a initE1, b initE2, c initE3) : e1(initE1), e2(initE2), e3(initE3) {}
 
@@ -556,6 +560,8 @@ namespace juniper
         b e2;
         c e3;
         d e4;
+
+        tuple4() {}
 
         tuple4(a initE1, b initE2, c initE3, d initE4) : e1(initE1), e2(initE2), e3(initE3), e4(initE4) {}
 
@@ -576,6 +582,8 @@ namespace juniper
         d e4;
         e e5;
 
+        tuple5() {}
+
         tuple5(a initE1, b initE2, c initE3, d initE4, e initE5) : e1(initE1), e2(initE2), e3(initE3), e4(initE4), e5(initE5) {}
 
         bool operator==(tuple5<a, b, c, d, e> rhs) {
@@ -595,6 +603,8 @@ namespace juniper
         d e4;
         e e5;
         f e6;
+
+        tuple6() {}
 
         tuple6(a initE1, b initE2, c initE3, d initE4, e initE5, f initE6) : e1(initE1), e2(initE2), e3(initE3), e4(initE4), e5(initE5), e6(initE6) {}
 
@@ -617,6 +627,8 @@ namespace juniper
         f e6;
         g e7;
 
+        tuple7() {}
+
         tuple7(a initE1, b initE2, c initE3, d initE4, e initE5, f initE6, g initE7) : e1(initE1), e2(initE2), e3(initE3), e4(initE4), e5(initE5), e6(initE6), e7(initE7) {}
 
         bool operator==(tuple7<a, b, c, d, e, f, g> rhs) {
@@ -638,6 +650,8 @@ namespace juniper
         f e6;
         g e7;
         h e8;
+
+        tuple8() {}
 
         tuple8(a initE1, b initE2, c initE3, d initE4, e initE5, f initE6, g initE7, h initE8) : e1(initE1), e2(initE2), e3(initE3), e4(initE4), e5(initE5), e6(initE6), e7(initE7), e8(initE8) {}
 
@@ -662,6 +676,8 @@ namespace juniper
         h e8;
         i e9;
 
+        tuple9() {}
+
         tuple9(a initE1, b initE2, c initE3, d initE4, e initE5, f initE6, g initE7, h initE8, i initE9) : e1(initE1), e2(initE2), e3(initE3), e4(initE4), e5(initE5), e6(initE6), e7(initE7), e8(initE8), e9(initE9) {}
 
         bool operator==(tuple9<a, b, c, d, e, f, g, h, i> rhs) {
@@ -685,6 +701,8 @@ namespace juniper
         h e8;
         i e9;
         j e10;
+
+        tuple10() {}
 
         tuple10(a initE1, b initE2, c initE3, d initE4, e initE5, f initE6, g initE7, h initE8, i initE9, j initE10) : e1(initE1), e2(initE2), e3(initE3), e4(initE4), e5(initE5), e6(initE6), e7(initE7), e8(initE8), e9(initE9), e10(initE10) {}
 

@@ -368,7 +368,11 @@ and compile theta kappa (topLevel : bool) ((pose, ty, expr) : TyAdorn<Expr>) : S
     let capture = if topLevel then "[]" else "[&]"
     match expr with
     | StringExp str ->
-        output (sprintf "((const PROGMEM char *)(\"%s\"))" str)
+        // When we parsed the string, we converted escaped characters into their character literals.
+        // Now that we're ready to output C++, we need to re-escape those characters. Start by re-escaping
+        // any backslashes, then quotes, then \n, \r, \t
+        let escapedStr = str.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t")
+        output (sprintf "((const PROGMEM char *)(\"%s\"))" escapedStr)
     | QuitExp ty ->
         getQuitExpr ty |> compile topLevel
     // Convert inline C++ code from Juniper directly to C++
@@ -752,6 +756,13 @@ and compileFunctionSignature theta kappa (FunctionDec {name=name; template=templ
             (compileType ty) .+. output " " .+. (output name))) |> concatManySep ", ") .+.
     output ")"
 
+and compileLetExtern theta kappa (LetDec {varName=varName; right=right}) =
+    output "extern " .+.
+    compileType theta kappa (getType right) .+.
+    output " " .+.
+    output varName .+.
+    output ";"
+
 // Convert declarations in Juniper to C++ representations
 // Includes modules use, function declarations, record declaration, let declarations, and ADTs.
 and compileDec module_ theta kappa (dec : Declaration) : StringTree =
@@ -901,6 +912,20 @@ and compileProgram {moduleNames=moduleNames; opens=opens; includes=includes; typ
                 output "}" .+. newline() .+. newline()) |>
             concatMany
         ) |> concatMany)
+    // Compile forward declarations of global variables using the extern keyword
+    let compiledLetExterns =
+        (valueSccs |> List.map (fun {decs=decs; theta=theta; kappa=kappa} ->
+            decs |> 
+            (List.filter (fun (_, dec) ->
+                match dec with
+                | LetDec _ -> true
+                | _ -> false)) |>
+            List.map (fun (module_, dec) ->
+                output "namespace " .+. output module_ .+. output " {" .+. newline() .+. indentId() .+.
+                compileLetExtern theta kappa dec .+. newline() .+. unindentId() .+.
+                output "}" .+. newline() .+. newline()) |>
+            concatMany
+        ) |> concatMany)
         // Compile all global inline code
     let compiledInlineCode =
         (inlineCodeDecs |> List.map (fun (module_, dec) -> compileNamespace Map.empty Map.empty (module_, dec)) |> concatMany)
@@ -911,8 +936,9 @@ and compileProgram {moduleNames=moduleNames; opens=opens; includes=includes; typ
     let compiledRecordEnvironment = compileRecordEnvironment ()
     let compiledClosureEnvironment = compileClosureEnviornment ()
     
-    compiledIncludes .+. compiledNamespaces .+. compiledOpens .+. compiledRecordEnvironment .+. compiledClosureEnvironment .+. compiledTypeDecs .+. compiledFunctionSignatures .+.
-    compiledInlineCode .+. compiledValues .+.
+    compiledIncludes .+. compiledNamespaces .+. compiledOpens .+. compiledRecordEnvironment .+.
+    compiledClosureEnvironment .+. compiledTypeDecs .+. compiledFunctionSignatures .+.
+    compiledLetExterns .+. compiledInlineCode .+. compiledValues .+.
     (*
         void setup() {
           Blink::setup();
